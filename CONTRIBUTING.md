@@ -2,6 +2,23 @@
 
 Thank you for your interest in improving Glassio, an Apple TV-style home screen for Google TV and Android TV.
 
+## Core product principle: customization first
+
+**New features and user-visible behavior should be customizable, not permanently forced on users.** Unless a change is strictly required for optimization, speed, stability, security, or core functionality, provide an appropriate user control.
+
+- Add an enable/disable toggle or a clearly organized setting for each optional feature or behavior.
+- Let users choose between meaningful options when a single on/off toggle is not sufficient.
+- Persist user preferences across app restarts and upgrades, unless there is a clear technical reason not to.
+- Choose sensible defaults, but do not treat the developer's preferred behavior as the only available behavior.
+- Avoid cluttering Settings: group related controls, use clear labels, and explain what each option changes when needed.
+- Make sure disabling a feature actually disables its behavior and does not leave broken UI, background work, or unnecessary resource usage.
+- Respect customization across supported devices and layouts, including Google TV / Android TV remote-control focus and navigation.
+- If a feature cannot reasonably be made configurable, explain the technical reason in the pull request instead of silently hard-coding the behavior.
+
+### Performance and optimization exception
+
+Changes whose purpose is strictly to improve performance, speed, memory usage, stability, or reliability do not need a user-facing toggle when exposing a setting would be unnecessary or harmful. Do not add settings that make the app slower, less stable, less secure, or harder to use merely to make an internal implementation configurable. Preserve existing user choices and behavior wherever practical.
+
 ## Before you start
 
 - Check existing issues and pull requests to avoid duplicating work.
@@ -24,6 +41,7 @@ Thank you for your interest in improving Glassio, an Apple TV-style home screen 
 Please include:
 - The problem being solved and why the change is useful.
 - A summary of the implementation.
+- Whether the feature or user-visible behavior is configurable, where its settings are located, and what the default is.
 - The tests or build checks you ran, and any checks you could not run.
 - Screenshots or a short recording for visible UI changes, where practical.
 - Any compatibility, migration, configuration, or security implications.
