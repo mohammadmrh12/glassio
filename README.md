@@ -292,7 +292,7 @@ Inter typeface (SIL Open Font License) · Weather by [Open-Meteo](https://open-m
 This product uses the TMDB API but is not endorsed or certified by TMDB. · Not affiliated with Apple, Google or Nuvio.
 
 ## Copyright, name and license
-Copyright (C) 2026 Mohmmad (mrh12).
+Copyright (C) 2026 mohammad (mrh12).
 
 Glassio is free software under the [GNU General Public License v3.0](LICENSE) (GPL-3.0), the same license as Nuvio.
 You may use, study, change and share the code under GPL-3.0. If you distribute a modified version, you must comply with the license, including its applicable source-code and notice requirements.
