@@ -114,7 +114,7 @@ private fun openSystem(ctx: Context, action: String) {
     catch (_: Exception) { toast(ctx, "This screen is not available on this device") }
 }
 
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     val s = LocalScale.current
@@ -843,25 +843,47 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     BackHandler { if (rightFocused) runCatching { catFocus[cat].requestFocus() } else onClose() }
     LaunchedEffect(Unit) { delay150(); runCatching { firstCat.requestFocus() } }
 
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)).padding((28 * s).dp)) {
+    // Each page keeps its scroll and the row you were on, outside the glass panel: changing "Settings background"
+    // swaps the panel, which rebuilt the page at the top with nothing selected (the remote then moved whatever was
+    // behind Settings).
+    val listStates = remember { HashMap<Int, androidx.compose.foundation.lazy.LazyListState>() }
+    val rowFocus = remember { HashMap<Long, FocusRequester>() }
+    val lastRow = remember { IntArray(32) { -1 } }
+    fun rowReq(c: Int, i: Int) = rowFocus.getOrPut(c * 10_000L + i) { FocusRequester() }
+    var anyFocus by remember { mutableStateOf(true) }
+    // Safety net: if nothing in Settings is selected (a page was rebuilt, a row went away), select the row you were
+    // on, or this page's category.
+    LaunchedEffect(anyFocus, dialog, phoneDialog) {
+        if (anyFocus || dialog != null || phoneDialog) return@LaunchedEffect
+        kotlinx.coroutines.delay(80)
+        val r = lastRow[shownCat]
+        val ok = r >= 0 && runCatching {
+            listStates[shownCat]?.let { st0 -> if (r !in st0.layoutInfo.visibleItemsInfo.map { it.index }) st0.scrollToItem(r) }
+            kotlinx.coroutines.delay(16); rowReq(shownCat, r).requestFocus()
+        }.isSuccess
+        if (!ok || !anyFocus) runCatching { catFocus[cat].requestFocus() }
+    }
+    Box(Modifier.fillMaxSize().onFocusChanged { anyFocus = it.hasFocus }.background(Color.Black.copy(alpha = 0.55f)).padding((28 * s).dp)) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy((16 * s).dp)) {
             GlassPanel(Modifier.width((230 * s).dp).fillMaxHeight(), (30 * s).dp, style = st.panelStyle, darken = 0.42f) {
                 // Scrolls when the list is taller than the screen (the last entry, About, was cut off).
                 Column(Modifier.padding(horizontal = (14 * s).dp, vertical = (12 * s).dp).verticalScroll(rememberScrollState())) {
-                    Text("Settings", color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (8 * s).dp, bottom = (8 * s).dp))
+                    Text("Settings", color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (8 * s).dp, bottom = (4 * s).dp))
                     categories.forEachIndexed { i, c ->
                         var f by remember { mutableStateOf(false) }
                         Text(
                             com.glasslauncher.tv.data.I18n.tr(c.title), color = Color.White, fontSize = (13.5f * s).sp,
                             fontWeight = if (cat == i) FontWeight.SemiBold else FontWeight.Normal,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = (1.5f * s).dp)
+                            // Every section fits without scrolling: the list used to jump a little at a time as you went
+                            // down past Dock & icons.
+                            modifier = Modifier.fillMaxWidth().padding(vertical = (1 * s).dp)
                                 .clip(RoundedCornerShape((14 * s).dp))
                                 .background(if (f) Color.White.copy(alpha = 0.30f) else if (cat == i) Color.White.copy(alpha = 0.12f) else Color.Transparent)
                                 .focusRequester(catFocus[i])
                                 .then(if (i == initialCat) Modifier.focusRequester(firstCat) else Modifier)
                                 .onFocusChanged { f = it.isFocused; if (it.isFocused) cat = i }
                                 .clickable { cat = i }
-                                .padding(horizontal = (12 * s).dp, vertical = (7.5f * s).dp),
+                                .padding(horizontal = (12 * s).dp, vertical = (5.5f * s).dp),
                         )
                     }
                 }
@@ -888,8 +910,16 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     else if (c.kind == Kind.About) AboutPane(app, s, onApp = { e -> appMenu(app, e, ctx, scope) { dialog = it } })
                     else {
                         val rows = c.rows()
-                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy((4 * s).dp)) {
-                            items(rows.size) { i -> RowView(rows[i], s, app, onApp = { e -> appMenu(app, e, ctx, scope) { dialog = it } }) }
+                        val sc = shownCat
+                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides SettingsPivot) {
+                        LazyColumn(Modifier.fillMaxSize(), state = listStates.getOrPut(sc) { androidx.compose.foundation.lazy.LazyListState() },
+                            verticalArrangement = Arrangement.spacedBy((4 * s).dp)) {
+                            items(rows.size) { i ->
+                                Box(Modifier.focusRequester(rowReq(sc, i)).onFocusChanged { if (it.hasFocus) lastRow[sc] = i }) {
+                                    RowView(rows[i], s, app, onApp = { e -> appMenu(app, e, ctx, scope) { dialog = it } })
+                                }
+                            }
+                        }
                         }
                     }
                 }
@@ -1109,3 +1139,17 @@ private fun videoName(u: String): String = runCatching {
 /** The settings sections in order: accounts and what they feed, then the look, then the screensaver and the TV. */
 val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
     "Clock & glass", "Screensaver", "Performance", "Manage from phone", "System", "About")
+
+/**
+ * Settings pages scroll like a TV list: the selected row settles at the same height (a third of the way down)
+ * and stays there. The default "just bring it into view" nudged the list up and down at its ends, so fast
+ * presses near the bottom of Dock & icons made the page shake.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private object SettingsPivot : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val target = containerSize * 0.33f
+        val d = if (size > containerSize) offset else offset - target
+        return if (kotlin.math.abs(d) < 12f) 0f else d
+    }
+}

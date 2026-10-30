@@ -499,9 +499,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // open look flashed dark for a moment on the way back).
             LaunchedEffect(libFull) { if (libFull) expanded = false }
             val homeVisible by remember { androidx.compose.runtime.derivedStateOf { homeAlphaState.value > 0.001f && libScroll.value < 0.999f } }
-            // Kept composed even while covered (only not drawn): leaving the composition restarted the carousel, so
-            // its backdrop slid in again when you came back from the Library.
-            Box(
+            // Kept composed under the Library (only not drawn): leaving the composition restarted the carousel, so
+            // its backdrop slid in again when you came back. Not under Settings or the Apps folder: hidden, its dock
+            // could still take the remote there (Right in Settings went to the dock behind instead of the options).
+            if ((screen == Screen.Home && !folderOpen) || homePrep || libFromDock || libScroll.value > 0.001f || (homeVisible && screen != Screen.Settings)) Box(
                 Modifier.fillMaxSize().graphicsLayer { alpha = if (homeVisible || homePrep || (screen == Screen.Home && !folderOpen)) homeAlphaState.value else 0f; translationY = -libScroll.value * size.height }
                     .focusProperties { canFocus = screen == Screen.Home && pickerFor == null && !folderOpen && !menuOpen }
             ) {
@@ -588,6 +589,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 else if (libFromDock || screen != Screen.Library) translationY = (1f - libScroll.value) * size.height
             }) {
                 val back: () -> Unit = {
+                    // Up pressed quickly many times to reach the top of the Library stops at the dock, instead of
+                    // carrying on to the carousel and the menu.
+                    NavGate.hold(android.view.KeyEvent.KEYCODE_DPAD_UP, 550)
                     if (libFromDock) scope.launch {
                         homePrep = true
                         repeat(3) { androidx.compose.runtime.withFrameNanos { } }
@@ -1636,8 +1640,13 @@ private fun Dock(
         // When every row fits in the open dock nothing scrolls: scrolling to the second row while the dock was
         // still growing pushed the first row out and back (a jump at every open).
         val fits = fullH <= expandedH + 1f
+        // Panes stay until the page has cleared again after closing: switching back to glass then happens once
+        // everything has stopped moving (it made the first frame of the close slow).
+        val genv = LocalGlassEnv.current
+        val veilUp by remember(genv.veil) { androidx.compose.runtime.derivedStateOf { (genv.veil?.value ?: 0f) > 0.02f } }
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides (if (fits) NoScroll else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current),
+            LocalDockOpen provides (expanded || veilUp),
         ) {
         Column(
             Modifier.fillMaxWidth().graphicsLayer { alpha = if (DebugHide.intValue and 65536 != 0) 0f else 1f }.verticalScroll(scroll)
@@ -1748,55 +1757,52 @@ private fun gridEdges(col: Int, rowSize: Int, row: Int, rows: Int, allowUp: Bool
 @Composable
 private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, flat: Boolean = false, content: @Composable BoxScope.() -> Unit) {
     val env = LocalGlassEnv.current
-    // Dock opened (page blurred and darkened behind it) or inside the folder: the page behind is already one
-    // blurred image, so plain translucent glass looks the same and costs the GPU nothing extra. With glass
-    // tiles the open dock took the TV GPU twice as long per frame.
+    // Dock opening or open (page blurred and darkened behind it), or inside the folder: the page behind is (about
+    // to be) one blurred image, so a plain translucent pane looks the same and costs the GPU nothing extra. It
+    // switches the moment the dock starts to open: glass in every icon while the second row slid in made the
+    // opening stutter.
     val veiled by remember(env.veil) { androidx.compose.runtime.derivedStateOf { (env.veil?.value ?: 0f) > 0.95f } }
-    if ((flat || veiled) && (style == "liquid" || style == "clear" || style.startsWith("water"))) {
-        // A light glass pane over the blurred page (open dock, Apps folder): it reads as the theme's glass, not a
-        // grey card (issue #8), and costs nothing (one flat fill, no refraction per icon).
-        val clearGlass = style.startsWith("water")
-        Box(
-            Modifier.fillMaxSize()
-                .background(Color.White.copy(alpha = when { focused -> 0.22f; clearGlass -> 0.07f; else -> 0.11f }))
-                .border(if (focused) 1.2.dp else 0.7.dp, Color.White.copy(alpha = if (focused) 0.6f else if (clearGlass) 0.22f else 0.16f), RoundedCornerShape(radius)),
-            contentAlignment = Alignment.Center, content = content,
-        )
-        return
-    }
-    when (style) {
-        "water", "water_still" -> LiquidSurface(
-            Modifier.fillMaxSize(), radius = radius, refraction = if (focused) (env.refractionDp * 1.2f).dp else 0.dp, bezel = (16 * s).dp,
-            tint = Color.White.copy(alpha = if (focused) 0.05f else 0.02f), sharp = true, wobble = if (focused && style == "water") env.wobble else 0f,
-        ) {
-            Box(Modifier.matchParentSize().border(0.6.dp, Color.White.copy(alpha = if (focused) 0.30f else 0.16f), RoundedCornerShape(radius)))
-            Box(Modifier.matchParentSize(), contentAlignment = Alignment.Center, content = content)
-        }
-        "amoled" -> Box(Modifier.fillMaxSize().background(Color.Black).border(0.6.dp, Color.White.copy(alpha = if (focused) 0.5f else 0.10f), RoundedCornerShape(radius)), contentAlignment = Alignment.Center, content = content)
-        // Like the iOS 26 light icons (Apple Music): a soft off-white that shades a little towards the bottom,
-        // with a fine bright rim, not a flat paper white. Selected, it brightens.
-        "bow" -> Box(Modifier.fillMaxSize().background(if (focused) BowFocused else BowRest)
-            .border(0.8.dp, Color.White.copy(alpha = if (focused) 0.9f else 0.55f), RoundedCornerShape(radius)),
-            contentAlignment = Alignment.Center, content = content)
-        // Clear (matte): the dock behind is already frosted glass, so the plate is just a light veil over it.
-        // Drawing the blurred picture again in every icon cost the TV GPU about as much as the whole page.
-        "clear" -> Box(
-            Modifier.fillMaxSize().background(Color.White.copy(alpha = if (focused) 0.18f else 0.10f))
-                .border(0.6.dp, Color.White.copy(alpha = if (focused) 0.32f else 0.14f), RoundedCornerShape(radius)),
-            contentAlignment = Alignment.Center, content = content,
-        )
-        else -> LiquidSurface(
+    val pane = (flat || veiled || LocalDockOpen.current) && (style == "liquid" || style == "clear" || style.startsWith("water"))
+    val shape = RoundedCornerShape(radius)
+    // The icon always sits in the same place: switching the plate under it no longer rebuilds every icon.
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val fill = Modifier.matchParentSize()
+        if (pane) {
+            // A light glass pane over the blurred page: it reads as the theme's glass, not a grey card (issue #8).
+            val clearGlass = style.startsWith("water")
+            Box(fill.background(Color.White.copy(alpha = when { focused -> 0.22f; clearGlass -> 0.07f; else -> 0.11f }), shape)
+                .border(if (focused) 1.2.dp else 0.7.dp, Color.White.copy(alpha = if (focused) 0.6f else if (clearGlass) 0.22f else 0.16f), shape))
+        } else when (style) {
+            "water", "water_still" -> {
+                LiquidSurface(
+                    fill, radius = radius, refraction = if (focused) (env.refractionDp * 1.2f).dp else 0.dp, bezel = (16 * s).dp,
+                    tint = Color.White.copy(alpha = if (focused) 0.05f else 0.02f), sharp = true, wobble = if (focused && style == "water") env.wobble else 0f,
+                )
+                Box(fill.border(0.6.dp, Color.White.copy(alpha = if (focused) 0.30f else 0.16f), shape))
+            }
+            "amoled" -> Box(fill.background(Color.Black, shape).border(0.6.dp, Color.White.copy(alpha = if (focused) 0.5f else 0.10f), shape))
+            // Like the iOS 26 light icons (Apple Music): a soft off-white that shades a little towards the bottom,
+            // with a fine bright rim, not a flat paper white. Selected, it brightens.
+            "bow" -> Box(fill.background(if (focused) BowFocused else BowRest, shape)
+                .border(0.8.dp, Color.White.copy(alpha = if (focused) 0.9f else 0.55f), shape))
+            // Clear (matte): the dock behind is already frosted glass, so the plate is just a light veil over it.
+            "clear" -> Box(fill.background(Color.White.copy(alpha = if (focused) 0.18f else 0.10f), shape)
+                .border(0.6.dp, Color.White.copy(alpha = if (focused) 0.32f else 0.14f), shape))
             // Only the selected icon bends light: no extra GPU layer per icon, fast dock and folder.
-            Modifier.fillMaxSize(), radius = radius, refraction = if (focused) (env.refractionDp * 0.75f).dp else 0.dp, bezel = (14 * s).dp,
-            tint = Color.White.copy(alpha = if (focused) 0.10f else 0.04f),
-            // Frosted icons show a blurred copy: crossfading it during a slide looks the same as sliding it
-            // and saved the TV GPU half its frame time.
-            slideInside = false,
-        ) {
-            Box(Modifier.matchParentSize(), contentAlignment = Alignment.Center, content = content)
+            else -> LiquidSurface(
+                fill, radius = radius, refraction = if (focused) (env.refractionDp * 0.75f).dp else 0.dp, bezel = (14 * s).dp,
+                tint = Color.White.copy(alpha = if (focused) 0.10f else 0.04f),
+                // Frosted icons show a blurred copy: crossfading it during a slide looks the same as sliding it.
+                slideInside = false,
+            )
         }
+        Box(fill.clip(shape), contentAlignment = Alignment.Center, content = content)
     }
 }
+
+/** The dock is opening or open: its icons use plain panes (see TilePlate). */
+val LocalDockOpen = androidx.compose.runtime.compositionLocalOf { false }
+
 
 private val BowRest = Brush.verticalGradient(listOf(Color(0xFFE1E1E5), Color(0xFFCECED4)))
 private val BowFocused = Brush.verticalGradient(listOf(Color(0xFFEDEDF0), Color(0xFFDADADF)))
@@ -2197,4 +2203,12 @@ private fun RoundHeroButton(h: Dp, on: Boolean, glyph: @Composable (Color) -> Un
         Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(h).clip(androidx.compose.foundation.shape.CircleShape).background(bg),
         contentAlignment = Alignment.Center,
     ) { glyph(if (on) Color.Black else Color.White) }
+}
+
+/** Swallows a key for a moment after a page change, so presses meant for the old page don't run on into the next. */
+object NavGate {
+    @Volatile private var key = 0
+    @Volatile private var until = 0L
+    fun hold(keyCode: Int, ms: Long) { key = keyCode; until = android.os.SystemClock.uptimeMillis() + ms }
+    fun blocks(keyCode: Int): Boolean = keyCode == key && android.os.SystemClock.uptimeMillis() < until
 }

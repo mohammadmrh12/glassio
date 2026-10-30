@@ -109,6 +109,12 @@ class MainActivity : ComponentActivity() {
         (application as GlassApp).touch()
     }
 
+    @android.annotation.SuppressLint("RestrictedApi") // normal Activity override; lint misreads the androidx stub
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (com.glasslauncher.tv.ui.NavGate.blocks(event.keyCode)) return true
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_MENU) {
             screen = if (screen == Screen.Settings) Screen.Home else Screen.Settings

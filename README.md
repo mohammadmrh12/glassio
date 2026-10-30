@@ -25,6 +25,13 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 2.0.0** — smoother, faster navigation everywhere
+- **Settings**: changing a look option (like *Settings background*) keeps your place and the remote stays in Settings;
+  Right / OK always goes into the options (the dock behind can't take the remote any more). The section list fits
+  on screen, and fast scrolling keeps the selected row steady instead of jumping.
+- **Dock and Library**: opening and closing the dock is about a third lighter on the GPU, and fast Up from the
+  Library stops at the dock instead of running on to the carousel and menu.
+
 **New in 1.9.9**
 - **First-run setup**: a liquid-glass welcome — restore a backup, choose a look, sign in to Nuvio, Stremio, Trakt and
   Simkl with a QR code right there (✓ when connected), add catalogs from your phone, or *Later*.

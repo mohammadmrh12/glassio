@@ -478,32 +478,33 @@ fun GlassPanel(
 ) {
     val env = LocalGlassEnv.current
     val shape = RoundedCornerShape(radius)
-    when (style) {
-        "amoled" -> Box(modifier.clip(shape).background(Color.Black.copy(alpha = 0.94f)).border(0.6.dp, Color.White.copy(alpha = 0.08f), shape), content = content)
-        // Soft off-white like the iOS 26 light icons, shading a little towards the bottom (not paper white).
-        "bow" -> Box(modifier.clip(shape).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF2E3E3E7), Color(0xF2D2D2D8))))
-            .border(0.8.dp, Color.White.copy(alpha = 0.6f), shape), content = content)
-        // Glass like glass: almost no frost or tint, strong rim bending, ripples after a move.
-        "water", "water_still" -> LiquidSurface(
-            modifier, radius, if (refract) (env.refractionDp * 1.5f).dp else 0.dp, (radius * 1.2f).coerceIn(12.dp, 34.dp),
-            tint = Color.Black.copy(alpha = darken.coerceAtMost(0.9f)), sharp = true, wobble = if (refract && style == "water") env.wobble else 0f, cache = cache,
-        ) {
-            content()
-            Box(Modifier.matchParentSize().border(0.6.dp, Color.White.copy(alpha = 0.16f), shape))
+    // The content always sits in the same place whatever the style: switching style (Settings background) used to
+    // swap the whole panel, which rebuilt what was inside it (Settings jumped to the top with nothing selected).
+    // Only the flat styles clip here; the glass clips itself (one rounded clip layer less on the TV GPU).
+    Box(if (style == "amoled" || style == "bow") modifier.clip(shape) else modifier) {
+        val fill = Modifier.matchParentSize()
+        when (style) {
+            "amoled" -> Box(fill.background(Color.Black.copy(alpha = 0.94f)))
+            // Soft off-white like the iOS 26 light icons, shading a little towards the bottom (not paper white).
+            "bow" -> Box(fill.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF2E3E3E7), Color(0xF2D2D2D8)))))
+            // Glass like glass: almost no frost or tint, strong rim bending, ripples after a move.
+            "water", "water_still" -> LiquidSurface(
+                fill, radius, if (refract) (env.refractionDp * 1.5f).dp else 0.dp, (radius * 1.2f).coerceIn(12.dp, 34.dp),
+                tint = Color.Black.copy(alpha = darken.coerceAtMost(0.9f)), sharp = true, wobble = if (refract && style == "water") env.wobble else 0f, cache = cache,
+            )
+            // Frosted panels show a blurred copy: during a slide they crossfade (looks the same, half the GPU work).
+            "clear" -> {
+                LiquidSurface(fill, radius, 0.dp, 10.dp, tint = Color.White.copy(alpha = 0.06f), slideInside = false, cache = cache)
+                if (darken > 0f) Box(fill.background(Color.Black.copy(alpha = darken)))
+            }
+            else -> LiquidSurface(
+                fill, radius, if (refract) env.refractionDp.dp else 0.dp, (radius * 1.1f).coerceIn(10.dp, 30.dp),
+                tint = Color.Black.copy(alpha = (0.14f + darken).coerceAtMost(0.9f)), slideInside = false, cache = cache,
+            )
         }
-        // Frosted panels show a blurred copy: during a slide they crossfade (looks the same, half the GPU work).
-        "clear" -> LiquidSurface(modifier, radius, 0.dp, 10.dp, tint = Color.White.copy(alpha = 0.06f), slideInside = false, cache = cache) {
-            if (darken > 0f) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = darken)))
-            content()
-            Box(Modifier.matchParentSize().border(0.6.dp, Color.White.copy(alpha = 0.10f), shape))
-        }
-        else -> LiquidSurface(
-            modifier, radius, if (refract) env.refractionDp.dp else 0.dp, (radius * 1.1f).coerceIn(10.dp, 30.dp),
-            tint = Color.Black.copy(alpha = (0.14f + darken).coerceAtMost(0.9f)), slideInside = false, cache = cache,
-        ) {
-            content()
-            Box(Modifier.matchParentSize().border(0.6.dp, Color.White.copy(alpha = 0.10f), shape))
-        }
+        content()
+        val rim = when (style) { "amoled" -> 0.08f; "bow" -> 0.6f; "water", "water_still" -> 0.16f; else -> 0.10f }
+        Box(fill.border(if (style == "bow") 0.8.dp else 0.6.dp, Color.White.copy(alpha = rim), shape))
     }
 }
 
