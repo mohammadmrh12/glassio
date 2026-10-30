@@ -218,6 +218,10 @@ class Settings(private val ctx: Context) {
     var libraryCw: Boolean get() = b("libraryCw", true); set(v) = putB("libraryCw", v)
     var libraryCwShape: String get() = s("libraryCwShape", "backdrop"); set(v) = putS("libraryCwShape", v)
     var libraryCwSize: Float get() = f("libraryCwSize", 1.0f); set(v) = putF("libraryCwSize", v.coerceIn(0.7f, 1.5f))
+    /** Library posters: size (1 = fills the row), how many in a row, and the space between them (1 = normal). */
+    var libraryPosterSize: Float get() = f("libraryPosterSize", 1.0f); set(v) = putF("libraryPosterSize", v.coerceIn(0.6f, 1.0f))
+    var libraryColumns: Int get() = i("libraryColumns", 5); set(v) = putI("libraryColumns", v.coerceIn(3, 8))
+    var librarySpacing: Float get() = f("librarySpacing", 1.0f); set(v) = putF("librarySpacing", v.coerceIn(0.5f, 2.0f))
     var libraryCwSource: Boolean get() = b("libraryCwSource", true); set(v) = putB("libraryCwSource", v)
     /** The Simkl "Plan to watch" list in the Library, and + saves there too. */
     var librarySimkl: Boolean get() = b("librarySimkl", true); set(v) = putB("librarySimkl", v)

@@ -54,6 +54,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        // The pages paint their own black: the window's black under them was one more full screen for the TV GPU
+        // every frame.
+        window.setBackgroundDrawable(null)
     }
 
     /**

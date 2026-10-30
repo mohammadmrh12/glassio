@@ -42,7 +42,7 @@ object Glow {
     /** Settings → Glow size (0.3 … 1.6). */
     @Volatile var amount = 0.7f
 
-    fun DrawScope.glow(color: Color, a: Float, tallShape: Boolean = false, grow: Float = 1f) {
+    fun DrawScope.glow(color: Color, a: Float, tallShape: Boolean = false, grow: Float = 1f, corner: Float = -1f) {
         if (a <= 0.01f) return
         val img = pic(tallShape)
         val w = size.width * grow; val h = size.height * grow
@@ -53,7 +53,7 @@ object Glow {
         // Only around the edges: the inside is left out, so glass tiles aren't tinted from behind.
         val hole = androidx.compose.ui.graphics.Path().apply {
             addRoundRect(androidx.compose.ui.geometry.RoundRect((size.width - w) / 2, (size.height - h) / 2, (size.width + w) / 2, (size.height + h) / 2,
-                androidx.compose.ui.geometry.CornerRadius(w * 0.09f)))
+                androidx.compose.ui.geometry.CornerRadius(if (corner >= 0f) corner * grow else w * 0.09f)))
         }
         clipPath(hole, androidx.compose.ui.graphics.ClipOp.Difference) {
             drawImage(img, srcOffset = IntOffset.Zero, srcSize = IntSize(img.width, img.height),

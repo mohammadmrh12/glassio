@@ -25,6 +25,13 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 2.0.1** — the Library scrolls like Apple TV
+- One long, soft glide per press that keeps its speed when you hold Down, the selected row high on the page, rows
+  built ahead, and a steady 60 fps on the TV (nothing is drawn under the page any more).
+- Bigger focus zoom, a light shadow under every poster (deeper under the selected one), more room between rows, and
+  posters loaded ahead into the cache. No more shake moving along a row, and the top of the page is never cut.
+- Settings → Library: **poster size**, **posters in a row** and **space between posters**.
+
 **New in 2.0.0** — smoother, faster navigation everywhere
 - **Settings**: changing a look option (like *Settings background*) keeps your place and the remote stays in Settings;
   Right / OK always goes into the options (the dock behind can't take the remote any more). The section list fits

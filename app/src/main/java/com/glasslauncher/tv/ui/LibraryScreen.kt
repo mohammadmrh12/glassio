@@ -114,6 +114,19 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val trakt = if (st.libraryTrakt) watch.filterNot { it.key in savedKeys || it.key in nuvioKeys } else emptyList()
     val traktKeys = remember(trakt) { trakt.map { it.key }.toSet() }
     val simkl = if (st.librarySimkl) simklAll.filterNot { it.key in savedKeys || it.key in nuvioKeys || it.key in traktKeys } else emptyList()
+    // Posters loaded ahead (the Library is built a few seconds after the home screen): the first screens straight
+    // into memory, so they're there the moment you go down; the rest only onto the TV's disk cache.
+    val preloadKeys = remember(saved, nuvio, trakt, simkl) { (saved + nuvio + trakt + simkl).map { it.key } }
+    LaunchedEffect(preloadKeys) {
+        delay(1_500)
+        val loader = coil3.SingletonImageLoader.get(ctx)
+        withContext(Dispatchers.IO) {
+            (saved + nuvio + trakt + simkl).forEachIndexed { i, it ->
+                val r = posterRequest(ctx, it, s)
+                runCatching { loader.execute(if (i < 40) r else r.newBuilder().memoryCachePolicy(coil3.request.CachePolicy.DISABLED).build()) }
+            }
+        }
+    }
     val cw = if (st.libraryCw && st.continueMode != "off") cwItems else emptyList()
     val hasAny = saved.isNotEmpty() || trakt.isNotEmpty() || nuvio.isNotEmpty() || simkl.isNotEmpty() || cw.isNotEmpty()
     // Opened with Down from the dock: Up from the top row goes back to the dock (like the Apple TV home page).
@@ -124,7 +137,11 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         } else Modifier
     // The page stays built between visits (ready for Down from the dock): each visit starts at the top again,
     // with the first title selected (selecting one that was scrolled away left the remote doing nothing).
-    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    // Rows a screen ahead (and half a screen behind) are built before they scroll in: building a row of posters
+    // in the middle of the glide stalled it for a few frames.
+    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState(
+        cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
     // The Continue Watching row too: scrolled sideways, its first card wasn't built any more, so selecting it on
     // the next visit failed and the remote did nothing (the cards looked stuck).
     val cwRow = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -149,8 +166,9 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         // landed on its invisible cards, and nothing on screen was selected any more.
         .focusProperties { enter = { if (active) androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Cancel } }
         .focusGroup()
-        .onFocusChanged { libFocused = it.hasFocus }
-        .background(Color(0xFF26262B))) {
+        .onFocusChanged { libFocused = it.hasFocus }) {
+        // (No flat colour under it: the grey picture covers the whole page, and on the TV GPU every full-screen
+        // layer counts.)
         // The grey page is painted once into a picture with dithering: a gradient drawn live on the TV showed bands.
         val density = androidx.compose.ui.platform.LocalDensity.current
         val bw = with(density) { maxWidth.roundToPx() }; val bh = with(density) { maxHeight.roundToPx() }
@@ -158,13 +176,19 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         androidx.compose.foundation.Image(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
         // TV scrolling: the selected row always sits at the same height. Moving left / right inside a row never
         // scrolls (the default "just bring it into view" nudged the page up and down with every poster).
-        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides PivotScroll) {
+        val pivot = remember(grid) { PivotScroll(grid) }
+        // Settings → Library: posters in a row, their size (smaller ones leave more room at the sides) and spacing.
+        val cols = st.libraryColumns
+        val gap = (22 * s * st.librarySpacing).dp
+        val full = maxWidth - (64 * s * 2).dp
+        val side = (64 * s).dp + (full - gap * (cols - 1)) * ((1f - st.libraryPosterSize) / 2f)
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pivot) {
         LazyVerticalGrid(
             state = grid,
-            columns = GridCells.Fixed(5),
-            contentPadding = PaddingValues(start = (64 * s).dp, end = (64 * s).dp, top = (34 * s).dp, bottom = (40 * s).dp),
-            horizontalArrangement = Arrangement.spacedBy((22 * s).dp),
-            verticalArrangement = Arrangement.spacedBy((20 * s).dp),
+            columns = GridCells.Fixed(cols),
+            contentPadding = PaddingValues(start = side, end = side, top = (34 * s).dp, bottom = (40 * s).dp),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+            verticalArrangement = Arrangement.spacedBy((34 * s * st.librarySpacing).dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -185,6 +209,8 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                     val cardW = ((if (wide) 236f else 132f) * st.libraryCwSize * s).dp
                     // Edge to edge: the first card isn't cut at the page's margin when it grows on focus.
                     val bleed = (64 * s).dp
+                    val bleedPx = with(androidx.compose.ui.platform.LocalDensity.current) { bleed.toPx() }
+                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides remember(bleedPx) { RowScroll(bleedPx) }) {
                     androidx.compose.foundation.lazy.LazyRow(state = cwRow, horizontalArrangement = Arrangement.spacedBy((18 * s).dp),
                         contentPadding = PaddingValues(horizontal = bleed, vertical = (10 * s).dp),
                         modifier = up("c", 0).layout { m, c ->
@@ -199,6 +225,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                                 onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                                 onRemove = { app.cw.remove(it.key); toast(ctx, "Removed from Continue Watching" + (if (src.isNotBlank() && src != "Nuvio Legacy") " and $src" else "") + " · ${it.name}") })
                         }
+                    }
                     }
                 }
             }
@@ -240,13 +267,39 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private object PivotScroll : androidx.compose.foundation.gestures.BringIntoViewSpec {
+private class PivotScroll(private val grid: androidx.compose.foundation.lazy.grid.LazyGridState) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    // Apple TV motion: one long, soft glide with no bounce. A new press while it's still moving keeps its speed,
+    // so holding Down is one smooth run instead of a stop-start for every row (the default spring is short and
+    // stops hard).
+    @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> =
+        androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 240f, visibilityThreshold = 0.5f)
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        // Top of the selected row at 30% of the page (the first rows simply stay where they are).
-        val target = containerSize * 0.30f
+        // On the first screen the page stays at its very top, so the "Library" title is never cut (it was when the
+        // first row was lifted to the pivot like the others).
+        if (grid.firstVisibleItemIndex == 0) {
+            val scrolled = grid.firstVisibleItemScrollOffset.toFloat()
+            if (offset + scrolled + size <= containerSize * 0.72f) return -scrolled
+        }
+        // Further down: the selected row high on the page like Apple TV, its section title just above it.
+        val target = containerSize * 0.20f
         val d = if (size > containerSize) offset else offset - target
-        // Same row (left / right): never a pixel of scroll.
-        return if (kotlin.math.abs(d) < 24f) 0f else d
+        // The glide goes all the way to the spot: it used to stop up to 24 px short, and then every left / right
+        // press in that row nudged it the rest of the way (the row shook a little the first moves in it).
+        return if (kotlin.math.abs(d) < 1f) 0f else d
+    }
+}
+
+/** The Continue Watching row: it moves only when the next card would go past the page's margin, by just enough. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private class RowScroll(private val margin: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> =
+        androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 300f, visibilityThreshold = 0.5f)
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = when {
+        offset < margin -> offset - margin
+        offset + size > containerSize - margin -> offset + size - (containerSize - margin)
+        else -> 0f
     }
 }
 
@@ -265,36 +318,67 @@ private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier
     var focused by remember { mutableStateOf(false) }
     val glow = LocalGlow.current
     var gc by remember(item.key) { mutableStateOf(Glow.cached("p:" + item.key)) }
+    var loaded by remember(item.key) { mutableStateOf(false) }
     val glowA by animateFloatAsState(if (focused && glow != "off") 1f else 0f, androidx.compose.animation.core.tween(220), label = "glow")
     // No overshoot: a bouncy grow made the posters wobble while you moved along a row.
-    val k by animateFloatAsState(if (focused) 1.07f else 1f, androidx.compose.animation.core.tween(160, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "poster")
+    val k by animateFloatAsState(if (focused) 1.11f else 1f, androidx.compose.animation.core.tween(160, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "poster")
+    val lift by animateFloatAsState(if (focused) 1f else 0f, androidx.compose.animation.core.tween(200), label = "lift")
     val shape = RoundedCornerShape((10 * s).dp)
-    val req = remember(item.poster) {
-        ImageRequest.Builder(ctx).data(sharpPoster(item.poster).ifBlank { item.background }).size((180 * s * 2f).toInt(), (270 * s * 2f).toInt()).build()
-    }
-    Column(modifier.graphicsLayer { scaleX = k; scaleY = k }, horizontalAlignment = Alignment.CenterHorizontally) {
+    val req = remember(item.poster) { posterRequest(ctx, item, s) }
+    val cornerPx = with(androidx.compose.ui.platform.LocalDensity.current) { (10 * s).dp.toPx() }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(2f / 3f)
-                .drawBehind {
-                    // Soft shadow from one pre-blurred picture (smooth on every TV; elevation shadows banded).
-                    val sh = PosterShadow.get()
-                    val pad = size.width * PosterShadow.PAD
-                    drawImage(sh, dstOffset = androidx.compose.ui.unit.IntOffset((-pad).toInt(), (-pad + size.height * (if (focused) 0.05f else 0.03f)).toInt()),
-                        dstSize = androidx.compose.ui.unit.IntSize((size.width + 2 * pad).toInt(), (size.height + 2 * pad).toInt()),
-                        alpha = if (focused) 0.75f else 0.45f, filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
-                    with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = true) }
-                }
-                .clip(shape)
-                .background(Color(0xFF4A4A50))
+                // The remote's focus sits outside the zoom: zoomed, the poster's bounds grew, the page "followed"
+                // them and every move along a row shook it by a few pixels.
                 .onFocusChanged { focused = it.isFocused }
                 .tvPress(onLong = onRemove, onKey = { ev ->
                     if (ev.key == Key.Menu) { if (ev.type == KeyEventType.KeyDown) onRemove(); true } else false
-                }, onClick = onOpen),
+                }, onClick = onOpen)
+                .graphicsLayer { scaleX = k; scaleY = k }
+                .drawBehind {
+                    // Soft shadow from one pre-blurred picture (smooth on every TV; elevation shadows banded): light
+                    // under every poster, deeper under the selected one as it lifts.
+                    run {
+                        // Only the ring around the poster is drawn (four strips): the middle is hidden under the
+                        // picture anyway, and filling it under every poster cost the TV GPU ~3 ms a frame.
+                        val sh = PosterShadow.get()
+                        val pad = size.width * PosterShadow.PAD
+                        val dy = size.height * (0.03f + 0.02f * lift)
+                        val a = 0.3f + 0.5f * lift
+                        val sw = sh.width.toFloat(); val shh = sh.height.toFloat()
+                        val dw = size.width + 2 * pad; val dh = size.height + 2 * pad
+                        val kx = sw / dw; val ky = shh / dh
+                        fun strip(x: Float, y: Float, w: Float, h: Float) {
+                            if (w <= 0f || h <= 0f) return
+                            drawImage(sh, srcOffset = androidx.compose.ui.unit.IntOffset((x * kx).toInt(), (y * ky).toInt()),
+                                srcSize = androidx.compose.ui.unit.IntSize((w * kx).toInt().coerceAtLeast(1), (h * ky).toInt().coerceAtLeast(1)),
+                                dstOffset = androidx.compose.ui.unit.IntOffset((x - pad).toInt(), (y - pad + dy).toInt()),
+                                dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()), alpha = a,
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
+                        }
+                        // In shadow-picture space (0…dw, 0…dh) the poster covers pad…pad+width, shifted down by dy.
+                        // The strips reach in under the poster's rounded corners: stopping at its square edge left the
+                        // corners without shadow, a light little frame around each one.
+                        val r = cornerPx * 1.2f
+                        val top = (pad - dy + r).coerceAtLeast(0f); val bottom = pad + size.height - dy - r
+                        strip(0f, 0f, dw, top)
+                        strip(0f, bottom, dw, dh - bottom)
+                        strip(0f, top, pad + r, bottom - top)
+                        strip(pad + size.width - r, top, pad + r, bottom - top)
+                    }
+                    with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = true, corner = cornerPx) }
+                }
+                .clip(shape)
+                // The grey card and the name are only the stand-in until the picture is there (under it they were
+                // two more layers for the TV GPU on every poster).
+                .then(if (loaded) Modifier else Modifier.background(Color(0xFF4A4A50))),
             contentAlignment = Alignment.Center,
         ) {
-            Text(item.name, color = Color.White.copy(alpha = 0.6f), fontSize = (10 * s).sp, textAlign = TextAlign.Center,
+            if (!loaded) Text(item.name, color = Color.White.copy(alpha = 0.6f), fontSize = (10 * s).sp, textAlign = TextAlign.Center,
                 modifier = Modifier.padding((8 * s).dp))
             AsyncImage(req, item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
+                loaded = true
                 if (glow == "color" && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("p:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
             })
         }
@@ -328,12 +412,14 @@ private fun CwCard(item: HeroItem, source: String, s: Float, wide: Boolean, show
     val pic = if (wide) item.background.ifBlank { item.poster } else sharpPoster(item.poster).ifBlank { item.background }
     val req = remember(pic) { ImageRequest.Builder(ctx).data(pic).size((if (wide) 640 else 360) , (if (wide) 360 else 540)).build() }
     Box(
-        modifier.graphicsLayer { scaleX = k; scaleY = k }.aspectRatio(if (wide) 16f / 9f else 2f / 3f)
-            .drawBehind { with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = !wide) } }
-            .clip(shape).background(Color(0xFF4A4A50))
-            .border(if (focused) 1.5.dp else 0.dp, Color.White.copy(alpha = if (focused) 0.85f else 0f), shape)
+        modifier.aspectRatio(if (wide) 16f / 9f else 2f / 3f)
+            // Focus outside the zoom (see Poster).
             .onFocusChanged { focused = it.isFocused }
-            .tvPress(onLong = onRemove, onKey = { ev -> if (ev.key == Key.Menu) { if (ev.type == KeyEventType.KeyDown) onRemove(); true } else false }, onClick = onOpen),
+            .tvPress(onLong = onRemove, onKey = { ev -> if (ev.key == Key.Menu) { if (ev.type == KeyEventType.KeyDown) onRemove(); true } else false }, onClick = onOpen)
+            .graphicsLayer { scaleX = k; scaleY = k }
+            .drawBehind { with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = !wide, corner = (12 * s).dp.toPx()) } }
+            .clip(shape).background(Color(0xFF4A4A50))
+            .border(if (focused) 1.5.dp else 0.dp, Color.White.copy(alpha = if (focused) 0.85f else 0f), shape),
     ) {
         AsyncImage(req, item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
             if (glow == "color" && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("c:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
@@ -399,6 +485,10 @@ private object PosterShadow {
         b.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap().also { img = it }
     }
 }
+
+/** One poster's picture request: the same everywhere, so pictures loaded ahead are found in the cache. */
+private fun posterRequest(ctx: android.content.Context, item: HeroItem, s: Float): ImageRequest =
+    ImageRequest.Builder(ctx).data(sharpPoster(item.poster).ifBlank { item.background }).size((180 * s * 2f).toInt(), (270 * s * 2f).toInt()).build()
 
 /** A bigger copy of the poster when the site has one (catalog posters are often thumbnails: w185 / w342, "small"). */
 private fun sharpPoster(u: String): String = when {

@@ -401,7 +401,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // nothing else, which keeps the crossfade smooth on TV graphics chips.
             // Under the fully open veil (an opaque picture) the backdrop isn't drawn at all.
             val veilCovers = backImgs?.third != null
-            if (!folderOpen && DebugHide.intValue and 1 == 0 && !VideoFrames.showing.value) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (veilCovers && blur.value > 0.995f) 0f else 1f }) {
+            // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
+            // painted every pixel four times there and the Library's scrolling lost frames.
+            val libCovers = remember { mutableStateOf(false) }
+            if (!folderOpen && DebugHide.intValue and 1 == 0 && !VideoFrames.showing.value) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if ((veilCovers && blur.value > 0.995f) || libCovers.value) 0f else 1f }) {
                 if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
                     if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH)
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
@@ -495,6 +498,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             val libFull by remember { androidx.compose.runtime.derivedStateOf { libScroll.value >= 0.999f } }
             val screenPx = with(LocalDensity.current) { androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx() }
             androidx.compose.runtime.SideEffect { GlassMotion.set(libSliding, if (libFull) screenPx else 0f) }
+            val libOpaque by remember(screen) { androidx.compose.runtime.derivedStateOf { screen == Screen.Library && (!libFromDock || libScroll.value >= 0.999f) } }
+            androidx.compose.runtime.SideEffect { libCovers.value = libOpaque }
             // Once the Library covers the page the dock closes behind it, so coming back shows it closed (its dimmed
             // open look flashed dark for a moment on the way back).
             LaunchedEffect(libFull) { if (libFull) expanded = false }
