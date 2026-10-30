@@ -203,6 +203,7 @@ half4 main(float2 fc) {
  * The program is compiled once for the whole app. Creating a RenderEffect copies the current uniform
  * values, so one shader object safely serves every surface (all effects are built on the main thread).
  */
+@androidx.annotation.RequiresApi(33)
 private object SharedShader {
     private var shader: Any? = null
     fun get(): Any = shader ?: RuntimeShader(LIQUID_SKSL).also { shader = it }
@@ -301,6 +302,10 @@ fun LiquidSurface(
     // Video behind: the glass changes every copy, a cached texture would only be drawn twice.
     val videoBehind = VideoFrames.showing.value
     val pos = remember { mutableStateOf(Offset.Zero) }
+    // The last measured place, kept even while frozen, so the glass catches up when the page settles.
+    val raw = remember { arrayOf(Offset.Zero) }
+    val motion = GlassMotion.rev.intValue
+    androidx.compose.runtime.LaunchedEffect(motion) { if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY) }
     var sz by remember { mutableStateOf(IntSize.Zero) }
     val refractor = remember { Refractor() }
     val rPx = with(density) { radius.toPx() }
@@ -311,7 +316,7 @@ fun LiquidSurface(
     Box(
         modifier
             .then(if (DebugHide.intValue and 262144 != 0) Modifier else Modifier.clip(RoundedCornerShape(radius)))
-            .onGloballyPositioned { pos.value = it.positionInRoot(); if (it.size != sz) sz = it.size },
+            .onGloballyPositioned { raw[0] = it.positionInRoot(); if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY); if (it.size != sz) sz = it.size },
     ) {
         val bmp = if (sharp) env.sharp ?: env.bmp else env.bmp
         // The tint is drawn inside the cached glass layers when they're used (one less pass every frame).
@@ -347,13 +352,17 @@ fun LiquidSurface(
                 // the rims look exactly as when the glass is still, so nothing jumps when the move ends.
                 val curS = remember(bmp) { PageShader(bmp) }
                 val prevS = remember(prev) { PageShader(prev) }
-                val ring = remember(sz, rPx, bPx) {
+                // Small glass (an app tile): the whole shape is drawn with the shader, not just the rim. With the
+                // middle left to the page underneath, the edge of the rim band showed as a glass rectangle inside the
+                // selected icon for as long as the slide lasted. On a small surface drawing it all costs nothing.
+                val whole = sz.width.toLong() * sz.height < env.rootW.toLong() * env.rootH / 12
+                val ring = remember(sz, rPx, bPx, whole) {
                     val w = sz.width.toFloat(); val h = sz.height.toFloat()
                     val rr = min(rPx, min(w, h) / 2f); val b = max(1f, bPx)
                     androidx.compose.ui.graphics.Path().apply {
                         fillType = androidx.compose.ui.graphics.PathFillType.EvenOdd
                         addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, w, h, androidx.compose.ui.geometry.CornerRadius(rr)))
-                        if (w > 2 * b && h > 2 * b) addRoundRect(androidx.compose.ui.geometry.RoundRect(b, b, w - b, h - b,
+                        if (!whole && w > 2 * b && h > 2 * b) addRoundRect(androidx.compose.ui.geometry.RoundRect(b, b, w - b, h - b,
                             androidx.compose.ui.geometry.CornerRadius(max(0f, rr - b))))
                     }
                 }
@@ -426,9 +435,10 @@ fun LiquidSurface(
                     if (cache && DebugHide.intValue and 1024 == 0) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }) {
                     // A video behind: the glass shows its live frames (sharp or frosted), with the page's shades.
-                    val live = if (sharp) VideoFrames.sharp.value else VideoFrames.soft.value
+                    val live = if (sharp) VideoFrames.sharp.value ?: VideoFrames.soft.value else VideoFrames.soft.value ?: VideoFrames.sharp.value
                     if (live != null) {
-                        drawBackdropRegion(live, env.rootW, env.rootH, pos.value, scrims = false)
+                        // The page's shades (pre-painted pictures) drawn over the live copy, as on the page itself.
+                        drawBackdropRegion(live, env.rootW, env.rootH, pos.value, scrims = DebugHide.intValue and 128 == 0)
                     } else picture(bmp, 0f)
                     if (veilPic == null) veil()
                     tintIn(tint)
@@ -470,7 +480,9 @@ fun GlassPanel(
     val shape = RoundedCornerShape(radius)
     when (style) {
         "amoled" -> Box(modifier.clip(shape).background(Color.Black.copy(alpha = 0.94f)).border(0.6.dp, Color.White.copy(alpha = 0.08f), shape), content = content)
-        "bow" -> Box(modifier.clip(shape).background(Color(0xF2F2F2F5)), content = content)
+        // Soft off-white like the iOS 26 light icons, shading a little towards the bottom (not paper white).
+        "bow" -> Box(modifier.clip(shape).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF2E3E3E7), Color(0xF2D2D2D8))))
+            .border(0.8.dp, Color.White.copy(alpha = 0.6f), shape), content = content)
         // Glass like glass: almost no frost or tint, strong rim bending, ripples after a move.
         "water", "water_still" -> LiquidSurface(
             modifier, radius, if (refract) (env.refractionDp * 1.5f).dp else 0.dp, (radius * 1.2f).coerceIn(12.dp, 34.dp),
@@ -551,6 +563,7 @@ half4 main(float2 fc) {
 }
 """
 
+@androidx.annotation.RequiresApi(33)
 private object GlassSlideShader {
     private var shader: Any? = null
     fun get(): RuntimeShader = (shader ?: RuntimeShader(GLASS_SLIDE_SKSL).also { shader = it }) as RuntimeShader
@@ -654,12 +667,14 @@ half4 main(float2 fc) {
 }
 """
 
+@androidx.annotation.RequiresApi(33)
 private object DotsShader {
     private var shader: Any? = null
     fun get(): RuntimeShader = (shader ?: RuntimeShader(DOTS_SKSL).also { shader = it }) as RuntimeShader
 }
 
 /** A page picture as a shader in a glass element's own coordinates (element at [pos] on screen). */
+@androidx.annotation.RequiresApi(31)
 private class PageShader(val bmp: ImageBitmap) {
     val shader = android.graphics.BitmapShader(bmp.asAndroidBitmap(), android.graphics.Shader.TileMode.DECAL, android.graphics.Shader.TileMode.DECAL)
     private val m = android.graphics.Matrix()
@@ -687,13 +702,17 @@ fun GlassDots(count: Int, head: () -> Float, tail: () -> Float, s: Float, modifi
     val wDp = with(density) { ((count - 1) * gap + 2 * pad).toDp() }
     val hDp = with(density) { (ar * 2 + 10f).toDp() }
     val pos = remember { mutableStateOf(Offset.Zero) }
+    // The last measured place, kept even while frozen, so the glass catches up when the page settles.
+    val raw = remember { arrayOf(Offset.Zero) }
+    val motion = GlassMotion.rev.intValue
+    androidx.compose.runtime.LaunchedEffect(motion) { if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY) }
     val shaderOk = Build.VERSION.SDK_INT >= 33
     val cur = env.sharp?.takeIf { env.sharpIsPage }
     val prev = env.prevSharp?.takeIf { env.sharpIsPage }
     // DECAL bitmap shaders need Android 12+; the shader path itself needs 13, so only build them there.
-    val curS = remember(cur) { if (shaderOk) cur?.let { PageShader(it) } else null }
-    val prevS = remember(prev) { if (shaderOk) prev?.let { PageShader(it) } else null }
-    Canvas(modifier.width(wDp).height(hDp).onGloballyPositioned { pos.value = it.positionInRoot() }) {
+    val curS = remember(cur) { if (Build.VERSION.SDK_INT >= 33) cur?.let { PageShader(it) } else null }
+    val prevS = remember(prev) { if (Build.VERSION.SDK_INT >= 33) prev?.let { PageShader(it) } else null }
+    Canvas(modifier.width(wDp).height(hDp).onGloballyPositioned { raw[0] = it.positionInRoot(); if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY) }) {
         val h = head(); val t = tail()
         if (shaderOk && curS != null) {
             val p = pos.value
@@ -734,5 +753,22 @@ fun GlassDots(count: Int, head: () -> Float, tail: () -> Float, s: Float, modifi
             drawRoundRect(Color.White.copy(alpha = 0.55f), Offset(pad + a * gap - ar * 1.35f, cy - ar),
                 Size((b - a) * gap + ar * 2.7f, 2 * ar), androidx.compose.ui.geometry.CornerRadius(ar, ar))
         }
+    }
+}
+
+/**
+ * While the whole page slides (Down from the dock into the Library), the glass keeps the picture it showed at
+ * rest and just moves with the page: following the slide re-made every glass surface every frame (half the frame time).
+ */
+object GlassMotion {
+    @Volatile var frozen = false
+    /** While the home screen is scrolled up out of view (the Library is up), how far: the glass still samples
+     *  the picture where the dock really is, so it is right the moment it comes back. */
+    @Volatile var shiftY = 0f
+    /** Bumped when [frozen] or [shiftY] change: every glass surface then re-reads its place. */
+    val rev = androidx.compose.runtime.mutableIntStateOf(0)
+    fun set(frozen: Boolean, shift: Float) {
+        if (frozen == this.frozen && shift == shiftY) return
+        this.frozen = frozen; shiftY = shift; rev.intValue++
     }
 }

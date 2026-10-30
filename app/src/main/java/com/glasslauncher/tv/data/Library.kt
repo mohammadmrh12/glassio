@@ -18,10 +18,13 @@ class Library(
     private val http: Http,
     private val trakt: Trakt,
     private val scope: CoroutineScope,
+    private val simkl: Simkl? = null,
 ) {
     private val sp = ctx.getSharedPreferences("glass_library", Context.MODE_PRIVATE)
     val saved = MutableStateFlow(load())
     val watchlist = MutableStateFlow<List<HeroItem>>(emptyList())
+    /** Simkl's "Plan to watch". */
+    val simklList = MutableStateFlow<List<HeroItem>>(emptyList())
     /** The Nuvio account's Library (shared by Nuvio Legacy, the official app and the forks that sync with it). */
     val nuvio = NuvioAccount(ctx)
     val nuvioList = MutableStateFlow<List<HeroItem>>(emptyList())
@@ -74,6 +77,10 @@ class Library(
         if (settings.libraryToTrakt && trakt.connected && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
             if (trakt.setWatchlist(now, item.type.lowercase(), item.id)) refreshWatchlist()
         }
+        val sk = simkl
+        if (settings.libraryToSimkl && sk?.connected == true && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
+            if (sk.setPlanToWatch(now, item.id, item.type.lowercase())) refreshSimkl()
+        }
         return now
     }
 
@@ -87,6 +94,19 @@ class Library(
     fun removeFromWatchlist(item: HeroItem) {
         watchlist.value = watchlist.value.filterNot { it.key == item.key }
         scope.launch(Dispatchers.IO) { trakt.setWatchlist(false, item.type, item.id) }
+    }
+
+    fun removeFromSimkl(item: HeroItem) {
+        simklList.value = simklList.value.filterNot { it.key == item.key }
+        scope.launch(Dispatchers.IO) { simkl?.setPlanToWatch(false, item.id, item.type) }
+    }
+
+    /** Reads Simkl's "Plan to watch" (posters from Cinemeta). Blocking. */
+    fun refreshSimkl() {
+        val sk = simkl
+        if (!settings.librarySimkl || sk?.connected != true) { simklList.value = emptyList(); return }
+        val list = sk.planToWatch() ?: return
+        simklList.value = list.take(120).mapNotNull { meta(it.type, it.imdb) }
     }
 
     /** Reads the Trakt watchlist and turns it into posters (Cinemeta, cached a week). Blocking. */

@@ -6,6 +6,7 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,14 +38,42 @@ class MainActivity : ComponentActivity() {
                     delay(2_000)
                     val secs = app.settings.idleSeconds
                     val idle = System.currentTimeMillis() - lastInput
-                    if (secs > 0 && idle > secs * 1000L && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    if (secs > 0 && idle > secs * 1000L && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !systemSaverFirst(secs)) {
                         lastInput = System.currentTimeMillis()
                         startActivity(Intent(this@MainActivity, ScreensaverActivity::class.java))
                     }
                 }
             }
-            com.glasslauncher.tv.ui.GlassType { HomeScreen(app, screen) { screen = it } }
+            com.glasslauncher.tv.ui.GlassType {
+                var setup by androidx.compose.runtime.remember { mutableStateOf(!app.settings.setupDone) }
+                LaunchedEffect(app.requestSetup.intValue) { if (app.requestSetup.intValue > 0) setup = true }
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                    // The home screen is left out while the setup shows, so it can't take the remote's focus.
+                    if (setup) com.glasslauncher.tv.ui.SetupScreen(app) { setup = false; app.settings.setupDone = true }
+                    else HomeScreen(app, screen) { screen = it }
+                }
+            }
         }
+    }
+
+    /**
+     * The TV's own screensaver (another app, e.g. Aerial Views) is on and starts at about the same time or
+     * earlier: leave it to the TV. Starting Glassio's as well put one on top of the other, and Back then had
+     * to be pressed twice (issue #9). With Type "TV screensaver" Glassio only asks the TV to start its own.
+     */
+    private fun systemSaverFirst(secs: Int): Boolean {
+        val app = application as GlassApp
+        if (app.settings.saverMode == "system") return false
+        val cr = contentResolver
+        val on = runCatching { android.provider.Settings.Secure.getInt(cr, "screensaver_enabled", 1) == 1 }.getOrDefault(false)
+        val comp = runCatching { android.provider.Settings.Secure.getString(cr, "screensaver_components") }.getOrNull().orEmpty()
+        // (Glassio itself as the TV screensaver counts too: the TV then starts it, in every app.)
+        if (!on || comp.isBlank()) return false
+        // Glassio's own dream: on the home screen Glassio starts it itself (a playing background video kept the
+        // TV from starting it, so it never came on here).
+        if (comp.startsWith(packageName)) return false
+        val tv = runCatching { android.provider.Settings.System.getInt(cr, "screen_off_timeout") }.getOrDefault(Int.MAX_VALUE)
+        return tv <= secs * 1000L + 5_000
     }
 
     private fun hideBars() {
@@ -61,50 +90,8 @@ class MainActivity : ComponentActivity() {
         (application as GlassApp).cw.pollNow()
     }
 
-    /** Terminal helper: am start -n com.glasslauncher.tv/.MainActivity --es icon_pack <package> ("none" clears it). */
-    private fun handleExtras(i: Intent?) {
-        val app = application as GlassApp
-        i?.getStringExtra("reset_icon")?.let { app.icons.reset(it) }
-        if (i?.getBooleanExtra("open_folder", false) == true) app.requestFolder.value = true
-        if (i?.hasExtra("hero_autoplay") == true) app.settings.heroAutoplay = i.getBooleanExtra("hero_autoplay", true)
-        if (i?.hasExtra("page_glass") == true) com.glasslauncher.tv.ui.PageGlass.on.value = i.getBooleanExtra("page_glass", true)
-        i?.getIntExtra("open_settings", -1)?.takeIf { it >= 0 }?.let { app.requestSettings.intValue = it; app.requestSettingsRev.intValue++ }
-        if (i?.getBooleanExtra("open_menu", false) == true) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
-        if (i?.getBooleanExtra("open_library", false) == true) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
-        if (i?.hasExtra("timing") == true) com.glasslauncher.tv.data.Glog.timing = i.getBooleanExtra("timing", false)
-        if (i?.hasExtra("dbg_hide") == true) com.glasslauncher.tv.ui.DebugHide.intValue = i.getIntExtra("dbg_hide", 0)
-        i?.getStringExtra("dock_style")?.let { app.settings.dockStyle = it }
-        i?.getStringExtra("panel_style")?.let { app.settings.panelStyle = it }
-        i?.getStringExtra("tile_style")?.let { app.settings.tileStyle = it }
-        i?.getStringExtra("theme")?.let { app.settings.applyTheme(it) }
-        i?.getStringExtra("menu_mode")?.let { app.settings.menuMode = it }
-        i?.getStringExtra("bg_mode")?.let { if (it in setOf("carousel", "image", "video", "aerial")) app.settings.bgMode = it }
-        if (i?.hasExtra("menu_city") == true) app.settings.menuCity = i.getBooleanExtra("menu_city", true)
-        if (i?.hasExtra("focus_color") == true) app.settings.focusColor = i.getBooleanExtra("focus_color", false)
-        i?.getStringExtra("ha_webhook")?.let { app.settings.haWebhook = it; app.settings.haOnLaunch = it.startsWith("http") }
-        i?.getStringExtra("saver_mode")?.let { if (it in setOf("aerial", "slideshow", "system")) app.settings.saverMode = it }
-        i?.getStringExtra("slide_anim")?.let { if (it in setOf("fade", "slide", "apple")) app.settings.slideAnim = it }
-        i?.getStringExtra("dots_mode")?.let { if (it in setOf("window", "liquid", "progress", "hidden")) app.settings.dotsMode = it }
-        i?.getStringExtra("continue_mode")?.let { if (it in setOf("off", "first", "mixed")) app.settings.continueMode = it }
-        if (i?.getBooleanExtra("start_saver", false) == true)
-            startActivity(android.content.Intent(this, com.glasslauncher.tv.saver.ScreensaverActivity::class.java))
-        if (i?.getBooleanExtra("dump_prefs", false) == true) app.settings.dumpAll().toSortedMap().forEach { (k, v) ->
-            android.util.Log.i("GlassPrefs", "$k=${v.toString().take(120)}")
-        }
-        if (i?.getBooleanExtra("dump_settings", false) == true) app.settings.run {
-            android.util.Log.i("GlassSettings", "dockStyle=$dockStyle tileStyle=$tileStyle panelStyle=$panelStyle iconPack=$iconPack blur=$blurRadius refraction=$refraction dockScale=$dockScale saverMode=$saverMode backSaver=$backSaver continueMode=$continueMode cwLead=$cwLead cw=${(application as GlassApp).cw.entries.value.size} cwAccess=${(application as GlassApp).cw.hasLogAccess()}")
-        }
-        i?.getStringExtra("perf_mode")?.let { if (it in setOf("auto", "performance", "balanced", "quality")) app.settings.applyMode(it) }
-        i?.getIntExtra("refraction", -1)?.takeIf { it >= 0 }?.let { app.settings.refraction = it; app.settings.perfMode = "custom" }
-        i?.getStringExtra("art_choice")?.let { if (it in setOf("main", "second", "best", "addon")) app.settings.artChoice = it }
-        i?.getIntExtra("blur", -1)?.takeIf { it >= 0 }?.let { app.settings.blurRadius = it }
-        i?.getStringExtra("dock_style")?.let { if (it in setOf("liquid", "clear", "amoled", "bow", "water", "water_still")) app.settings.dockStyle = it }
-        i?.getStringExtra("tile_style")?.let { if (it in setOf("liquid", "clear", "amoled", "bow", "water", "water_still")) app.settings.tileStyle = it }
-        i?.getStringExtra("icon_pack")?.let { p ->
-            if (p == "none") app.settings.iconPack = ""
-            else if (app.packs.installed().any { it.pkg == p }) app.settings.iconPack = p
-        }
-    }
+    /** Testing from a computer: see [DevHooks]. */
+    private fun handleExtras(i: Intent?) = DevHooks.handle(application as GlassApp, this, i)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

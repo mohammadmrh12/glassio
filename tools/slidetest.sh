@@ -1,7 +1,7 @@
 #!/bin/zsh
 # slidetest.sh <art_choice> : steps through slides, prints screen hash (changes = picture shown) and Java heap
 D=${TV:?set TV=<tv-ip:5555>}
-adb -s $D shell am start -n com.glasslauncher.tv/.MainActivity --es art_choice $1 >/dev/null
+adb -s $D shell am start -n com.glasslauncher.tv/.MainActivity --es dev "$(adb -s $D shell cat /sdcard/Android/data/com.glasslauncher.tv/files/devkey)" --es art_choice $1 >/dev/null
 sleep 3; adb -s $D shell input keyevent 19
 for i in $(seq 1 ${2:-10}); do
   adb -s $D shell input keyevent 22; sleep 1.5

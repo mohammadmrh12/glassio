@@ -130,8 +130,11 @@ enum class Screen { Home, Settings, Library }
 val DebugHide = androidx.compose.runtime.mutableIntStateOf(0)
 
 const val DOCK_COLUMNS = 6
+
+/** Called when an arrow leads out of a grid edge; true when it did something (no bounce then). */
+private val LocalEdge = androidx.compose.runtime.compositionLocalOf<(androidx.compose.ui.focus.FocusDirection) -> Boolean> { { false } }
 /** Index of the "Manage from phone" category in the settings list. */
-const val PHONE_CATEGORY = 9
+const val PHONE_CATEGORY = 10
 /** Index of the "Catalogs" category in the settings list. */
 const val CATALOGS_CATEGORY = 5
 /** Pseudo package used by move mode for the Apps folder tile. */
@@ -181,6 +184,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val folderFocus = remember { FocusRequester() }
     var pickerFor by remember { mutableStateOf<AppEntry?>(null) }
     var folderOpen by remember { mutableStateOf(false) }
+    var libFromDock by remember { mutableStateOf(false) }
+    var libWarm by remember { mutableStateOf(false) }
+    // Up from the Library: the home screen is drawn once under it first (its first frame is the slow one),
+    // then the page scrolls down, so the scroll itself runs at full speed.
+    var homePrep by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val gearReq = remember { FocusRequester() }
     // Just closed: focus can pass over the settings button on its way back, which must not open it again.
@@ -205,6 +213,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         BakeCache.max = when (settings.memTier) { 0 -> 2; 2 -> 4; else -> 3 }
         backdropScale = settings.pageScale
         backdrop565 = settings.memTier == 0
+        backdropSharpen = settings.imageQuality == "hd"
         GlassCache.limit(settings.memTier)
         // Your own picture / video: it replaces every title's backdrop (one picture, so nothing changes per slide).
         val custom = CustomBackground.still(ctx, settings)
@@ -218,7 +227,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         fun bmpOf(r: coil3.request.ImageResult?) = (r as? SuccessResult)?.image?.toBitmap()?.asImageBitmap()
         var fullBmp: ImageBitmap? = null
         var upgrade: kotlinx.coroutines.Deferred<coil3.request.ImageResult?>? = null
-        val high = settings.imageQuality == "high"
+        // "1280 enhanced" downloads the 1280 px picture too; it is sharpened as it is scaled up (bakeBackdrop).
+        val high = settings.imageQuality == "high" || settings.imageQuality == "hd"
         val pinnedBmp = GlassCache.pinnedFull[u]
         val orig = async { if (pinnedBmp != null) null else loader.execute(imgReq(ctx, if (high) sized(u, "w1280") else u)) }
         val next = kotlinx.coroutines.coroutineScope {
@@ -358,9 +368,19 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val screenHdp = maxHeight.value
         // The veil (the page blurred and dark) comes once the dock has (almost) opened: animating both at once
         // doubled what the TV GPU drew per frame and the dock opened at about 30 fps.
-        val veilIn = expanded && !folderOpen
-        val veil = animateFloatAsState(if (veilIn) 1f else 0f, if (veilIn) tween(140, delayMillis = 130) else tween(100), label = "veil")
+        // It stays on while the Apps folder is open and as it closes: it went off under the folder, so going in and
+        // coming out showed the sharp title picture for a moment before it blurred again.
+        var folderLeft by remember { mutableStateOf(0L) }
+        LaunchedEffect(folderOpen) { if (!folderOpen && folderLeft != 0L) { delay(500); folderLeft = 0L } }
+        if (folderOpen) folderLeft = 1L
+        val veilIn = expanded || folderOpen || folderLeft != 0L
+        // Comes in just after the dock has grown (both at once made the opening stutter on the TV); straight away
+        // when it's already up (the folder).
+        val veil = animateFloatAsState(if (veilIn) 1f else 0f, if (veilIn) tween(150, delayMillis = 110) else tween(100), label = "veil")
         val blur = veil
+        var dockHasFocus by remember { mutableStateOf(false) }
+        val dockShownTarget = !settings.dockHide || dockHasFocus || expanded || folderOpen
+        val dockShown = animateFloatAsState(if (dockShownTarget) 1f else 0f, tween(if (dockShownTarget) 200 else 260, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)), label = "dockShown")
         // Where the open (and settled) dock covers the page; empty while it moves.
         val dockCover = remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
         // Clear glass shows the page picture itself (full resolution, scrims included); the small
@@ -387,7 +407,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
             }
             // Screensaver as background: one of its aerial videos (your links and / or Apple's feed).
-            LaunchedEffect(settings.bgMode) {
+            val aerialKey = settings.saverSources.joinToString() + settings.saverQuality + settings.saverPick + settings.saverMine
+            var lastAerialKey by remember { mutableStateOf(aerialKey) }
+            LaunchedEffect(settings.bgMode, aerialKey) {
+                // The screensaver's video choice changed: pick again from the new list.
+                if (aerialKey != lastAerialKey) { lastAerialKey = aerialKey; CustomBackground.aerial.value = null }
                 if (settings.bgMode == "aerial" && CustomBackground.aerial.value == null)
                     CustomBackground.aerial.value = withContext(Dispatchers.IO) {
                         runCatching { com.glasslauncher.tv.saver.AerialSource.playlist(app).also { CustomBackground.aerials = it }.let { CustomBackground.firstLive(it) } }.getOrNull()
@@ -410,9 +434,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     }
                     life.addObserver(o); onDispose { life.removeObserver(o) }
                 }
+                listOf(settings.dockStyle, settings.tileStyle, settings.menuStyle).let { st ->
+                    VideoFrames.wantSharp = st.any { it.startsWith("water") }
+                    VideoFrames.wantSoft = st.any { it == "liquid" || it == "clear" }
+                }
                 androidx.compose.runtime.key(videoSrc, resumes) {
                     VideoBackground(videoSrc, playing = screen == Screen.Home && state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && DebugHide.intValue and 4096 == 0,
                         onError = { if (settings.bgMode == "aerial") CustomBackground.nextAerial() },
+                        onDone = if (settings.bgMode == "aerial" && settings.bgShuffle && CustomBackground.aerials.size > 1) ({ CustomBackground.nextAerial(ended = true) }) else null,
                         busy = { System.currentTimeMillis() - app.interaction.longValue < 600 })
                 }
             }
@@ -449,15 +478,35 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 }
             }
 
+            // Down from the dock: the page scrolls up into the Library like the Apple TV home page (the home screen
+            // moves up and out, the Library comes up from below); Up from its top row scrolls back to the dock.
+            val libScroll = animateFloatAsState(if (screen == Screen.Library && libFromDock) 1f else 0f,
+                tween(440, easing = androidx.compose.animation.core.CubicBezierEasing(0.35f, 0.0f, 0.15f, 1f)), label = "libScroll")
+            LaunchedEffect(screen) {
+                if (screen != Screen.Library && libFromDock) { androidx.compose.runtime.snapshotFlow { libScroll.value }.first { it < 0.01f }; libFromDock = false }
+            }
             // Fully covered by settings or the folder: stop drawing it at all.
-            val homeAlphaState = animateFloatAsState(if (screen == Screen.Home && !folderOpen) 1f else 0f, tween(180), label = "homeAlpha")
-            val homeVisible by remember { androidx.compose.runtime.derivedStateOf { homeAlphaState.value > 0.001f } }
-            if (homeVisible || (screen == Screen.Home && !folderOpen)) Box(
-                Modifier.fillMaxSize().graphicsLayer { alpha = homeAlphaState.value }
+            val homeAlphaState = animateFloatAsState(if ((screen == Screen.Home || (screen == Screen.Library && libFromDock)) && !folderOpen) 1f else 0f, tween(180), label = "homeAlpha")
+            val libSliding by remember { androidx.compose.runtime.derivedStateOf { libScroll.value > 0.001f && libScroll.value < 0.999f } }
+            // Frozen the whole time the Library is up, not only while it slides: the dock's glass kept the place it had
+            // while scrolled out of view, so on the way back it showed the middle of the picture for a moment.
+            // While it slides the glass keeps its picture (moving with the page); while the Library is fully up the
+            // dock's place is measured as if the page weren't scrolled.
+            val libFull by remember { androidx.compose.runtime.derivedStateOf { libScroll.value >= 0.999f } }
+            val screenPx = with(LocalDensity.current) { androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx() }
+            androidx.compose.runtime.SideEffect { GlassMotion.set(libSliding, if (libFull) screenPx else 0f) }
+            // Once the Library covers the page the dock closes behind it, so coming back shows it closed (its dimmed
+            // open look flashed dark for a moment on the way back).
+            LaunchedEffect(libFull) { if (libFull) expanded = false }
+            val homeVisible by remember { androidx.compose.runtime.derivedStateOf { homeAlphaState.value > 0.001f && libScroll.value < 0.999f } }
+            // Kept composed even while covered (only not drawn): leaving the composition restarted the carousel, so
+            // its backdrop slid in again when you came back from the Library.
+            Box(
+                Modifier.fillMaxSize().graphicsLayer { alpha = if (homeVisible || homePrep || (screen == Screen.Home && !folderOpen)) homeAlphaState.value else 0f; translationY = -libScroll.value * size.height }
                     .focusProperties { canFocus = screen == Screen.Home && pickerFor == null && !folderOpen && !menuOpen }
             ) {
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (DebugHide.intValue and 2 != 0) 0f else 1f }) {
-                    HeroSection(app, s, hidden = expanded || folderOpen, paused = screen != Screen.Home, metrics = metrics, shownUrl = shownUrl,
+                    HeroSection(app, s, hidden = expanded || folderOpen, paused = screen != Screen.Home, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onCustomUp = {
                             if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
@@ -465,7 +514,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         })
                 }
                 if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, onSettings = { onScreen(Screen.Settings) }, onMenu = { pressed -> if (!menuOpen && (pressed || android.os.SystemClock.uptimeMillis() - menuClosedAt > 400)) menuOpen = true }, modifier = Modifier.fillMaxWidth().align(Alignment.TopStart))
+                // Your own background: the dock may sit in the middle or as a column on the left.
+                val customPos = if (settings.bgMode != "carousel") settings.dockPos else "bottom"
                 Dock(
+                    vertical = customPos == "left", centered = customPos == "center",
+                    onLibrary = { libFromDock = true; onScreen(Screen.Library) },
                     app = app, s = s, metrics = metrics, screenH = screenHdp, radius = radius,
                     expanded = expanded, onExpanded = { expanded = it },
                     movingPkg = movingPkg, onMoveKey = onMoveKey, firstTile = firstTile, heroFocus = heroFocus,
@@ -480,11 +533,20 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             android.widget.Toast.makeText(ctx, "Apps folder hidden. Show it again: Settings → Dock & icons", android.widget.Toast.LENGTH_LONG).show()
                         },
                     )) },
-                    modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = if (DebugHide.intValue and 8 != 0) 0f else 1f },
+                    modifier = Modifier.align(when (customPos) { "center" -> Alignment.Center; "left" -> Alignment.CenterStart; else -> Alignment.BottomCenter })
+                        .onFocusChanged { dockHasFocus = it.hasFocus }
+                        .graphicsLayer {
+                            alpha = if (DebugHide.intValue and 8 != 0) 0f else 1f
+                            translationY = (1f - dockShown.value) * (metrics.collapsedH + metrics.bottomMargin + 6 * s) * this.density
+                            if (customPos == "left") { translationY = 0f; translationX = -(1f - dockShown.value) * (metrics.cellW + 60 * s) * this.density }
+                        },
                     onCover = { dockCover.value = it },
                 )
             }
-            if (folderOpen) {
+            // The folder fades out over the home screen instead of vanishing: the dock's glass is drawn again under it
+            // first (it showed black for a couple of frames as the folder closed).
+            androidx.compose.animation.AnimatedVisibility(folderOpen, enter = androidx.compose.animation.EnterTransition.None,
+                exit = androidx.compose.animation.fadeOut(tween(220, delayMillis = 60))) {
                 FolderOverlay(
                     app, s, metrics, radius, screenHdp,
                     moving = folderMoving, onMoveDone = { folderMoving = null }, blocked = pickerFor != null,
@@ -511,7 +573,31 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 onSettings = { menuClosedAt = android.os.SystemClock.uptimeMillis(); menuOpen = false; onScreen(Screen.Settings) },
             )
             if (screen == Screen.Settings) SettingsScreen(app, settingsCat) { settingsCat = 0; onScreen(Screen.Home) }
-            if (screen == Screen.Library) LibraryScreen(app) { onScreen(Screen.Home) }
+            // Ready before you press Down: the Library is built (off screen, not drawn) once the dock is selected,
+            // so the page scrolls up at once instead of waiting for it to be laid out.
+            // Built a few seconds after the home screen is up, not the moment the dock is selected (that made the
+            // first move down into the dock stutter).
+            LaunchedEffect(settings.libraryDown) { if (settings.libraryDown && !libWarm) { delay(5_000); libWarm = true } }
+            // Read through derivedStateOf: reading the animation itself here recomposed the whole home screen every frame.
+            val libMoving by remember { androidx.compose.runtime.derivedStateOf { libScroll.value > 0.001f } }
+            if (screen == Screen.Library || libMoving || (libWarm && settings.libraryDown && screen == Screen.Home)) Box(Modifier.fillMaxSize().graphicsLayer {
+                val on = screen == Screen.Library || libScroll.value > 0.001f
+                if (!on) { alpha = 0f; translationY = size.height }
+                // Also while it scrolls back down after Up (libFromDock is cleared at the very end): without this the
+                // Library flashed in place over the home screen for a frame.
+                else if (libFromDock || screen != Screen.Library) translationY = (1f - libScroll.value) * size.height
+            }) {
+                val back: () -> Unit = {
+                    if (libFromDock) scope.launch {
+                        homePrep = true
+                        repeat(3) { androidx.compose.runtime.withFrameNanos { } }
+                        onScreen(Screen.Home)
+                        delay(40); runCatching { firstTile.requestFocus() }
+                        delay(600); homePrep = false
+                    } else onScreen(Screen.Home)
+                }
+                LibraryScreen(app, onTopUp = if (libFromDock) back else null, active = screen == Screen.Library) { back() }
+            }
             pickerFor?.let { e ->
                 IconPicker(
                     app, e,
@@ -619,6 +705,37 @@ private object BakeCache {
  * Done once per picture on a background thread; drawing it is then a single full-screen copy.
  */
 @Volatile private var backdrop565 = false
+/** "1280 enhanced": pictures smaller than the screen are sharpened after scaling up. */
+@Volatile private var backdropSharpen = false
+
+/**
+ * Unsharp mask (amount 0.55, a 3-pixel box blur), on the CPU, once per picture as it is prepared: a 1280 px picture
+ * scaled to the screen looks as crisp as a bigger one, with no halos.
+ */
+private fun sharpen(b: android.graphics.Bitmap) {
+    if (b.config != android.graphics.Bitmap.Config.ARGB_8888) return
+    val w = b.width; val h = b.height
+    val px = IntArray(w * h); b.getPixels(px, 0, w, 0, 0, w, h)
+    val tmp = IntArray(w * h)
+    // Horizontal then vertical box blur of radius 1, per channel (packed).
+    for (y in 0 until h) { val o = y * w
+        for (x in 0 until w) {
+            val a = px[o + maxOf(0, x - 1)]; val c = px[o + x]; val d = px[o + minOf(w - 1, x + 1)]
+            tmp[o + x] = ((((a shr 16) and 255) + ((c shr 16) and 255) + ((d shr 16) and 255)) / 3 shl 16) or
+                ((((a shr 8) and 255) + ((c shr 8) and 255) + ((d shr 8) and 255)) / 3 shl 8) or (((a and 255) + (c and 255) + (d and 255)) / 3)
+        } }
+    for (y in 0 until h) { val up = maxOf(0, y - 1) * w; val o = y * w; val dn = minOf(h - 1, y + 1) * w
+        for (x in 0 until w) {
+            val a = tmp[up + x]; val c = tmp[o + x]; val d = tmp[dn + x]
+            val br = (((a shr 16) and 255) + ((c shr 16) and 255) + ((d shr 16) and 255)) / 3
+            val bg = (((a shr 8) and 255) + ((c shr 8) and 255) + ((d shr 8) and 255)) / 3
+            val bb = ((a and 255) + (c and 255) + (d and 255)) / 3
+            val p = px[o + x]
+            val r = (((p shr 16) and 255) * 155 - br * 55) / 100; val g = (((p shr 8) and 255) * 155 - bg * 55) / 100; val bl = ((p and 255) * 155 - bb * 55) / 100
+            px[o + x] = (0xFF shl 24) or (r.coerceIn(0, 255) shl 16) or (g.coerceIn(0, 255) shl 8) or bl.coerceIn(0, 255)
+        } }
+    b.setPixels(px, 0, w, 0, 0, w, h)
+}
 
 private fun bakeBackdrop(src: ImageBitmap, w: Int, h: Int, hScrim: Boolean = true): ImageBitmap {
     var bmp = src.asAndroidBitmap()
@@ -630,6 +747,7 @@ private fun bakeBackdrop(src: ImageBitmap, w: Int, h: Int, hScrim: Boolean = tru
     val dw = bmp.width * scale; val dh = bmp.height * scale
     val dst = android.graphics.RectF((w - dw) / 2f, (h - dh) / 2f, (w + dw) / 2f, (h + dh) / 2f)
     c.drawBitmap(bmp, null, dst, android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.DITHER_FLAG))
+    if (backdropSharpen && bmp.width < w * 0.9f) runCatching { sharpen(out) }
     val p = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG)
     p.shader = android.graphics.LinearGradient(0f, 0f, w * 0.62f, 0f, 0xE0000000.toInt(), 0x00000000, android.graphics.Shader.TileMode.CLAMP)
     if (hScrim) c.drawRect(0f, 0f, w * 0.62f, h.toFloat(), p)
@@ -714,7 +832,7 @@ private fun FadeBackdrop(prev: ImageBitmap?, cur: ImageBitmap?, mix: androidx.co
 
 @Composable
 private fun HeroSection(
-    app: GlassApp, s: Float, hidden: Boolean, paused: Boolean, metrics: DockMetrics,
+    app: GlassApp, s: Float, hidden: Boolean, paused: Boolean, metrics: DockMetrics, dockShown: androidx.compose.runtime.State<Float> = androidx.compose.runtime.mutableFloatStateOf(1f),
     heroFocus: FocusRequester, firstTile: FocusRequester, onBackdrop: (String?) -> Unit,
     shownUrl: androidx.compose.runtime.State<String?> = androidx.compose.runtime.mutableStateOf(null),
     onCustomUp: () -> Unit = {},
@@ -955,7 +1073,8 @@ private fun HeroSection(
                 total = items.size, current = index.mod(items.size), mode = settings.dotsMode, max = settings.dotsMax, s = s,
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .padding(bottom = (metrics.collapsedH + metrics.bottomMargin + 10 * s).dp)
-                    .graphicsLayer { this.alpha = dotsAlpha },
+                    // Hidden dock: the dots go down to the bottom with it.
+                    .graphicsLayer { this.alpha = dotsAlpha; translationY = (1f - dockShown.value) * (metrics.collapsedH + metrics.bottomMargin - 14 * s) * density },
             )
         }
     }
@@ -1175,11 +1294,11 @@ private fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
         var ph = sqrt(area / pr); var pw = ph * pr
         if (pw > maxW) { pw = maxW; ph = pw / pr }
         if (ph > maxH) { ph = maxH; pw = ph * pr }
-        Image(pinnedLogo, item.name, contentScale = ContentScale.Fit, alignment = Alignment.CenterStart, modifier = Modifier.size(pw.dp, ph.dp))
+        Image(pinnedLogo, item.name, contentScale = ContentScale.Fit, alignment = Alignment.CenterStart, colorFilter = logoTint(), modifier = Modifier.size(pw.dp, ph.dp))
         return
     }
     AsyncImage(
-        model = req, contentDescription = item.name, contentScale = ContentScale.Fit, alignment = Alignment.CenterStart,
+        model = req, contentDescription = item.name, contentScale = ContentScale.Fit, alignment = Alignment.CenterStart, colorFilter = logoTint(),
         onSuccess = { st ->
             val sz = st.painter.intrinsicSize
             if (sz.width > 0f && sz.height > 0f) ratio = sz.width / sz.height
@@ -1191,6 +1310,10 @@ private fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
         modifier = Modifier.size(w.dp, h.dp).alpha(if (ratio == null) 0f else 1f),
     )
 }
+
+/** Apple style: the logo's shape in white (its colours dropped). */
+private val WhiteLogo = ColorFilter.tint(Color.White, BlendMode.SrcIn)
+@Composable private fun logoTint(): ColorFilter? = if ((LocalContext.current.applicationContext as GlassApp).settings.logoWhite) WhiteLogo else null
 
 @Composable
 private fun Chip(text: String, s: Float) {
@@ -1451,6 +1574,11 @@ private fun Dock(
     folderFocus: FocusRequester, tileFocus: HashMap<String, FocusRequester>, onMove: () -> Unit,
     onMenu: (AppEntry) -> Unit, onFolder: () -> Unit, onFolderMenu: () -> Unit, modifier: Modifier,
     onCover: (androidx.compose.ui.geometry.Rect) -> Unit = {},
+    /** A column on the left (your own background only). */
+    vertical: Boolean = false,
+    /** In the middle of the screen (your own background only): no margin under it. */
+    centered: Boolean = false,
+    onLibrary: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val settings = app.settings
@@ -1463,6 +1591,18 @@ private fun Dock(
         apps.toMutableList<AppEntry?>().apply { if (showFolder) add(p, null) }
     }
     val rows = remember(items) { items.chunked(DOCK_COLUMNS) }
+    // Fewer apps than a full row: the dock wraps them (the tiles keep their size).
+    val cols = if (settings.dockFit) items.size.coerceIn(1, DOCK_COLUMNS) else DOCK_COLUMNS
+    val side = metrics.sideMargin + (DOCK_COLUMNS - cols) * (metrics.cellW + metrics.gap) / 2f
+    // Down from the last row opens the Library.
+    val edge: (androidx.compose.ui.focus.FocusDirection) -> Boolean = { d ->
+        if (d == androidx.compose.ui.focus.FocusDirection.Down && settings.libraryDown) { onLibrary(); true } else false
+    }
+    if (vertical) {
+        VerticalDock(app, s, metrics, screenH, radius, items, movingPkg, onMoveKey, firstTile, heroFocus, folderFocus, tileFocus, onMove,
+            onMenu, onFolder, onFolderMenu, modifier, edge, onExpanded)
+        return
+    }
     // Move mode: a moved tile is laid out again in its new slot and loses focus, which then fell to the
     // carousel. Keep focus on the app being moved after every step.
     LaunchedEffect(items, movingPkg) {
@@ -1481,7 +1621,7 @@ private fun Dock(
     LaunchedEffect(expanded) { if (!expanded) scroll.animateScrollTo(0) }
 
     GlassPanel(
-        modifier = modifier.padding(horizontal = metrics.sideMargin.dp).padding(bottom = metrics.bottomMargin.dp).fillMaxWidth().layout { m, c ->
+        modifier = modifier.padding(horizontal = side.dp).padding(bottom = if (centered) 0.dp else metrics.bottomMargin.dp).fillMaxWidth().layout { m, c ->
             val px = hState.value.roundToPx()
             val p = m.measure(c.copy(minHeight = px, maxHeight = px))
             layout(p.width, px) { p.place(0, 0) }
@@ -1505,6 +1645,7 @@ private fun Dock(
             verticalArrangement = Arrangement.spacedBy(metrics.gap.dp),
         ) {
             rows.forEachIndexed { r, row ->
+                androidx.compose.runtime.CompositionLocalProvider(LocalEdge provides (if (r == rows.lastIndex) edge else { _ -> false })) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.gap.dp)) {
                     row.forEachIndexed { c, e ->
                         val idx = r * DOCK_COLUMNS + c
@@ -1532,10 +1673,60 @@ private fun Dock(
                             )
                         }
                     }
-                    repeat(DOCK_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+                }
                 }
             }
         }
+        }
+    }
+}
+
+/** The dock as a column on the left of the screen (your own background only): every app, scrolling. */
+@Composable
+private fun VerticalDock(
+    app: GlassApp, s: Float, metrics: DockMetrics, screenH: Float, radius: Int, items: List<AppEntry?>,
+    movingPkg: String?, onMoveKey: (KeyEvent) -> Boolean, firstTile: FocusRequester, heroFocus: FocusRequester,
+    folderFocus: FocusRequester, tileFocus: HashMap<String, FocusRequester>, onMove: () -> Unit,
+    onMenu: (AppEntry) -> Unit, onFolder: () -> Unit, onFolderMenu: () -> Unit, modifier: Modifier,
+    edge: (androidx.compose.ui.focus.FocusDirection) -> Boolean,
+    onExpanded: (Boolean) -> Unit,
+) {
+    val ctx = LocalContext.current
+    val cellW = metrics.cellW * 0.9f
+    val cellH = cellW / 1.6f
+    val fullH = metrics.padTop + items.size * cellH + (items.size - 1).coerceAtLeast(0) * metrics.gap + metrics.padBottom + 8 * s
+    val h = minOf(fullH, screenH * 0.84f)
+    GlassPanel(
+        modifier = modifier.padding(start = (28 * s).dp).width((cellW + 2 * metrics.padH).dp).height(h.dp),
+        radius = (radius * s).dp, style = app.settings.dockStyle, refract = true, cache = true,
+    ) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(start = metrics.padH.dp, end = metrics.padH.dp, top = metrics.padTop.dp, bottom = metrics.padBottom.dp),
+            verticalArrangement = Arrangement.spacedBy(metrics.gap.dp),
+        ) {
+            items.forEachIndexed { i, e ->
+                val last = i == items.lastIndex
+                val edges = buildSet {
+                    add(androidx.compose.ui.focus.FocusDirection.Left); add(androidx.compose.ui.focus.FocusDirection.Right)
+                    if (last) add(androidx.compose.ui.focus.FocusDirection.Down)
+                }
+                val base = Modifier.fillMaxWidth()
+                    .then(if (i == 0) Modifier.focusRequester(firstTile).focusProperties { up = heroFocus } else Modifier)
+                androidx.compose.runtime.CompositionLocalProvider(LocalEdge provides (if (last) edge else { _ -> false })) {
+                    if (e == null) key(FOLDER) {
+                        FolderTile(app, s, radius, moving = movingPkg == FOLDER, modifier = base.focusRequester(folderFocus),
+                            onFocus = { f -> if (f) { onExpanded(false); onMove() } }, onMoveKey = onMoveKey, onClick = onFolder, onLong = onFolderMenu, edges = edges)
+                    } else key(e.pkg) {
+                        DockTile(entry = e, app = app, s = s, radius = radius, moving = movingPkg == e.pkg,
+                            modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() }),
+                            onFocus = { f -> if (f) { onExpanded(false); onMove() } }, onMoveKey = onMoveKey,
+                            onClick = { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } },
+                            onLong = { onMenu(e) }, edges = edges)
+                    }
+                }
+            }
         }
     }
 }
@@ -1562,11 +1753,13 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
     // tiles the open dock took the TV GPU twice as long per frame.
     val veiled by remember(env.veil) { androidx.compose.runtime.derivedStateOf { (env.veil?.value ?: 0f) > 0.95f } }
     if ((flat || veiled) && (style == "liquid" || style == "clear" || style.startsWith("water"))) {
-        // Folder: frosted plate solid enough that transparent icons read cleanly on it.
+        // A light glass pane over the blurred page (open dock, Apps folder): it reads as the theme's glass, not a
+        // grey card (issue #8), and costs nothing (one flat fill, no refraction per icon).
+        val clearGlass = style.startsWith("water")
         Box(
             Modifier.fillMaxSize()
-                .background(Color(0xFF2A2C33).copy(alpha = if (focused) 0.92f else 0.78f))
-                .border(if (focused) 1.2.dp else 0.6.dp, Color.White.copy(alpha = if (focused) 0.55f else 0.12f), RoundedCornerShape(radius)),
+                .background(Color.White.copy(alpha = when { focused -> 0.22f; clearGlass -> 0.07f; else -> 0.11f }))
+                .border(if (focused) 1.2.dp else 0.7.dp, Color.White.copy(alpha = if (focused) 0.6f else if (clearGlass) 0.22f else 0.16f), RoundedCornerShape(radius)),
             contentAlignment = Alignment.Center, content = content,
         )
         return
@@ -1580,7 +1773,11 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
             Box(Modifier.matchParentSize(), contentAlignment = Alignment.Center, content = content)
         }
         "amoled" -> Box(Modifier.fillMaxSize().background(Color.Black).border(0.6.dp, Color.White.copy(alpha = if (focused) 0.5f else 0.10f), RoundedCornerShape(radius)), contentAlignment = Alignment.Center, content = content)
-        "bow" -> Box(Modifier.fillMaxSize().background(Color(0xFFF4F4F6)), contentAlignment = Alignment.Center, content = content)
+        // Like the iOS 26 light icons (Apple Music): a soft off-white that shades a little towards the bottom,
+        // with a fine bright rim, not a flat paper white. Selected, it brightens.
+        "bow" -> Box(Modifier.fillMaxSize().background(if (focused) BowFocused else BowRest)
+            .border(0.8.dp, Color.White.copy(alpha = if (focused) 0.9f else 0.55f), RoundedCornerShape(radius)),
+            contentAlignment = Alignment.Center, content = content)
         // Clear (matte): the dock behind is already frosted glass, so the plate is just a light veil over it.
         // Drawing the blurred picture again in every icon cost the TV GPU about as much as the whole page.
         "clear" -> Box(
@@ -1601,6 +1798,8 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
     }
 }
 
+private val BowRest = Brush.verticalGradient(listOf(Color(0xFFE1E1E5), Color(0xFFCECED4)))
+private val BowFocused = Brush.verticalGradient(listOf(Color(0xFFEDEDF0), Color(0xFFDADADF)))
 private val grayscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 private val whiteGlyph = ColorFilter.tint(Color.White, BlendMode.SrcIn)
 private val blackGlyph = ColorFilter.tint(Color(0xFF111114), BlendMode.SrcIn)
@@ -1667,11 +1866,17 @@ private fun TileFrame(
     bounce: Boolean = true,
     /** Directions with no neighbour inside the grid: pressing them bounces instead of moving focus. */
     edges: Set<androidx.compose.ui.focus.FocusDirection> = emptySet(),
+    zoom: String = "tile",
+    glow: String = "off",
+    glowColor: Color? = null,
     plate: @Composable (focused: Boolean, radius: Dp) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val glowA = animateFloatAsState(if (focused && glow != "off" && !moving) 1f else 0f, tween(220), label = "glow")
+    val gColor = if (glow == "white") Color.White else glowColor ?: Color.White
     // tvOS rubber band: at the edge, pressing further nudges the icon that way and it springs back.
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val onEdge = LocalEdge.current
     val nudge = remember { androidx.compose.animation.core.Animatable(androidx.compose.ui.geometry.Offset.Zero, androidx.compose.ui.geometry.Offset.VectorConverter) }
     val tileScope = rememberCoroutineScope()
     val backOwner = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current
@@ -1690,6 +1895,7 @@ private fun TileFrame(
             else -> return@keys false
         }
         if (ev.type != KeyEventType.KeyDown) return@keys true
+        if (dir in edges && onEdge(dir)) return@keys true
         if (dir in edges || !focusManager.moveFocus(dir)) {
             val d = 9f * s
             val push = when (dir) {
@@ -1708,7 +1914,7 @@ private fun TileFrame(
     // tvOS: the selected icon rises. Done as a layout offset so the glass behind it follows the icon.
     val rise by animateDpAsState(if (focused && lift) (-7 * s).dp else 0.dp, spring(0.7f, 420f), label = "tileRise")
     // Apple TV style: no frame. The icon lifts, grows a little and casts a soft shadow.
-    val scale by animateFloatAsState(if (focused) (if (moving) 1.14f else 1.09f) else 1f, spring(0.72f, 520f), label = "tileScale")
+    val scale by animateFloatAsState(if (focused) (if (moving) 1.14f else if (zoom == "tile") 1.09f else 1f) else 1f, spring(0.72f, 520f), label = "tileScale")
     val shadow by animateDpAsState(if (focused && solid) (16 * s).dp else 0.dp, tween(180), label = "tileShadow")
     val r = (radius * 0.75f * s).dp
     val shape = RoundedCornerShape(r)
@@ -1723,6 +1929,7 @@ private fun TileFrame(
         Box(
             Modifier.fillMaxWidth().aspectRatio(1.6f)
                 .offset { androidx.compose.ui.unit.IntOffset((nudge.value.x * density).toInt(), rise.roundToPx() + (nudge.value.y * density).toInt()) }
+                .drawBehind { with(Glow) { glow(gColor, glowA.value, grow = scale) } }
                 .graphicsLayer {
                     scaleX = scale; scaleY = scale
                     shadowElevation = shadow.toPx()
@@ -1763,11 +1970,17 @@ private fun DockTile(
     val art by produceState(app.apps.cachedArtwork(entry), entry.pkg, pack, rev) { value = app.apps.artwork(entry) }
     val solid = style == "amoled" || style == "bow"
     val colorOnFocus = app.settings.focusColor
-    TileFrame(s, radius, moving, label, alwaysLabel, modifier, onFocus, onMoveKey, onClick, onLong, solid, app.settings.tileLift, app.settings.edgeBounce, edges) { focused, r ->
+    val zoom = app.settings.tileZoom
+    val glow = app.settings.glow
+    val glowColor = if (glow == "color") art?.let { a -> remember(a) { Glow.colorOf("app:" + entry.pkg + rev, a.bmp.asAndroidBitmap()) } } else null
+    TileFrame(s, radius, moving, label, alwaysLabel, modifier, onFocus, onMoveKey, onClick, onLong, solid, app.settings.tileLift, app.settings.edgeBounce, edges,
+        zoom = zoom, glow = glow, glowColor = glowColor) { focused, r ->
+        // "Inside the glass": the tile stays put and only the icon grows in it.
+        val iz by animateFloatAsState(if (focused && zoom == "icon") 1.12f else 1f, spring(0.72f, 520f), label = "iconZoom")
         if (colorOnFocus) {
             val lit = animateFloatAsState(if (focused) 1f else 0f, tween(220), label = "lit")
-            TilePlate(style, focused, s, r, flat) { FocusColorArt(art, entry.label, s, lit, app.settings.focusPlate, restOnLight = style == "bow") }
-        } else TilePlate(style, focused, s, r, flat) { IconArt(art, entry.label, style, s) }
+            TilePlate(style, focused, s, r, flat) { Box(Modifier.fillMaxSize().graphicsLayer { scaleX = iz; scaleY = iz }) { FocusColorArt(art, entry.label, s, lit, app.settings.focusPlate, restOnLight = style == "bow") } }
+        } else TilePlate(style, focused, s, r, flat) { Box(Modifier.fillMaxSize().graphicsLayer { scaleX = iz; scaleY = iz }) { IconArt(art, entry.label, style, s) } }
     }
 }
 
@@ -1834,7 +2047,7 @@ private fun FolderOverlay(
     }
     BackHandler(enabled = moving != null, onBack = onMoveDone)
     BackHandler(enabled = moving == null && !blocked, onBack = onClose)
-    LaunchedEffect(Unit) { delay(180); runCatching { first.requestFocus() } }
+    LaunchedEffect(Unit) { delay(60); runCatching { first.requestFocus() } }
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
 
@@ -1850,7 +2063,7 @@ private fun FolderOverlay(
         AnimatedVisibility(shown, enter = fadeIn(tween(160))) {
             Column(Modifier.fillMaxWidth(0.9f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Apps", color = Color.White, fontSize = (26 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(bottom = (12 * s).dp))
-                GlassPanel(Modifier.fillMaxWidth().heightIn(max = (screenH * 0.74f).dp), radius = (radius * 1.6f * s).dp, style = app.settings.dockStyle, refract = false) {
+                GlassPanel(Modifier.fillMaxWidth().heightIn(max = (screenH * 0.74f).dp), radius = (radius * 1.6f * s).dp, style = app.settings.dockStyle, refract = false, cache = true) {
                     Column(
                         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding((20 * s).dp),
                         verticalArrangement = Arrangement.spacedBy((14 * s).dp),

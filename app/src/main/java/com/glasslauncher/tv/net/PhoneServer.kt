@@ -72,6 +72,10 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         if (!MessageDigest.isEqual(query(q, "t").toByteArray(), token.toByteArray())) { respond(c, 403, "text/plain", "Forbidden"); return }
         if (method == "GET" && path == "/") { respond(c, 200, "text/html", PAGE); return }
         if (method == "GET" && path == "/api/state") { respond(c, 200, "application/json", state().toString()); return }
+        if (method == "GET" && path == "/api/backup") {
+            respond(c, 200, "application/json", com.glasslauncher.tv.data.Backup.export(app).toString(1),
+                "Content-Disposition: attachment; filename=\"Glassio-backup.json\"\r\n"); return
+        }
         if (method != "POST") { respond(c, 404, "text/plain", "Not found"); return }
         if (path == "/api/bg/upload") {
             // Straight to the backgrounds folder, never held in memory (videos can be hundreds of MB).
@@ -79,7 +83,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             respond(c, 200, "application/json", msg.fold({ JSONObject().put("ok", true).put("message", it).toString() }, { err(it.message ?: "Upload failed") }))
             return
         }
-        val max = if (path == "/api/icon/upload") 8 * 1024 * 1024 else 64 * 1024
+        val max = if (path == "/api/icon/upload" || path == "/api/restore") 8 * 1024 * 1024 else 64 * 1024
         if (len !in 0..max) { respond(c, 400, "application/json", err("Too large")); return }
         val body = ByteArray(len)
         var read = 0
@@ -209,6 +213,27 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             app.settings.aerialUrls = (app.settings.aerialUrls + u).distinct(); "Video link added"
         }
         "/api/aerial/remove" -> { app.settings.aerialUrls = app.settings.aerialUrls - j.optString("url"); "Removed" }
+        "/api/restore" -> {
+            val n = com.glasslauncher.tv.data.Backup.restore(app, j)
+            Thread { Thread.sleep(1500); com.glasslauncher.tv.data.Backup.restart(app) }.start()
+            "Restored ($n parts). Glassio restarts, open this page again from the TV"
+        }
+        "/api/stremio/login" -> {
+            val ok = app.cw.stremio.login(j.optString("email").trim(), j.optString("password"))
+            if (ok) { Thread { runCatching { app.cw.syncStremio() } }.start(); "Stremio connected as ${app.cw.stremio.email}" } else error("Stremio didn't accept that email and password")
+        }
+        "/api/simkl/client" -> { app.cw.simkl.clientId = j.optString("id").trim(); "Simkl client ID saved. Sign in on the TV: Settings → Connections" }
+        "/api/camera/add" -> {
+            val name = j.optString("name").trim().replace("|", " ").ifBlank { "Camera" }; val url = j.optString("url").trim()
+            require(url.startsWith("rtsp://") || url.startsWith("http")) { "Use an rtsp:// or http(s):// link" }
+            app.settings.cameras = app.settings.cameras + "$name|$url"; "Camera added"
+        }
+        "/api/camera/rename" -> {
+            val i = j.optInt("i", -1); val name = j.optString("name").trim().replace("|", " ")
+            require(name.isNotBlank()) { "Type a name" }
+            app.settings.cameras = app.settings.cameras.mapIndexed { k, l -> if (k == i) name + "|" + l.substringAfter('|') else l }; "Camera renamed"
+        }
+        "/api/camera/remove" -> { val i = j.optInt("i", -1); app.settings.cameras = app.settings.cameras.filterIndexed { k, _ -> k != i }; "Camera removed" }
         else -> error("Unknown action")
     }
 
@@ -230,17 +255,21 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         fun shown(v: String) = if (v.startsWith("http")) v else v.substringAfterLast('/')
         val back = JSONObject().put("mode", st.bgMode).put("image", shown(st.bgImage)).put("video", shown(st.bgVideo)).put("files", files)
             .put("downloading", downloading).put("last", lastDownload)
-        return JSONObject().put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial)
+        val cams = JSONArray()
+        st.cameras.forEach { l -> cams.put(JSONObject().put("name", l.substringBefore('|')).put("host", runCatching { java.net.URI(l.substringAfter('|')).host }.getOrNull() ?: "")) }
+        val acc = JSONObject().put("nuvio", app.cw.nuvio?.connected == true).put("stremio", app.cw.stremio.connected)
+            .put("trakt", app.cw.trakt.connected).put("simkl", app.cw.simkl.connected)
+        return JSONObject().put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc)
             .put("tmdb", app.settings.tmdbToken.isNotBlank()).put("ha", app.settings.haWebhook.isNotBlank())
     }
 
     private fun err(m: String) = JSONObject().put("ok", false).put("error", m).toString()
 
-    private fun respond(c: Socket, code: Int, type: String, body: String) {
+    private fun respond(c: Socket, code: Int, type: String, body: String, extra: String = "") {
         val bytes = body.toByteArray(Charsets.UTF_8)
         val reason = when (code) { 200 -> "OK"; 400 -> "Bad Request"; 403 -> "Forbidden"; else -> "Not Found" }
         val head = "HTTP/1.1 $code $reason\r\nContent-Type: $type; charset=utf-8\r\nContent-Length: ${bytes.size}\r\n" +
-            "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n"
+            "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\n" + extra + "Connection: close\r\n\r\n"
         val out = c.getOutputStream()
         out.write(head.toByteArray(Charsets.UTF_8)); out.write(bytes); out.flush()
     }
@@ -250,7 +279,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
 <title>Glassio</title><style>
 body{margin:0;background:#0b0d16;color:#eef1fb;font:16px/1.5 -apple-system,Roboto,Segoe UI,sans-serif}
 main{max-width:620px;margin:0 auto;padding:22px 16px 60px}h1{font-size:26px;margin:6px 0 0}h2{font-size:13px;letter-spacing:.12em;color:#9d8cff;margin:30px 0 8px;text-transform:uppercase}
-p{color:#98a2bd;margin:4px 0 12px}input[type=text],textarea{width:100%;box-sizing:border-box;background:#141827;color:#eef1fb;border:1px solid #232a40;border-radius:12px;padding:12px;font:15px monospace}
+p{color:#98a2bd;margin:4px 0 12px}input[type=text],input[type=password],textarea{width:100%;box-sizing:border-box;background:#141827;color:#eef1fb;border:1px solid #232a40;border-radius:12px;padding:12px;font:15px monospace}
 button{background:#7b61ff;color:#fff;border:0;border-radius:12px;padding:11px 16px;font-size:15px;font-weight:600;margin-top:8px}
 button.s{background:#232a40;color:#eef1fb;padding:8px 12px;font-size:13px;margin:0 4px 0 0}button.d{background:#3a1f2b;color:#ff8f9b}
 #msg{position:sticky;top:0;padding:10px 0;min-height:1.4em;font-weight:600}.ok{color:#6ee7b7}.bad{color:#ff8f9b}
@@ -272,6 +301,13 @@ button.s{background:#232a40;color:#eef1fb;padding:8px 12px;font-size:13px;margin
 <h2>Home Assistant webhook</h2><input type="text" id="ha" placeholder="http://homeassistant.local:8123/api/webhook/your_id"><button onclick="send('/api/ha',{url:v('ha')},'ha')">Save webhook</button>
 <h2>Screensaver video links</h2><div id="aerial"></div>
 <input type="text" id="av" placeholder="https://.../video.mp4"><button onclick="send('/api/aerial/add',{url:v('av')},'av')">Add video</button>
+<h2>Accounts</h2><p id="acc"></p>
+<input type="text" id="se" placeholder="Stremio email"><input type="password" id="sp" placeholder="Stremio password" style="margin-top:8px"><button onclick="send('/api/stremio/login',{email:v('se'),password:v('sp')},'sp')">Sign in to Stremio</button>
+<input type="text" id="sk" placeholder="Simkl client ID (simkl.com/settings/developer)" style="margin-top:14px"><button onclick="send('/api/simkl/client',{id:v('sk')},'sk')">Save Simkl client ID</button>
+<p>Nuvio, Trakt and Simkl sign in with a code on the TV: Settings &rarr; Connections.</p>
+<h2>Cameras (RTSP)</h2><div id="cams"></div><input type="text" id="cn" placeholder="Name, e.g. Garden"><input type="text" id="cu" placeholder="rtsp://user:pass@camera:554/stream" style="margin-top:8px"><button onclick="send('/api/camera/add',{name:v('cn'),url:v('cu')},'cu')">Add camera</button>
+<h2>Backup</h2><p>Every setting, catalog, Library and account, tokens included. Keep the file private.</p>
+<div class="row"><button onclick="location.href='/api/backup?t='+encodeURIComponent(T)">Download backup</button><input type="file" id="rf" accept=".json,application/json" style="display:none" onchange="restore()"><button class="s" onclick="document.getElementById('rf').click()">Restore from a file</button></div>
 </main><script>
 var T=new URLSearchParams(location.search).get('t')||'';
 function v(i){return document.getElementById(i).value.trim()}
@@ -288,6 +324,7 @@ x.open('POST','/api/bg/upload?use=1&name='+encodeURIComponent(f.name)+'&t='+enco
 x.upload.onprogress=function(e){if(e.lengthComputable)p.textContent='Uploading '+Math.round(e.loaded*100/e.total)+'%'};
 x.onload=function(){p.textContent='';try{var r=JSON.parse(x.responseText);say(r.ok?r.message:r.error,r.ok)}catch(e){say('Upload failed',false)}document.getElementById('bf').value='';load()};
 x.onerror=function(){p.textContent='';say('Upload failed',false)};say('Uploading...',true);x.send(f)}
+function restore(){var f=document.getElementById('rf').files[0];if(!f)return;if(!confirm('Replace every setting on the TV with this backup?'))return;f.text().then(function(t){say('Restoring...',true);return fetch('/api/restore?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:t})}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok)}).catch(function(){say('Restore failed',false)})}
 var BGM=[['carousel','Title backdrops'],['image','My picture'],['video','My video'],['aerial','Screensaver']],poll=0;
 function load(){api('/api/state').then(function(d){
 var a=document.getElementById('addons');a.textContent='';d.addons.forEach(function(x){var c=el('div','card');var t=el('b','',x.name);if(x.account)t.appendChild(el('span','tag','Nuvio account'));c.appendChild(t);c.appendChild(el('small','',x.host));if(!x.account){var r=el('div','row');var b=el('button','s d','Remove');b.onclick=function(){send('/api/addon/remove',{url:x.url})};r.appendChild(b);c.appendChild(r)}a.appendChild(c)});
@@ -307,6 +344,8 @@ document.getElementById('tk').placeholder=d.tmdb?'Token saved (type a new one to
 var hs=document.getElementById('ha');hs.previousElementSibling.innerHTML='Home Assistant webhook'+(d.ha?' <span class="ok">&#10003; Set</span>':'');
 document.getElementById('ha').placeholder=d.ha?'Webhook saved (type a new one to replace)':'http://homeassistant.local:8123/api/webhook/your_id';
 var z=document.getElementById('aerial');z.textContent='';d.aerial.forEach(function(u){var c=el('div','card');c.appendChild(el('small','',u.replace(/^(https?:\/\/[^\/]+).*$/,'$1')));var r=el('div','row');var b=el('button','s d','Remove');b.onclick=function(){send('/api/aerial/remove',{url:u})};r.appendChild(b);c.appendChild(r);z.appendChild(c)})
+var A=d.accounts||{};document.getElementById('acc').innerHTML=['nuvio','stremio','trakt','simkl'].map(function(k){return k.charAt(0).toUpperCase()+k.slice(1)+(A[k]?' <span class="ok">&#10003; connected</span>':' <span style="color:#6b7794">not connected</span>')}).join(' &middot; ');
+var cm=document.getElementById('cams');cm.textContent='';(d.cams||[]).forEach(function(x,i){var c=el('div','card');c.appendChild(el('b','',x.name));c.appendChild(el('small','',x.host));var r=el('div','row');var bn=el('button','s','Rename');bn.onclick=function(){var n=prompt('Camera name',x.name);if(n)send('/api/camera/rename',{i:i,name:n})};var b=el('button','s d','Remove');b.onclick=function(){if(confirm('Remove '+x.name+'?'))send('/api/camera/remove',{i:i})};r.appendChild(bn);r.appendChild(b);c.appendChild(r);cm.appendChild(c)});
 }).catch(function(){say('Cannot reach the TV',false)})}
 load();
 </script></body></html>"""

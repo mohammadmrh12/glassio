@@ -57,3 +57,101 @@ When reporting a bug, include steps to reproduce it, expected and actual behavio
 Do not report exploitable vulnerabilities in public issues. Follow the instructions in [SECURITY.md](SECURITY.md).
 
 By participating, you agree to follow the project's [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Developer guide
+
+How the code is laid out, and how to add or fix something without breaking what is there.
+
+### Build and test
+
+You need JDK 17 and the Android SDK (Android Studio has both).
+
+```sh
+./gradlew testDebugUnitTest   # unit tests (seconds, no TV needed)
+./gradlew lintDebug           # Android lint
+./gradlew assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Every pull request runs the same three steps on GitHub (the **Build** check). A red ✗ means something to fix
+before it can be merged.
+
+Trakt, Nuvio and Simkl need app ids that are not in the repository. Put your own in `local.properties`
+(never commit it):
+
+```properties
+TRAKT_CLIENT_ID=...
+NUVIO_ANON_KEY=...
+SIMKL_CLIENT_ID=...
+```
+
+Without them the app builds and runs; those sign-ins just ask for an id.
+
+### Where things are
+
+```
+app/src/main/java/com/glasslauncher/tv/
+  GlassApp.kt            Starts everything once: settings, image loader, repositories
+  MainActivity.kt        The launcher screen, idle timer for the screensaver
+  DevHooks.kt            Testing from a computer with adb (see below)
+  HomeKeyService.kt      Home button → Glassio, hold Home, camera overlay
+  RecentsActivity.kt     Hold Home: open apps
+  data/                  No UI. Settings, catalogs, accounts (Nuvio, Trakt, Simkl, Stremio), backup, languages
+  ui/                    Compose screens: HomeScreen (carousel + dock), SettingsScreen, SideMenu, LibraryScreen,
+                         SetupScreen, Glass (the liquid-glass surfaces), Dialogs
+  saver/                 Screensaver: videos, the TV screensaver (DreamService), video cache
+  net/                   The "Manage from phone" web page
+app/src/test/            Unit tests that run on the computer
+```
+
+### Adding a setting
+
+1. **data/Settings.kt**: one line, the key is the property name:
+
+   ```kotlin
+   var myOption: Boolean get() = b("myOption", false); set(v) = putB("myOption", v)
+   ```
+
+   Pick the default that keeps today's behaviour. Reading it in a composable recomposes automatically when it
+   changes.
+2. **ui/SettingsScreen.kt**: add a row in the right section: `Toggle(...)` for on/off, `Adjust(...)` for a
+   choice cycled with ◀ ▶, `Act(...)` for a button.
+3. Use it where it matters (`app.settings.myOption`).
+4. Optional: add the row's title to `data/I18n.kt` for the other languages.
+
+The **SettingsKeysTest** fails if a key doesn't match its property name or is used twice.
+
+**Never rename an existing key.** People's saved value would be lost. Rename the property if you must, and
+keep the old key string.
+
+Backup and restore pick a new setting up on their own.
+
+### Fixing without breaking
+
+- Keep a change small and about one thing; several fixes are easier to review as several pull requests.
+- The TV is the slow part: on a Google TV Streamer the GPU, not the CPU, sets the frame rate. Drawing a
+  full-screen picture twice, or a blur every frame, shows. Measure with
+  `adb shell dumpsys gfxinfo com.glasslauncher.tv` before and after.
+- Anything shown on every frame (the dock, the carousel, the glass) should read state inside `graphicsLayer {}`
+  or `drawBehind {}`, so a change redraws instead of recomposing.
+- Network and disk work goes on `Dispatchers.IO`, never on the main thread.
+- Pure logic (parsing, choosing, formatting) is easiest to keep working if it has a small test in
+  `app/src/test`.
+
+### Testing from a computer
+
+Opening screens works for anyone:
+
+```sh
+adb shell am start -n com.glasslauncher.tv/.MainActivity --ez open_settings 3   # or open_menu, open_library, open_folder, start_saver
+```
+
+Changing settings needs the dev key, so other apps on the TV can't do it:
+
+```sh
+K=$(adb shell cat /sdcard/Android/data/com.glasslauncher.tv/files/devkey)
+adb shell am start -n com.glasslauncher.tv/.MainActivity --es dev $K --es pref theme=water_still
+adb shell am start -n com.glasslauncher.tv/.MainActivity --es dev $K --ez dump_prefs true   # logcat -s GlassPrefs
+```
+
+Debug builds accept these without the key.

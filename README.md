@@ -3,102 +3,108 @@
 # Glassio
 
 **An Apple TV–style home screen for Google TV / Android TV**, with real liquid glass, a carousel fed by your
-Nuvio add-on catalogs, Continue Watching from Nuvio Legacy, tvOS-style icons, weather, screensavers and
-Home Assistant hooks. Built with Kotlin and Jetpack Compose. Tested on the Google TV Streamer (4K).
+Nuvio and Stremio add-on catalogs, Continue Watching from Nuvio, Stremio, Trakt and Simkl, a Library, its own 4K / HDR
+aerial screensaver, tvOS-style icons, weather, cameras and Home Assistant hooks. Built with Kotlin and Jetpack Compose.
+Tested on the Google TV Streamer (4K).
 
-[العربية — دليل الاستخدام الكامل](docs/README.ar.md) · [Discussions](https://github.com/mohammadmrh12/glassio/discussions) · [Report a bug](https://github.com/mohammadmrh12/glassio/issues/new/choose)
+[العربية — دليل الاستخدام الكامل](docs/README.ar.md) · [Discussions](https://github.com/mohammadmrh12/glassio/discussions) · [Report a bug](https://github.com/mohammadmrh12/glassio/issues/new/choose) · [Contributing](CONTRIBUTING.md)
 
-![Home](docs/screenshots/01-home.jpg)
+![Home](docs/screenshots/50-home.jpg)
 
 | | |
 |---|---|
-| ![Carousel](docs/screenshots/02-carousel.jpg) | ![Dock](docs/screenshots/03-dock-focus.jpg) |
-| ![Apps open](docs/screenshots/04-apps-open.jpg) | ![Apps folder](docs/screenshots/05-apps-folder.jpg) |
-| ![App menu](docs/screenshots/06-app-menu.jpg) | ![Icon picker](docs/screenshots/07-icon-picker-appletv.jpg) |
-| ![Performance](docs/screenshots/10-settings-performance.jpg) | ![Carousel settings](docs/screenshots/11-settings-carousel.jpg) |
-| ![Dock & icons](docs/screenshots/13-settings-dock-icons.jpg) | ![Catalogs](docs/screenshots/14-settings-catalogs.jpg) |
-| ![Continue Watching](docs/screenshots/15-settings-continue-watching.jpg) | ![Nuvio & Home Assistant](docs/screenshots/16-settings-nuvio-ha.jpg) |
-| ![Screensaver](docs/screenshots/17-settings-screensaver.jpg) | ![About](docs/screenshots/20-settings-about.jpg) |
-| ![Menu](docs/screenshots/40-menu.jpg) | ![Themes](docs/screenshots/41-menu-themes.jpg) |
-| ![Background](docs/screenshots/42-menu-background.jpg) | ![Library](docs/screenshots/43-library.jpg) |
-| ![Screensaver as background](docs/screenshots/44-screensaver-background.jpg) | ![Black on white](docs/screenshots/45-theme-black-on-white.jpg) |
+| ![Dock with glow](docs/screenshots/51-dock-glow.jpg) | ![Library](docs/screenshots/52-library-continue-watching.jpg) |
+| ![Menu with TV info](docs/screenshots/53-menu-tv-info.jpg) | ![Screensaver, Netflix style](docs/screenshots/54-screensaver-netflix.jpg) |
+| ![Setup: Hello](docs/screenshots/55-setup-hello.jpg) | ![Setup: Connect](docs/screenshots/57-setup-connect.jpg) |
+| ![Carousel](docs/screenshots/02-carousel.jpg) | ![Apps folder](docs/screenshots/05-apps-folder.jpg) |
+| ![Library settings](docs/screenshots/58-settings-library.jpg) | ![Screensaver settings](docs/screenshots/59-settings-screensaver.jpg) |
+| ![System](docs/screenshots/60-settings-system.jpg) | ![About](docs/screenshots/61-settings-about.jpg) |
+| ![Themes](docs/screenshots/41-menu-themes.jpg) | ![Black on white](docs/screenshots/45-theme-black-on-white.jpg) |
 
 ---
 
 ## Features
 
-**New in 1.9.7**
-- **Focus plate**: White, Dark, Glass or Black AMOLED behind the selected icon — also in the menu's Themes page.
-- **Add-ons from your Nuvio account** (Settings → Catalogs): merged with the TV's own, an add-on never shows up twice. The Nuvio account row is also in Catalogs and Nuvio & Home Assistant.
-- **Backgrounds from your phone** (Manage from phone): picture or video link, save a link to the TV, upload a picture or video from the phone, pick or delete files in the backgrounds folder.
-- **Aerial Views as the TV screensaver** on / off and its start time (20 s, 30 s, 1 min, 2 min) through ADB, in Settings → Screensaver. Glassio's own screensaver can start after 10 s or 30 s.
-- **TMDB token check**: a green check when the token works with TMDB, red when it's refused or when the API Key was pasted instead of the API Read Access Token. The Home Assistant webhook shows a green check when set.
-- **Smoother dock**: it opens at full frame rate (the page dims and blurs right after), moving inside the open dock is smooth, and the menu opens every time you go up to the settings button.
-
-**Menu, Library, themes and backgrounds (1.9.5)**
-- **Menu** at the settings button, like the Apple TV Control Center: clock, date, weather (high / low, feels like, humidity, wind, city), then Library, Glassio settings, Android settings, Wi-Fi, Themes and Background. It opens when you go up to the button (or with OK, or never: Settings → Menu, Library & themes), and every part can be hidden.
-- **Library**: the **+** button between Play and Next saves the title. Grey page, five posters a row; OK opens the title, hold OK removes it. It also shows your **Nuvio account library** (Nuvio Legacy, official Nuvio and the forks that sync with the account; sign in with a QR code) and your **Trakt watchlist**; + can save to both.
-- **Themes**: Black on white, Black AMOLED, Liquid, Clear, Glass still, Glass is glass — for the dock, the icons and the menu (black ones keep a clear matte dock). *Colour on focus* is in the same list.
-- **Background**: each title's backdrop, **your picture** or **your video** (a link, or a file in the backgrounds folder shown in Settings → Clock & glass), or **the screensaver's aerials**. With your own background the page is just that (no title or buttons); the glass follows the video.
-- **Turn the accessibility service on with ADB** from Settings → System, for TVs that grey it out (Google TV Streamer).
-- Faster and lighter: the open dock and slides cost far less GPU, about half the memory, 16-bit backdrops in Performance, logos and pictures retry when a download fails.
+**New in 1.9.9**
+- **First-run setup**: a liquid-glass welcome — restore a backup, choose a look, sign in to Nuvio, Stremio, Trakt and
+  Simkl with a QR code right there (✓ when connected), add catalogs from your phone, or *Later*.
+- **Accounts in one place** (Settings → **Connections**): Nuvio, Stremio (QR or email), Trakt, Simkl (OAuth 2.0 device
+  sign-in), TMDB, Home Assistant and cameras. Continue Watching from **Stremio** and **Simkl** too, catalogs from the
+  Stremio account's add-ons. Removing a title here removes it in the app it came from.
+- **Library**: opens with **Down from the dock** and scrolls up like Apple TV (Up from its top row goes back). A
+  **Continue Watching** row with where each title came from (a dot in the app's colour), episode and progress inside
+  the card — backdrop or poster shape, size. Asks before removing. Simkl *Plan to watch*.
+- **Screensaver, rebuilt**: the [aerial-videos.netlify.app](https://aerial-videos.netlify.app) collections (Apple tvOS,
+  Amazon Fire TV, Jetson Creative, Robin Fourcade) and your own videos, in **real 4K, HDR and Dolby Vision**, kept on the
+  TV as they play. Fade between videos, shuffle or one video (with pictures of each), **◀ ▶ change the video, OK hides the
+  info**. Clock, date, weather, place and TV info in **Apple** style (corner, size, how long) or **Netflix** style (lines
+  one by one top left; red, white or black bar; hide when complete). Glassio can be **the TV's own screensaver** (in every
+  app, via ADB); it no longer starts under another screensaver (#9).
+- **Menu**: size, order (pick a row up with OK, move it with ▲ ▼), **TV info** under the weather (IP, CPU, GPU, RAM,
+  storage), a **live camera** (RTSP / HLS, ONVIF search) with a LIVE badge, a screensaver page.
+- **Dock**: fits fewer apps, can **hide** below the screen, sits in the **middle or as a column on the left** with your own
+  background (#6), glass tiles in the open dock and the Apps folder (#8), **icon zoom** inside the glass or the whole tile,
+  a soft **glow** in the app's colour or white (size adjustable).
+- **Hold Home**: open apps like the Apple TV app switcher (▲ closes an app for real), a camera in the corner over any app,
+  the Library or the menu.
+- **Carousel**: *Surprise me* (a random mix from your catalogs, refreshed on its own), Apple-style **white logo**,
+  + button toggle, **1280 enhanced** pictures, a bigger picture cache.
+- **Backup and restore** of every setting, catalog, Library and account (Download/Glassio on the TV or from your phone).
+  **Open Glassio when the TV starts**, **9 languages**, **Manage from phone** stays on after you leave the screen and has
+  accounts, cameras and backup.
+- Faster: the video background uses less than half the CPU, the dock opens and the Library scrolls at 60 fps, no logo flash
+  before the screensaver, Wi-Fi coming back no longer jumps to Glassio.
+- Settings reordered (Connections, Catalogs, Continue Watching, Library, Carousel, Dock, Menu, Clock & glass, Screensaver,
+  Performance, Phone, System, About) with links between related sections; new defaults tuned on the Google TV Streamer.
 
 **Carousel**
-- Endless hero carousel from your Nuvio add-on catalogs (Cinemeta, AIOMetadata, TMDB lists …), shuffled across all catalogs if you like.
-- Settings → Carousel → **Slide animation**: **Apple TV** (default: the next picture opens up from the right with parallax, from the left going back, glass included), *Slide* (pushed in) or *Fade*.
-- **Buttons**: **Play + Next** (default, like Apple TV: Right from Play selects the round Next button, Right or OK on it shows the next title, Left on Play the previous one; Play stays in place whatever the synopsis length), *Play only* or *Hidden*.
-- **Dots**: *Dots*, **Liquid glass dots** (clear glass drops on a glass capsule that stretch, join and part like water as you move), *Progress bar* or *Hidden*.
-- Title logo (sizes evened out), rating / year / platform chips, genres, synopsis in Apple's grey, Play button when selected.
+- Endless hero carousel from your Nuvio / Stremio add-on catalogs (Cinemeta, AIOMetadata, TMDB lists …), shuffled across
+  all catalogs, or *Surprise me*.
+- **Slide animation**: Apple TV (the next picture opens up from the side with parallax), Slide or Fade.
+- **Buttons**: Play + Next (like Apple TV), Play only or Hidden, and the + button (save to the Library).
+- **Dots**: dots, liquid glass drops, progress bar or hidden. Title logo (colour or white), chips, genres, synopsis.
 - **Backdrop gallery** like the Apple TV app: each title shows several of its pictures before the carousel moves on.
-- **Continue Watching** from Nuvio Legacy: at the start of the carousel (1–5 slides or all) or mixed in, with progress
-  (`Continue · S1 · E3 · 42%`). Back from Nuvio, the carousel opens on what you just watched. These titles are kept in
-  memory, so going back to them — even after browsing far or pressing Home — never reloads.
-- Home pressed on the home screen jumps back to the first slide.
-- Opening a title brings Nuvio forward and opens it directly (no restart, no splash when Nuvio is running).
-  Works with **Nuvio Legacy**, the **official Nuvio TV** app, **Nuvio Arc** and **Nuvio Re-Shaped**
-  (Settings → Nuvio & Home Assistant → *Open titles in*; **Auto** picks the first installed in that order).
+- **Continue Watching** at the start of the carousel (1–5 slides or all) or mixed in, with progress
+  (`Continue · S1 · E3 · 42%`). Back from the player, the carousel opens on what you just watched.
+- Opening a title opens it directly in **Nuvio Legacy**, the **official Nuvio TV** app, **Nuvio Arc**, **Nuvio Re-Shaped**
+  or **Stremio** (Settings → Connections → *Open titles in*; **Auto** picks the first installed).
 
 **Glass**
-- Real refraction (AGSL shader), blurred backdrop shared by every glass surface, "Glass like glass" (with or without ripple), clear, AMOLED black, black-on-white.
-- The page blurs and dims when you move down into the apps, glass included.
-- Backdrop and glass always change in the same frame.
+- Real refraction (AGSL shader), a blurred backdrop shared by every glass surface, six themes: Glass still, Glass is
+  glass (with ripples), Liquid, Clear, Black AMOLED, Black on white. The glass follows a video background live.
 
 **Dock & icons**
-- 6 apps per row, Apps folder with every app (hidden ones too), move / hide / change icon / app info (hold OK).
-- tvOS behaviour: the selected icon lifts, **colour on focus** (icons white at rest, coloured on a light or dark plate),
-  rubber-band **bounce at the edges**.
+- 6 apps per row, Apps folder with every app, move / hide / change icon / app info (hold OK).
+- tvOS behaviour: colour on focus (white, dark, glass or black plate), lift, zoom, glow, rubber-band bounce at the edges.
 - Icons from icon packs (Projectivy, Blueprint, Nova, ADW), a link, the TV's photos, your phone, or the **Apple TV icon
-  library** (default, dark, white and clear looks, see [tools](#tools)).
+  library** (see [tools](#tools)).
 
-**Top bar**
-- Clock and date on the left (Apple TV) or next to Settings; weather (Open-Meteo, no key) with condition and city, each part optional; auto-hide.
-
-**Screensaver**
-- Your TV's own screensaver (for example Aerial Views) started instantly, Apple aerial videos, or posters with logos.
-  Back on the home screen can start it, like Apple TV.
+**Top bar and menu**
+- Clock and date, weather (Open-Meteo, no key), auto-hide. The menu at the settings button, like the Apple TV Control
+  Center: clock, weather, TV info, Library, settings, Wi-Fi, themes, camera, screensaver and background — each optional.
 
 **Home Assistant**
 - Webhook when a title opens (title, type, id, app). See [Home Assistant](#home-assistant).
 
 **Updates**
-- Checks GitHub Releases, shows a banner and a pill next to the clock; Settings → About → Install update downloads it
-  and installs it (silently through the TV's adb, or with Android's installer).
+- Checks GitHub Releases, shows a pill next to the clock; it downloads and installs right there (silently through the TV's
+  adb, or with Android's installer).
 
 **Performance**
-- Performance / Balanced / Quality modes; animations read in the draw and layout phases (no recomposition per frame),
-  one cached GPU layer for the backdrop, shader early-outs, background-priority blur, Compose baseline profiles, R8.
+- Auto picks the light preset on weak TVs (2 GB, old graphics); every option can be changed on its own. Animations read
+  in the draw and layout phases, cached GPU layers, baseline profiles, R8.
 
 ---
 
 ## Install
 
-1. Download `GlassLauncher-x.y.z.apk` from [Releases](https://github.com/mohammadmrh12/glassio/releases).
+1. Download `Glassio-x.y.z.apk` from [Releases](https://github.com/mohammadmrh12/glassio/releases).
 2. Install it on the TV: with the **Downloader** app (enter the release link), a USB stick, or from a computer:
    ```sh
    adb connect <tv-ip>:5555
-   adb install -r GlassLauncher-x.y.z.apk
+   adb install -r Glassio-x.y.z.apk
    ```
-3. Open **Glassio** from the TV's apps.
+3. Open **Glassio** from the TV's apps. The first time, the setup walks you through accounts, catalogs and the look.
 
 ### Make it your home screen (Home button)
 
@@ -142,7 +148,8 @@ Google TV always sends the Home button to its own launcher, so Glass uses an acc
 - A title leaves the list when you finish it (past 92 %) or remove it.
 
 ### TV access (ADB) — one-time setup
-Continue Watching, *Make Aerial Views the TV screensaver*, starting the screensaver and silent updates use the TV's own
+Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info (CPU / GPU), open apps, starting with the TV
+and silent updates use the TV's own
 debugging connection (Glassio talks to it on the TV itself, like Nuvio TV Relay). Settings → **System** walks you through it:
 1. **Open About** → press OK on *Android TV OS build* (or *Build*) **7 times** until it says you are a developer.
 2. **Open Developer options** → turn on **USB debugging** (on some TVs also *Network debugging* / *ADB over network*).
@@ -174,16 +181,15 @@ Settings → Clock & glass → **Weather** (everything / temperature + sky / tem
 **Weather city** (English or Arabic name; the place found is shown next to it), Fahrenheit.
 
 ### Screensaver
-**Recommended: [Aerial Views](https://play.google.com/store/apps/details?id=com.neilturner.aerialviews)**, the best
-screensaver with Glassio: Apple, Amazon and your own 4K videos, clock and info overlays, free.
-
-1. Settings → **Screensaver** → **Install Aerial Views** (opens Google Play).
-2. Back in Glassio: **Make Aerial Views the TV screensaver**. The first time the TV asks to allow USB debugging
-   for Glassio: choose *Always allow*. (By hand: `adb shell settings put secure screensaver_components com.neilturner.aerialviews/.ui.screensaver.DreamActivity`.)
-3. *Type* is set to **TV screensaver**. *Open Aerial Views settings* picks videos, clock and overlays.
-4. *Start after* (idle time on the launcher) and **Back on the home screen starts it**.
-
-Without Aerial Views: *Type* → Apple aerial videos (streamed by Glassio) or posters with logos, and *Add video link* for your own .mp4 / .mov.
+Settings → **Screensaver**:
+1. *Type*: **Aerial videos** (default), posters with logos, or the TV's own screensaver app.
+2. Turn on the collections you like (Apple tvOS, Amazon Fire TV, Jetson Creative, Robin Fourcade) and/or **My videos**
+   (your links and the videos in the backgrounds folder; upload them from your phone). *Quality*: 1080p H.264, 1080p HEVC,
+   4K, 1080p HDR, 4K HDR / Dolby Vision — videos without that quality play the nearest one.
+3. **Glassio is the TV screensaver (ADB)**: it then starts in every app when the TV is idle, after *TV screensaver starts
+   after*. Otherwise *Start after* sets the idle time on the home screen.
+4. *Keep videos on the TV* saves each video as it plays (up to the space you choose), so it starts at once next time.
+5. While it plays: **◀ ▶** change the video, **OK** shows or hides the info, any other key ends it.
 
 ### Performance
 Settings → **Performance** → *Mode*: **Auto** (default: picked for the TV from its memory and graphics chip,
@@ -238,7 +244,7 @@ actions:
 ```
 
 **2. Give Glass the URL**: `http://<home-assistant-ip>:8123/api/webhook/glass_launcher_CHANGE_ME`
-- Settings → **Nuvio & Home Assistant → Home Assistant webhook**, or paste it on the phone page (Catalogs → *Add add-ons from my phone*).
+- Settings → **Connections → Home Assistant webhook**, or paste it on the phone page (Settings → *Manage from phone*).
 - Turn on **Tell Home Assistant when a title opens**, then **Send a test event** (sends `{"event":"test"}`).
 
 Use the IP address of Home Assistant (the TV may not resolve `homeassistant.local`). `local_only: true` keeps the webhook
@@ -259,8 +265,9 @@ Releases are signed with the same key, so they install over each other.
 ## Troubleshooting
 - Everything that fails quietly (network, Trakt, the TV's adb, opening a title in Nuvio) is logged under one tag:
   `adb logcat -s Glassio`.
-- Settings snapshot: `adb shell am start -n com.glasslauncher.tv/.MainActivity --ez dump_settings true`, then `adb logcat -s GlassSettings`.
-- Continue Watching from Nuvio Legacy, the Aerial Views button and silent updates need TV access (ADB): Settings → System.
+- Settings snapshot: see *Testing from a computer* in [CONTRIBUTING.md](CONTRIBUTING.md) (`--ez dump_prefs true`, then `adb logcat -s GlassPrefs`).
+- Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, open apps and silent updates need TV access (ADB): Settings → System.
+- Stuck somewhere? Settings → System → **Back up now** keeps everything; *Restore backup* brings it back after a reinstall.
 
 ## Tools
 - `tools/appletv_icons.py <out>` — builds the Apple TV icon library from Apple's public iTunes Search API (the tvOS
@@ -271,8 +278,8 @@ Releases are signed with the same key, so they install over each other.
 - `tools/framestats.py` — summarises `adb shell dumpsys gfxinfo com.glasslauncher.tv framestats` per frame stage.
 
 Terminal helpers (`adb shell am start -n com.glasslauncher.tv/.MainActivity …`): `--ez open_folder true`,
-`--ei open_settings <tab>`, `--es icon_pack <pkg|none>`, `--es tile_style …`, `--es dock_style …`, `--ei blur <n>`,
-`--es saver_mode aerial|slideshow|system`, `--ez start_saver true`, `--es continue_mode first|mixed|off`, `--ez dump_settings true`.
+`--ei open_settings <tab>`, `--ez open_menu true`, `--ez open_library true`, `--ez start_saver true`. Changing settings
+from a computer needs the dev key (so other apps can't): see [CONTRIBUTING.md](CONTRIBUTING.md#testing-from-a-computer).
 
 ## Build
 ```sh
@@ -283,9 +290,12 @@ export ANDROID_HOME=/path/to/android-sdk
 
 ## Privacy & security
 - No accounts, analytics or ads. Settings stay on the TV (`allowBackup=false`).
-- The phone page only runs while its screen is open and every request needs the one-time token in its QR code.
+- The phone page runs while its screen is open (and for the time you choose after), and every request needs the one-time
+  token in its QR code. Changing settings from a computer needs a dev key only adb can read.
+- Backups contain your sign-ins: keep the file private.
 - Webhook, TMDB token and add-on links are only sent where you point them.
-- The TV's adb is used only for: starting the screensaver, reading Nuvio's playback log, installing Glass updates.
+- The TV's adb is used only for: the screensaver settings, reading Nuvio Legacy's playback log, TV info (CPU / GPU), open
+  apps, starting with the TV and installing Glassio updates.
 
 ## Credits
 Inter typeface (SIL Open Font License) · Weather by [Open-Meteo](https://open-meteo.com) · Catalog data from your Nuvio add-ons ·

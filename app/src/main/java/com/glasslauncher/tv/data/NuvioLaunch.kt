@@ -16,14 +16,15 @@ object NuvioLaunch {
     const val OFFICIAL_PKG = "com.nuvio.tv"
     const val ARC_PKG = "com.nuvio.tv.test"
     const val RESHAPED_PKG = "com.nuvioreshaped.tv"
+    const val STREMIO_PKG = "com.stremio.one"
 
     /** Setting value → package, in the "auto" priority order. */
     val TARGETS = linkedMapOf(
-        "legacy" to LEGACY_PKG, "official" to OFFICIAL_PKG, "arc" to ARC_PKG, "reshaped" to RESHAPED_PKG,
+        "legacy" to LEGACY_PKG, "official" to OFFICIAL_PKG, "arc" to ARC_PKG, "reshaped" to RESHAPED_PKG, "stremio" to STREMIO_PKG,
     )
     val NAMES = mapOf(
         "auto" to "Auto", "legacy" to "Nuvio Legacy", "official" to "Nuvio (official)",
-        "arc" to "Nuvio Arc", "reshaped" to "Nuvio Re-Shaped",
+        "arc" to "Nuvio Arc", "reshaped" to "Nuvio Re-Shaped", "stremio" to "Stremio",
     )
 
     fun installed(ctx: Context, pkg: String) = runCatching { ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess
@@ -44,7 +45,10 @@ object NuvioLaunch {
         val target = resolve(ctx, s)
         val pkg = TARGETS.getValue(target)
         val t = if (type.equals("movie", true)) "movie" else "series"
-        val uri = if (target == "legacy") {
+        val uri = if (target == "stremio") {
+            // Stremio's own link: stremio:///detail/movie/tt0111161 (its page for the title, with your add-ons' streams).
+            Uri.parse("stremio:///detail/$t/${id.trim()}/${if (t == "movie") id.trim() else ""}".trimEnd('/'))
+        } else if (target == "legacy") {
             Uri.Builder().scheme("nuvio-legacy").authority("meta").appendPath(t).appendPath(id.trim()).build()
         } else {
             // Official Nuvio TV, Nuvio Arc and Re-Shaped all read nuvio://meta?type=…&id=…

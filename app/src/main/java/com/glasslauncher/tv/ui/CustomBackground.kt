@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.viewinterop.AndroidView
 import com.glasslauncher.tv.data.Glog
 import com.glasslauncher.tv.data.Settings
@@ -36,6 +37,7 @@ object CustomBackground {
     private var tries = 0
     /** First video of [list] that answers (Apple's feed still lists videos it has taken down). Blocking. */
     fun firstLive(list: List<String>): String? = list.take(12).firstOrNull { u ->
+        if (u.startsWith("file://")) return@firstOrNull java.io.File(u.removePrefix("file://")).isFile
         runCatching {
             val c = java.net.URL(u).openConnection() as java.net.HttpURLConnection
             c.requestMethod = "HEAD"; c.connectTimeout = 4000; c.readTimeout = 4000
@@ -44,7 +46,8 @@ object CustomBackground {
     }
 
     /** That video didn't play (network, codec): the next one, a few times. */
-    fun nextAerial() {
+    fun nextAerial(ended: Boolean = false) {
+        if (ended) tries = 0
         if (aerials.size < 2 || ++tries > 4) { Glog.w("Screensaver background: no aerial video plays here"); return }
         val rest = aerials.drop(aerials.indexOf(aerial.value) + 1) + aerials.take(aerials.indexOf(aerial.value).coerceAtLeast(0))
         Thread { firstLive(rest)?.let { aerial.value = it } }.apply { isDaemon = true }.start()
@@ -111,12 +114,22 @@ object VideoFrames {
     val soft = mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
     /** A video is on screen (the page's own picture under it isn't drawn then). */
     val showing = mutableStateOf(false)
-    fun clear() { sharp.value = null; soft.value = null; showing.value = false }
+    /** Bumped by [clear]: a copy finishing late (on its own thread) from a video that's gone is dropped. */
+    @Volatile var gen = 0; private set
+    @Synchronized fun clear() { gen++; sharp.value = null; soft.value = null; showing.value = false }
+    @Synchronized fun publish(g: Int, s: androidx.compose.ui.graphics.ImageBitmap?, f: androidx.compose.ui.graphics.ImageBitmap?) {
+        if (g != gen) return
+        sharp.value = s; soft.value = f
+    }
+    /** A frosted-glass surface (Liquid, Clear) shows the frosted copy. */
+    @Volatile var wantSoft = true
+    /** A clear-glass theme shows the sharp copy (set from the settings); otherwise only the frosted one is made. */
+    @Volatile var wantSharp = true
+    @Volatile var interval = 66L
 }
 
-/** Makes a smooth frosted copy: 960 → 480 → 240 → 160 px with filtering, then two box-blur passes (CPU, ~1 ms). */
+/** Makes a smooth frosted copy from a 320 px copy: → 240 → 160 px with filtering, then two box-blur passes (CPU, ~1 ms). */
 private class Softener(val w: Int, val h: Int) {
-    private val m1 = android.graphics.Bitmap.createBitmap(480, 270, android.graphics.Bitmap.Config.ARGB_8888)
     private val m2 = android.graphics.Bitmap.createBitmap(240, 135, android.graphics.Bitmap.Config.ARGB_8888)
     private val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
     private val px = IntArray(w * h)
@@ -124,8 +137,11 @@ private class Softener(val w: Int, val h: Int) {
     private fun scale(src: android.graphics.Bitmap, dst: android.graphics.Bitmap) =
         android.graphics.Canvas(dst).drawBitmap(src, null, android.graphics.Rect(0, 0, dst.width, dst.height), paint)
 
-    fun make(src: android.graphics.Bitmap, out: android.graphics.Bitmap) {
-        scale(src, m1); scale(m1, m2); scale(m2, out)
+    private val m1 = android.graphics.Bitmap.createBitmap(480, 270, android.graphics.Bitmap.Config.ARGB_8888)
+    fun make(src: android.graphics.Bitmap, out: android.graphics.Bitmap, fromLarge: Boolean = false) {
+        // A small [src] was scaled down by the GPU in the copy: two cheap halvings, then the blur.
+        if (fromLarge) { scale(src, m1); scale(m1, m2) } else scale(src, m2)
+        scale(m2, out)
         out.getPixels(px, 0, w, 0, 0, w, h)
         repeat(2) { blur(px, tmp, false); blur(tmp, px, true) }
         out.setPixels(px, 0, w, 0, 0, w, h)
@@ -155,11 +171,17 @@ private class Softener(val w: Int, val h: Int) {
  * (PixelCopy, scaled on the GPU) about 20 times a second.
  */
 @Composable
-fun VideoBackground(src: String, playing: Boolean, onError: () -> Unit = {}, busy: () -> Boolean = { false }) {
+fun VideoBackground(src: String, playing: Boolean, onError: () -> Unit = {}, busy: () -> Boolean = { false }, onDone: (() -> Unit)? = null) {
     var ready by remember(src) { mutableStateOf(false) }
     var aspect by remember(src) { mutableStateOf(16f / 9f) }
     val player = remember(src) { MediaPlayer() }
     var view by remember { mutableStateOf<android.view.SurfaceView?>(null) }
+    // Back from another app the video's surface is new and black until the player draws again: the last frame
+    // stands in for it (the glass shows that same frame), then fades out.
+    var still by remember(src) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    var cover by remember(src) { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(cover, playing, ready) { if (cover && playing && ready) { kotlinx.coroutines.delay(650); cover = false } }
+    val coverAlpha by androidx.compose.animation.core.animateFloatAsState(if (cover) 1f else 0f, androidx.compose.animation.core.tween(if (cover) 0 else 380), label = "cover")
     DisposableEffect(src) {
         Glog.i("Background video on: $src")
         onDispose { Glog.i("Background video off"); runCatching { player.release() }; VideoFrames.clear() }
@@ -170,40 +192,47 @@ fun VideoBackground(src: String, playing: Boolean, onError: () -> Unit = {}, bus
     androidx.compose.runtime.LaunchedEffect(ready, playing, view) {
         val v = view ?: return@LaunchedEffect
         if (!ready || !playing || android.os.Build.VERSION.SDK_INT < 24) return@LaunchedEffect
-        val sharpBufs = Array(3) { android.graphics.Bitmap.createBitmap(960, 540, android.graphics.Bitmap.Config.ARGB_8888) }
-        val softBufs = Array(3) { android.graphics.Bitmap.createBitmap(160, 90, android.graphics.Bitmap.Config.ARGB_8888) }
+        val myGen = VideoFrames.gen
+        // One copy at a time, into buffers used in turn: a new copy never lands in the picture on screen
+        // (that showed as flashes in the glass).
+        val inFlight = java.util.concurrent.atomic.AtomicBoolean(false)
+        // The frosted glass needs only a small copy: the GPU scales the video down in the copy itself (scaling
+        // a full-size copy down on the CPU took ~15 ms every time). The sharp copy is made only when a clear
+        // glass theme (Glass still / Glass is glass) shows it.
+        val sharpBufs = Array(4) { android.graphics.Bitmap.createBitmap(960, 540, android.graphics.Bitmap.Config.ARGB_8888) }
+        val smallBufs = Array(2) { android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888) }
+        val softBufs = Array(4) { android.graphics.Bitmap.createBitmap(160, 90, android.graphics.Bitmap.Config.ARGB_8888) }
         val soften = Softener(160, 90)
-        val h = android.os.Handler(android.os.Looper.getMainLooper())
-        val shadeH = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG).apply {
-            shader = android.graphics.LinearGradient(0f, 0f, 960 * 0.62f, 0f, 0xB0000000.toInt(), 0, android.graphics.Shader.TileMode.CLAMP) }
-        val shadeV = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG).apply {
-            shader = android.graphics.LinearGradient(0f, 540 * 0.58f, 0f, 540f, 0, 0xCC000000.toInt(), android.graphics.Shader.TileMode.CLAMP) }
+        // The copies finish on their own thread: on the main thread they held up the home screen while you moved.
+        val worker = android.os.HandlerThread("glass-video-copy").apply { start() }
+        val h = android.os.Handler(worker.looper)
         var k = 0
         try {
             while (true) {
-                kotlinx.coroutines.delay(33)
+                // About 15 copies a second: the glass follows the video, at a fraction of the cost of 30.
+                kotlinx.coroutines.delay(VideoFrames.interval)
                 if (!v.holder.surface.isValid) continue
-                // While you move around, the GPU goes to the menu / dock: the glass catches up right after.
-                if (busy()) continue
-                val i = k++ % 3
-                val sb = sharpBufs[i]
+                // The copies keep going while you move around: pausing them left the glass on a frozen frame.
+                if (!inFlight.compareAndSet(false, true)) continue
+                val i = k++ % 4
+                // One copy per tick (each copy costs the render thread a lot): the sharp one when a clear-glass
+                // surface shows it, else only the small one for the frosted glass.
+                val wantSharp = VideoFrames.wantSharp; val wantSoft = VideoFrames.wantSoft
+                val dst = if (wantSharp) sharpBufs[i] else smallBufs[i % 2]
                 runCatching {
-                    android.view.PixelCopy.request(v, sb, { r ->
-                        if (r != android.view.PixelCopy.SUCCESS) return@request
-                        // The page's shades, painted into the small copy here on the CPU (the glass then draws one
-                        // picture; shading every glass surface on the TV GPU cost more than the whole page).
-                        android.graphics.Canvas(sb).apply { drawRect(0f, 0f, sb.width * 0.62f, sb.height.toFloat(), shadeH); drawRect(0f, sb.height * 0.58f, sb.width.toFloat(), sb.height.toFloat(), shadeV) }
-                        // Reused buffers (three, in turn): copying into new bitmaps each time piled up native memory faster
-                        // than the garbage collector freed it.
-                        VideoFrames.sharp.value = sb.asImageBitmap()
-                        // Frosted copy: halved step by step (no sparkle), then blurred, so scaled up it reads as frost.
-                        val soft = softBufs[i]
-                        soften.make(sb, soft)
-                        VideoFrames.soft.value = soft.asImageBitmap()
+                    android.view.PixelCopy.request(v, dst, { r ->
+                        try {
+                            if (r != android.view.PixelCopy.SUCCESS || myGen != VideoFrames.gen) return@request
+                            val soft = if (wantSoft || !wantSharp) softBufs[i].also { soften.make(dst, it, fromLarge = wantSharp) } else null
+                            VideoFrames.publish(myGen, if (wantSharp) dst.asImageBitmap() else null, soft?.asImageBitmap())
+                        } finally { inFlight.set(false) }
                     }, h)
-                }
+                }.onFailure { inFlight.set(false) }
             }
-        } finally { VideoFrames.clear() }
+        } finally {
+            // A copy still finishing on its thread sees the new generation and is dropped (publish is synchronized).
+            worker.quitSafely(); VideoFrames.clear()
+        }
     }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         // Centre crop: the surface is made as big as needed to fill the screen with the video's shape.
@@ -218,9 +247,12 @@ fun VideoBackground(src: String, playing: Boolean, onError: () -> Unit = {}, bus
                         override fun surfaceCreated(hd: android.view.SurfaceHolder) {
                             runCatching {
                                 player.setDisplay(hd)
-                                if (ready) return
+                                // Draw the current frame on the new surface right away.
+                                if (ready) { runCatching { player.seekTo(player.currentPosition) }; return }
                                 player.setDataSource(ctx, android.net.Uri.parse(CustomBackground.uri(src)))
-                                player.isLooping = true
+                                // Shuffle: the next video when this one ends; else it loops.
+                                player.isLooping = onDone == null
+                                if (onDone != null) player.setOnCompletionListener { onDone() }
                                 player.setVolume(0f, 0f)
                                 player.setOnPreparedListener { p ->
                                     if (p.videoWidth > 0 && p.videoHeight > 0) aspect = p.videoWidth.toFloat() / p.videoHeight
@@ -233,12 +265,19 @@ fun VideoBackground(src: String, playing: Boolean, onError: () -> Unit = {}, bus
                             }.onFailure { Glog.w("Background video", it) }
                         }
                         override fun surfaceChanged(hd: android.view.SurfaceHolder, f: Int, w: Int, h: Int) {}
-                        override fun surfaceDestroyed(hd: android.view.SurfaceHolder) { runCatching { player.setDisplay(null) } }
+                        override fun surfaceDestroyed(hd: android.view.SurfaceHolder) {
+                            (VideoFrames.sharp.value ?: VideoFrames.soft.value)?.let { f ->
+                                runCatching { still = f.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false).asImageBitmap(); cover = true }
+                            }
+                            runCatching { player.setDisplay(null) }
+                        }
                     })
                 }
             },
             modifier = Modifier.align(androidx.compose.ui.Alignment.Center).wrapContentSize(unbounded = true).requiredSize(vw, vh),
         )
+        still?.let { b -> if (coverAlpha > 0.01f) androidx.compose.foundation.Image(b, null, Modifier.fillMaxSize().graphicsLayer { alpha = coverAlpha },
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
         // The same shades the backdrops have baked in, so the text stays readable.
         // The page's shades as one small picture painted once (dithered) and scaled up: drawn live as two
         // full-screen gradients over the video they cost the TV GPU 30 ms a frame, this costs about 2.

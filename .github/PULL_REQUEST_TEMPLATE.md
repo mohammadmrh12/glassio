@@ -31,6 +31,8 @@
 - [ ] I checked remote-control focus and navigation, where applicable.
 - [ ] I considered startup time, scrolling/transition smoothness, memory use, image loading, and background work.
 - [ ] I added or updated tests where appropriate.
+- [ ] `./gradlew testDebugUnitTest lintDebug assembleDebug` passes (the **Build** check on this pull request runs the same).
+- [ ] No existing setting key was renamed (people's saved settings would reset; see CONTRIBUTING.md → Adding a setting).
 
 **Checks run / results:**
 

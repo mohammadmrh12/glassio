@@ -11,4 +11,11 @@
     <style name="Theme.Glass.Saver" parent="Theme.Glass">
         <item name="android:windowAnimationStyle">@null</item>
     </style>
+    <style name="Theme.Glass.Recents" parent="Theme.Glass">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+    </style>
 </resources>

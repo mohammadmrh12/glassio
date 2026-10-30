@@ -195,6 +195,41 @@ class NuvioAccount(ctx: Context) {
             .filter { it.startsWith("http") || it.startsWith("stremio") }
     }.getOrElse { Glog.w("Nuvio add-ons", it); null }
 
+    data class Progress(val key: String, val imdb: String, val season: Int, val episode: Int, val percent: Int, val at: Long)
+
+    /** What you're watching on the account (Nuvio Legacy, the official app and forks push it). Null on failure. */
+    fun progress(profile: Int = 1): List<Progress>? = runCatching {
+        var tok = access() ?: return null
+        val body = JSONObject().put("p_profile_id", profile)
+        var (c, t) = call("/rest/v1/rpc/sync_pull_watch_progress", body, tok)
+        if (c == 401) { tok = access(force = true) ?: return null; val r = call("/rest/v1/rpc/sync_pull_watch_progress", body, tok); c = r.first; t = r.second }
+        check(c in 200..299) { "Nuvio answered HTTP $c" }
+        val a = JSONArray(t)
+        (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            val raw = o.optString("content_id")
+            val imdb = raw.substringBefore(':')
+            if (!imdb.startsWith("tt")) return@mapNotNull null
+            fun num(k: String) = o.opt(k).let { (it as? Number)?.toDouble() ?: it?.toString()?.toDoubleOrNull() }
+            val pos = num("position_ms") ?: num("position") ?: return@mapNotNull null
+            val dur = num("duration_ms") ?: num("duration") ?: return@mapNotNull null
+            if (dur <= 1) return@mapNotNull null
+            var season = o.optInt("season"); var ep = o.optInt("episode")
+            if (ep <= 0) raw.split(':').let { p -> season = p.getOrNull(1)?.toIntOrNull() ?: 0; ep = p.getOrNull(2)?.toIntOrNull() ?: 0 }
+            if (ep <= 0) { season = 0; ep = 0 }
+            val at = listOf("updated_at", "last_watched", "last_watched_at").firstNotNullOfOrNull { k ->
+                o.opt(k)?.let { v -> (v as? Number)?.toLong() ?: runCatching { java.time.OffsetDateTime.parse(v.toString()).toInstant().toEpochMilli() }.getOrNull() }
+            } ?: 0L
+            Progress(if (ep > 0) "${imdb}_s${season}e$ep" else imdb, imdb, season, ep, (100 * pos / dur).toInt().coerceIn(0, 100), at)
+        }
+    }.getOrElse { Glog.w("Nuvio progress", it); null }
+
+    /** Takes a title out of the account's Continue Watching. */
+    fun deleteProgress(key: String, profile: Int = 1): Boolean = runCatching {
+        val tok = access() ?: return false
+        call("/rest/v1/rpc/sync_delete_watch_progress", JSONObject().put("p_profile_id", profile).put("p_keys", JSONArray().put(key)), tok).first in 200..299
+    }.getOrDefault(false)
+
     data class Saved(val id: String, val type: String, val name: String, val poster: String, val background: String,
                      val description: String, val year: String, val at: Long)
 

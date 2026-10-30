@@ -3,6 +3,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- "Open Glassio when the TV starts": the boot receiver opens Glassio (allowed once ADB grants the overlay right). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <!-- Granted once over adb: lets Glass keep its Home-button service enabled after updates. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
@@ -87,5 +90,19 @@
                 android:resource="@xml/accessibility_config"/>
         </service>
             <receiver android:name=".data.InstallResultReceiver" android:exported="false"/>
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+        <activity
+            android:name=".RecentsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Glass.Recents"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=".recents"
+            android:configChanges="keyboard|keyboardHidden|navigation|screenSize|orientation|uiMode"/>
     </application>
 </manifest>

@@ -59,6 +59,7 @@ import androidx.compose.material3.Text
 
 /** Full-screen aerial video (or backdrop slideshow). Any key press or touch dismisses it. */
 class ScreensaverActivity : ComponentActivity() {
+    private fun app() = application as GlassApp
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -95,7 +96,28 @@ class ScreensaverActivity : ComponentActivity() {
         setContent { com.glasslauncher.tv.ui.GlassType { SaverContent(app) } }
     }
 
+    // The TV started its own screensaver on top (another app's): step aside, so one Back gets you home (issue #9).
+    private val dreamReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: android.content.Intent) { if (!isFinishing) finish() }
+    }
+    override fun onStart() {
+        super.onStart()
+        runCatching {
+            val f = android.content.IntentFilter(android.content.Intent.ACTION_DREAMING_STARTED)
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(dreamReceiver, f, android.content.Context.RECEIVER_EXPORTED)
+            else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(dreamReceiver, f)
+        }
+    }
+    override fun onStop() { runCatching { unregisterReceiver(dreamReceiver) }; super.onStop() }
+
+    @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // ◀ ▶ change the video, OK shows / hides the info; any other key ends it.
+        val k = event.keyCode
+        if (app().settings.saverMode != "system" && k in setOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER)) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) SaverControl.key(k)
+            return true
+        }
         if (event.action == KeyEvent.ACTION_DOWN) finish()
         return true
     }
@@ -103,61 +125,9 @@ class ScreensaverActivity : ComponentActivity() {
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean { if (ev.actionMasked != MotionEvent.ACTION_HOVER_EXIT) finish(); return true }
 }
 
-@OptIn(androidx.media3.common.util.UnstableApi::class)
-@Composable
-private fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
-    val ctx = LocalContext.current
-    val slideshow = forceSlideshow || app.settings.saverMode != "aerial"
-    val urls by produceState(emptyList<String>()) {
-        value = if (!slideshow) withContext(Dispatchers.IO) { AerialSource.playlist(app) } else emptyList()
-    }
-    var failed by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (urls.isNotEmpty() && !failed) {
-            val player = remember(urls) {
-                ExoPlayer.Builder(ctx).build().apply {
-                    setMediaItems(urls.map { MediaItem.fromUri(it) })
-                    repeatMode = Player.REPEAT_MODE_ALL
-                    volume = 0f
-                    addListener(object : Player.Listener {
-                        var errors = 0
-                        override fun onPlayerError(error: PlaybackException) {
-                            errors++
-                            if (errors > 6) failed = true else { seekToNextMediaItem(); prepare(); play() }
-                        }
-                        override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_READY) errors = 0 }
-                    })
-                    prepare(); playWhenReady = true
-                }
-            }
-            DisposableEffect(player) { onDispose { player.release() } }
-            AndroidView(
-                factory = { c ->
-                    PlayerView(c).apply {
-                        useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                        this.player = player
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            Slideshow(app)
-        }
-        if (app.settings.saverClock) {
-            val t by produceState("") { while (true) { value = clockText(app.settings.clock24h); delay(15_000) } }
-            Text(
-                t, color = Color.White.copy(alpha = 0.9f), fontSize = 34.sp,
-                modifier = if (slideshow) Modifier.align(Alignment.TopEnd).padding(end = 56.dp, top = 36.dp)
-                else Modifier.align(Alignment.BottomStart).padding(start = 56.dp, bottom = 40.dp),
-            )
-        }
-    }
-}
-
 /** Slow Ken Burns over the catalog backdrops, with each title's logo. */
 @Composable
-private fun Slideshow(app: GlassApp) {
+internal fun Slideshow(app: GlassApp) {
     val raw by app.catalogs.items.collectAsState()
     val enriched by app.catalogs.enrichedItems.collectAsState()
     val items = remember(raw) { raw.filter { it.background.isNotBlank() } }

@@ -80,12 +80,12 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     fun allAddons(): List<String> {
         val out = LinkedHashMap<String, String>()
         for (u in addons.sorted()) out.putIfAbsent(addonKey(u), u)
-        if (settings.catalogsNuvio) for (u in accountAddons.value) out.putIfAbsent(addonKey(u), u)
+        if ((settings.catalogsNuvio || settings.catalogsStremio)) for (u in accountAddons.value) out.putIfAbsent(addonKey(u), u)
         return out.values.toList()
     }
     /** Account add-ons that aren't also on the TV's own list. */
     fun accountOnly(): List<String> {
-        if (!settings.catalogsNuvio) return emptyList()
+        if (!(settings.catalogsNuvio || settings.catalogsStremio)) return emptyList()
         val mine = addons.map { addonKey(it) }.toSet()
         return accountAddons.value.filter { addonKey(it) !in mine }.distinctBy { addonKey(it) }
     }
@@ -111,7 +111,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
         scope.launch(Dispatchers.IO) {
             while (true) {
                 runCatching { refresh() }
-                delay(30 * 60 * 1000L)
+                delay((if (settings.surprise) settings.surpriseMin else 30) * 60 * 1000L)
             }
         }
     }
@@ -149,7 +149,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     suspend fun refresh() = loadLock.withLock {
         withContext(Dispatchers.IO) {
             status.value = "Loading catalogs…"
-            if (settings.catalogsNuvio) account?.invoke()?.let { saveAccount(it) }
+            if ((settings.catalogsNuvio || settings.catalogsStremio)) account?.invoke()?.let { saveAccount(it) }
             val urls = allAddons()
             val refs = java.util.Collections.synchronizedList(mutableListOf<CatalogRef>())
             val gate = Semaphore(4)
@@ -207,7 +207,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
                     }
                 }.awaitAll()
             }
-            val merged = merge(settings.shuffle)
+            val merged = merge(settings.shuffle || settings.surprise)
             items.value = merged
             status.value = "${merged.size} titles from ${chosen.size} catalogs"
         }
@@ -218,10 +218,14 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     private fun fetchCatalog(c: CatalogRef, limit: Int): List<HeroItem> {
         val base = c.addon.removeSuffix("/manifest.json").trimEnd('/')
         val out = mutableListOf<HeroItem>()
-        var skip = 0
+        // Surprise me: start further down the catalog now and then (a different mix each time).
+        val start = if (settings.surprise) listOf(0, 0, 100, 200).random() else 0
+        var skip = start
         while (out.size < limit && skip < 1000) {
             val url = "$base/catalog/${enc(c.type)}/${enc(c.id)}.json?skip=$skip&limit=100"
-            val metas = http.json(url, 15 * 60 * 1000L).optJSONArray("metas") ?: break
+            val metas = runCatching { http.json(url, if (settings.surprise) 5 * 60 * 1000L else 15 * 60 * 1000L).optJSONArray("metas") }.getOrNull()
+            if ((metas == null || metas.length() == 0) && skip == start && start > 0) { skip = 0; continue }
+            metas ?: break
             if (metas.length() == 0) break
             for (i in 0 until metas.length()) parseMeta(metas.optJSONObject(i) ?: continue, c.type)?.let(out::add)
             skip += metas.length()
@@ -333,20 +337,26 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
      * Turns the account's add-ons on or off. Their catalogs are listed but not put in the carousel by themselves
      * (you pick them, like any other catalog); turning it off also takes theirs out of the carousel.
      */
-    suspend fun useAccount(on: Boolean): String = withContext(Dispatchers.IO) {
+    suspend fun useAccount(on: Boolean, which: String = "nuvio"): String = withContext(Dispatchers.IO) {
+        val name = if (which == "stremio") "Stremio" else "Nuvio"
+        fun set(v: Boolean) { if (which == "stremio") settings.catalogsStremio = v else settings.catalogsNuvio = v }
         if (!on) {
-            val only = accountOnly().toSet()
-            settings.catalogsNuvio = false
-            if (only.isNotEmpty()) saveSelected(selectedKeys.value.filterNot { k -> only.any { k.startsWith("$it|") } }.toSet())
-            refresh(); return@withContext "Nuvio account add-ons off"
+            val before = accountOnly().toSet()
+            set(false)
+            // The add-ons that only came from that account (and their catalogs) leave the carousel.
+            val now = runCatching { account?.invoke() }.getOrNull()
+            if (now != null) saveAccount(now)
+            val gone = before - accountOnly().toSet()
+            if (gone.isNotEmpty()) saveSelected(selectedKeys.value.filterNot { k -> gone.any { k.startsWith("$it|") } }.toSet())
+            refresh(); return@withContext "$name account add-ons off"
         }
-        settings.catalogsNuvio = true
-        val list = account?.invoke() ?: run { settings.catalogsNuvio = false; return@withContext "Couldn't read add-ons from your Nuvio account. Connect it first (Menu, Library & themes)." }
+        set(true)
+        val list = account?.invoke() ?: run { set(false); return@withContext "Couldn't read add-ons from your $name account. Connect it first (Connections)." }
         saveAccount(list)
         refresh()
         val only = accountOnly().size
         val same = list.size - only
-        "${list.size} add-ons on your Nuvio account: $only new" + (if (same > 0) ", $same already here (not added twice)" else "") + ". Pick their catalogs below."
+        "${list.size} add-ons from your accounts: $only new" + (if (same > 0) ", $same already here (not added twice)" else "") + ". Pick their catalogs below."
     }
 
     fun addonName(url: String) = catalogs.value.firstOrNull { it.addon == url }?.addonName ?: (runCatching { java.net.URI(url).host }.getOrNull() ?: url)

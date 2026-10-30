@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -67,8 +69,9 @@ private val THEMES = listOf(
  * then Library, Glassio settings, Android settings, Wi-Fi and Themes. ◀ or Back closes it.
  */
 @Composable
-fun SideMenu(app: GlassApp, s: Float, onClose: () -> Unit, onLibrary: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier) {
+fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier) {
     val st = app.settings
+    val s = s0 * st.menuScale
     val ctx = LocalContext.current
     val style = st.menuStyle
     val light = style == "bow"
@@ -76,6 +79,12 @@ fun SideMenu(app: GlassApp, s: Float, onClose: () -> Unit, onLibrary: () -> Unit
     val soft = ink.copy(alpha = if (light) 0.55f else 0.62f)
     var themes by remember { mutableStateOf(false) }
     var bgPage by remember { mutableStateOf(false) }
+    var camPage by remember { mutableStateOf(false) }
+    var saverPage by remember { mutableStateOf(false) }
+    var saverRow by remember { mutableIntStateOf(0) }
+    var camRow by remember { mutableIntStateOf(0) }
+    val cams = remember(st.cameras) { st.cameras.mapNotNull { Cam.parse(it) } }
+    var camIndex by remember { mutableIntStateOf(0) }
     // One requester per row: after a choice (the menu redraws in the new theme) focus comes back to the same row.
     val reqs = remember { List(16) { FocusRequester() } }
     var target by remember { mutableIntStateOf(0) }
@@ -84,14 +93,27 @@ fun SideMenu(app: GlassApp, s: Float, onClose: () -> Unit, onLibrary: () -> Unit
     LaunchedEffect(Unit) { enter.animateTo(1f, tween(260, easing = EASE)) }
     var inside by remember { mutableStateOf(false) }
     // Take focus from the settings button (or wherever it is): retry until a row has it.
-    LaunchedEffect(themes, bgPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
+    LaunchedEffect(themes, bgPage, camPage, saverPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
     var themesRow by remember { mutableIntStateOf(0) }
     var bgRow by remember { mutableIntStateOf(0) }
-    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else onClose() }
+    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage) { target = saverRow; saverPage = false } else onClose() }
 
     val time by produceState(clockText(st.clock24h), st.clock24h) { while (true) { value = clockText(st.clock24h); delay(5_000) } }
     val date by produceState(longDate(), Unit) { while (true) { value = longDate(); delay(60_000) } }
     val wx by app.weather.now.collectAsState()
+    // The TV's numbers, every few seconds while the menu is open.
+    // The last numbers show with the menu at once; the quick ones (RAM, storage, IP) are read straight away,
+    // CPU and GPU (through ADB, about a second) follow.
+    val sys by produceState(if (st.menuSys) com.glasslauncher.tv.data.SystemInfo.latest else null, st.menuSys) {
+        if (!st.menuSys) { value = null; return@produceState }
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.SystemInfo.read(app, false) }
+        while (true) {
+            value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.glasslauncher.tv.data.SystemInfo.read(app, st.sysCpu || st.sysGpu)
+            }
+            delay(3_000)
+        }
+    }
 
     Box(
         modifier
@@ -136,20 +158,60 @@ fun SideMenu(app: GlassApp, s: Float, onClose: () -> Unit, onLibrary: () -> Unit
                     if (bits.isNotEmpty()) Text(bits.joinToString("  ·  "), color = soft, fontSize = (8.5f * s).sp, fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(start = (6 * s).dp, end = (6 * s).dp, top = (6 * s).dp), maxLines = 1)
                 } else if (st.menuCity && st.menuWeather) Text(st.weatherCity, color = soft, fontSize = (8.5f * s).sp, modifier = Modifier.padding(start = (6 * s).dp, top = (6 * s).dp))
-                if (st.menuClock || st.menuDate || st.menuWeather) {
+                sys?.let { y ->
+                    val bits = buildList {
+                        if (st.sysIp && y.ip.isNotBlank()) add("IP" to y.ip)
+                        if (st.sysCpu && y.cpu >= 0) add("CPU" to ("${y.cpu}%" + if (y.tempC > 0) " · ${y.tempC}°" else ""))
+                        if (st.sysGpu && y.gpu.isNotBlank()) add("GPU" to y.gpu)
+                        if (st.sysRam && y.ramTotal > 0) add("RAM" to "${com.glasslauncher.tv.data.SystemInfo.gb(y.ramUsed)} / ${com.glasslauncher.tv.data.SystemInfo.gb(y.ramTotal)}")
+                        if (st.sysStorage && y.storeTotal > 0) add("Storage" to "${com.glasslauncher.tv.data.SystemInfo.gb(y.storeUsed)} / ${com.glasslauncher.tv.data.SystemInfo.gb(y.storeTotal)}")
+                    }
+                    if (bits.isNotEmpty()) Column(Modifier.padding(start = (6 * s).dp, end = (6 * s).dp, top = (8 * s).dp)) {
+                        bits.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = (1.5f * s).dp)) {
+                                pair.forEach { (k, v) ->
+                                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(k, color = soft, fontSize = (8 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.6f * s).sp)
+                                        Box(Modifier.padding(horizontal = (5 * s).dp).width(0.8.dp).height((9 * s).dp).background(ink.copy(alpha = 0.3f)))
+                                        Text(v, color = ink, fontSize = (8.5f * s).sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                                    }
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+                if (st.menuClock || st.menuDate || st.menuWeather || sys != null) {
                     Spacer(Modifier.height((12 * s).dp))
                     Box(Modifier.fillMaxWidth().padding(horizontal = (6 * s).dp).height(0.6.dp).background(ink.copy(alpha = 0.14f)))
                     Spacer(Modifier.height((8 * s).dp))
                 }
 
-                if (bgPage) {
+                if (camPage) {
+                    val cam = cams.getOrNull(camIndex.mod(cams.size.coerceAtLeast(1)))
+                    Text("Camera" + if (cams.size > 1) "  ·  ◀ ▶" else "", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
+                        modifier = Modifier.padding(start = (10 * s).dp, bottom = (6 * s).dp))
+                    // The card itself takes focus: ◀ ▶ switch cameras, Back returns.
+                    Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).focusRequester(reqs[0]).onFocusChanged { }
+                        .tvPress(onKey = { ev ->
+                            when {
+                                ev.type != KeyEventType.KeyDown -> false
+                                ev.key == Key.DirectionRight -> { camIndex++; true }
+                                ev.key == Key.DirectionLeft -> { if (cams.size > 1) camIndex-- else { target = camRow; camPage = false }; true }
+                                ev.key == Key.DirectionUp || ev.key == Key.DirectionDown -> true
+                                else -> false
+                            }
+                        }, onClick = {})) {
+                        if (cam != null) androidx.compose.runtime.key(cam.url) { CameraView(cam, s, Modifier.fillMaxSize()) }
+                    }
+                } else if (bgPage) {
                     Text("Background", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
                     val back = { target = bgRow; bgPage = false }
                     BG_MODES.forEachIndexed { i, (key, label) ->
                         MenuRow(s, light, label, if (st.bgMode == key) "✓" else "",
                             modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
-                            first = i == 0, last = i == BG_MODES.lastIndex, onLeft = back,
+                            first = i == 0, last = i == BG_MODES.lastIndex && st.bgMode != "aerial", onLeft = back,
                             glyph = { c -> glyph(if (st.bgMode == key) "dotOn" else "dotOff", c) },
                             onClick = {
                                 target = i
@@ -160,6 +222,45 @@ fun SideMenu(app: GlassApp, s: Float, onClose: () -> Unit, onLibrary: () -> Unit
                                 }
                             })
                     }
+                    // Screensaver background: a new video when each ends, or the same one again.
+                    if (st.bgMode == "aerial") {
+                        val n = BG_MODES.size
+                        MenuRow(s, light, "Shuffle videos", if (st.bgShuffle) "On" else "Off",
+                            modifier = Modifier.focusRequester(reqs[n]), onFocused = { current = n },
+                            first = false, last = true, onLeft = back,
+                            glyph = { c -> glyph(if (st.bgShuffle) "dotOn" else "dotOff", c) }, onClick = { target = n; st.bgShuffle = !st.bgShuffle })
+                    }
+                } else if (saverPage) {
+                    Text("Screensaver", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
+                        modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
+                    val back = { target = saverRow; saverPage = false }
+                    val opts = buildList<Triple<String, String, () -> Unit>> {
+                        add(Triple("Start now", "") { onClose(); runCatching { ctx.startActivity(Intent(ctx, com.glasslauncher.tv.saver.ScreensaverActivity::class.java)) } })
+                        com.glasslauncher.tv.saver.AerialSource.SOURCES.forEach { src ->
+                            val on = st.saverMode == "aerial" && src.key in st.saverSources
+                            add(Triple(src.name, if (on) "✓" else "") {
+                                st.saverMode = "aerial"; st.saverPick = ""
+                                st.saverSources = if (src.key in st.saverSources) st.saverSources - src.key else st.saverSources + src.key
+                            })
+                        }
+                        add(Triple("My videos", if (st.saverMode == "aerial" && st.saverMine) "✓" else "") { st.saverMode = "aerial"; st.saverMine = !st.saverMine; st.saverPick = "" })
+                        add(Triple("Posters", if (st.saverMode == "slideshow") "✓" else "") { st.saverMode = if (st.saverMode == "slideshow") "aerial" else "slideshow" })
+                        add(Triple("Shuffle", if (st.saverShuffle) "On" else "Off") { st.saverShuffle = !st.saverShuffle })
+                        add(Triple("Quality", com.glasslauncher.tv.saver.AerialSource.QUALITIES.firstOrNull { it.first == st.saverQuality }?.second?.substringBefore(" (") ?: "") {
+                            val q = com.glasslauncher.tv.saver.AerialSource.QUALITIES.map { it.first }
+                            st.saverQuality = q[(q.indexOf(st.saverQuality) + 1).mod(q.size)]
+                        })
+                        add(Triple("Starts after", st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" }) {
+                            val o = listOf(0, 10, 30, 60, 120, 300, 600)
+                            st.idleSeconds = o[(o.indexOf(st.idleSeconds).coerceAtLeast(0) + 1).mod(o.size)]
+                        })
+                    }
+                    opts.forEachIndexed { i, (label, value, act) ->
+                        MenuRow(s, light, label, value, modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
+                            first = i == 0, last = i == opts.lastIndex, onLeft = back,
+                            glyph = { c -> glyph(if (i == 0) "play" else if (value == "✓" || value == "On") "dotOn" else "dotOff", c) },
+                            onClick = { target = i; act() })
+                    }
                 } else if (!themes) {
                     val rows = buildList<Triple<String, String, () -> Unit>> {
                         if (st.menuLibrary) add(Triple("library", "Library") { onLibrary() })
@@ -167,9 +268,13 @@ fun SideMenu(app: GlassApp, s: Float, onClose: () -> Unit, onLibrary: () -> Unit
                         if (st.menuAndroid) add(Triple("gear", "Android settings") { open(ctx, android.provider.Settings.ACTION_SETTINGS) })
                         if (st.menuWifi) add(Triple("wifi", "Wi-Fi") { open(ctx, android.provider.Settings.ACTION_WIFI_SETTINGS) })
                         if (st.menuThemes) add(Triple("theme", "Themes") { target = 0; themes = true })
+                        if (st.menuCamera && cams.isNotEmpty()) add(Triple("camera", "Camera") { target = 0; camPage = true })
+                        if (st.menuSaver) add(Triple("saver", "Screensaver") { target = 0; saverPage = true })
                         if (st.menuBackground) add(Triple("background", "Background") { target = BG_MODES.indexOfFirst { it.first == st.bgMode }.coerceAtLeast(0); bgPage = true })
-                    }
+                    }.sortedBy { r -> st.menuOrder.indexOf(r.first).let { if (it < 0) 99 else it } }
                     bgRow = rows.indexOfFirst { it.first == "background" }.coerceAtLeast(0)
+                    camRow = rows.indexOfFirst { it.first == "camera" }.coerceAtLeast(0)
+                    saverRow = rows.indexOfFirst { it.first == "saver" }.coerceAtLeast(0)
                     themesRow = rows.indexOfFirst { it.first == "theme" }.coerceAtLeast(0)
                     rows.forEachIndexed { i, (icon, label, act) ->
                         MenuRow(s, light, label, when (icon) { "theme" -> themeLabel(st.theme); "background" -> BG_MODES.firstOrNull { it.first == st.bgMode }?.second.orEmpty(); else -> "" },
@@ -239,7 +344,7 @@ private fun MenuRow(
     ) {
         Canvas(Modifier.size((15 * s).dp)) { glyph(fg) }
         Spacer(Modifier.width((11 * s).dp))
-        Text(label, color = fg, fontSize = (12 * s).sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        Text(com.glasslauncher.tv.data.I18n.tr(label), color = fg, fontSize = (12 * s).sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         if (value.isNotBlank()) Text(value, color = fg.copy(alpha = 0.6f), fontSize = (10 * s).sp, fontWeight = FontWeight.Medium)
         if (chevron) {
             Spacer(Modifier.width((6 * s).dp))
@@ -312,6 +417,21 @@ private fun DrawScope.glyph(kind: String, c: Color) {
             val p = Path().apply { moveTo(w * 0.18f, w * 0.72f); lineTo(w * 0.42f, w * 0.44f); lineTo(w * 0.58f, w * 0.60f); lineTo(w * 0.68f, w * 0.50f); lineTo(w * 0.84f, w * 0.72f) }
             drawPath(p, c, style = st)
             drawCircle(c, w * 0.07f, Offset(w * 0.70f, w * 0.32f))
+        }
+        "saver" -> {
+            drawRoundRect(c, Offset(w * 0.06f, w * 0.18f), Size(w * 0.88f, w * 0.60f), CornerRadius(w * 0.10f), style = st)
+            drawLine(c, Offset(w * 0.32f, w * 0.90f), Offset(w * 0.68f, w * 0.90f), w * 0.09f, StrokeCap.Round)
+            val p = Path().apply { moveTo(w * 0.18f, w * 0.64f); quadraticTo(w * 0.40f, w * 0.36f, w * 0.56f, w * 0.52f); quadraticTo(w * 0.70f, w * 0.62f, w * 0.82f, w * 0.40f) }
+            drawPath(p, c, style = st)
+        }
+        "play" -> {
+            val p = Path().apply { moveTo(w * 0.28f, w * 0.16f); lineTo(w * 0.84f, w * 0.50f); lineTo(w * 0.28f, w * 0.84f); close() }
+            drawPath(p, c, style = st)
+        }
+        "camera" -> {
+            drawRoundRect(c, Offset(w * 0.06f, w * 0.26f), Size(w * 0.62f, w * 0.50f), CornerRadius(w * 0.12f), style = st)
+            val p = Path().apply { moveTo(w * 0.70f, w * 0.44f); lineTo(w * 0.94f, w * 0.30f); lineTo(w * 0.94f, w * 0.72f); lineTo(w * 0.70f, w * 0.58f) }
+            drawPath(p, c, style = st)
         }
         "dotOn" -> { drawCircle(c, w * 0.42f, Offset(w / 2, w / 2), style = st); drawCircle(c, w * 0.24f, Offset(w / 2, w / 2)) }
         "dotOff" -> drawCircle(c, w * 0.42f, Offset(w / 2, w / 2), style = st)

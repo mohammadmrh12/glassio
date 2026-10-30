@@ -43,6 +43,13 @@ class ContinueWatching(
 
     @Volatile private var access = sp.getBoolean("access", false)
     val trakt = Trakt(ctx)
+    val stremio = Stremio(ctx)
+    val simkl = Simkl(ctx)
+    /** The Nuvio account (kept by the Library); set once it exists. */
+    @Volatile var nuvio: NuvioAccount? = null
+    private val syncedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    /** Last result per account for Settings ("12 titles", or the error). */
+    val status = MutableStateFlow<Map<String, String>>(emptyMap())
     @Volatile private var traktAt = 0L
     @Volatile private var woke = false
     /** Last Trakt sync result for Settings ("12 titles", or the error). */
@@ -64,6 +71,15 @@ class ContinueWatching(
                 val now = System.currentTimeMillis()
                 if (settings.cwTrakt && settings.continueMode != "off" && trakt.connected &&
                     now - traktAt > (if (woke) 45_000L else 180_000L)) { traktAt = now; syncTrakt() }
+                // The other accounts, the same way. Each one's list replaces its own titles here, so a title
+                // removed (or finished) in that app leaves Glassio too.
+                fun due(k: String) = now - (syncedAt[k] ?: 0L) > (if (woke) 45_000L else 180_000L)
+                if (settings.continueMode != "off") {
+                    if (settings.cwStremio && stremio.connected && due("Stremio")) { syncedAt["Stremio"] = now; syncStremio() }
+                    if (settings.cwSimkl && simkl.connected && due("Simkl")) { syncedAt["Simkl"] = now; syncSimkl() }
+                    val n = nuvio
+                    if (settings.cwNuvioAccount && n?.connected == true && due("Nuvio")) { syncedAt["Nuvio"] = now; syncNuvio(n) }
+                }
                 woke = false
                 // Every 20 s, or right away when Glass comes back to the front (pollNow).
                 runCatching { wake.tryAcquire(20, java.util.concurrent.TimeUnit.SECONDS) }
@@ -126,6 +142,55 @@ class ContinueWatching(
         rebuildItems()
     }
 
+    private class Remote(val e: CwEntry, val ref: String)
+
+    private fun refs(app: String): JSONObject = runCatching { JSONObject(sp.getString("refs_$app", null) ?: "{}") }.getOrDefault(JSONObject())
+
+    /** [app]'s list replaces its titles here; a title another source saw more recently keeps that one's place. */
+    private fun mirror(app: String, remote: List<Remote>) {
+        synchronized(this) {
+            val ids = JSONObject()
+            val list = entries.value.filterNot { it.app == app }.toMutableList()
+            for (r in remote) {
+                if (r.e.percent >= 92 || r.e.percent < 1) continue
+                val other = list.firstOrNull { it.imdb == r.e.imdb }
+                if (other != null && other.at >= r.e.at) continue
+                list.removeAll { it.imdb == r.e.imdb }
+                list.add(r.e)
+                ids.put(r.e.key, r.ref)
+            }
+            val trimmed = list.sortedByDescending { it.at }.take(40)
+            entries.value = trimmed; save(trimmed)
+            sp.edit().putString("refs_$app", ids.toString()).apply()
+        }
+        status.value = status.value + (app to "${remote.size} titles")
+        rebuildItems()
+    }
+
+    fun syncStremio() {
+        val l = stremio.watching() ?: run { status.value = status.value + ("Stremio" to "Sync failed: ${stremio.lastError}"); return }
+        mirror("Stremio", l.map { Remote(CwEntry(it.imdb, it.season, it.episode, it.percent, it.at, "Stremio"), it.raw.toString()) })
+    }
+
+    private fun syncSimkl() {
+        val l = simkl.playback() ?: run { status.value = status.value + ("Simkl" to "Sync failed: ${simkl.lastError}"); return }
+        mirror("Simkl", l.map { Remote(CwEntry(it.imdb, it.season, it.episode, it.percent, it.at, "Simkl"), it.id.toString()) })
+    }
+
+    private fun syncNuvio(n: NuvioAccount) {
+        val l = n.progress() ?: run { status.value = status.value + ("Nuvio" to "Sync failed: ${n.lastError}"); return }
+        mirror("Nuvio", l.map { Remote(CwEntry(it.imdb, it.season, it.episode, it.percent, it.at, "Nuvio"), it.key) })
+        // Nuvio Legacy pushes its progress to the account: a title it shows in its log but that is no longer on the
+        // account was removed (or finished) in Nuvio, so it leaves here too (a few minutes' grace for the push).
+        val onAccount = l.map { it.imdb }.toSet()
+        synchronized(this) {
+            val now = System.currentTimeMillis()
+            val kept = entries.value.filterNot { it.app == "Nuvio Legacy" && it.imdb !in onAccount && now - it.at > 5 * 60_000L }
+            if (kept.size != entries.value.size) { entries.value = kept; save(kept) }
+        }
+        rebuildItems()
+    }
+
     private val epochLine = Regex("""^(\d+)\.(\d+)\s+\d+\s+\d+\s+[A-Z]\s+nuvio\s*:\s(.*)$""")
     private val startRe = Regex("""\[atividade] inicio (tt\d+) T(\d+)E(\d+) (\d+)%""")
     private val pointRe = Regex("""\[visto] ponto gravado .*?\((\d+)%\)""")
@@ -179,10 +244,21 @@ class ContinueWatching(
 
     fun clear() { entries.value = emptyList(); save(emptyList()); items.value = emptyList() }
 
+    /** Removes a title here and in the app it came from (Trakt, Simkl, Stremio, the Nuvio account). */
     fun remove(key: String) {
-        if (entries.value.any { it.key == key && it.app == "Trakt" }) {
+        val e = entries.value.firstOrNull { it.key == key }
+        if (e?.app == "Trakt") {
             val id = traktIds().optLong(key, 0L)
             if (id > 0) scope.launch(Dispatchers.IO) { trakt.removePlayback(id) }
+        }
+        if (e != null) scope.launch(Dispatchers.IO) {
+            val ref = refs(e.app).optString(key)
+            when (e.app) {
+                "Simkl" -> ref.toLongOrNull()?.let { simkl.removePlayback(it) }
+                "Stremio" -> runCatching { val o = JSONObject(ref); stremio.dismiss(Stremio.Progress(o.optString("_id"), e.imdb, e.season, e.episode, e.percent, e.at, o)) }
+                "Nuvio" -> nuvio?.deleteProgress(ref.ifBlank { if (e.episode > 0) "${e.imdb}_s${e.season}e${e.episode}" else e.imdb })
+                "Nuvio Legacy" -> nuvio?.takeIf { it.connected }?.deleteProgress(if (e.episode > 0) "${e.imdb}_s${e.season}e${e.episode}" else e.imdb)
+            }
         }
         val l = entries.value.filterNot { it.key == key }
         entries.value = l; save(l)

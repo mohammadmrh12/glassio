@@ -1,7 +1,7 @@
 #!/bin/zsh
 # soak.sh <art_choice> <minutes>: autoplay + random browsing, heap every 20 s
 D=${TV:?set TV=<tv-ip:5555>}
-adb -s $D shell am start -n com.glasslauncher.tv/.MainActivity --es art_choice $1 >/dev/null 2>&1
+adb -s $D shell am start -n com.glasslauncher.tv/.MainActivity --es dev "$(adb -s $D shell cat /sdcard/Android/data/com.glasslauncher.tv/files/devkey)" --es art_choice $1 >/dev/null 2>&1
 end=$(( $(date +%s) + $2 * 60 ))
 while [ $(date +%s) -lt $end ]; do
   for t in 1 2; do adb -s $D shell dumpsys window | grep -m1 mCurrentFocus | grep -q glasslauncher && break; adb -s $D shell input keyevent 4; sleep 2; done

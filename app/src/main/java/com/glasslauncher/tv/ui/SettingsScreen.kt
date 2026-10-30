@@ -65,6 +65,7 @@ import com.glasslauncher.tv.data.NuvioLaunch
 import com.glasslauncher.tv.net.Net
 import com.glasslauncher.tv.net.PhoneServer
 import com.glasslauncher.tv.saver.ScreensaverActivity
+import com.glasslauncher.tv.saver.AerialSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -160,6 +161,23 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     fun io(block: suspend () -> String) = scope.launch(Dispatchers.IO) {
         toast(ctx, runCatching { block() }.getOrElse { it.message ?: "Failed" })
     }
+    /** A video link's picture if it's made already (no waiting). */
+    fun thumbOf(id: String): java.io.File? = if (!id.startsWith("http")) null
+        else com.glasslauncher.tv.saver.VideoThumbs.file(ctx, id).takeIf { it.isFile && it.length() > 0 }
+    /** Makes the pictures still missing, then shows the same list again with them (if it's still open). */
+    fun fillThumbs(ids: List<String>, title: String, items: () -> List<ThumbItem>) = scope.launch(Dispatchers.IO) {
+        val missing = ids.filter { it.startsWith("http") && thumbOf(it) == null }
+        if (missing.isEmpty()) return@launch
+        missing.forEach { com.glasslauncher.tv.saver.VideoThumbs.get(ctx, it) }
+        if ((dialog as? ThumbDialog)?.title == title) dialog = ThumbDialog(title, items())
+    }
+    // A row that opens another section (things that belong together are reachable from both).
+    val weatherFound by app.weather.found.collectAsState()
+    val catTitles = remember { arrayOf<List<String>>(emptyList()) }
+    fun link(title: String, desc: String): SRow = Act("→ " + com.glasslauncher.tv.data.I18n.tr(title), desc, "") {
+        val i = catTitles[0].indexOf(title)
+        if (i >= 0) { cat = i; shownCat = i; scope.launch { delay150(); runCatching { catFocus[i].requestFocus() } } }
+    }
     // TMDB: the token is checked with TMDB itself whenever it changes, so "Set" means it really works.
     fun tmdbRow(): SRow {
         val t = st.tmdbToken
@@ -179,6 +197,42 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
         }
     }
     // Connect / sign out of the Nuvio account: the same row in Menu & Library, Catalogs and Nuvio & Home Assistant.
+    fun connectStremio() {
+        val sm = app.cw.stremio
+        scope.launch(Dispatchers.IO) {
+            val l = runCatching { sm.startLink() }.getOrElse { toast(ctx, "Stremio: ${it.message}"); return@launch }
+            val code = kotlinx.coroutines.flow.MutableStateFlow<String?>(l.code)
+            dialog = QrCodeDialog("Connect Stremio", l.url, code, "Approve on your phone. This closes by itself.")
+            val ok = sm.waitLink(l) { dialog == null }
+            code.value = null
+            toast(ctx, if (ok) "Stremio connected" else "Stremio: ${sm.lastError}")
+            if (ok) { st.cwStremio = true; app.cw.pollNow(); tvRev.intValue++ }
+        }
+    }
+    fun connectSimkl() {
+        val sk = app.cw.simkl
+        scope.launch(Dispatchers.IO) {
+            if (!sk.available) {
+                // Simkl needs an app id: pasted on the phone page (Accounts), then the sign-in code follows by itself.
+                val u = com.glasslauncher.tv.net.PhoneHost.start(app) ?: run { toast(ctx, "The TV is not on a network"); return@launch }
+                val code = kotlinx.coroutines.flow.MutableStateFlow<String?>("Simkl Client ID")
+                dialog = QrCodeDialog("Simkl: add its app id", u, code, "Scan, then paste the Client ID from simkl.com/settings/developer under Accounts. Sign-in follows here.")
+                var n = 0
+                while (!sk.available && dialog != null && n++ < 600) kotlinx.coroutines.delay(1000)
+                code.value = null
+                if (!sk.available) return@launch
+                kotlinx.coroutines.delay(400)
+            }
+            val pin = runCatching { sk.startPin() }.getOrElse { toast(ctx, "Simkl: ${it.message}"); return@launch }
+            val code = kotlinx.coroutines.flow.MutableStateFlow<String?>(pin.code)
+            dialog = QrCodeDialog("Connect Simkl", pin.qr, code, "Scan and approve on simkl.com (the code is filled in). This closes by itself.")
+            val ok = sk.waitPin(pin) { dialog == null }
+            code.value = null
+            toast(ctx, if (ok) "Simkl connected" else "Simkl: ${sk.lastError}")
+            if (ok) { st.cwSimkl = true; app.cw.pollNow(); tvRev.intValue++ }
+        }
+    }
+
     fun nuvioAccountRow(): SRow =
         if (!app.library.nuvio.connected) Act("Connect Nuvio account", "Scan a QR code with your phone and approve, like signing in to Nuvio on a TV", if (nuvioUrl != null) "Waiting…" else "") {
                         val appCtx = ctx.applicationContext
@@ -209,8 +263,11 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Adjust("Glass detail", "Resolution of the picture the glass bends (higher = crisper glass, more memory)", {
                     when (st.glassRes) { 720 -> "Sharp (720 px)"; else -> "Standard (480 px)" }
                 }, { st.glassRes = cycle(listOf(480, 720), st.glassRes, it); custom() }),
-                Adjust("Picture quality", "Carousel backdrops", { if (st.imageQuality == "high") "High (1280 px)" else "Maximum (original)" },
-                    { st.imageQuality = cycle(listOf("high", "max"), st.imageQuality, it); custom() }),
+                Adjust("Picture quality", "Carousel backdrops. 1280 enhanced: the light 1280 px picture, sharpened as it is scaled up",
+                    { when (st.imageQuality) { "high" -> "High (1280 px)"; "hd" -> "1280 enhanced"; else -> "Maximum (original)" } },
+                    { st.imageQuality = cycle(listOf("high", "hd", "max"), st.imageQuality, it); custom() }),
+                Adjust("Picture cache", "Posters, backdrops and logos kept on the TV, so browsing back is instant. Applies after a restart", { "${st.cacheMb / 1024.0}".removeSuffix(".0") + " GB" },
+                    { st.cacheMb = cycle(listOf(512, 1024, 1536, 2048, 3072, 4096), st.cacheMb, it) }),
                 Adjust("Prepare ahead", "Slides loaded before you get to them", { "${st.prefetchDepth}" }, { st.prefetchDepth += it; custom() }),
                 Adjust("Slide transition", "", { "${st.transitionMs} ms" }, { st.transitionMs += it * 50; custom() }),
                 Adjust("Glass refraction", "0 = flat glass (lightest)", { "${st.refraction}" }, { st.refraction += it * 2; custom() }),
@@ -228,10 +285,12 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Adjust("Buttons", "Play + Next: like Apple TV, Right or OK on the round button shows the next title, Left on Play the previous one",
                     { when (st.heroButtons) { "apple" -> "Play + Next"; "play" -> "Play only"; else -> "Hidden" } },
                     { st.heroButtons = cycle(listOf("apple", "play", "hidden"), st.heroButtons, it) }),
+                Toggle("  · + button", "Between Play and Next: saves the title to your Library", { st.heroPlus }, { st.heroPlus = it }),
                 Toggle("Dots auto-hide", "Show them only when the carousel is selected", { st.dotsAutoHide }, { st.dotsAutoHide = it }),
                 Adjust("Title style", "Logo image, plain text, or nothing", {
                     when (st.titleMode) { "logo" -> "Logo"; "text" -> "Text"; else -> "Hidden" }
                 }, { st.titleMode = cycle(listOf("logo", "text", "hidden"), st.titleMode, it) }),
+                Toggle("White logo", "Apple style: the logo all in white", { st.logoWhite }, { st.logoWhite = it }),
                 Adjust("Logo / title size", "Logos are evened out so wide and tall ones look the same size", { pct(st.titleScale) }, { st.titleScale = tenth(st.titleScale, it) }),
                 Adjust("Rating, year, platform size", "", { pct(st.metaScale) }, { st.metaScale = tenth(st.metaScale, it) }),
                 Adjust("Genres size", "", { pct(st.genresScale) }, { st.genresScale = tenth(st.genresScale, it) }),
@@ -250,6 +309,8 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Toggle("Backdrop gallery", "Like Apple TV: each title shows several of its pictures (needs the TMDB token)", { st.heroGallery }, { st.heroGallery = it }),
                 Adjust("Pictures per title", "", { "${st.galleryShots}" }, { st.galleryShots = (st.galleryShots + it).coerceIn(2, 6) }),
                 Toggle("Shuffle all catalogs", "Random order across every catalog, a new mix each time the list loads", { st.shuffle }, { st.shuffle = it }),
+                Toggle("Surprise me", "A random mix from all your catalogs (different titles each time), fetched again on its own", { st.surprise }, { st.surprise = it; io { app.catalogs.refresh(); "New mix" } }),
+                Adjust("  · New mix every", "", { st.surpriseMin.let { if (it < 60) "$it min" else "${it / 60} h" } }, { st.surpriseMin = cycle(listOf(15, 30, 60, 180, 360, 720), st.surpriseMin, it) }),
                 Adjust("Synopsis language", "Needs a TMDB token. English is used when a title has no text in this language", { com.glasslauncher.tv.data.LANG_NAMES[st.descLang] ?: "English" }, {
                     st.descLang = cycle(com.glasslauncher.tv.data.TMDB_LANGS.keys.toList(), st.descLang, it); app.catalogs.clearEnrichment()
                 }),
@@ -266,8 +327,10 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             fun pick(video: Boolean) {
                 val files = CustomBackground.files(ctx, video)
                 if (files.isEmpty()) { toast(ctx, "No ${if (video) "videos" else "pictures"} yet. Copy them to: $bgFolder"); return }
-                dialog = MenuDialog(if (video) "Videos in the folder" else "Pictures in the folder", files.map { f ->
-                    f.name to { if (video) { st.bgVideo = f.absolutePath; st.bgMode = "video" } else { st.bgImage = f.absolutePath; st.bgMode = "image" } }
+                dialog = ThumbDialog(if (video) "Videos in the folder" else "Pictures in the folder", files.map { f ->
+                    ThumbItem(f.name, "${f.length() / 1048576} MB", f, checked = f.absolutePath == (if (video) st.bgVideo else st.bgImage)) {
+                        if (video) { st.bgVideo = f.absolutePath; st.bgMode = "video" } else { st.bgImage = f.absolutePath; st.bgMode = "image" }
+                    }
                 })
             }
             listOf(
@@ -291,7 +354,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Adjust("Weather", "Top bar, next to the settings button", {
                     when (st.weatherMode) { "off" -> "Off"; "temp" -> "Temperature"; "condition" -> "Temperature + sky"; "city" -> "Temperature + city"; else -> "Everything" }
                 }, { st.weatherMode = cycle(listOf("all", "condition", "city", "temp", "off"), st.weatherMode, it); app.weather.reload() }),
-                Act("Weather city", st.weatherCity + app.weather.found.value.takeIf { it.isNotBlank() }?.let { "  →  $it" }.orEmpty(), "Change") {
+                Act("Weather city", st.weatherCity + weatherFound.takeIf { it.isNotBlank() }?.let { "  →  $it" }.orEmpty(), "Change") {
                     dialog = TextEntry("Weather city", st.weatherCity, "Baghdad") { st.weatherCity = it; app.weather.reload() }
                 },
                 Toggle("Fahrenheit", "", { st.weatherF }, { st.weatherF = it }),
@@ -306,6 +369,11 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     { st.focusPlate = cycle(PLATES, st.focusPlate, it) }),
                 Toggle("Bounce at the edges", "Pressing past the first or last icon nudges it, like tvOS", { st.edgeBounce }, { st.edgeBounce = it }),
                 Toggle("Lift selected icon", "The selected icon rises a little, glass and all", { st.tileLift }, { st.tileLift = it }),
+                Adjust("Icon zoom on focus", "", { when (st.tileZoom) { "icon" -> "Inside the glass (the icon grows)"; "off" -> "None"; else -> "Whole tile grows" } },
+                    { st.tileZoom = cycle(listOf("tile", "icon", "off"), st.tileZoom, it) }),
+                Adjust("Glow", "A very soft light around the selected app or poster (also in the Library)", { when (st.glow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
+                    { st.glow = cycle(listOf("off", "color", "white"), st.glow, it) }),
+                Adjust("  · Glow size", "How far and how strong it is", { pct(st.glowSize) }, { st.glowSize = ((st.glowSize * 10).roundToInt() + it) / 10f }),
                 Toggle("Show phone apps too", "Apps without a TV launcher entry", { st.showMobileApps }, { st.showMobileApps = it; app.apps.reload() }),
             )
         },
@@ -318,6 +386,12 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     { st.iconPack = cycle(packList, st.iconPack, it) }))
                 add(Toggle("Show Apps folder", "The folder with all your apps, in the dock. Hidden apps stay listed below", { st.showFolder }, { st.showFolder = it }))
                 add(Adjust("Dock size", "Smaller makes the dock and its icons narrower", { pct(st.dockScale) }, { st.dockScale = ((st.dockScale * 20).roundToInt() + it) / 20f }))
+                add(Toggle("Dock fits its apps", "With fewer apps than a full row, the dock shrinks around them", { st.dockFit }, { st.dockFit = it }))
+                add(Toggle("Hide the dock", "It stays below the screen until you go down to it (the dots go down too)", { st.dockHide }, { st.dockHide = it }))
+                add(Adjust("Dock position", "With your own picture, video or screensaver background",
+                    { when (st.dockPos) { "center" -> "Middle"; "left" -> "Left (column)"; else -> "Bottom" } },
+                    { st.dockPos = cycle(listOf("bottom", "center", "left"), st.dockPos, it) }))
+                add(Toggle("Down from the dock opens the Library", "From the dock's last row", { st.libraryDown }, { st.libraryDown = it }))
                 add(Adjust("Dock background", "Behind the apps row and the Apps folder", { styleName(st.dockStyle) },
                     { st.dockStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.dockStyle, it); st.theme = "" }))
                 add(Adjust("Settings background", "Behind settings and the icon picker", { styleName(st.panelStyle) },
@@ -339,7 +413,28 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 app.apps.ordered(includeHidden = true).forEach { add(AppItem(it)) }
             }
         },
-        Category("Menu, Library & themes") {
+        Category("Library") {
+            listOf(
+                Toggle("Ask before removing", "Hold OK on a title asks \"Remove?\" first", { st.libraryConfirm }, { st.libraryConfirm = it }),
+                Toggle("Down from the dock opens the Library", "The page scrolls up into it, like Apple TV; Up from its top row goes back", { st.libraryDown }, { st.libraryDown = it }),
+                Toggle("+ button on the carousel", "Between Play and Next: saves the title to your Library", { st.heroPlus }, { st.heroPlus = it }),
+                Toggle("Trakt watchlist in the Library", "Needs Trakt (Continue Watching)", { st.libraryTrakt }, { st.libraryTrakt = it; scope.launch(Dispatchers.IO) { app.library.refreshWatchlist() } }),
+                Toggle("Nuvio library", if (app.library.nuvio.connected) "From your Nuvio account" + (app.library.nuvio.email.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "") + ": Nuvio Legacy, the official Nuvio app and forks that sync with it"
+                    else "Connect your Nuvio account below", { st.libraryNuvio }, { st.libraryNuvio = it; scope.launch(Dispatchers.IO) { app.library.refreshNuvio() } }),
+                nuvioAccountRow(),
+                Toggle("Save to the Nuvio library too", "The + button also saves the title to your Nuvio account (Legacy, official Nuvio and forks see it)", { st.libraryToNuvio }, { st.libraryToNuvio = it }),
+                Toggle("Save to the Trakt watchlist too", "The + button also adds the title on Trakt", { st.libraryToTrakt }, { st.libraryToTrakt = it }),
+                Toggle("Titles under posters", "In the Library", { st.libraryTitles }, { st.libraryTitles = it }),
+                Toggle("Continue Watching in the Library", "At the top, with where each title came from", { st.libraryCw }, { st.libraryCw = it }),
+                Adjust("  · Card", "", { if (st.libraryCwShape == "poster") "Poster" else "Backdrop" }, { st.libraryCwShape = if (st.libraryCwShape == "poster") "backdrop" else "poster" }),
+                Adjust("  · Card size", "", { pct(st.libraryCwSize) }, { st.libraryCwSize = ((st.libraryCwSize * 10).roundToInt() + it) / 10f }),
+                Toggle("  · Where it came from", "Nuvio, Trakt, Simkl or Stremio, with a dot in its colour", { st.libraryCwSource }, { st.libraryCwSource = it }),
+                Note("In the Library: OK opens the title like the carousel. Hold OK (or Menu) to remove it."),
+                link("Connections", "Sign in to Nuvio, Trakt, Simkl or Stremio for their lists here"),
+                link("Continue Watching", "Where the Continue Watching row gets its titles"),
+            )
+        },
+        Category("Menu & themes") {
             val themes = listOf("bow", "amoled", "liquid", "clear", "water_still", "water")
             listOf(
                 Adjust("Theme", "One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)",
@@ -358,15 +453,19 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Toggle("Wi-Fi in the menu", "", { st.menuWifi }, { st.menuWifi = it }),
                 Toggle("Themes in the menu", "", { st.menuThemes }, { st.menuThemes = it }),
                 Toggle("Background in the menu", "Switch between title backdrops, your picture, your video and the screensaver", { st.menuBackground }, { st.menuBackground = it }),
-                Toggle("+ button on the carousel", "Between Play and Next: saves the title to your Library", { st.heroPlus }, { st.heroPlus = it }),
-                Toggle("Trakt watchlist in the Library", "Needs Trakt (Continue Watching)", { st.libraryTrakt }, { st.libraryTrakt = it; scope.launch(Dispatchers.IO) { app.library.refreshWatchlist() } }),
-                Toggle("Nuvio library", if (app.library.nuvio.connected) "From your Nuvio account" + (app.library.nuvio.email.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "") + ": Nuvio Legacy, the official Nuvio app and forks that sync with it"
-                    else "Connect your Nuvio account below", { st.libraryNuvio }, { st.libraryNuvio = it; scope.launch(Dispatchers.IO) { app.library.refreshNuvio() } }),
-                nuvioAccountRow(),
-                Toggle("Save to the Nuvio library too", "The + button also saves the title to your Nuvio account (Legacy, official Nuvio and forks see it)", { st.libraryToNuvio }, { st.libraryToNuvio = it }),
-                Toggle("Save to the Trakt watchlist too", "The + button also adds the title on Trakt", { st.libraryToTrakt }, { st.libraryToTrakt = it }),
-                Toggle("Titles under posters", "In the Library", { st.libraryTitles }, { st.libraryTitles = it }),
-                Note("In the Library: OK opens the title like the carousel. Hold OK (or Menu) to remove it."),
+                Adjust("Menu size", "", { pct(st.menuScale) }, { st.menuScale = ((st.menuScale * 20).roundToInt() + it) / 20f }),
+                Act("Menu order", st.menuOrder.joinToString(" · ") { com.glasslauncher.tv.data.MENU_NAMES[it] ?: it }, "Change") {
+                    dialog = ReorderDialog("Menu order", st.menuOrder.map { it to (com.glasslauncher.tv.data.MENU_NAMES[it] ?: it) }) { st.menuOrder = it }
+                },
+                Toggle("TV info in the menu", "Under the weather: IP, CPU, GPU, RAM, storage (CPU and GPU need TV access (ADB))", { st.menuSys }, { st.menuSys = it }),
+                Toggle("  · IP address", "", { st.sysIp }, { st.sysIp = it }),
+                Toggle("  · CPU", "Use and temperature", { st.sysCpu }, { st.sysCpu = it }),
+                Toggle("  · GPU", "Use, or its memory where the TV doesn't tell the use", { st.sysGpu }, { st.sysGpu = it }),
+                Toggle("  · RAM", "", { st.sysRam }, { st.sysRam = it }),
+                Toggle("  · Storage", "", { st.sysStorage }, { st.sysStorage = it }),
+                Toggle("Screensaver in the menu", "Start it, choose its videos and when it starts", { st.menuSaver }, { st.menuSaver = it }),
+                Toggle("Camera in the menu", if (st.cameras.isEmpty()) "Add a camera in Connections → Cameras" else "Live view in the menu, like Apple TV", { st.menuCamera }, { st.menuCamera = it }),
+                link("Library", "Its rows, accounts and Continue Watching there"),
             )
         },
         Category("Catalogs") {
@@ -401,6 +500,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
         },
         Category("Continue Watching") {
             val cwList by app.cw.entries.collectAsState()
+            val cwStatusCw by app.cw.status.collectAsState()
             buildList {
                 add(Adjust("Show Continue Watching", "Where titles you are watching appear", {
                     when (st.continueMode) { "off" -> "Off"; "mixed" -> "Mixed with catalogs"; else -> "At the start" }
@@ -430,6 +530,14 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     })
                     else add(Act("Sign out of Trakt", trakt.user, "") { trakt.signOut(); st.cwTrakt = st.cwTrakt; toast(ctx, "Signed out of Trakt") })
                 }
+                val smC = app.cw.stremio
+                if (smC.connected) add(Toggle("Stremio", "What you paused in Stremio" + (cwStatusCw["Stremio"]?.let { " · $it" } ?: ""), { st.cwStremio }, { st.cwStremio = it; app.cw.pollNow() }))
+                else add(Act("Connect Stremio", "Scan a QR code with your phone and approve", "") { connectStremio() })
+                val skC = app.cw.simkl
+                if (skC.connected) add(Toggle("Simkl", "What you paused in any app that uses Simkl" + (cwStatusCw["Simkl"]?.let { " · $it" } ?: ""), { st.cwSimkl }, { st.cwSimkl = it; app.cw.pollNow() }))
+                else add(Act("Connect Simkl", "Scan a QR code with your phone and approve", "") { connectSimkl() })
+                if (app.library.nuvio.connected) add(Toggle("Nuvio account", "What you watch in Nuvio Legacy, the official app and forks" + (cwStatusCw["Nuvio"]?.let { " · $it" } ?: ""),
+                    { st.cwNuvioAccount }, { st.cwNuvioAccount = it; app.cw.pollNow() }))
                 add(Note("How it works: Nuvio Legacy writes what you play to the TV's log (title, episode, how far). Glassio reads that log through the TV's own debugging connection (ADB), so this needs ADB once: Settings → System → TV access (ADB). Nothing leaves the TV."))
                 add(Note("The official Nuvio app, Nuvio Arc and Re-Shaped don't write that log: connect Trakt (and turn on Trakt in that Nuvio app) and what you pause there shows up here through Trakt."))
                 add(Note("Other apps (YouTube, Netflix, Apple TV…) keep their Continue Watching private on Google TV; only the system launcher may read it."))
@@ -439,10 +547,17 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 }
             }
         },
-        Category("Nuvio & Home Assistant") {
-            listOf(
-                nuvioAccountRow(),
-                Adjust("Open titles in", "Auto uses the first installed: Nuvio Legacy, Nuvio (official), Nuvio Arc, Nuvio Re-Shaped", {
+        Category("Connections") {
+            val cwStatus by app.cw.status.collectAsState()
+            buildList {
+                add(Note("Nuvio"))
+                add(nuvioAccountRow())
+                if (app.library.nuvio.connected) {
+                    add(Toggle("Continue Watching from the Nuvio account", "What you watch in Nuvio Legacy, the official app and forks" + (cwStatus["Nuvio"]?.let { " · $it" } ?: ""),
+                        { st.cwNuvioAccount }, { st.cwNuvioAccount = it; app.cw.pollNow() }))
+                    add(Toggle("Catalogs from the Nuvio account's add-ons", "One that's already here isn't added twice", { st.catalogsNuvio }, { on -> io { app.catalogs.useAccount(on, "nuvio") } }))
+                }
+                add(Adjust("Open titles in", "Auto uses the first installed: Nuvio Legacy, Nuvio (official), Nuvio Arc, Nuvio Re-Shaped", {
                     val n = NuvioLaunch.NAMES[st.nuvioTarget] ?: "Auto"
                     val r = NuvioLaunch.resolve(ctx, st)
                     when {
@@ -450,85 +565,211 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         !NuvioLaunch.installed(ctx, NuvioLaunch.TARGETS.getValue(r)) -> "$n (not installed)"
                         else -> n
                     }
-                }, {
-                    st.nuvioTarget = cycle(listOf("auto") + NuvioLaunch.TARGETS.keys, st.nuvioTarget, it)
-                }),
-                Act("Home Assistant webhook", "Full webhook URL from your Home Assistant", if (st.haWebhook.isBlank()) "Not set" else "Set",
+                }, { st.nuvioTarget = cycle(listOf("auto") + NuvioLaunch.TARGETS.keys, st.nuvioTarget, it) }))
+
+                add(Note("Stremio"))
+                val sm = app.cw.stremio
+                if (!sm.connected) {
+                    add(Act("Connect Stremio", "Scan a QR code with your phone and approve (signed in to Stremio there)", "") { connectStremio() })
+                    add(Act("Sign in with email", "Your Stremio email and password (the password isn't kept)", "") {
+                        dialog = TextEntry("Stremio email", "", "you@example.com") { mail ->
+                            dialog = TextEntry("Stremio password", "", "Password") { pw ->
+                                io { if (sm.login(mail, pw)) { st.cwStremio = true; app.cw.pollNow(); tvRev.intValue++; "Stremio connected" } else "Stremio: ${sm.lastError}" }
+                            }
+                        }
+                    })
+                } else {
+                    add(Act("Stremio account", "Signed in" + sm.email.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty(), "Sign out", ok = true) { sm.signOut(); tvRev.intValue++; toast(ctx, "Signed out of Stremio") })
+                    add(Toggle("Continue Watching from Stremio", cwStatus["Stremio"] ?: "", { st.cwStremio }, { st.cwStremio = it; app.cw.pollNow() }))
+                    add(Toggle("Catalogs from Stremio's add-ons", "One that's already here isn't added twice", { st.catalogsStremio }, { on -> io { app.catalogs.useAccount(on, "stremio") } }))
+                }
+
+                add(Note("Trakt"))
+                val trakt = app.cw.trakt
+                if (trakt.available) {
+                    if (!trakt.connected) add(Act("Connect Trakt", "Scan a QR code with your phone and enter a short code", if (traktCode != null) "Waiting…" else "") {
+                        val appCtx = ctx.applicationContext
+                        app.cw.connectTrakt { msg -> toast(appCtx, msg) }
+                        scope.launch {
+                            var n = 0
+                            while (app.cw.traktCode.value == null && n++ < 50) kotlinx.coroutines.delay(100)
+                            if (app.cw.traktCode.value != null) dialog = QrCodeDialog("Connect Trakt", app.cw.traktUrl, app.cw.traktCode, "This closes by itself once you approve.")
+                        }
+                    })
+                    else {
+                        add(Act("Trakt account", "Signed in as ${trakt.user.ifBlank { "your account" }}", "Sign out", ok = true) { trakt.signOut(); st.cwTrakt = st.cwTrakt; toast(ctx, "Signed out of Trakt") })
+                        add(Toggle("Continue Watching from Trakt", "", { st.cwTrakt }, { st.cwTrakt = it; app.cw.syncTraktNow() }))
+                        add(Toggle("Trakt watchlist in the Library", "", { st.libraryTrakt }, { st.libraryTrakt = it; scope.launch(Dispatchers.IO) { app.library.refreshWatchlist() } }))
+                    }
+                } else add(Note("This build has no Trakt app id."))
+
+                add(Note("Simkl"))
+                val sk = app.cw.simkl
+                if (!sk.connected) add(Act("Connect Simkl", "Scan a QR code with your phone and approve" + (if (!sk.available) " (first its app id, from the phone)" else ""), "") { connectSimkl() })
+                else {
+                    add(Act("Simkl account", "Signed in" + sk.user.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty(), "Sign out", ok = true) { sk.signOut(); tvRev.intValue++; toast(ctx, "Signed out of Simkl") })
+                    add(Toggle("Continue Watching from Simkl", cwStatus["Simkl"] ?: "", { st.cwSimkl }, { st.cwSimkl = it; app.cw.pollNow() }))
+                    add(Toggle("Simkl \"Plan to watch\" in the Library", "", { st.librarySimkl }, { st.librarySimkl = it; scope.launch(Dispatchers.IO) { app.library.refreshSimkl() } }))
+                    add(Toggle("+ saves to Simkl too", "", { st.libraryToSimkl }, { st.libraryToSimkl = it }))
+                }
+
+                add(Note("TMDB"))
+                add(tmdbRow())
+
+                add(Note("Home Assistant"))
+                add(Act("Home Assistant webhook", "Full webhook URL from your Home Assistant", if (st.haWebhook.isBlank()) "Not set" else "Set",
                     ok = if (st.haWebhook.startsWith("http")) true else null) {
                     dialog = TextEntry("Home Assistant webhook", st.haWebhook, "http://homeassistant.local:8123/api/webhook/…") { st.haWebhook = it }
-                },
-                Toggle("Tell Home Assistant when a title opens", "Sends title, type and id as JSON", { st.haOnLaunch }, { st.haOnLaunch = it }),
-                Act("Send a test event", "") { io { NuvioLaunch.testWebhook(st, app.http) } },
-                tmdbRow(),
-            )
+                })
+                add(Toggle("Tell Home Assistant when a title opens", "Sends title, type and id as JSON", { st.haOnLaunch }, { st.haOnLaunch = it }))
+                add(Act("Send a test event", "") { io { NuvioLaunch.testWebhook(st, app.http) } })
+
+                add(Note("Cameras"))
+                add(Act("Find cameras", "Searches your network (ONVIF: Hikvision, Dahua, Reolink, Tapo, Amcrest, Axis…)", "") {
+                    io {
+                        val found = com.glasslauncher.tv.data.Onvif.discover()
+                        if (found.isEmpty()) return@io "No cameras answered. Add one with its RTSP link below"
+                        dialog = MenuDialog("Cameras found", found.map { f -> "${f.name} · ${f.ip}" to {
+                            dialog = TextEntry("Login for ${f.name}", "admin:", "user:password (the camera's own login)") { login ->
+                                io {
+                                    val uri = com.glasslauncher.tv.data.Onvif.streamUri(f, login.substringBefore(':'), login.substringAfter(':', ""))
+                                    st.cameras = (st.cameras + Cam(f.name, uri).line()).distinct(); tvRev.intValue++
+                                    "Added ${f.name}"
+                                }
+                            }
+                        } })
+                        "${found.size} found"
+                    }
+                })
+                add(Act("Add camera link", "rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link", "") {
+                    dialog = TextEntry("Camera link", "rtsp://", "rtsp://user:password@camera-ip:554/stream1") { u ->
+                        if (!u.contains("://")) { toast(ctx, "That isn't a link"); return@TextEntry }
+                        dialog = TextEntry("Camera name", "", "Door, Garden…") { n -> st.cameras = (st.cameras + Cam(n.ifBlank { "Camera" }, u.trim()).line()).distinct(); tvRev.intValue++ }
+                    }
+                })
+                st.cameras.mapNotNull { Cam.parse(it) }.forEach { c ->
+                    add(Act(c.name, runCatching { java.net.URI(c.url).host }.getOrNull() ?: "", "Remove") { st.cameras = st.cameras.filterNot { it == c.line() || Cam.parse(it)?.url == c.url } })
+                }
+                add(Toggle("Camera in the menu", "", { st.menuCamera }, { st.menuCamera = it }))
+            }
         },
         Category("Screensaver") {
             buildList {
-                val system = runCatching { AndroidSettings.Secure.getString(ctx.contentResolver, "screensaver_components") }.getOrNull().orEmpty()
-                if (system.isNotBlank() && !system.contains(ctx.packageName)) {
-                    add(Note("Your system screensaver is already ${system.substringBefore('/')}. Leave \"Start after\" on Off and it will keep working on this launcher."))
-                }
-                val aerialViews = "com.neilturner.aerialviews"
-                val avInstalled = remember { runCatching { ctx.packageManager.getPackageInfo(aerialViews, 0) }.isSuccess }
-                val avComponent = "$aerialViews/.ui.screensaver.DreamActivity"
-                add(Note("Recommended: Aerial Views. The best screensaver with Glassio: Apple, Amazon and your own 4K videos, clock and info, free on Google Play."))
-                if (!avInstalled) add(Act("Install Aerial Views", "Opens it on Google Play", "Google Play") { openPlay(ctx, aerialViews, null) })
-                else {
-                    add(Act("Open Aerial Views settings", "Choose videos, clock, overlays", "") {
-                        ctx.packageManager.getLaunchIntentForPackage(aerialViews)?.let { runCatching { ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-                    })
-                }
-                // The TV's own screensaver, switched through the TV's debugging connection (ADB): on / off and when it starts.
+                // The TV's own screensaver, switched through the TV's debugging connection (ADB).
                 tvRev.intValue
                 val cr = ctx.contentResolver
-                val tvOn = runCatching { AndroidSettings.Secure.getInt(cr, "screensaver_enabled", 1) == 1 }.getOrDefault(true) &&
-                    runCatching { AndroidSettings.Secure.getString(cr, "screensaver_components") }.getOrNull().orEmpty().startsWith(aerialViews)
+                val comp = runCatching { AndroidSettings.Secure.getString(cr, "screensaver_components") }.getOrNull().orEmpty()
+                val tvEnabled = runCatching { AndroidSettings.Secure.getInt(cr, "screensaver_enabled", 1) == 1 }.getOrDefault(true)
+                val glassDream = "${ctx.packageName}/com.glasslauncher.tv.saver.GlassDreamService"
+                val ours = tvEnabled && comp.startsWith(ctx.packageName)
                 val tvAfter = runCatching { AndroidSettings.System.getInt(cr, "screen_off_timeout") }.getOrDefault(0)
                 fun tv(cmd: String, done: String) = io {
                     val r = com.glasslauncher.tv.data.LocalShell.run(ctx, cmd)
                     tvRev.intValue++
                     if (r.isSuccess) done else "Allow USB debugging for Glassio when the TV asks (Always allow), then try again"
                 }
-                if (avInstalled) add(Toggle("Aerial Views as the TV screensaver (ADB)", if (tvOn) "On: the TV starts Aerial Views by itself when idle" else "Off: the TV doesn't start a screensaver",
-                    { tvOn }, { on ->
-                        if (on) tv("settings put secure screensaver_components $avComponent && settings put secure screensaver_enabled 1 && settings put secure screensaver_activate_on_sleep 1", "Aerial Views screensaver on").also { st.saverMode = "system" }
+                add(Toggle("Glassio is the TV screensaver (ADB)", if (ours) "On: it starts in every app when the TV is idle, not only on the home screen"
+                    else if (tvEnabled && comp.isNotBlank()) "Now the TV uses ${comp.substringBefore('/')}" else "Off",
+                    { ours }, { on ->
+                        // The TV's "undim detector" kept the screen on for 10 minutes after a couple of quick key presses,
+                        // so the screensaver often didn't start at its time: switched off here.
+                        // With the screensaver time at (or past) the TV's sleep time the TV just went to sleep: give it 5 minutes then.
+                        if (on) tv("settings put secure screensaver_components $glassDream && settings put secure screensaver_enabled 1 && settings put secure screensaver_activate_on_sleep 1; " +
+                            "t=\$(settings get system screen_off_timeout); sl=\$(settings get secure sleep_timeout); case \$sl in ''|null|-1|0) sl=1800000;; esac; " +
+                            "if [ \"\$t\" -ge \"\$sl\" ] 2>/dev/null || [ \"\$t\" -ge 1800000 ] 2>/dev/null; then settings put system screen_off_timeout 300000; fi; " +
+                            "device_config put attention_manager_service keep_screen_on_enabled false 2>/dev/null; true",
+                            "Glassio is now the TV screensaver")
                         // Off: with no screensaver the TV goes to sleep at that idle time, so the screen then stays on
                         // until the TV's own sleep time (Energy settings, sleep_timeout) instead.
                         else tv("settings put secure screensaver_enabled 0 && s=\$(settings get secure sleep_timeout) && case \$s in ''|null|-1|0) s=1800000;; esac && settings put system screen_off_timeout \$s",
                             "TV screensaver off (the TV now sleeps at its own sleep time)")
                     }))
-                add(Adjust("TV screensaver starts after (ADB)", "The TV's own idle time (Android: screen_off_timeout)", {
+                add(Adjust("TV screensaver starts after (ADB)", "The TV's own idle time, in any app", {
                     when { tvAfter <= 0 -> "Unknown"; tvAfter < 60_000 -> "${tvAfter / 1000} s"; tvAfter >= 3_600_000 -> "${tvAfter / 3_600_000} h"; else -> "${tvAfter / 60_000} min" + (if (tvAfter % 60_000 != 0) " ${tvAfter % 60_000 / 1000} s" else "") }
                 }, { d ->
-                    val opts = listOf(20_000, 30_000, 60_000, 120_000)
+                    val opts = listOf(20_000, 30_000, 60_000, 120_000, 300_000, 600_000, 900_000)
                     val next = cycle(opts, opts.minByOrNull { kotlin.math.abs(it - tvAfter) } ?: 60_000, if (tvAfter in opts) d else 0)
-                    tv("settings put system screen_off_timeout $next && settings put secure screensaver_activate_on_sleep 1", "The TV screensaver now starts after " + (if (next < 60_000) "${next / 1000} s" else "${next / 60_000} min"))
+                    tv("settings put system screen_off_timeout $next && settings put secure screensaver_activate_on_sleep 1; device_config put attention_manager_service keep_screen_on_enabled false 2>/dev/null; true", "The TV screensaver now starts after " + (if (next < 60_000) "${next / 1000} s" else "${next / 60_000} min"))
                 }))
-                add(Note("Steps: 1. Install Aerial Views. 2. Turn on Aerial Views as the TV screensaver (the TV asks once to allow USB debugging for Glassio: Always allow). 3. Type: TV screensaver. 4. Start after / Back starts it."))
-                add(Adjust("Start after", "Idle time on the launcher", { st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" } }, {
+                add(Adjust("Start after (on the home screen)", if (ours) "Not needed while Glassio is the TV screensaver" else "Idle time on the launcher", { st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" } }, {
                     st.idleSeconds = cycle(listOf(0, 10, 30, 60, 120, 180, 300, 600, 900, 1800), st.idleSeconds, it)
                 }))
-                add(Adjust("Type", "What plays when the screensaver starts", {
+                add(Adjust("Type", "What plays", {
                     when (st.saverMode) {
-                        "aerial" -> "Apple aerial videos"
-                        "system" -> "TV screensaver (" + (system.substringBefore('/').substringAfterLast('.').ifBlank { "system" }) + ")"
+                        "aerial" -> "Aerial videos"
+                        "system" -> "The TV's screensaver app (" + (comp.substringBefore('/').substringAfterLast('.').ifBlank { "none" }) + ")"
                         else -> "Posters with logos"
                     }
                 }, { st.saverMode = cycle(listOf("aerial", "slideshow", "system"), st.saverMode, it) }))
-                if (st.saverMode == "system") add(Note("Starts the screensaver chosen in Google TV settings (Aerial Views). The first time, the TV asks to allow USB debugging for Glassio: choose Always allow."))
-                add(Toggle("Apple aerial videos", "Streams Apple's public aerial feed", { st.useAppleAerials }, { st.useAppleAerials = it }))
-                add(Toggle("Show clock", "", { st.saverClock }, { st.saverClock = it }))
+                add(Note("Videos (aerial-videos.netlify.app)"))
+                AerialSource.SOURCES.forEach { src ->
+                    add(Toggle(src.name, "", { src.key in st.saverSources }, { on -> st.saverSources = if (on) st.saverSources + src.key else st.saverSources - src.key; st.saverPick = "" }))
+                }
+                add(Toggle("My videos", "Your links below and the videos in the backgrounds folder", { st.saverMine }, { st.saverMine = it; st.saverPick = "" }))
+                add(Adjust("Quality", "Videos without it play the nearest one", { AerialSource.QUALITIES.firstOrNull { it.first == st.saverQuality }?.second ?: st.saverQuality },
+                    { st.saverQuality = cycle(AerialSource.QUALITIES.map { it.first }, st.saverQuality, it) }))
+                add(Toggle("Shuffle", "Off: in the collections' order", { st.saverShuffle }, { st.saverShuffle = it }))
+                add(Act("Play one video only", if (st.saverPick.isBlank()) "All of them" else "One video", if (st.saverPick.isBlank()) "" else "Change") {
+                    io {
+                        val vids = AerialSource.all(app)
+                        if (vids.isEmpty()) return@io "Turn on a collection first"
+                        fun items() = listOf(ThumbItem("All of them", "Every video that's on", null, checked = st.saverPick.isBlank()) { st.saverPick = "" }) +
+                            vids.map { v -> ThumbItem(v.title.ifBlank { videoName(v.id) }, AerialSource.SOURCES.firstOrNull { it.key == v.source }?.name ?: "My videos",
+                                v.preview.ifBlank { null }?.let { p -> if (p.startsWith("/")) java.io.File(p) else p } ?: thumbOf(v.id),
+                                checked = v.id == st.saverPick) { st.saverPick = v.id } }
+                        dialog = ThumbDialog("One video", items())
+                        fillThumbs(vids.map { it.id }, "One video") { items() }
+                        "${vids.size} videos"
+                    }
+                })
+                add(Toggle("Fade between videos", "", { st.saverFade }, { st.saverFade = it }))
+                add(Toggle("Keep videos on the TV", "Every video (Apple, Amazon or your link) is saved as it plays and starts at once next time" +
+                    " · ${com.glasslauncher.tv.data.SystemInfo.gb(com.glasslauncher.tv.saver.VideoCache.used(ctx))} used", { st.saverCache }, { st.saverCache = it }))
+                add(Adjust("Space for saved videos", "Applies after Glassio restarts", { "${st.saverCacheGb} GB" }, { st.saverCacheGb = cycle(listOf(1, 2, 4, 8, 16, 32), st.saverCacheGb, it) }))
+                add(Act("Delete saved videos", "", "") { com.glasslauncher.tv.saver.VideoCache.clear(ctx); toast(ctx, "Deleted") })
+                add(Note("On screen"))
+                add(Adjust("Style", "", { if (st.saverStyle == "netflix") "One by one, top left (like Netflix)" else "Apple" }, { st.saverStyle = cycle(listOf("apple", "netflix"), st.saverStyle, it) }))
+                if (st.saverStyle == "netflix") {
+                    add(Toggle("  · Hide when complete", "The lines go away 4 s after the last one comes in", { st.saverNetflixHide }, { st.saverNetflixHide = it }))
+                    add(Adjust("  · Bar", "The line before each one", { when (st.saverBar) { "white" -> "White"; "black" -> "Black"; "off" -> "None"; else -> "Red" } },
+                        { st.saverBar = cycle(listOf("red", "white", "black", "off"), st.saverBar, it) }))
+                }
+                add(Note("While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it."))
+                add(Toggle("Clock", "", { st.saverClock }, { st.saverClock = it }))
+                add(Toggle("Date", "", { st.saverDate }, { st.saverDate = it }))
+                add(Toggle("Weather", "", { st.saverWeather }, { st.saverWeather = it; app.weather.reload() }))
+                add(Toggle("Place", "Where the video was filmed", { st.saverPlace }, { st.saverPlace = it }))
+                add(Toggle("TV info", "RAM, CPU, GPU, storage, IP (the ones on in Menu, Library & themes)", { st.saverSys }, { st.saverSys = it }))
+                add(Adjust("Position", "Apple style", { when (st.saverPos) { "tl" -> "Top left"; "tr" -> "Top right"; "br" -> "Bottom right"; "bl" -> "Bottom left"; else -> "Moves with every video" } },
+                    { st.saverPos = cycle(listOf("move", "bl", "br", "tl", "tr"), st.saverPos, it) }))
+                add(Adjust("Size", "", { pct(st.saverSize) }, { st.saverSize = ((st.saverSize * 10).roundToInt() + it) / 10f }))
+                add(Adjust("Shows for", "After each new video", { if (st.saverShowSec == 0) "Always" else "${st.saverShowSec} s" }, { st.saverShowSec = cycle(listOf(0, 10, 20, 30, 60), st.saverShowSec, it) }))
+                add(Note("More"))
                 add(Toggle("Back on the home screen starts it", "Like Apple TV: press Back on the home screen", { st.backSaver }, { st.backSaver = it }))
-                add(Act("Add video link", "A direct .mp4 / .mov link", "") {
+                add(Act("Add video link", "A direct .mp4 / .mov link (Manage from phone can also save it to the TV)", "") {
                     dialog = TextEntry("Video link", "", "https://…/video.mp4") { u ->
                         if (u.startsWith("http")) st.aerialUrls = (st.aerialUrls + u.trim()).distinct() else toast(ctx, "The link must start with http")
                     }
                 })
+                add(Act("My videos", "Your links and the videos in the backgrounds folder, with a picture of each. OK plays only that one", "") {
+                    io {
+                        val mine = AerialSource.mine(app)
+                        if (mine.isEmpty()) return@io "No videos yet: add a link below or upload one from your phone"
+                        fun items() = mine.map { v ->
+                            val thumb = if (v.preview.isNotBlank()) java.io.File(v.preview) else thumbOf(v.id)
+                            ThumbItem(v.title.ifBlank { videoName(v.id) }, if (v.id.startsWith("http")) hostOf(v.id) else "On the TV", thumb, checked = v.id == st.saverPick) {
+                                st.saverMine = true; st.saverPick = v.id
+                            }
+                        }
+                        dialog = ThumbDialog("My videos", items())
+                        fillThumbs(mine.map { it.id }, "My videos") { items() }
+                        "${mine.size} videos"
+                    }
+                })
                 st.aerialUrls.forEach { u ->
-                    add(Act("Video link", hostOf(u), "Remove") { st.aerialUrls = st.aerialUrls - u })
+                    add(Act(videoName(u), hostOf(u), "Remove") { st.aerialUrls = st.aerialUrls - u })
                 }
                 add(Act("Preview now", "") { ctx.startActivity(Intent(ctx, ScreensaverActivity::class.java)) })
-                add(Act("Use as system screensaver", "Pick Glassio in the list", "") { openSystem(ctx, AndroidSettings.ACTION_DREAM_SETTINGS) })
             }
         },
         Category("Manage from phone", Kind.Phone),
@@ -553,7 +794,32 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     }
                 },
                 Act("Choose default home app", "", "") { openSystem(ctx, AndroidSettings.ACTION_HOME_SETTINGS) },
-                Note("TV access (ADB): Continue Watching from Nuvio Legacy, setting Aerial Views as the screensaver, starting the screensaver and silent updates use the TV's own debugging connection. Turn it on once:"),
+                Toggle("Open Glassio when the TV starts", "Glassio opens on its own after the TV turns on. The right to do so is given over ADB (TV access, below)", { st.bootStart }, { on ->
+                    st.bootStart = on
+                    if (on) scope.launch(Dispatchers.IO) {
+                        val r = com.glasslauncher.tv.data.LocalShell.run(ctx, "appops set ${ctx.packageName} SYSTEM_ALERT_WINDOW allow; " +
+                            "cmd package set-home-activity ${ctx.packageName}/com.glasslauncher.tv.MainActivity >/dev/null 2>&1; true")
+                        toast(ctx, if (r.isSuccess) "Glassio opens when the TV starts" else "Saved. Allow TV access (ADB) below so the TV lets Glassio open")
+                    }
+                }),
+                Adjust("Hold Home", "What holding the Home button does, in any app (needs the Home button service above)", {
+                    when (st.homeLong) { "recents" -> "Open apps (like Apple TV)"; "camera" -> "Camera in the corner, over any app"; "library" -> "Open the Library"; "menu" -> "Open the menu"; else -> "Nothing" }
+                }, { st.homeLong = cycle(listOf("off", "recents", "camera", "library", "menu"), st.homeLong, it) }),
+                Adjust("Language", "The menu, the settings sections, the setup and the main rows (the rest stays English for now). Reopen the screen to see it",
+                    { com.glasslauncher.tv.data.I18n.LANGS[st.lang] ?: "English" }, { st.lang = cycle(com.glasslauncher.tv.data.I18n.LANGS.keys.toList(), st.lang, it) }),
+                Act("Back up now", "Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private", "Back up") {
+                    scope.launch(Dispatchers.IO) { toast(ctx, runCatching { "Saved: " + com.glasslauncher.tv.data.Backup.saveToTv(ctx) }.getOrElse { "Backup failed: ${it.message}" }) }
+                },
+                Act("Restore backup", "The newest backup in Download/Glassio on the TV. Glassio restarts after", "Restore") {
+                    scope.launch(Dispatchers.IO) {
+                        val j = com.glasslauncher.tv.data.Backup.latestOnTv(ctx)
+                        if (j == null) toast(ctx, "No backup on the TV yet (Download/Glassio)")
+                        else runCatching { val n = com.glasslauncher.tv.data.Backup.restore(ctx, j); toast(ctx, "Restored ($n parts). Restarting…"); kotlinx.coroutines.delay(1200); com.glasslauncher.tv.data.Backup.restart(ctx) }
+                            .onFailure { toast(ctx, "Restore failed: ${it.message}") }
+                    }
+                },
+                Act("Run setup again", "The welcome screen: restore, catalogs, accounts and theme", "") { st.setupDone = false; app.requestSetup.intValue++ },
+                Note("TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use the TV's own debugging connection. Turn it on once:"),
                 Note("1. Developer options: open About below and press OK on \"Android TV OS build\" (or \"Build\") 7 times, until it says you are a developer."),
                 Note("2. Open Developer options below and turn on USB debugging (on some TVs also \"Network debugging\" / \"ADB over network\")."),
                 Note("3. Press \"Allow Glassio\" below. The TV asks \"Allow USB debugging?\": tick Always allow from this computer, then OK. It is asked only once."),
@@ -569,7 +835,8 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             )
         },
         Category("About", Kind.About),
-    )
+    ).sortedBy { CATEGORY_ORDER.indexOf(it.title).let { i -> if (i < 0) 99 else i } }
+    catTitles[0] = categories.map { it.title }
 
     // Catalog choices made here are applied when the screen closes.
     DisposableEffect(Unit) { onDispose { app.scope.launch(Dispatchers.IO) { runCatching { app.catalogs.refresh() } } } }
@@ -585,7 +852,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     categories.forEachIndexed { i, c ->
                         var f by remember { mutableStateOf(false) }
                         Text(
-                            c.title, color = Color.White, fontSize = (13.5f * s).sp,
+                            com.glasslauncher.tv.data.I18n.tr(c.title), color = Color.White, fontSize = (13.5f * s).sp,
                             fontWeight = if (cat == i) FontWeight.SemiBold else FontWeight.Normal,
                             modifier = Modifier.fillMaxWidth().padding(vertical = (1.5f * s).dp)
                                 .clip(RoundedCornerShape((14 * s).dp))
@@ -616,7 +883,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             ) {
                 val c = categories[shownCat]
                 Column(Modifier.padding((18 * s).dp)) {
-                    Text(c.title, color = Color.White, fontSize = (20 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (6 * s).dp, bottom = (8 * s).dp))
+                    Text(com.glasslauncher.tv.data.I18n.tr(c.title), color = Color.White, fontSize = (20 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (6 * s).dp, bottom = (8 * s).dp))
                     if (c.kind == Kind.Phone) PhonePane(app, s)
                     else if (c.kind == Kind.About) AboutPane(app, s, onApp = { e -> appMenu(app, e, ctx, scope) { dialog = it } })
                     else {
@@ -727,7 +994,7 @@ private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Uni
 @Composable
 private fun Label(title: String, desc: String, s: Float, modifier: Modifier) {
     Column(modifier) {
-        Text(title, color = Color.White, fontSize = (14 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(com.glasslauncher.tv.data.I18n.tr(title), color = Color.White, fontSize = (14 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (desc.isNotBlank()) Text(desc, color = Color.White.copy(alpha = 0.5f), fontSize = (10.5f * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -764,18 +1031,14 @@ private fun PhonePane(app: GlassApp, s: Float) {
     var failed by remember { mutableStateOf(false) }
     var qr by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     DisposableEffect(Unit) {
-        val token = Net.token()
-        val server = PhoneServer(app, token)
         val job = app.scope.launch(Dispatchers.IO) {
-            val port = server.start()
-            val ip = Net.localIp()
-            if (port != null && ip != null) {
-                val u = "http://$ip:$port/?t=$token"
+            val u = com.glasslauncher.tv.net.PhoneHost.start(app)
+            if (u != null) {
                 val bmp = Net.qr(u, 480).asImageBitmap()
                 kotlinx.coroutines.withContext(Dispatchers.Main) { url = u; qr = bmp }
             } else kotlinx.coroutines.withContext(Dispatchers.Main) { failed = true }
         }
-        onDispose { job.cancel(); app.scope.launch(Dispatchers.IO) { job.join(); server.stop() } }
+        onDispose { job.cancel(); com.glasslauncher.tv.net.PhoneHost.leave(app) }
     }
     Column(Modifier.fillMaxSize().padding(start = (6 * s).dp)) {
         Text(
@@ -792,7 +1055,12 @@ private fun PhonePane(app: GlassApp, s: Float) {
             Text("The TV is not on a network, so the phone page can't start.", color = Color(0xFFFF8F9B), fontSize = (13 * s).sp)
         }
         Spacer(Modifier.height((10 * s).dp))
-        Text("The page stops when you leave this screen.", color = Color.White.copy(alpha = 0.45f), fontSize = (11 * s).sp)
+        val st = app.settings
+        RowView(Adjust("Keep the page on", "After you leave this screen. The code changes each time it starts again", {
+            st.phoneMinutes.let { if (it == 0) "Stops when you leave" else if (it < 60) "$it min" else "${it / 60} h" }
+        }, { st.phoneMinutes = cycle(listOf(0, 10, 30, 60, 180), st.phoneMinutes, it) }), s, app, onApp = {})
+        Spacer(Modifier.height((6 * s).dp))
+        Text("Everything is there: add-ons, backgrounds, icons, tokens, Stremio and Simkl, cameras (RTSP), backup and restore, and every setting.", color = Color.White.copy(alpha = 0.45f), fontSize = (11 * s).sp)
     }
 }
 
@@ -814,7 +1082,8 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
             Text("Scan with your phone", color = Color.White.copy(alpha = 0.5f), fontSize = (9 * s).sp)
         }
         val rows = buildList<SRow> {
-            add(Note("Glassio ${app.updater.current}"))
+            add(Note("Glassio ${app.updater.current} · The most clean, comfortable and customisable launcher."))
+            add(Act("Give Glassio a star on GitHub", "Scan the code with your phone and tap ★ Star. It helps others find it", "★") { toast(ctx, "Thank you! Scan the code on the left") })
             if (rel != null) {
                 add(Act("Install update ${rel!!.version}", if (status.isNotBlank()) status else "Downloads from GitHub and restarts Glass", "Install") { app.updater.install() })
                 rel!!.notes.lineSequence().map { it.trim().removePrefix("-").removePrefix("*").trim() }.filter { it.isNotBlank() && !it.startsWith("#") }
@@ -831,3 +1100,12 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
         }
     }
 }
+
+/** A video link's file name, readable ("Lofoten_4K.mp4" → "Lofoten 4K"). */
+private fun videoName(u: String): String = runCatching {
+    java.net.URLDecoder.decode(u.substringBefore('?').trimEnd('/').substringAfterLast('/'), "UTF-8").substringBeforeLast('.').replace('_', ' ').replace('-', ' ').trim()
+}.getOrNull().orEmpty().ifBlank { "Video link" }
+
+/** The settings sections in order: accounts and what they feed, then the look, then the screensaver and the TV. */
+val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
+    "Clock & glass", "Screensaver", "Performance", "Manage from phone", "System", "About")

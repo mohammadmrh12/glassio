@@ -17,13 +17,15 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     /** Bigger caches than Coil's defaults: backdrops and logos come back instantly when you browse back. */
     override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader =
         coil3.ImageLoader.Builder(context)
+            // Thumbnails of your videos (backgrounds folder, screensaver).
+            .components { add(coil3.video.VideoFrameDecoder.Factory()) }
             // A fixed size by memory tier: a percentage of the (large) heap gave Coil over 100 MB on 2 GB TVs,
             // and Android then closed Glassio while you browsed.
             .memoryCache { coil3.memory.MemoryCache.Builder().maxSizeBytes(when (settings.memTier) { 0 -> 40L; 2 -> 120L; else -> 72L } * 1024 * 1024).build() }
             .diskCache {
                 coil3.disk.DiskCache.Builder()
                     .directory(java.io.File(cacheDir, "images").absolutePath.let { okio.Path.Companion.run { it.toPath() } })
-                    .maxSizeBytes(768L * 1024 * 1024)
+                    .maxSizeBytes(settings.cacheMb.toLong() * 1024 * 1024)
                     .build()
             }
             .build()
@@ -62,6 +64,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     val requestSettings = androidx.compose.runtime.mutableIntStateOf(-1)
     /** Bumped with every request, so asking for the same tab twice (or while the screen was asleep) still works. */
     val requestSettingsRev = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Bumped to show the first-run setup again (System → Run setup again). */
+    val requestSetup = androidx.compose.runtime.mutableIntStateOf(0)
     fun touch() {
         val n = System.currentTimeMillis()
         if (n - interaction.longValue > 400) interaction.longValue = n
@@ -84,6 +88,12 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             previous?.uncaughtException(t, e)
         }
         settings = Settings(this)
+        com.glasslauncher.tv.data.I18n.lang = settings.lang
+        settings.firstRun()
+        Thread { runCatching { DevHooks.key(this) } }.apply { isDaemon = true }.start()
+        com.glasslauncher.tv.ui.Glow.amount = settings.glowSize
+        // The menu's TV numbers are ready before it first opens.
+        if (settings.menuSys) Thread { runCatching { com.glasslauncher.tv.data.SystemInfo.read(this, settings.sysCpu || settings.sysGpu) } }.apply { isDaemon = true }.start()
         if (settings.perfMode == "auto") settings.applyMode("auto")
         com.glasslauncher.tv.ui.GlassCache.res = settings.glassRes
         http = Http(this)
@@ -93,8 +103,14 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         catalogs = CatalogRepository(this, settings, http).also { it.start(scope) }
         cw = com.glasslauncher.tv.data.ContinueWatching(this, settings, http, scope).also { it.start() }
         weather = com.glasslauncher.tv.data.Weather(settings, http, scope).also { it.start() }
-        library = com.glasslauncher.tv.data.Library(this, settings, http, cw.trakt, scope)
-        catalogs.account = { library.nuvio.addons() }
+        library = com.glasslauncher.tv.data.Library(this, settings, http, cw.trakt, scope, cw.simkl)
+        cw.nuvio = library.nuvio
+        // Add-ons from the accounts that are on (Nuvio, Stremio), as one list (each add-on once, see CatalogRepository).
+        catalogs.account = {
+            val n = if (settings.catalogsNuvio && library.nuvio.connected) library.nuvio.addons() else emptyList()
+            val s = if (settings.catalogsStremio && cw.stremio.connected) cw.stremio.addons() else emptyList()
+            if (n == null && s == null) null else (n.orEmpty() + s.orEmpty())
+        }
         updater = com.glasslauncher.tv.data.Updater(this, scope).also { it.start() }
         // If Glass was closed while the TV screensaver was being started, put the screen timeout back.
         Thread { com.glasslauncher.tv.saver.SystemDream.restoreIfPending(this) }.apply { isDaemon = true }.start()
