@@ -54,6 +54,11 @@ object DevHooks {
         i.getStringExtra("perf_mode")?.let { if (it in setOf("auto", "performance", "balanced", "quality")) st.applyMode(it) }
         i.getStringExtra("ha_webhook")?.let { st.haWebhook = it; st.haOnLaunch = it.startsWith("http") }
         i.getStringExtra("reset_icon")?.let { app.icons.reset(it) }
+        // An app back in the dock (or hidden): --es show_app <package> / --es hide_app <package>.
+        i.getStringExtra("show_app")?.let { p -> st.hiddenApps = st.hiddenApps.filterNot { it == p } }
+        i.getStringExtra("hide_app")?.let { p -> if (p !in st.hiddenApps) st.hiddenApps = st.hiddenApps + p }
+        // The hidden apps in full (the settings dump cuts long values).
+        if (i.getBooleanExtra("dump_hidden", false)) android.util.Log.i("GlassPrefs", "hiddenApps(all)=" + st.hiddenApps.joinToString(","))
         i.getStringExtra("icon_pack")?.let { p ->
             if (p == "none") st.iconPack = "" else if (app.packs.installed().any { it.pkg == p }) st.iconPack = p
         }

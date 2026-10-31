@@ -122,6 +122,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     val st = app.settings
     val scope = rememberCoroutineScope()
     val traktCode by app.cw.traktCode.collectAsState()
+    val syncStatus by app.sync.status.collectAsState()
     val nuvioUrl by app.library.nuvioUrl.collectAsState()
     // The QR dialog closes when this turns null (sign-in finished); the Nuvio code is in the QR itself.
     val nuvioShort = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
@@ -275,9 +276,16 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             )
         },
         Category("Carousel") {
-            listOf(
+            tvRev.intValue
+            listOfNotNull(
                 Toggle("Auto-play", "Slides change on their own", { st.heroAutoplay }, { st.heroAutoplay = it }),
                 Adjust("Slide time", "Seconds before the next title", { "${st.heroIntervalSec} s" }, { st.heroIntervalSec += it }),
+                Act("Shuffle button", "Press it on the home screen: the catalog titles come in a new random order (Continue Watching keeps its place)",
+                    if (st.shuffleKey == 0) "Set" else "✓ " + keyName(st.shuffleKey), ok = if (st.shuffleKey != 0) true else null) {
+                    dialog = KeyCaptureDialog("Shuffle button") { code -> st.shuffleKey = code; tvRev.intValue++; toast(ctx, "Shuffle button: ${keyName(code)}") }
+                },
+                if (st.shuffleKey != 0) Act("  · Clear the shuffle button", "", "") { st.shuffleKey = 0 } else null,
+                Toggle("New titles first", "Titles a catalog has just added open the carousel for two days", { st.newFirst }, { st.newFirst = it }),
                 Adjust("Transition speed", "Fade between slides (lower = faster)", { "${st.transitionMs} ms" }, { st.transitionMs += it * 100 }),
                 Adjust("Slide animation", "Apple TV: the next picture opens up from the right (from the left going back) · Slide: pushed in · Fade",
                     { when (st.slideAnim) { "apple" -> "Apple TV"; "slide" -> "Slide"; else -> "Fade" } },
@@ -621,6 +629,13 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Note("TMDB"))
                 add(tmdbRow())
 
+                add(Note("Sync"))
+                add(Toggle("Sync Library, likes and Continue Watching", "Keeps them the same on every connected account: Nuvio, Trakt and Simkl (Stremio is read). Removing a title removes it everywhere",
+                    { st.syncAll }, { on -> st.syncAll = on; if (on) app.sync.runSoon { m -> toast(ctx, m) } }))
+                if (st.syncAll) add(Act("Sync now", syncStatus.ifBlank { "Runs on its own every 30 minutes" }, "") {
+                    toast(ctx, "Syncing…"); app.sync.runSoon { m -> toast(ctx, m); tvRev.intValue++ }
+                })
+
                 add(Note("Home Assistant"))
                 add(Act("Home Assistant webhook", "Full webhook URL from your Home Assistant", if (st.haWebhook.isBlank()) "Not set" else "Set",
                     ok = if (st.haWebhook.startsWith("http")) true else null) {
@@ -672,6 +687,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         val i = camList.indexOfFirst { it.url == st.cornerCamera }.coerceAtLeast(0)
                         st.cornerCamera = camList[(i + d).mod(camList.size)].url
                     }))
+                if (camList.size > 1) add(Adjust("  · Switch cameras every", "Goes round your cameras on its own (◀ ▶ still switch by hand)",
+                    { if (st.cameraCycleSec == 0) "Off" else if (st.cameraCycleSec < 60) "${st.cameraCycleSec} s" else "${st.cameraCycleSec / 60} min" },
+                    { st.cameraCycleSec = cycle(listOf(0, 5, 10, 15, 20, 30, 60), st.cameraCycleSec, it) }))
                 add(Adjust("  · Corner camera closes after", "It goes away on its own after this (Back or holding Home again closes it sooner)",
                     { if (st.cameraCornerSec == 0) "Never" else if (st.cameraCornerSec < 60) "${st.cameraCornerSec} s" else "${st.cameraCornerSec / 60} min" },
                     { st.cameraCornerSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.cameraCornerSec, it) }))

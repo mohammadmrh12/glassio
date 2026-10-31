@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf(Screen.Home)
+    private var resumed by mutableStateOf(false)
     @Volatile private var lastInput = System.currentTimeMillis()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     // The home screen is left out while the setup shows, so it can't take the remote's focus.
                     if (setup) com.glasslauncher.tv.ui.SetupScreen(app) { setup = false; app.settings.setupDone = true }
                     else HomeScreen(app, screen) { screen = it }
+                    androidx.compose.runtime.SideEffect { KeyHub.homeInFront = resumed && screen == Screen.Home && !setup }
                 }
             }
         }
@@ -91,6 +93,13 @@ class MainActivity : ComponentActivity() {
         lastInput = System.currentTimeMillis()
         hideBars()
         (application as GlassApp).cw.pollNow()
+        resumed = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        resumed = false
+        KeyHub.homeInFront = false
     }
 
     /** Testing from a computer: see [DevHooks]. */
@@ -115,6 +124,8 @@ class MainActivity : ComponentActivity() {
     @android.annotation.SuppressLint("RestrictedApi") // normal Activity override; lint misreads the androidx stub
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (com.glasslauncher.tv.ui.NavGate.blocks(event.keyCode)) return true
+        // The shuffle button and "press the button you want" (also caught by the Home button service first).
+        if (KeyHub.handle(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
         return super.dispatchKeyEvent(event)
     }
 

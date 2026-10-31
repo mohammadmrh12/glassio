@@ -27,7 +27,8 @@ import com.glasslauncher.tv.ui.Cam
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 /** [seconds]: how long it stays on screen (Settings → System → Corner camera closes after; 0 = until closed). */
-class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, private val seconds: Int = 20, start: Int = 0) {
+/** [cycle]: seconds between automatic switches to the next camera (0 = none). */
+class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, private val seconds: Int = 20, start: Int = 0, private val cycle: Int = 0) {
     private val wm = ctx.getSystemService(WindowManager::class.java)
     private var root: FrameLayout? = null
     private var player: ExoPlayer? = null
@@ -36,6 +37,14 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
     private var index = start.coerceAtLeast(0)
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val autoClose = Runnable { close() }
+    // Goes round the cameras on its own; it doesn't keep the corner open longer (only a press does).
+    private val rotate = object : Runnable {
+        override fun run() { if (root == null) return; index++; play(); handler.postDelayed(this, cycle * 1000L) }
+    }
+    private fun restartRotation() {
+        handler.removeCallbacks(rotate)
+        if (cycle > 0 && cams.size > 1) handler.postDelayed(rotate, cycle * 1000L)
+    }
     val showing get() = root != null
 
     fun show() {
@@ -82,6 +91,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
         }
         play()
         restartTimer()
+        restartRotation()
     }
 
     private fun play() {
@@ -102,10 +112,11 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
         if (seconds > 0) handler.postDelayed(autoClose, seconds * 1000L)
     }
 
-    fun next(d: Int) { if (cams.size > 1) { index += d; play(); restartTimer() } }
+    fun next(d: Int) { if (cams.size > 1) { index += d; play(); restartTimer(); restartRotation() } }
 
     fun close() {
         handler.removeCallbacks(autoClose)
+        handler.removeCallbacks(rotate)
         runCatching { player?.release() }; player = null
         root?.let { runCatching { wm.removeView(it) } }; root = null
     }

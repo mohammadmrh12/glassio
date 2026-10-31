@@ -181,6 +181,24 @@ class Simkl(ctx: Context) {
         out
     }.getOrElse { Glog.w("Simkl list", it); null }
 
+    /** Puts a paused position on Simkl (its Continue Watching). */
+    fun pausedAt(imdb: String, season: Int, episode: Int, percent: Int): Boolean = runCatching {
+        val body = (if (episode > 0) JSONObject().put("show", JSONObject().put("ids", JSONObject().put("imdb", imdb)))
+            .put("episode", JSONObject().put("season", season).put("number", episode))
+        else JSONObject().put("movie", JSONObject().put("ids", JSONObject().put("imdb", imdb)))).put("progress", percent.coerceIn(1, 79))
+        val (c, t) = call("POST", "/scrobble/pause", body)
+        if (c !in 200..299 && c != 409) Glog.w("Simkl pause: HTTP $c $t")
+        c in 200..299 || c == 409
+    }.getOrDefault(false)
+
+    /** "Like" on Simkl, which has no likes: a 10/10 rating (removed again when you unlike). */
+    fun setLiked(add: Boolean, imdb: String, type: String): Boolean = runCatching {
+        val key = if (type == "movie") "movies" else "shows"
+        val item = JSONObject().put("ids", JSONObject().put("imdb", imdb)).also { if (add) it.put("rating", 10) }
+        val body = JSONObject().put(key, JSONArray().put(item))
+        call("POST", if (add) "/sync/ratings" else "/sync/ratings/remove", body).first in 200..299
+    }.getOrDefault(false)
+
     fun setPlanToWatch(add: Boolean, imdb: String, type: String): Boolean = runCatching {
         val key = if (type == "movie") "movies" else "shows"
         val item = JSONObject().put("ids", JSONObject().put("imdb", imdb)).apply { if (add) put("to", "plantowatch") }

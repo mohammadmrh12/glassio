@@ -190,6 +190,12 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // then the page scrolls down, so the scroll itself runs at full speed.
     var homePrep by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    // The home screen stops taking the focus only once the menu holds it (and takes it back before the menu goes):
+    // switching it off the moment the menu opened dropped the focus onto the dock for a frame or two.
+    var menuHasFocus by remember { mutableStateOf(false) }
+    // The small glass menu (hold OK on Play or on an app) and where the focus goes back when it closes.
+    var pop by remember { mutableStateOf<PopState?>(null) }
+    var popReturn by remember { mutableStateOf<FocusRequester?>(null) }
     val gearReq = remember { FocusRequester() }
     // Just closed: focus can pass over the settings button on its way back, which must not open it again.
     var menuClosedAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
@@ -307,7 +313,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         }
     }
     LaunchedEffect(app.homeRev.intValue) {
-        folderOpen = false; folderMoving = null; pickerFor = null; dialog = null; movingPkg = null; expanded = false
+        folderOpen = false; folderMoving = null; pickerFor = null; dialog = null; movingPkg = null; expanded = false; pop = null
         if (app.homeRev.intValue > 0) menuOpen = false
     }
     LaunchedEffect(app.requestSettingsRev.intValue) {
@@ -329,11 +335,19 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         runCatching { ctx.startActivity(android.content.Intent(ctx, com.glasslauncher.tv.saver.ScreensaverActivity::class.java)) }
     }
 
+    // Moving an app to another row builds its tile again, and the focus went with the old one (nothing was
+    // selected until Down brought it back to the dock): the moved app is selected again once it has its new place.
+    val keepOn: (String) -> Unit = { p ->
+        scope.launch {
+            repeat(2) { androidx.compose.runtime.withFrameNanos { } }
+            runCatching { (if (p == FOLDER) folderFocus else tileFocus[p])?.requestFocus() }
+        }
+    }
     val onMoveKey: (KeyEvent) -> Boolean = { ev ->
         val p = movingPkg
         if (p == null) false
         else when {
-            ev.isSelect -> { if (ev.type == KeyEventType.KeyUp) movingPkg = null; true }
+            ev.isSelect -> { if (ev.type == KeyEventType.KeyUp) { movingPkg = null; keepOn(p) }; true }
             ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight || ev.key == Key.DirectionUp || ev.key == Key.DirectionDown -> {
                 if (ev.type == KeyEventType.KeyDown) {
                     val delta = when (ev.key) {
@@ -345,6 +359,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         val cur = settings.folderPos.let { if (it < 0 || it > n) n else it }
                         settings.folderPos = (cur + delta).coerceIn(0, n)
                     } else app.apps.moveVisible(p, delta)
+                    keepOn(p)
                 }
                 true
             }
@@ -353,11 +368,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     }
 
     val showMenu: (AppEntry, Boolean) -> Unit = { e, inFolder ->
-        dialog = appMenu(
+        val m = appMenu(
             app, e, ctx,
             startMove = if (inFolder) ({ folderMoving = e.pkg }) else ({ movingPkg = e.pkg }),
             pickIcon = { pickerFor = e },
-        )
+        ) as MenuDialog
+        // The glass menu right above the app (in the Apps folder: in the middle of the screen).
+        popReturn = if (inFolder) null else tileFocus[e.pkg]
+        pop = PopState(m.title, m.options.map { (label, action) -> PopOption(label, onClick = action) }, if (inFolder) null else PopAnchors.tiles[e.pkg])
     }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
@@ -509,17 +527,21 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // could still take the remote there (Right in Settings went to the dock behind instead of the options).
             if ((screen == Screen.Home && !folderOpen) || homePrep || libFromDock || libScroll.value > 0.001f || (homeVisible && screen != Screen.Settings)) Box(
                 Modifier.fillMaxSize().graphicsLayer { alpha = if (homeVisible || homePrep || (screen == Screen.Home && !folderOpen)) homeAlphaState.value else 0f; translationY = -libScroll.value * size.height }
-                    .focusProperties { canFocus = screen == Screen.Home && pickerFor == null && !folderOpen && !menuOpen }
+                    .focusProperties { canFocus = screen == Screen.Home && pickerFor == null && !folderOpen && !(menuOpen && menuHasFocus) && pop == null }
             ) {
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (DebugHide.intValue and 2 != 0) 0f else 1f }) {
-                    HeroSection(app, s, hidden = expanded || folderOpen, paused = screen != Screen.Home, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = expanded || folderOpen, paused = screen != Screen.Home || pop != null, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
+                        onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
                             if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
                             else scope.launch { delay(16); runCatching { gearReq.requestFocus() } }
                         })
                 }
-                if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, onSettings = { onScreen(Screen.Settings) }, onMenu = { pressed -> if (!menuOpen && (pressed || android.os.SystemClock.uptimeMillis() - menuClosedAt > 400)) menuOpen = true }, modifier = Modifier.fillMaxWidth().align(Alignment.TopStart))
+                if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, menuOpen = menuOpen, onSettings = { onScreen(Screen.Settings) },
+                    // Opens at once, also right after closing: the focus now goes back to Play (not to this button) when
+                    // the menu closes, so the old 400 ms wait only showed the settings button for a moment first.
+                    onMenu = { _ -> if (!menuOpen) menuOpen = true }, modifier = Modifier.fillMaxWidth().align(Alignment.TopStart))
                 // Your own background: the dock may sit in the middle or as a column on the left.
                 val customPos = if (settings.bgMode != "carousel") settings.dockPos else "bottom"
                 Dock(
@@ -531,14 +553,17 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     folderFocus = folderFocus, tileFocus = tileFocus, onMove = kick,
                     onMenu = { showMenu(it, false) },
                     onFolder = { folderOpen = true },
-                    onFolderMenu = { dialog = MenuDialog("Apps", listOf(
-                        "Move" to { movingPkg = FOLDER },
-                        "Hide from the dock" to {
-                            settings.showFolder = false
-                            scope.launch { delay(80); runCatching { firstTile.requestFocus() } }
-                            android.widget.Toast.makeText(ctx, "Apps folder hidden. Show it again: Settings → Dock & icons", android.widget.Toast.LENGTH_LONG).show()
-                        },
-                    )) },
+                    onFolderMenu = {
+                        popReturn = folderFocus
+                        pop = PopState("Apps", listOf(
+                            PopOption("Move") { movingPkg = FOLDER },
+                            PopOption("Hide from the dock") {
+                                settings.showFolder = false
+                                scope.launch { delay(80); runCatching { firstTile.requestFocus() } }
+                                android.widget.Toast.makeText(ctx, "Apps folder hidden. Show it again: Settings → Dock & icons", android.widget.Toast.LENGTH_LONG).show()
+                            },
+                        ), PopAnchors.tiles[FOLDER])
+                    },
                     modifier = Modifier.align(when (customPos) { "center" -> Alignment.Center; "left" -> Alignment.CenterStart; else -> Alignment.BottomCenter })
                         .onFocusChanged { dockHasFocus = it.hasFocus }
                         .graphicsLayer {
@@ -566,14 +591,18 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             }
             if (screen == Screen.Home && !folderOpen) UpdateBanner(app, s, Modifier.align(Alignment.TopEnd).padding(end = (34 * s).dp))
             if (screen == Screen.Home && menuOpen) SideMenu(
-                app, s, modifier = Modifier.align(Alignment.TopEnd),
+                app, s, modifier = Modifier.align(Alignment.TopEnd).onFocusChanged { menuHasFocus = it.hasFocus },
                 onClose = {
                     menuClosedAt = android.os.SystemClock.uptimeMillis()
-                    menuOpen = false
                     // With your own background there is no carousel to go back to (its stand-in passes focus up to
                     // the settings button, which opened the menu again): back to the dock.
                     val custom = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial" -> true; else -> false }
-                    scope.launch { delay(30); runCatching { (if (custom) firstTile else heroFocus).requestFocus() } }
+                    val back = if (custom) firstTile else heroFocus
+                    // The focus goes back first, straight from the menu, then the menu closes.
+                    menuHasFocus = false
+                    runCatching { back.requestFocus() }
+                    menuOpen = false
+                    scope.launch { delay(30); runCatching { back.requestFocus() } }
                 },
                 onLibrary = { menuClosedAt = android.os.SystemClock.uptimeMillis(); menuOpen = false; onScreen(Screen.Library) },
                 onSettings = { menuClosedAt = android.os.SystemClock.uptimeMillis(); menuOpen = false; onScreen(Screen.Settings) },
@@ -619,6 +648,12 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 )
             }
             DialogHost(dialog) { dialog = null }
+            PopMenuHost(pop, s, settings.menuStyle) {
+                pop = null
+                // Back to what it was opened on (unless a choice moved the focus on, e.g. Move or another dialog).
+                val back = popReturn; popReturn = null
+                if (back != null) scope.launch { delay(30); if (dialog == null && pickerFor == null) runCatching { back.requestFocus() } }
+            }
         }
     }
 }
@@ -845,6 +880,7 @@ private fun HeroSection(
     heroFocus: FocusRequester, firstTile: FocusRequester, onBackdrop: (String?) -> Unit,
     shownUrl: androidx.compose.runtime.State<String?> = androidx.compose.runtime.mutableStateOf(null),
     onCustomUp: () -> Unit = {},
+    onPop: (PopState) -> Unit = {},
 ) {
     val settings = app.settings
     val ctx = LocalContext.current
@@ -856,12 +892,25 @@ private fun HeroSection(
     var focused by remember { mutableStateOf(false) }
     val mode = settings.continueMode
     val lead = settings.cwLead
-    val items = remember(catalogItems, cwItems, mode, lead) {
+    val shuffleRev = app.shuffleRev.intValue
+    val newFirst = settings.newFirst
+    val items = remember(catalogItems, cwItems, mode, lead, shuffleRev, newFirst) {
         val cw = if (mode == "off") emptyList() else cwItems
         val keys = cw.map { it.key }.toSet()
-        val rest = catalogItems.filterNot { it.key in keys }
+        // The catalog titles: shuffled by the shuffle button, then the ones a catalog has just added in front
+        // (newest first). Continue Watching keeps its own place below.
+        var cat = catalogItems
+        if (shuffleRev > 0) cat = cat.shuffled(kotlin.random.Random(shuffleRev * 7919L + System.nanoTime() % 1000))
+        if (newFirst) {
+            val fresh = com.glasslauncher.tv.data.NewTitles.update(ctx, catalogItems.map { it.key })
+            if (fresh.isNotEmpty()) {
+                val rank = fresh.withIndex().associate { it.value to it.index }
+                cat = cat.filter { it.key in rank }.sortedBy { rank[it.key] } + cat.filterNot { it.key in rank }
+            }
+        }
+        val rest = cat.filterNot { it.key in keys }
         when {
-            cw.isEmpty() -> catalogItems
+            cw.isEmpty() -> cat
             else -> buildList {
                 // "At the start": the first [lead] titles open the carousel, the others follow one after
                 // every four catalog titles. "Mixed": all of them spread that way.
@@ -890,6 +939,10 @@ private fun HeroSection(
         }
     }
 
+    // Shuffled: back to the first slide (Continue Watching, the new titles, then the new order).
+    LaunchedEffect(shuffleRev) {
+        if (shuffleRev > 0) { index = 0; app.navAt = System.currentTimeMillis(); com.glasslauncher.tv.data.Glog.i("Carousel shuffled: starts with ${items.firstOrNull()?.name}") }
+    }
     val raw = if (items.isEmpty()) null else items[index.mod(items.size)]
     val target = raw?.let { r -> enriched[r.key]?.copy(progress = r.progress, sub = r.sub) ?: r }
         ?.let { withArtwork(it, settings.artChoice, settings.artPick(it.key)) }
@@ -905,9 +958,9 @@ private fun HeroSection(
             // Browsing: the text follows every press at once; the picture follows as soon as it is ready.
             if (!app.browsing()) kotlinx.coroutines.withTimeoutOrNull(2500L) {
                 kotlinx.coroutines.coroutineScope {
+                    if (t.logo.isNotBlank()) launch { loader.execute(imgReq(ctx, t.logo, 1000, 400)) }
                     if (t.background.isNotBlank()) launch { loader.execute(imgReq(ctx, t.background)) }
                     if (t.background.isNotBlank()) launch { GlassCache.get(ctx, t.background, settings.blurRadius) }
-                    if (t.logo.isNotBlank()) launch { loader.execute(imgReq(ctx, t.logo, 1000, 400)) }
                 }
             }
         }
@@ -958,6 +1011,14 @@ private fun HeroSection(
         // Both directions, a few slides deep, glass copies included.
         val depth = settings.prefetchDepth
         val ahead = (1..depth).flatMap { if (it <= (depth + 1) / 2) listOf(it, -it) else listOf(it) }
+        // Logos first: they are small, but queued behind the big backdrops of the slides around (the picture site
+        // takes a few downloads at a time) a title waited seconds for its logo.
+        for (k in listOf(0) + ahead) {
+            val n = items[(index + k).mod(items.size)].let { withArtwork(enriched[it.key] ?: it, settings.artChoice, settings.artPick(it.key)) }
+            if (n.logo.isNotBlank() && GlassCache.logos.get(n.logo) == null && GlassCache.pinnedLogo[n.logo] == null) launch {
+                (loader.execute(imgReq(ctx, n.logo, 1000, 400)) as? SuccessResult)?.image?.toBitmap()?.asImageBitmap()?.let { GlassCache.logos.put(n.logo, it) }
+            }
+        }
         // Downloads only (no decoding kept in memory), further ahead: fast browsing finds the pictures on disk.
         launch {
             delay(400)
@@ -985,10 +1046,6 @@ private fun HeroSection(
                     }
                 }
                 launch { GlassCache.get(ctx, n.background, settings.blurRadius) }
-            }
-            // Logos decoded into memory ahead, so a title's name appears in the same frame as its picture.
-            if (n.logo.isNotBlank() && GlassCache.logos.get(n.logo) == null && GlassCache.pinnedLogo[n.logo] == null) launch {
-                (loader.execute(imgReq(ctx, n.logo, 1000, 400)) as? SuccessResult)?.image?.toBitmap()?.asImageBitmap()?.let { GlassCache.logos.put(n.logo, it) }
             }
         }
     }
@@ -1059,16 +1116,25 @@ private fun HeroSection(
                 onFocus = { focused = it },
                 onPrev = { app.navAt = System.currentTimeMillis(); SlideDir.dir = -1; index-- }, onNext = { app.navAt = System.currentTimeMillis(); SlideDir.dir = 1; index++ },
                 onOpen = { NuvioLaunch.open(ctx, settings, app.http, shown) },
+                // Hold OK on Play: a small glass menu next to it (Library, Like, artwork).
                 onLong = {
                     val base = enriched[shown.key] ?: shown
-                    val options = artOptions(base)
-                    if (options.size < 2) toast(ctx, "No other pictures for ${shown.name} (add a TMDB token for more)")
-                    else {
-                        val cur = options.indexOf(shown.background).coerceAtLeast(0)
-                        val next = options[(cur + 1) % options.size]
-                        settings.setArtPick(shown.key, next)
-                        toast(ctx, "Picture ${(cur + 1) % options.size + 1} of ${options.size} · ${shown.name}  (hold OK again for the next)")
-                    }
+                    val pictures = artOptions(base)
+                    val inLib = app.library.has(shown.key)
+                    val liked = settings.liked(shown.key)
+                    onPop(PopState(shown.name, listOfNotNull(
+                        PopOption(if (inLib) "Remove from Library" else "Add to Library", if (inLib) "✓" else "") {
+                            val now = app.library.toggle(shown)
+                            toast(ctx, if (now) "Saved to Library · ${shown.name}" else "Removed from Library · ${shown.name}")
+                        },
+                        PopOption(if (liked) "Liked" else "Like", if (liked) "♥" else "") {
+                            val now = app.library.toggleLike(shown)
+                            toast(ctx, if (now) "Liked · ${shown.name}" else "Like removed · ${shown.name}")
+                        },
+                        if (pictures.size > 1) PopOption("Change artwork", thumbs = PopThumbs("Artwork · ${shown.name}", pictures,
+                            pictures.indexOf(shown.background).coerceAtLeast(0)) { url -> settings.setArtPick(shown.key, url) })
+                        else PopOption("Change artwork", "—") { toast(ctx, "No other pictures for ${shown.name} (add a TMDB token for more)") },
+                    ), PopAnchors.play, PopState.Side.Right))
                 },
                 modifier = Modifier.align(Alignment.TopStart),
             )
@@ -1247,7 +1313,8 @@ private fun HeroInfo(
                     Column {
                         Spacer(Modifier.height((14 * s).dp))
                         Row(
-                            Modifier.clipR((settings.cornerRadius * 0.7f * s).dp).background(Color.White.copy(alpha = 0.94f))
+                            Modifier.onGloballyPositioned { PopAnchors.play = it.boundsInRoot() }
+                                .clipR((settings.cornerRadius * 0.7f * s).dp).background(Color.White.copy(alpha = 0.94f))
                                 .padding(horizontal = (16 * s).dp, vertical = (7 * s).dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -1261,7 +1328,7 @@ private fun HeroInfo(
         }
         }
         // Apple TV buttons stay put while the title changes; only the text above fades.
-        if (nextBtn) HeroButtons(focused, btn, s, settings.cornerRadius, settings.heroPlus, isSaved)
+        if (nextBtn) Box(Modifier.onGloballyPositioned { PopAnchors.play = it.boundsInRoot() }) { HeroButtons(focused, btn, s, settings.cornerRadius, settings.heroPlus, isSaved) }
       }
     }
 }
@@ -1288,6 +1355,10 @@ private fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
     var failed by remember(item.logo) { mutableStateOf(false) }
     var retryAt by remember(item.logo) { mutableIntStateOf(0) }
     LaunchedEffect(retryAt) { if (retryAt > 0) { delay(900L * retryAt); attempt = retryAt } }
+    // Still loading after a moment (a slow site): the name shows meanwhile, the logo replaces it when it's there.
+    var slow by remember(item.logo) { mutableStateOf(false) }
+    val since = remember(item.logo) { android.os.SystemClock.uptimeMillis() }
+    LaunchedEffect(item.logo) { delay(700); slow = true }
     if (failed) { asText(); return }
     val r = (ratio ?: 3f).coerceIn(0.6f, 8f)
     val baseH = 70f * s * scale
@@ -1306,11 +1377,18 @@ private fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
         Image(pinnedLogo, item.name, contentScale = ContentScale.Fit, alignment = Alignment.CenterStart, colorFilter = logoTint(), modifier = Modifier.size(pw.dp, ph.dp))
         return
     }
+    // The name and the (still invisible) logo in the same place: one replaces the other, nothing moves.
+    Box {
+    if (ratio == null && slow) asText()
     AsyncImage(
         model = req, contentDescription = item.name, contentScale = ContentScale.Fit, alignment = Alignment.CenterStart, colorFilter = logoTint(),
         onSuccess = { st ->
             val sz = st.painter.intrinsicSize
-            if (sz.width > 0f && sz.height > 0f) ratio = sz.width / sz.height
+            // An empty or broken picture (1×1, a blank PNG some sites send for "no logo"): the name instead.
+            if (sz.width < 8f || sz.height < 4f) { failed = true; return@AsyncImage }
+            ratio = sz.width / sz.height
+            val took = android.os.SystemClock.uptimeMillis() - since
+            if (took > 800) com.glasslauncher.tv.data.Glog.i("Logo slow (${took} ms): ${item.name} ${item.logo}")
         },
         onError = { e ->
             if (retryAt < 2) retryAt++ else failed = true
@@ -1318,6 +1396,7 @@ private fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
         },
         modifier = Modifier.size(w.dp, h.dp).alpha(if (ratio == null) 0f else 1f),
     )
+    }
 }
 
 /** Apple style: the logo's shape in white (its colours dropped). */
@@ -1362,7 +1441,7 @@ private fun Dots(total: Int, current: Int, mode: String, max: Int, s: Float, mod
 // ───────────────────────────── top bar ─────────────────────────────
 
 @Composable
-private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, onSettings: () -> Unit, onMenu: (pressed: Boolean) -> Unit, modifier: Modifier) {
+private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: Boolean, onSettings: () -> Unit, onMenu: (pressed: Boolean) -> Unit, modifier: Modifier) {
     val settings = app.settings
     // The settings button opens the menu (as soon as it is selected, or with OK), or Settings when the menu is off.
     // A key pressed on it (OK, or Up again when it is already selected) always opens it: that is never by accident.
@@ -1386,7 +1465,8 @@ private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, onSettings:
     // and only appear when focus goes up to the settings button. (A few seconds at first, so you see where it is.)
     var intro by remember { mutableStateOf(true) }
     LaunchedEffect(settings.topAutoHide, settings.topHideSec) { intro = true; delay(settings.topHideSec * 1000L); intro = false }
-    val visible = !settings.topAutoHide || barFocused || intro
+    // Never under the open menu (it sits in the same corner).
+    val visible = (!settings.topAutoHide || barFocused || intro) && !menuOpen
     val a by animateFloatAsState(if (visible) 1f else 0f, tween(if (visible) 140 else 350), label = "topAlpha")
     val date by produceState(dateText(), Unit) { while (true) { value = dateText(); delay(60_000) } }
     val wx by app.weather.now.collectAsState()
@@ -1671,7 +1751,7 @@ private fun Dock(
                             key(FOLDER) {
                                 FolderTile(
                                     app, s, radius, moving = movingPkg == FOLDER,
-                                    modifier = base.focusRequester(folderFocus),
+                                    modifier = base.focusRequester(folderFocus).onGloballyPositioned { PopAnchors.tiles[FOLDER] = it.boundsInRoot() },
                                     onFocus = { f -> if (f) { onExpanded(r > 0); onMove() } },
                                     onMoveKey = onMoveKey, onClick = onFolder, onLong = onFolderMenu, edges = edges,
                                 )
@@ -1679,7 +1759,8 @@ private fun Dock(
                         } else key(e.pkg) {
                             DockTile(
                                 entry = e, app = app, s = s, radius = radius, moving = movingPkg == e.pkg,
-                                modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() }),
+                                modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() })
+                                    .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
                                 onFocus = { f -> if (f) { onExpanded(r > 0); onMove() } },
                                 onMoveKey = onMoveKey,
                                 onClick = { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } },
@@ -1730,11 +1811,12 @@ private fun VerticalDock(
                     .then(if (i == 0) Modifier.focusRequester(firstTile).focusProperties { up = heroFocus } else Modifier)
                 androidx.compose.runtime.CompositionLocalProvider(LocalEdge provides (if (last) edge else { _ -> false })) {
                     if (e == null) key(FOLDER) {
-                        FolderTile(app, s, radius, moving = movingPkg == FOLDER, modifier = base.focusRequester(folderFocus),
+                        FolderTile(app, s, radius, moving = movingPkg == FOLDER, modifier = base.focusRequester(folderFocus).onGloballyPositioned { PopAnchors.tiles[FOLDER] = it.boundsInRoot() },
                             onFocus = { f -> if (f) { onExpanded(false); onMove() } }, onMoveKey = onMoveKey, onClick = onFolder, onLong = onFolderMenu, edges = edges)
                     } else key(e.pkg) {
                         DockTile(entry = e, app = app, s = s, radius = radius, moving = movingPkg == e.pkg,
-                            modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() }),
+                            modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() })
+                                    .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
                             onFocus = { f -> if (f) { onExpanded(false); onMove() } }, onMoveKey = onMoveKey,
                             onClick = { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } },
                             onLong = { onMenu(e) }, edges = edges)

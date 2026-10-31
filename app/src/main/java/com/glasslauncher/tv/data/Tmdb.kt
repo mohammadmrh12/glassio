@@ -78,14 +78,20 @@ class Tmdb(private val http: Http) {
         val backdrop = d.optString("backdrop_path").takeIf { it.startsWith("/") }?.let { "https://image.tmdb.org/t/p/original$it" }.orEmpty()
         val poster = d.optString("poster_path").takeIf { it.startsWith("/") }?.let { "https://image.tmdb.org/t/p/original$it" }.orEmpty()
 
-        var logoPath: String? = null; var rank = Int.MAX_VALUE
+        // English first, then a sensible size: the widest file was often a several-megabyte PNG (thousands of
+        // pixels for a logo shown about 800 wide), so the title waited seconds for its logo every time.
+        var logoPath: String? = null; var logoW = 0; var rank = Int.MAX_VALUE
         d.optJSONObject("images")?.optJSONArray("logos")?.let { logos ->
             for (i in 0 until logos.length()) {
                 val l = logos.optJSONObject(i) ?: continue
                 val p = l.optString("file_path"); if (!p.startsWith("/")) continue
+                if (p.endsWith(".svg", true)) continue
                 val lr = when (l.optString("iso_639_1")) { "en" -> 0; "null", "" -> 1; else -> 2 }
-                val r = lr * 1_000_000 - l.optInt("width", 0).coerceIn(0, 999_999)
-                if (r < rank) { rank = r; logoPath = p }
+                val w = l.optInt("width", 0)
+                // Best between 600 and 1600 wide; smaller ones look soft, bigger ones are slow.
+                val fit = when { w in 600..1600 -> 0; w > 1600 -> (w - 1600) / 100; else -> (600 - w) / 50 + 5 }
+                val r = lr * 1_000_000 + fit * 1000 - w.coerceAtMost(999) / 10
+                if (r < rank) { rank = r; logoPath = p; logoW = w }
             }
         }
         // Textless backdrops first, best rated first: the Apple TV style gallery for this title.
@@ -115,7 +121,7 @@ class Tmdb(private val http: Http) {
         return item.copy(
             background = backdrop.ifBlank { item.background },
             poster = poster.ifBlank { item.poster },
-            logo = logoPath?.let { "https://image.tmdb.org/t/p/original$it" } ?: item.logo,
+            logo = logoPath?.let { "https://image.tmdb.org/t/p/${if (logoW > 2000) "w500" else "original"}$it" } ?: item.logo,
             overview = overview.ifBlank { item.overview },
             rating = rating.ifBlank { item.rating },
             year = year.ifBlank { item.year },

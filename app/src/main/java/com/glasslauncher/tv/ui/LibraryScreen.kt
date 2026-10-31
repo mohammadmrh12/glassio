@@ -130,7 +130,8 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             }
         }
     }
-    val cw = if (st.libraryCw && st.continueMode != "off") cwItems else emptyList()
+    // Its own setting: switching Continue Watching off in the carousel leaves it here.
+    val cw = if (st.libraryCw) cwItems else emptyList()
     val hasAny = saved.isNotEmpty() || trakt.isNotEmpty() || nuvio.isNotEmpty() || simkl.isNotEmpty() || cw.isNotEmpty()
     // Opened with Down from the dock: Up from the top row goes back to the dock (like the Apple TV home page).
     val firstList = when { cw.isNotEmpty() -> "c"; saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; else -> "k" }
@@ -159,6 +160,16 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val scope = rememberCoroutineScope()
     LaunchedEffect(active) { if (!active) runCatching { grid.scrollToItem(0); cwRow.scrollToItem(0) } }
     LaunchedEffect(hasAny, active) { if (hasAny && active) { runCatching { grid.scrollToItem(0); cwRow.scrollToItem(0) }; delay(30); runCatching { first.requestFocus() } } }
+    // Open with nothing selected (the list had just changed, e.g. Continue Watching switched off, so the first
+    // title wasn't there yet when it was asked for): the remote did nothing. Its first title is selected then.
+    LaunchedEffect(active, hasAny, libFocused, cw.isEmpty()) {
+        if (!active || !hasAny || libFocused) return@LaunchedEffect
+        repeat(10) {
+            delay(60)
+            if (libFocused) return@LaunchedEffect
+            runCatching { first.requestFocus() }.onFailure { runCatching { topRow[0].requestFocus() } }
+        }
+    }
     // Back from the screensaver (or another app) nothing had the focus here and the remote did nothing.
     val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     androidx.compose.runtime.DisposableEffect(life, active) {
@@ -258,7 +269,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                 itemsIndexed(saved, key = { _, it -> "s:" + it.key }) { i, it ->
                     Poster(it, s, st.libraryTitles, up("s", i).then(topReq("s", i)).then(if (i == 0 && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
-                        onRemove = { app.library.remove(it.key); toast(ctx, "Removed · ${it.name}") })
+                        onRemove = { if (st.syncAll) app.library.removeEverywhere(it) else app.library.remove(it.key); toast(ctx, "Removed · ${it.name}") })
                 }
             }
             if (st.libraryNuvio && app.library.nuvio.connected) {
@@ -303,7 +314,8 @@ private class PivotScroll(private val grid: androidx.compose.foundation.lazy.gri
         // first row was lifted to the pivot like the others).
         if (grid.firstVisibleItemIndex == 0) {
             val scrolled = grid.firstVisibleItemScrollOffset.toFloat()
-            if (offset + scrolled + size <= containerSize * 0.72f) return -scrolled
+            // (by the row's top: big posters reach below 72% of the page and the title was cut again)
+            if (offset + scrolled <= containerSize * 0.42f) return -scrolled
         }
         // Further down: the selected row high on the page like Apple TV, its section title just above it.
         val target = containerSize * 0.20f

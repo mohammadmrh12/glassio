@@ -42,7 +42,7 @@ class HomeKeyService : AccessibilityService() {
         val st = (application as GlassApp).settings
         // The camera chosen in Settings → Cameras (the first one if none is chosen or it was removed).
         val start = cams.indexOfFirst { it.url == st.cornerCamera }.coerceAtLeast(0)
-        camera = CameraOverlay(this, cams, st.cameraCornerSec, start).also { it.show() }
+        camera = CameraOverlay(this, cams, st.cameraCornerSec, start, st.cameraCycleSec).also { it.show() }
     }
 
     private fun enabled(): Boolean = (application as? GlassApp)?.settings?.interceptHome == true
@@ -67,6 +67,8 @@ class HomeKeyService : AccessibilityService() {
         camera?.takeIf { it.showing }?.let { c ->
             if (event.keyCode == KeyEvent.KEYCODE_BACK) { if (event.action == KeyEvent.ACTION_UP) { c.close(); camera = null }; return true }
         }
+        // Glassio's own buttons (shuffle, "press the button you want"): every remote button reaches this service first.
+        (application as? GlassApp)?.let { if (KeyHub.handle(it, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true }
         if (event.keyCode != KeyEvent.KEYCODE_HOME || !enabled()) return false
         if (!sp.getBoolean("keys", false)) sp.edit().putBoolean("keys", true).apply()
         val recents = (application as? GlassApp)?.settings?.homeLong.let { it != null && it != "off" }

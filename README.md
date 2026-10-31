@@ -25,6 +25,15 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 2.0.3**
+- **Hold OK on Play**: a small glass menu to add the title to your Library, **Like** it (sent to Trakt and Simkl) or
+  **change its artwork** from small pictures. Apps in the dock get the same glass menu.
+- **Sync** (Settings → Connections): Library, likes and Continue Watching kept the same on Nuvio, Trakt and Simkl.
+- **Shuffle button**: pick any remote button to shuffle the carousel; titles a catalog has just added come first.
+- The corner camera can go round your cameras on its own.
+- Logos appear faster, and the title's name shows when a logo is missing. Continue Watching switched off in the
+  carousel stays in the Library.
+
 **New in 2.0.2**
 - **Settings → Cameras**: everything about your cameras in one place, and you choose which camera opens when you hold
   Home and how long it stays (20 s by default).

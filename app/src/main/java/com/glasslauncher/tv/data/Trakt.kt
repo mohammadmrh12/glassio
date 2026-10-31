@@ -169,6 +169,44 @@ class Trakt(ctx: Context) {
         code in 200..299
     }.getOrDefault(false)
 
+    /** Your Trakt favorites (what Glassio calls likes). */
+    fun favorites(): List<Listed> {
+        if (!connected) return emptyList()
+        val (code, text) = call("GET", "/sync/favorites", auth = true)
+        check(code == 200) { "Trakt answered HTTP $code" }
+        val a = JSONArray(text)
+        return (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            when (o.optString("type")) {
+                "movie" -> o.optJSONObject("movie")?.optJSONObject("ids")?.optString("imdb")?.takeIf { it.startsWith("tt") }?.let { Listed(it, "movie", 0L) }
+                "show" -> o.optJSONObject("show")?.optJSONObject("ids")?.optString("imdb")?.takeIf { it.startsWith("tt") }?.let { Listed(it, "series", 0L) }
+                else -> null
+            }
+        }
+    }
+
+    /** Puts a paused position on Trakt (so it shows in Continue Watching of every app that reads Trakt). */
+    fun pausedAt(imdb: String, season: Int, episode: Int, percent: Int): Boolean = runCatching {
+        val body = scrobbleBody(imdb, season, episode).put("progress", percent.coerceIn(1, 79))
+        val (code, text) = call("POST", "/scrobble/pause", body, auth = true)
+        if (code !in 200..299 && code != 409) Glog.w("Trakt pause: HTTP $code $text")
+        code in 200..299 || code == 409
+    }.getOrDefault(false)
+
+    private fun scrobbleBody(imdb: String, season: Int, episode: Int): JSONObject =
+        if (episode > 0) JSONObject().put("show", JSONObject().put("ids", JSONObject().put("imdb", imdb)))
+            .put("episode", JSONObject().put("season", season).put("number", episode))
+        else JSONObject().put("movie", JSONObject().put("ids", JSONObject().put("imdb", imdb)))
+
+    /** Adds a title to (or removes it from) your Trakt favorites (what "Like" does). */
+    fun setFavorite(add: Boolean, type: String, imdb: String): Boolean = runCatching {
+        val key = if (type == "movie") "movies" else "shows"
+        val body = JSONObject().put(key, JSONArray().put(JSONObject().put("ids", JSONObject().put("imdb", imdb))))
+        val (code, text) = call("POST", if (add) "/sync/favorites" else "/sync/favorites/remove", body, auth = true)
+        if (code !in 200..299) Glog.w("Trakt favorites ${if (add) "add" else "remove"}: HTTP $code $text")
+        code in 200..299
+    }.getOrDefault(false)
+
     /** Removes a paused item on Trakt too, so it doesn't come back with the next sync. */
     fun removePlayback(id: Long) { runCatching { call("DELETE", "/sync/playback/$id", auth = true) } }
 }

@@ -74,6 +74,16 @@ class Settings(private val ctx: Context) {
         putList("artPicks", if (url == null) rest else (rest + "$key\t$url").takeLast(300))
     }
     fun clearArtPicks() = putList("artPicks", emptyList())
+    /** Library, likes and Continue Watching kept the same on every connected account (Connections → Sync). */
+    var syncAll: Boolean get() = b("syncAll", false); set(v) = putB("syncAll", v)
+    /** All liked keys. */
+    fun likedKeys(): List<String> = list("likes")
+    /** Titles you liked (hold OK on Play → Like): their keys. */
+    fun liked(key: String): Boolean = list("likes").contains(key)
+    fun setLiked(key: String, on: Boolean) {
+        val rest = list("likes").filterNot { it == key }
+        putList("likes", if (on) (rest + key).takeLast(2000) else rest)
+    }
     /** max = original pictures (4K source, sharpest) | high = 1280 px pictures (faster, lighter) */
     var imageQuality: String get() = s("imageQuality", "max"); set(v) = putS("imageQuality", v)
     /** How many slides ahead are prepared (pictures, logos, glass). */
@@ -205,7 +215,13 @@ class Settings(private val ctx: Context) {
     /** Index of the Apps folder among the dock apps; -1 = after the last app. */
     var folderPos: Int get() = i("folderPos", -1); set(v) = putI("folderPos", v)
     /** Continue Watching: off | first (at the start of the carousel) | mixed (among the catalogs) */
+    /** A remote button that shuffles the carousel on the home screen (its key code; 0 = none). */
+    var shuffleKey: Int get() = i("shuffleKey", 0); set(v) = putI("shuffleKey", v)
+    /** Titles a catalog has just added open the carousel for two days. */
+    var newFirst: Boolean get() = b("newFirst", true); set(v) = putB("newFirst", v)
     var continueMode: String get() = s("continueMode", "first"); set(v) = putS("continueMode", v)
+    /** Continue Watching is fetched while the carousel or the Library shows it (off in the carousel only = still in the Library). */
+    val continueWanted: Boolean get() = continueMode != "off" || libraryCw
     /** Continue Watching also from the Trakt account (when one is connected). */
     var cwTrakt: Boolean get() = b("cwTrakt", true); set(v) = putB("cwTrakt", v)
     var cwStremio: Boolean get() = b("cwStremio", true); set(v) = putB("cwStremio", v)
@@ -337,6 +353,8 @@ class Settings(private val ctx: Context) {
     /** Hold Home → camera: seconds before the corner camera closes on its own (0 = stays until closed). */
     /** Hold Home → camera: which camera opens (its link; blank = the first one in the list). */
     var cornerCamera: String get() = s("cornerCamera", ""); set(v) = putS("cornerCamera", v)
+    /** Hold Home → camera: switch to the next camera every this many seconds (0 = stay on one). */
+    var cameraCycleSec: Int get() = i("cameraCycleSec", 0); set(v) = putI("cameraCycleSec", if (v <= 0) 0 else v.coerceIn(5, 600))
     var cameraCornerSec: Int get() = i("cameraCornerSec", 20); set(v) = putI("cameraCornerSec", v.coerceIn(0, 600))
     var homeLong: String get() = s("homeLong", if (b("homeRecents", false)) "recents" else "off"); set(v) = putS("homeLong", v)
     /** Ask before removing a title from the Library. */

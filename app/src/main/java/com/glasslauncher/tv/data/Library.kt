@@ -68,17 +68,18 @@ class Library(
     /** Saves or unsaves [item]; returns true when it is now in the Library. */
     fun toggle(item: HeroItem): Boolean {
         val now = !has(item.key)
+        if (!now && settings.syncAll) { removeEverywhere(item); return false }
         val l = if (now) listOf(item.copy(progress = -1f, sub = "", gallery = emptyList())) + saved.value.filterNot { it.key == item.key }
         else saved.value.filterNot { it.key == item.key }
         saved.value = l; save(l)
-        if (settings.libraryToNuvio && nuvio.connected && item.id.isNotBlank()) scope.launch(Dispatchers.IO) {
+        if ((settings.libraryToNuvio || settings.syncAll) && nuvio.connected && item.id.isNotBlank()) scope.launch(Dispatchers.IO) {
             if (nuvio.setSaved(now, item.id, item.type.lowercase(), item.name, item.poster, item.background)) refreshNuvio()
         }
-        if (settings.libraryToTrakt && trakt.connected && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
+        if ((settings.libraryToTrakt || settings.syncAll) && trakt.connected && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
             if (trakt.setWatchlist(now, item.type.lowercase(), item.id)) refreshWatchlist()
         }
         val sk = simkl
-        if (settings.libraryToSimkl && sk?.connected == true && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
+        if ((settings.libraryToSimkl || settings.syncAll) && sk?.connected == true && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
             if (sk.setPlanToWatch(now, item.id, item.type.lowercase())) refreshSimkl()
         }
         return now
@@ -86,17 +87,49 @@ class Library(
 
     fun remove(key: String) { val l = saved.value.filterNot { it.key == key }; saved.value = l; save(l) }
 
+    /** Sync on: a title taken out of the Library goes from every account, or the next sync would bring it back. */
+    fun removeEverywhere(item: HeroItem) {
+        remove(item.key)
+        nuvioList.value = nuvioList.value.filterNot { it.key == item.key }
+        watchlist.value = watchlist.value.filterNot { it.key == item.key }
+        simklList.value = simklList.value.filterNot { it.key == item.key }
+        val type = item.type.lowercase()
+        scope.launch(Dispatchers.IO) {
+            if (nuvio.connected) nuvio.setSaved(false, item.id, type, item.name, item.poster, item.background)
+            if (trakt.connected && item.id.startsWith("tt")) trakt.setWatchlist(false, type, item.id)
+            val sk = simkl
+            if (sk?.connected == true && item.id.startsWith("tt")) sk.setPlanToWatch(false, item.id, type)
+        }
+    }
+
+    /**
+     * Like / unlike a title: kept in Glassio and sent to every account that has something like it (Trakt
+     * favorites, a 10/10 rating on Simkl). Nuvio and Stremio have no likes. Returns true when it is now liked.
+     */
+    fun toggleLike(item: HeroItem): Boolean {
+        val now = !settings.liked(item.key)
+        settings.setLiked(item.key, now)
+        val type = item.type.lowercase()
+        if (trakt.connected && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) { trakt.setFavorite(now, type, item.id) }
+        val sk = simkl
+        if (sk?.connected == true && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) { sk.setLiked(now, item.id, type) }
+        return now
+    }
+
     fun removeFromNuvio(item: HeroItem, done: (Boolean) -> Unit) {
+        if (settings.syncAll) { removeEverywhere(item); done(true); return }
         nuvioList.value = nuvioList.value.filterNot { it.key == item.key }
         scope.launch(Dispatchers.IO) { val ok = nuvio.setSaved(false, item.id, item.type, item.name, item.poster, item.background); if (!ok) refreshNuvio(); done(ok) }
     }
 
     fun removeFromWatchlist(item: HeroItem) {
+        if (settings.syncAll) { removeEverywhere(item); return }
         watchlist.value = watchlist.value.filterNot { it.key == item.key }
         scope.launch(Dispatchers.IO) { trakt.setWatchlist(false, item.type, item.id) }
     }
 
     fun removeFromSimkl(item: HeroItem) {
+        if (settings.syncAll) { removeEverywhere(item); return }
         simklList.value = simklList.value.filterNot { it.key == item.key }
         scope.launch(Dispatchers.IO) { simkl?.setPlanToWatch(false, item.id, item.type) }
     }

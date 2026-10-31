@@ -18,7 +18,13 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader =
         coil3.ImageLoader.Builder(context)
             // Thumbnails of your videos (backgrounds folder, screensaver).
-            .components { add(coil3.video.VideoFrameDecoder.Factory()) }
+            .components {
+                add(coil3.video.VideoFrameDecoder.Factory())
+                // More downloads at once from one picture site (OkHttp allows 5): logos no longer wait behind backdrops.
+                add(coil3.network.okhttp.OkHttpNetworkFetcherFactory(callFactory = {
+                    okhttp3.OkHttpClient.Builder().dispatcher(okhttp3.Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 12 }).build()
+                }))
+            }
             // A fixed size by memory tier: a percentage of the (large) heap gave Coil over 100 MB on 2 GB TVs,
             // and Android then closed Glassio while you browsed.
             .memoryCache { coil3.memory.MemoryCache.Builder().maxSizeBytes(when (settings.memTier) { 0 -> 40L; 2 -> 120L; else -> 72L } * 1024 * 1024).build() }
@@ -57,6 +63,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
 
     /** Bumped when Home is pressed while Glass is already in front: the carousel goes back to its start. */
     val homeRev = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Bumped by the shuffle button: the carousel's catalog titles in a new random order. */
+    val shuffleRev = androidx.compose.runtime.mutableIntStateOf(0)
     /** Last Left/Right in the carousel: while browsing, slides switch at once and fades are short. */
     @Volatile var navAt = 0L
     fun browsing() = System.currentTimeMillis() - navAt < 1200
@@ -86,6 +94,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     lateinit var weather: com.glasslauncher.tv.data.Weather; private set
     lateinit var updater: com.glasslauncher.tv.data.Updater; private set
     lateinit var library: com.glasslauncher.tv.data.Library; private set
+    lateinit var sync: com.glasslauncher.tv.data.Sync; private set
 
     override fun onCreate() {
         super.onCreate()
@@ -116,6 +125,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         weather = com.glasslauncher.tv.data.Weather(settings, http, scope).also { it.start() }
         library = com.glasslauncher.tv.data.Library(this, settings, http, cw.trakt, scope, cw.simkl)
         cw.nuvio = library.nuvio
+        sync = com.glasslauncher.tv.data.Sync(this, settings, library, cw, scope).also { it.start() }
         // Add-ons from the accounts that are on (Nuvio, Stremio), as one list (each add-on once, see CatalogRepository).
         catalogs.account = {
             val n = if (settings.catalogsNuvio && library.nuvio.connected) library.nuvio.addons() else emptyList()

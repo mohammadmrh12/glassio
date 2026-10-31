@@ -66,15 +66,15 @@ class ContinueWatching(
         scope.launch(Dispatchers.IO) { rebuildItems() }
         thread(name = "glass-cw-log", isDaemon = true) {
             while (true) {
-                if (settings.cwLegacy && settings.continueMode != "off") poll()
+                if (settings.cwLegacy && settings.continueWanted) poll()
                 // Trakt: every 3 minutes, or right away (at most every 45 s) when Glass comes back to the front.
                 val now = System.currentTimeMillis()
-                if (settings.cwTrakt && settings.continueMode != "off" && trakt.connected &&
+                if (settings.cwTrakt && settings.continueWanted && trakt.connected &&
                     now - traktAt > (if (woke) 45_000L else 180_000L)) { traktAt = now; syncTrakt() }
                 // The other accounts, the same way. Each one's list replaces its own titles here, so a title
                 // removed (or finished) in that app leaves Glassio too.
                 fun due(k: String) = now - (syncedAt[k] ?: 0L) > (if (woke) 45_000L else 180_000L)
-                if (settings.continueMode != "off") {
+                if (settings.continueWanted) {
                     if (settings.cwStremio && stremio.connected && due("Stremio")) { syncedAt["Stremio"] = now; syncStremio() }
                     if (settings.cwSimkl && simkl.connected && due("Simkl")) { syncedAt["Simkl"] = now; syncSimkl() }
                     val n = nuvio

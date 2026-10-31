@@ -58,6 +58,8 @@ class TextEntry(val title: String, val initial: String, val hint: String, val on
 class MenuDialog(val title: String, val options: List<Pair<String, () -> Unit>>) : DialogState
 /** A list with a small picture next to each choice (pictures, videos, screensaver videos). */
 class ThumbDialog(val title: String, val items: List<ThumbItem>) : DialogState
+/** "Press the button you want": the next key (not the arrows, OK or Back) goes to [onKey]. */
+class KeyCaptureDialog(val title: String, val onKey: (Int) -> Unit) : DialogState
 class ThumbItem(val label: String, val sub: String, val thumb: Any?, val checked: Boolean = false, val onClick: () -> Unit)
 /** A sign-in code with a QR code of the page to enter it on; closes by itself when [code] turns null. */
 /** Put a list in order: OK picks a row up, ▲ ▼ carry it, OK puts it down. [onDone] gets the keys in the new order. */
@@ -74,6 +76,7 @@ fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
             is QrCodeDialog -> QrCodeDialogView(state, onDismiss)
             is ThumbDialog -> ThumbDialogView(state, onDismiss)
             is ReorderDialog -> ReorderDialogView(state, onDismiss)
+            is KeyCaptureDialog -> KeyCaptureView(state, onDismiss)
         }
     }
 }
@@ -151,6 +154,44 @@ private fun MenuDialogView(d: MenuDialog, onDismiss: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+}
+
+@Composable
+private fun KeyCaptureView(d: KeyCaptureDialog, onDismiss: () -> Unit) {
+    val fr = remember { FocusRequester() }
+    var hint by remember { mutableStateOf("Press the button on the remote you want to use (Back cancels)") }
+    // The OK that opened this is still being released: ignored.
+    var armed by remember { mutableStateOf(false) }
+    Dialog(onDismissRequest = onDismiss) {
+        DialogSurface(width = 330, modifier = Modifier.focusRequester(fr).onPreviewKeyEvent { ev ->
+            val code = ev.nativeKeyEvent.keyCode
+            if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
+            when (code) {
+                android.view.KeyEvent.KEYCODE_BACK -> onDismiss()
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_DPAD_UP,
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT ->
+                    if (armed) hint = "The arrows and OK move around Glassio: pick another button" else armed = true
+                else -> { onDismiss(); d.onKey(code) }
+            }
+            true
+        }.focusable()) {
+            Text(d.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
+            Text(hint, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 4.dp))
+        }
+    }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(400); armed = true; runCatching { fr.requestFocus() } }
+    // Buttons the system keeps from apps (YouTube, Netflix, the star…) are caught by the Home button service.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.glasslauncher.tv.KeyHub.capture = { code -> onDismiss(); d.onKey(code) }
+        onDispose { com.glasslauncher.tv.KeyHub.capture = null }
+    }
+}
+
+/** A remote button's name for Settings ("Red", "Play/Pause"…). */
+fun keyName(code: Int): String = when (code) {
+    0 -> "Not set"
+    else -> android.view.KeyEvent.keyCodeToString(code).removePrefix("KEYCODE_").split('_')
+        .joinToString(" ") { w -> w.lowercase().replaceFirstChar { it.uppercase() } }
 }
 
 @Composable
