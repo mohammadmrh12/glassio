@@ -34,6 +34,7 @@ Dock & icons|الشريط والأيقونات|داک و آیکون‌ها|Dock 
 Menu & themes|القائمة والثيمات|منو و پوسته‌ها|Menü ve temalar|Menu et thèmes|Menú y temas|Menü & Designs|Меню и темы|Menu e temas
 Clock & glass|الساعة والزجاج|ساعت و شیشه|Saat ve cam|Horloge et verre|Reloj y cristal|Uhr & Glas|Часы и стекло|Relógio e vidro
 Screensaver|شاشة التوقف|محافظ صفحه|Ekran koruyucu|Économiseur d'écran|Salvapantallas|Bildschirmschoner|Заставка|Protetor de tela
+Cameras|الكاميرات|دوربین‌ها|Kameralar|Caméras|Cámaras|Kameras|Камеры|Câmeras
 Performance|الأداء|کارایی|Performans|Performances|Rendimiento|Leistung|Производительность|Desempenho
 Manage from phone|الإدارة من الهاتف|مدیریت با گوشی|Telefondan yönet|Gérer depuis le téléphone|Gestionar desde el móvil|Vom Handy verwalten|Управление с телефона|Gerir pelo telemóvel
 System|النظام|سیستم|Sistem|Système|Sistema|System|Система|Sistema

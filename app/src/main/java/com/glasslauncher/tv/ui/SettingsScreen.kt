@@ -469,7 +469,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Toggle("  · RAM", "", { st.sysRam }, { st.sysRam = it }),
                 Toggle("  · Storage", "", { st.sysStorage }, { st.sysStorage = it }),
                 Toggle("Screensaver in the menu", "Start it, choose its videos and when it starts", { st.menuSaver }, { st.menuSaver = it }),
-                Toggle("Camera in the menu", if (st.cameras.isEmpty()) "Add a camera in Connections → Cameras" else "Live view in the menu, like Apple TV", { st.menuCamera }, { st.menuCamera = it }),
+                Toggle("Camera in the menu", if (st.cameras.isEmpty()) "Add a camera in Settings → Cameras" else "Live view in the menu, like Apple TV", { st.menuCamera }, { st.menuCamera = it }),
                 link("Library", "Its rows, accounts and Continue Watching there"),
             )
         },
@@ -629,7 +629,12 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Toggle("Tell Home Assistant when a title opens", "Sends title, type and id as JSON", { st.haOnLaunch }, { st.haOnLaunch = it }))
                 add(Act("Send a test event", "") { io { NuvioLaunch.testWebhook(st, app.http) } })
 
-                add(Note("Cameras"))
+                add(link("Cameras", "Find, add and remove cameras, the menu camera and the corner camera"))
+            }
+        },
+        Category("Cameras") {
+            buildList {
+                add(Note("Your cameras"))
                 add(Act("Find cameras", "Searches your network (ONVIF: Hikvision, Dahua, Reolink, Tapo, Amcrest, Axis…)", "") {
                     io {
                         val found = com.glasslauncher.tv.data.Onvif.discover()
@@ -655,7 +660,22 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 st.cameras.mapNotNull { Cam.parse(it) }.forEach { c ->
                     add(Act(c.name, runCatching { java.net.URI(c.url).host }.getOrNull() ?: "", "Remove") { st.cameras = st.cameras.filterNot { it == c.line() || Cam.parse(it)?.url == c.url } })
                 }
-                add(Toggle("Camera in the menu", "", { st.menuCamera }, { st.menuCamera = it }))
+                if (st.cameras.isEmpty()) add(Note("No cameras yet: find them on your network or add a link above. From the phone page you can also add, rename and remove them."))
+                add(Note("Where they show"))
+                add(Toggle("Camera in the menu", "Live view in the menu, like Apple TV (◀ ▶ switches camera)", { st.menuCamera }, { st.menuCamera = it }))
+                add(Toggle("Hold Home shows a camera", "In the corner, over any app (needs the Home button service: System)", { st.homeLong == "camera" },
+                    { st.homeLong = if (it) "camera" else "off" }))
+                val camList = st.cameras.mapNotNull { Cam.parse(it) }
+                if (camList.size > 1) add(Adjust("  · Camera", "Which camera opens when you hold Home (◀ ▶ on it still switches)",
+                    { (camList.firstOrNull { it.url == st.cornerCamera } ?: camList.first()).name },
+                    { d ->
+                        val i = camList.indexOfFirst { it.url == st.cornerCamera }.coerceAtLeast(0)
+                        st.cornerCamera = camList[(i + d).mod(camList.size)].url
+                    }))
+                add(Adjust("  · Corner camera closes after", "It goes away on its own after this (Back or holding Home again closes it sooner)",
+                    { if (st.cameraCornerSec == 0) "Never" else if (st.cameraCornerSec < 60) "${st.cameraCornerSec} s" else "${st.cameraCornerSec / 60} min" },
+                    { st.cameraCornerSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.cameraCornerSec, it) }))
+                add(link("Manage from phone", "Add, rename and remove cameras from your phone"))
             }
         },
         Category("Screensaver") {
@@ -873,7 +893,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             GlassPanel(Modifier.width((230 * s).dp).fillMaxHeight(), (30 * s).dp, style = st.panelStyle, darken = 0.42f) {
                 // Scrolls when the list is taller than the screen (the last entry, About, was cut off).
                 Column(Modifier.padding(horizontal = (14 * s).dp, vertical = (12 * s).dp).verticalScroll(rememberScrollState())) {
-                    Text("Settings", color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (8 * s).dp, bottom = (4 * s).dp))
+                    Text("Settings", color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (8 * s).dp, bottom = (6 * s).dp))
+                    // A thin line under the title, minimal.
+                    Box(Modifier.padding(start = (8 * s).dp, end = (8 * s).dp, bottom = (6 * s).dp).fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.16f)))
                     categories.forEachIndexed { i, c ->
                         var f by remember { mutableStateOf(false) }
                         Text(
@@ -1143,7 +1165,7 @@ private fun videoName(u: String): String = runCatching {
 
 /** The settings sections in order: accounts and what they feed, then the look, then the screensaver and the TV. */
 val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
-    "Clock & glass", "Screensaver", "Performance", "Manage from phone", "System", "About")
+    "Cameras", "Clock & glass", "Screensaver", "Performance", "Manage from phone", "System", "About")
 
 /**
  * Settings pages scroll like a TV list: the selected row settles at the same height (a third of the way down)

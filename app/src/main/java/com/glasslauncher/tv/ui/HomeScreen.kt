@@ -133,10 +133,10 @@ const val DOCK_COLUMNS = 6
 
 /** Called when an arrow leads out of a grid edge; true when it did something (no bounce then). */
 private val LocalEdge = androidx.compose.runtime.compositionLocalOf<(androidx.compose.ui.focus.FocusDirection) -> Boolean> { { false } }
-/** Index of the "Manage from phone" category in the settings list. */
-const val PHONE_CATEGORY = 10
+/** Index of the "Manage from phone" category in the settings list (by name: fixed numbers broke when a section was added). */
+val PHONE_CATEGORY: Int get() = CATEGORY_ORDER.indexOf("Manage from phone")
 /** Index of the "Catalogs" category in the settings list. */
-const val CATALOGS_CATEGORY = 5
+val CATALOGS_CATEGORY: Int get() = CATEGORY_ORDER.indexOf("Catalogs")
 /** Pseudo package used by move mode for the Apps folder tile. */
 private const val FOLDER = "__apps_folder__"
 

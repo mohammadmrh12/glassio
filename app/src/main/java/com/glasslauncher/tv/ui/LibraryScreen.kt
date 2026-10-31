@@ -5,6 +5,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import kotlin.math.roundToInt
 import androidx.compose.ui.layout.layout
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
@@ -131,7 +134,14 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val hasAny = saved.isNotEmpty() || trakt.isNotEmpty() || nuvio.isNotEmpty() || simkl.isNotEmpty() || cw.isNotEmpty()
     // Opened with Down from the dock: Up from the top row goes back to the dock (like the Apple TV home page).
     val firstList = when { cw.isNotEmpty() -> "c"; saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; else -> "k" }
-    fun up(list: String, i: Int): Modifier = if (onTopUp != null && list == firstList && (list == "c" || i < 5))
+    // Down from Continue Watching lands on the poster under the card's left edge (the first card → the first
+    // poster). Left to the system it went by the card's centre, and a wide card over narrower posters (more in a
+    // row) landed on the second one.
+    val posterFirst = when { saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; else -> "k" }
+    val posterFirstSize = when (posterFirst) { "s" -> saved.size; "n" -> nuvio.size; "t" -> trakt.size; else -> simkl.size }
+    val topRow = remember { List(8) { FocusRequester() } }
+    fun topReq(list: String, i: Int): Modifier = if (list == posterFirst && i < minOf(st.libraryColumns, 8)) Modifier.focusRequester(topRow[i]) else Modifier
+    fun up(list: String, i: Int): Modifier = if (onTopUp != null && list == firstList && (list == "c" || i < st.libraryColumns))
         Modifier.onPreviewKeyEvent { e ->
             if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionUp) { onTopUp(); true } else false
         } else Modifier
@@ -182,6 +192,10 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         val gap = (22 * s * st.librarySpacing).dp
         val full = maxWidth - (64 * s * 2).dp
         val side = (64 * s).dp + (full - gap * (cols - 1)) * ((1f - st.libraryPosterSize) / 2f)
+        val posterW = (maxWidth - side * 2 - gap * (cols - 1)) / cols
+        val sidePx = with(density) { side.toPx() }
+        val pitchPx = with(density) { (posterW + gap).toPx() }
+        val cardX = remember { mutableMapOf<Int, Float>() }
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pivot) {
         LazyVerticalGrid(
             state = grid,
@@ -221,7 +235,17 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                         items(cw.size, key = { "c:" + cw[it].key }) { i ->
                             val it = cw[i]
                             val src = cwEntries.firstOrNull { e -> e.key == it.key }?.app.orEmpty()
-                            CwCard(it, src, s, wide, st.libraryCwSource, Modifier.width(cardW).then(if (i == 0) Modifier.focusRequester(first) else Modifier),
+                            CwCard(it, src, s, wide, st.libraryCwSource, Modifier.width(cardW).then(if (i == 0) Modifier.focusRequester(first) else Modifier)
+                                .onGloballyPositioned { c -> cardX[i] = c.positionInRoot().x }
+                                .onPreviewKeyEvent { e ->
+                                    val n = minOf(cols, posterFirstSize, 8)
+                                    if (e.key != androidx.compose.ui.input.key.Key.DirectionDown || n <= 0) return@onPreviewKeyEvent false
+                                    if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                                        val col = (((cardX[i] ?: sidePx) - sidePx) / pitchPx).roundToInt().coerceIn(0, n - 1)
+                                        runCatching { topRow[col].requestFocus() }
+                                    }
+                                    true
+                                },
                                 onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                                 onRemove = { app.cw.remove(it.key); toast(ctx, "Removed from Continue Watching" + (if (src.isNotBlank() && src != "Nuvio Legacy") " and $src" else "") + " · ${it.name}") })
                         }
@@ -232,7 +256,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (saved.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section("Saved", s) }
                 itemsIndexed(saved, key = { _, it -> "s:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("s", i).then(if (i == 0 && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("s", i).then(topReq("s", i)).then(if (i == 0 && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.remove(it.key); toast(ctx, "Removed · ${it.name}") })
                 }
@@ -240,7 +264,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (st.libraryNuvio && app.library.nuvio.connected) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(if (nuvioStatus.isNotBlank()) "Nuvio library · $nuvioStatus" else "Nuvio library", s) }
                 itemsIndexed(nuvio, key = { _, it -> "n:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("n", i).then(if (i == 0 && saved.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("n", i).then(topReq("n", i)).then(if (i == 0 && saved.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.removeFromNuvio(it) { ok -> toast(ctx.applicationContext, if (ok) "Removed from your Nuvio library · ${it.name}" else "Nuvio: couldn't remove ${it.name}") } })
                 }
@@ -248,7 +272,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (st.libraryTrakt && app.cw.trakt.connected) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(if (status.isNotBlank()) "Trakt watchlist · $status" else "Trakt watchlist", s) }
                 itemsIndexed(trakt, key = { _, it -> "t:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("t", i).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("t", i).then(topReq("t", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.removeFromWatchlist(it); toast(ctx, "Removed from the Trakt watchlist · ${it.name}") })
                 }
@@ -256,7 +280,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (st.librarySimkl && app.cw.simkl.connected && simkl.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section("Simkl · Plan to watch", s) }
                 itemsIndexed(simkl, key = { _, it -> "k:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("k", i).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("k", i).then(topReq("k", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.removeFromSimkl(it); toast(ctx, "Removed from Simkl · ${it.name}") })
                 }

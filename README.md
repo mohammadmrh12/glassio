@@ -25,6 +25,13 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 2.0.2**
+- **Settings → Cameras**: everything about your cameras in one place, and you choose which camera opens when you hold
+  Home and how long it stays (20 s by default).
+- Back from standby, the TV opens Glassio again instead of the Google TV home.
+- Screensaver videos and pictures always leave 3 GB free on the TV, and coming back from another app is faster.
+- Down from Continue Watching lands on the poster right under the card.
+
 **New in 2.0.1** — the Library scrolls like Apple TV
 - One long, soft glide per press that keeps its speed when you hold Down, the selected row high on the page, rows
   built ahead, and a steady 60 fps on the TV (nothing is drawn under the page any more).

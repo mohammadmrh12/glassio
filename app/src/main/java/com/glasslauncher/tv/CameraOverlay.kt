@@ -26,13 +26,14 @@ import com.glasslauncher.tv.ui.Cam
  * the remote: ◀ ▶ change camera, Back (or holding Home again) closes it. It closes by itself after 3 minutes.
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-class CameraOverlay(private val ctx: Context, private val cams: List<Cam>) {
+/** [seconds]: how long it stays on screen (Settings → System → Corner camera closes after; 0 = until closed). */
+class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, private val seconds: Int = 20, start: Int = 0) {
     private val wm = ctx.getSystemService(WindowManager::class.java)
     private var root: FrameLayout? = null
     private var player: ExoPlayer? = null
     private var name: TextView? = null
     private var status: TextView? = null
-    private var index = 0
+    private var index = start.coerceAtLeast(0)
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val autoClose = Runnable { close() }
     val showing get() = root != null
@@ -80,7 +81,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>) {
             })
         }
         play()
-        handler.postDelayed(autoClose, 3 * 60_000L)
+        restartTimer()
     }
 
     private fun play() {
@@ -95,7 +96,13 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>) {
         p.prepare(); p.playWhenReady = true
     }
 
-    fun next(d: Int) { if (cams.size > 1) { index += d; play() } }
+    /** The countdown starts again (also when you switch camera). */
+    private fun restartTimer() {
+        handler.removeCallbacks(autoClose)
+        if (seconds > 0) handler.postDelayed(autoClose, seconds * 1000L)
+    }
+
+    fun next(d: Int) { if (cams.size > 1) { index += d; play(); restartTimer() } }
 
     fun close() {
         handler.removeCallbacks(autoClose)

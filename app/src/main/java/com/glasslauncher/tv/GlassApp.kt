@@ -25,22 +25,33 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             .diskCache {
                 coil3.disk.DiskCache.Builder()
                     .directory(java.io.File(cacheDir, "images").absolutePath.let { okio.Path.Companion.run { it.toPath() } })
-                    .maxSizeBytes(settings.cacheMb.toLong() * 1024 * 1024)
+                    .maxSizeBytes(com.glasslauncher.tv.data.Storage.pictureCacheLimit(java.io.File(cacheDir, "images"), settings.cacheMb.toLong() * 1024 * 1024))
                     .build()
             }
             .build()
 
     /**
-     * The TV is short of memory: drop every picture that can be made again (decoded images, glass copies,
-     * prepared backdrops), so Android doesn't have to close Glass.
+     * The TV is short of memory: drop pictures that can be made again, so Android doesn't have to close Glassio
+     * (coming back to a closed launcher rebuilds the whole page).
+     * Only when memory is really short: "UI hidden" (level 20) just means another app is in front, and clearing
+     * everything then made every return to the home screen decode its pictures again.
      */
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
-            com.glasslauncher.tv.data.Glog.w("Low memory (level $level): clearing picture caches")
-            runCatching { coil3.SingletonImageLoader.get(this).memoryCache?.clear() }
-            com.glasslauncher.tv.ui.GlassCache.trim()
-            com.glasslauncher.tv.ui.trimPageCaches()
+        @Suppress("DEPRECATION") when {
+            // In the background and Android is looking for memory: everything that can be made again goes.
+            level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> {
+                com.glasslauncher.tv.data.Glog.w("Low memory in the background (level $level): clearing picture caches")
+                runCatching { coil3.SingletonImageLoader.get(this).memoryCache?.clear() }
+                com.glasslauncher.tv.ui.GlassCache.trim()
+                com.glasslauncher.tv.ui.trimPageCaches()
+            }
+            level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> Unit
+            // In front and memory is getting short (older Android): half the decoded pictures, the screen stays.
+            level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
+                com.glasslauncher.tv.data.Glog.w("Low memory (level $level): halving the picture cache")
+                runCatching { coil3.SingletonImageLoader.get(this).memoryCache?.let { it.trimToSize(it.maxSize / 2) } }
+            }
         }
     }
 

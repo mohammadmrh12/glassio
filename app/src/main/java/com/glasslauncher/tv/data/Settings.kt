@@ -334,6 +334,10 @@ class Settings(private val ctx: Context) {
     /** A very soft glow around the selected icon / poster: "off", "color" (its own colour) or "white". */
     var glow: String get() = s("glow", "white"); set(v) = putS("glow", v)
     /** Hold Home: "recents", "camera" (live camera over any app), "library", "menu" or "off". */
+    /** Hold Home → camera: seconds before the corner camera closes on its own (0 = stays until closed). */
+    /** Hold Home → camera: which camera opens (its link; blank = the first one in the list). */
+    var cornerCamera: String get() = s("cornerCamera", ""); set(v) = putS("cornerCamera", v)
+    var cameraCornerSec: Int get() = i("cameraCornerSec", 20); set(v) = putI("cameraCornerSec", v.coerceIn(0, 600))
     var homeLong: String get() = s("homeLong", if (b("homeRecents", false)) "recents" else "off"); set(v) = putS("homeLong", v)
     /** Ask before removing a title from the Library. */
     var libraryConfirm: Boolean get() = b("libraryConfirm", true); set(v) = putB("libraryConfirm", v)

@@ -38,8 +38,11 @@ class HomeKeyService : AccessibilityService() {
     private fun toggleCamera() {
         camera?.let { if (it.showing) { it.close(); camera = null; return } }
         val cams = (application as GlassApp).settings.cameras.mapNotNull { com.glasslauncher.tv.ui.Cam.parse(it) }
-        if (cams.isEmpty()) { android.widget.Toast.makeText(this, "Add a camera first: Glassio settings → Connections → Cameras", android.widget.Toast.LENGTH_LONG).show(); return }
-        camera = CameraOverlay(this, cams).also { it.show() }
+        if (cams.isEmpty()) { android.widget.Toast.makeText(this, "Add a camera first: Glassio settings → Cameras", android.widget.Toast.LENGTH_LONG).show(); return }
+        val st = (application as GlassApp).settings
+        // The camera chosen in Settings → Cameras (the first one if none is chosen or it was removed).
+        val start = cams.indexOfFirst { it.url == st.cornerCamera }.coerceAtLeast(0)
+        camera = CameraOverlay(this, cams, st.cameraCornerSec, start).also { it.show() }
     }
 
     private fun enabled(): Boolean = (application as? GlassApp)?.settings?.interceptHome == true
@@ -79,10 +82,43 @@ class HomeKeyService : AccessibilityService() {
         return true
     }
 
+    /**
+     * The TV coming back from standby. After a short standby Google TV shows the app that was on screen, after a
+     * longer one (minutes) it opens its own launcher instead, and nothing brought Glassio back until Home was
+     * pressed. For a short while after the screen comes on, the Google TV launcher's home screen is replaced by
+     * Glassio (System → "Open Glassio when the TV starts"); at any other time it is left alone (it also shows up
+     * for a moment when Wi-Fi comes back, and Glassio must not jump in front of what you're watching then).
+     */
+    @Volatile private var screenOnAt = 0L
+    @Volatile private var launcherHomeAt = 0L
+    private val screenReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: Intent) {
+            if (i.action != Intent.ACTION_SCREEN_ON) return
+            screenOnAt = android.os.SystemClock.uptimeMillis()
+            // The launcher may have come up just before this broadcast arrived.
+            if (screenOnAt - launcherHomeAt < 3_000) wakeToGlass("screen on after the Google TV home")
+        }
+    }
+
+    private fun wakeOn(): Boolean = enabled() && (application as? GlassApp)?.settings?.bootStart == true
+
+    private fun wakeToGlass(why: String) {
+        if (!wakeOn()) return
+        com.glasslauncher.tv.data.Glog.i("Back from standby on the Google TV home: opening Glassio ($why)")
+        lastLaunch = 0L
+        showGlass()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || !enabled()) return
         val pkg = event.packageName?.toString() ?: return
         if (pkg != "com.google.android.apps.tv.launcherx" && pkg != "com.google.android.tvlauncher") return
+        val launcherHome = event.className?.toString().orEmpty().let { it.contains("HomeActivity") || it.contains("MainActivity") || it.contains("LauncherActivity") }
+        if (launcherHome) {
+            val now = android.os.SystemClock.uptimeMillis()
+            launcherHomeAt = now
+            if (now - screenOnAt < 20_000) { wakeToGlass("launcher home after screen on"); return }
+        }
         // The fallback brought Glassio to the front whenever the Google TV launcher showed any window of its own
         // (for example when Wi-Fi dropped and came back), even while you were watching. Where the Home key
         // reaches this service it is never needed; elsewhere only the launcher's main screen counts.
@@ -96,6 +132,7 @@ class HomeKeyService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        runCatching { registerReceiver(screenReceiver, android.content.IntentFilter(Intent.ACTION_SCREEN_ON)) }
         // Ask for key events explicitly; some TV builds ignore the flag from the XML alone.
         serviceInfo = serviceInfo.apply {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
@@ -103,4 +140,9 @@ class HomeKeyService : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
+
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(screenReceiver) }
+        super.onDestroy()
+    }
 }
