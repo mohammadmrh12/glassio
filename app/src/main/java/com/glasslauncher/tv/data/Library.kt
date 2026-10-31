@@ -87,6 +87,13 @@ class Library(
 
     fun remove(key: String) { val l = saved.value.filterNot { it.key == key }; saved.value = l; save(l) }
 
+    /** Adds to Glassio's own Library only (the sync puts it on the accounts itself). */
+    fun toggleLocal(item: HeroItem) {
+        if (has(item.key)) return
+        val l = listOf(item.copy(progress = -1f, sub = "", gallery = emptyList())) + saved.value
+        saved.value = l; save(l)
+    }
+
     /** Sync on: a title taken out of the Library goes from every account, or the next sync would bring it back. */
     fun removeEverywhere(item: HeroItem) {
         remove(item.key)
@@ -110,9 +117,13 @@ class Library(
         val now = !settings.liked(item.key)
         settings.setLiked(item.key, now)
         val type = item.type.lowercase()
-        if (trakt.connected && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) { trakt.setFavorite(now, type, item.id) }
+        if (trakt.connected && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
+            if (trakt.setFavorite(now, type, item.id)) settings.setLikeSent("trakt", item.key, now)
+        }
         val sk = simkl
-        if (sk?.connected == true && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) { sk.setLiked(now, item.id, type) }
+        if (sk?.connected == true && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
+            if (sk.setLiked(now, item.id, type)) settings.setLikeSent("simkl", item.key, now)
+        }
         return now
     }
 

@@ -881,8 +881,10 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     ).sortedBy { CATEGORY_ORDER.indexOf(it.title).let { i -> if (i < 0) 99 else i } }
     catTitles[0] = categories.map { it.title }
 
-    // Catalog choices made here are applied when the screen closes.
-    DisposableEffect(Unit) { onDispose { app.scope.launch(Dispatchers.IO) { runCatching { app.catalogs.refresh() } } } }
+    // Catalog choices made here are applied when the screen closes; only when one of them changed (every visit to
+    // Settings reloaded every catalog, and the home screen was rebuilt with them just as you came back).
+    val catalogSig = remember { app.catalogs.signature() }
+    DisposableEffect(Unit) { onDispose { if (app.catalogs.signature() != catalogSig) app.scope.launch(Dispatchers.IO) { runCatching { app.catalogs.refresh() } } } }
     BackHandler { if (rightFocused) runCatching { catFocus[cat].requestFocus() } else onClose() }
     LaunchedEffect(Unit) { delay150(); runCatching { firstCat.requestFocus() } }
 

@@ -76,6 +76,12 @@ class Settings(private val ctx: Context) {
     fun clearArtPicks() = putList("artPicks", emptyList())
     /** Library, likes and Continue Watching kept the same on every connected account (Connections → Sync). */
     var syncAll: Boolean get() = b("syncAll", false); set(v) = putB("syncAll", v)
+    /** Likes already on an account ("trakt", "simkl"), so they're sent once. */
+    fun likeSent(acc: String, key: String): Boolean = list("likeSent_$acc").contains(key)
+    fun setLikeSent(acc: String, key: String, on: Boolean) {
+        val rest = list("likeSent_$acc").filterNot { it == key }
+        putList("likeSent_$acc", if (on) (rest + key).takeLast(3000) else rest)
+    }
     /** All liked keys. */
     fun likedKeys(): List<String> = list("likes")
     /** Titles you liked (hold OK on Play → Like): their keys. */

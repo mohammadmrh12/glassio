@@ -76,7 +76,8 @@ class ContinueWatching(
                 fun due(k: String) = now - (syncedAt[k] ?: 0L) > (if (woke) 45_000L else 180_000L)
                 if (settings.continueWanted) {
                     if (settings.cwStremio && stremio.connected && due("Stremio")) { syncedAt["Stremio"] = now; syncStremio() }
-                    if (settings.cwSimkl && simkl.connected && due("Simkl")) { syncedAt["Simkl"] = now; syncSimkl() }
+                    // Simkl counts every request against a daily limit: every 10 minutes (2 when back on the home screen).
+                    if (settings.cwSimkl && simkl.connected && !simkl.limited && now - (syncedAt["Simkl"] ?: 0L) > (if (woke) 120_000L else 600_000L)) { syncedAt["Simkl"] = now; syncSimkl() }
                     val n = nuvio
                     if (settings.cwNuvioAccount && n?.connected == true && due("Nuvio")) { syncedAt["Nuvio"] = now; syncNuvio(n) }
                 }

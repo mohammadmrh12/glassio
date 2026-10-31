@@ -24,6 +24,7 @@ import kotlinx.coroutines.async
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -169,6 +170,7 @@ private class DockMetrics(val s: Float, screenW: Float, dockScale: Float) {
     val collapsedH = padTop + cellH + padBottom
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val settings = app.settings
@@ -522,12 +524,18 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // open look flashed dark for a moment on the way back).
             LaunchedEffect(libFull) { if (libFull) expanded = false }
             val homeVisible by remember { androidx.compose.runtime.derivedStateOf { homeAlphaState.value > 0.001f && libScroll.value < 0.999f } }
-            // Kept composed under the Library (only not drawn): leaving the composition restarted the carousel, so
-            // its backdrop slid in again when you came back. Not under Settings or the Apps folder: hidden, its dock
-            // could still take the remote there (Right in Settings went to the dock behind instead of the options).
-            if ((screen == Screen.Home && !folderOpen) || homePrep || libFromDock || libScroll.value > 0.001f || (homeVisible && screen != Screen.Settings)) Box(
+            // Kept composed under the Library and Settings (only not drawn): leaving the composition meant the whole
+            // home screen (carousel, glass, dock, backdrop) was built again on the way back, and the first second
+            // there stuttered. The remote can't go into it while it's hidden: the group lets no focus in from outside
+            // (Right in Settings once went to the hidden dock instead of the options).
+            val homeTakesFocus = screen == Screen.Home && pickerFor == null && !folderOpen && !(menuOpen && menuHasFocus) && pop == null
+            if ((screen == Screen.Home && !folderOpen) || homePrep || libFromDock || libScroll.value > 0.001f || homeVisible || screen == Screen.Settings) Box(
                 Modifier.fillMaxSize().graphicsLayer { alpha = if (homeVisible || homePrep || (screen == Screen.Home && !folderOpen)) homeAlphaState.value else 0f; translationY = -libScroll.value * size.height }
-                    .focusProperties { canFocus = screen == Screen.Home && pickerFor == null && !folderOpen && !(menuOpen && menuHasFocus) && pop == null }
+                    .focusProperties {
+                        canFocus = homeTakesFocus
+                        enter = { if (homeTakesFocus) androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Cancel }
+                    }
+                    .focusGroup()
             ) {
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (DebugHide.intValue and 2 != 0) 0f else 1f }) {
                     HeroSection(app, s, hidden = expanded || folderOpen, paused = screen != Screen.Home || pop != null, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
@@ -615,7 +623,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             LaunchedEffect(settings.libraryDown) { if (settings.libraryDown && !libWarm) { delay(5_000); libWarm = true } }
             // Read through derivedStateOf: reading the animation itself here recomposed the whole home screen every frame.
             val libMoving by remember { androidx.compose.runtime.derivedStateOf { libScroll.value > 0.001f } }
-            if (screen == Screen.Library || libMoving || (libWarm && settings.libraryDown && screen == Screen.Home)) Box(Modifier.fillMaxSize().graphicsLayer {
+            // Also kept under Settings: closing Settings built the whole Library page again, and the first frame back
+            // on the home screen took a fifth of a second.
+            if (screen == Screen.Library || libMoving || (libWarm && settings.libraryDown && (screen == Screen.Home || screen == Screen.Settings))) Box(Modifier.fillMaxSize().graphicsLayer {
                 val on = screen == Screen.Library || libScroll.value > 0.001f
                 if (!on) { alpha = 0f; translationY = size.height }
                 // Also while it scrolls back down after Up (libFromDock is cleared at the very end): without this the
@@ -894,7 +904,14 @@ private fun HeroSection(
     val lead = settings.cwLead
     val shuffleRev = app.shuffleRev.intValue
     val newFirst = settings.newFirst
-    val items = remember(catalogItems, cwItems, mode, lead, shuffleRev, newFirst) {
+    // New titles are worked out off the main thread (a few thousand remembered titles were read and written in
+    // the middle of drawing the home screen).
+    var freshKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(catalogItems, newFirst) {
+        freshKeys = if (!newFirst || catalogItems.isEmpty()) emptyList()
+            else withContext(Dispatchers.Default) { com.glasslauncher.tv.data.NewTitles.update(ctx, catalogItems.map { it.key }) }
+    }
+    val items = remember(catalogItems, cwItems, mode, lead, shuffleRev, newFirst, freshKeys) {
         val cw = if (mode == "off") emptyList() else cwItems
         val keys = cw.map { it.key }.toSet()
         // The catalog titles: shuffled by the shuffle button, then the ones a catalog has just added in front
@@ -902,7 +919,7 @@ private fun HeroSection(
         var cat = catalogItems
         if (shuffleRev > 0) cat = cat.shuffled(kotlin.random.Random(shuffleRev * 7919L + System.nanoTime() % 1000))
         if (newFirst) {
-            val fresh = com.glasslauncher.tv.data.NewTitles.update(ctx, catalogItems.map { it.key })
+            val fresh = freshKeys
             if (fresh.isNotEmpty()) {
                 val rank = fresh.withIndex().associate { it.value to it.index }
                 cat = cat.filter { it.key in rank }.sortedBy { rank[it.key] } + cat.filterNot { it.key in rank }

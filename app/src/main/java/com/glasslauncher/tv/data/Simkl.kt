@@ -22,7 +22,40 @@ class Simkl(ctx: Context) {
     private val token: String get() = sp.getString("token", "").orEmpty()
     @Volatile var lastError = ""
 
+    /**
+     * Simkl allows each user a number of requests a day; once it's used up it answers 429 until the next day.
+     * Glassio then stops asking until the time it gave (asking anyway only kept the limit used up), and reads
+     * the lists only when Simkl says something changed (/sync/activities), which is one small request.
+     */
+    val blockedUntil: Long get() = sp.getLong("blockedUntil", 0L)
+    val limited: Boolean get() = System.currentTimeMillis() < blockedUntil
+    private fun block(daily: Boolean) {
+        val until = if (daily) java.time.LocalDate.now(java.time.ZoneOffset.UTC).plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli() + 10 * 60_000L
+            else System.currentTimeMillis() + 5 * 60_000L
+        sp.edit().putLong("blockedUntil", until).apply()
+        lastError = if (daily) "Simkl's daily limit for your account is used up; Glassio tries again tomorrow" else "Simkl asked to wait a few minutes"
+    }
+    @Volatile private var actAll: String? = null
+    @Volatile private var actAt = 0L
+    /** Simkl's "something changed" stamp, asked at most once a minute. */
+    private fun activity(): String? {
+        val now = System.currentTimeMillis()
+        if (now - actAt < 60_000L) return actAll
+        actAt = now
+        val (c, t) = call("GET", "/sync/activities")
+        actAll = if (c in 200..299) runCatching { JSONObject(t).optString("all").takeIf { it.isNotBlank() } }.getOrNull() else null
+        return actAll
+    }
+    /** After a change Glassio made itself: the lists are read again next time. */
+    private fun changedHere() { actAt = 0L; playbackAct = null; planAct = null }
+    @Volatile private var playbackAct: String? = null
+    @Volatile private var playbackCache: List<Paused>? = null
+    @Volatile private var planAct: String? = null
+    @Volatile private var planCache: List<Item>? = null
+
     private fun call(method: String, path: String, body: JSONObject? = null, retried: Boolean = false): Pair<Int, String> {
+        if (limited) return 429 to lastError
+        if (method != "GET") changedHere()
         refreshIfDue()
         val c = URL("https://api.simkl.com$path" + (if (path.contains('?')) "&" else "?") + "client_id=$clientId").openConnection() as HttpURLConnection
         c.connectTimeout = 8000; c.readTimeout = 15000; c.requestMethod = method
@@ -32,6 +65,12 @@ class Simkl(ctx: Context) {
         try {
             if (body != null) { c.doOutput = true; c.outputStream.use { it.write(body.toString().toByteArray()) } }
             val code = c.responseCode
+            if (code == 429) {
+                val t = runCatching { c.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull().orEmpty()
+                block(daily = t.contains("user_limit") || t.contains("daily"))
+                Glog.w("Simkl: $lastError")
+                return code to t
+            }
             if (code == 401 && token.isNotBlank()) {
                 // Expired: try the refresh token once before signing out.
                 if (!retried && refresh()) return call(method, path, body, true)
@@ -143,6 +182,8 @@ class Simkl(ctx: Context) {
 
     /** What you paused (any app that scrobbles to Simkl). */
     fun playback(): List<Paused>? = runCatching {
+        val act = activity()
+        playbackCache?.let { if (act != null && act == playbackAct) return@runCatching it }
         val (c, t) = call("GET", "/sync/playback")
         check(c in 200..299) { "Simkl answered HTTP $c" }
         val a = if (t.isBlank() || t == "null") JSONArray() else JSONArray(t)
@@ -153,8 +194,8 @@ class Simkl(ctx: Context) {
             if (!imdb.startsWith("tt")) return@mapNotNull null
             val at = runCatching { java.time.Instant.parse(o.optString("paused_at")).toEpochMilli() }.getOrDefault(0L)
             Paused(o.optLong("id"), imdb, ep?.optInt("season") ?: 0, ep?.optInt("episode", ep.optInt("number")) ?: 0, o.optDouble("progress", 0.0).toInt(), at)
-        }
-    }.getOrElse { Glog.w("Simkl playback", it); lastError = it.message ?: ""; null }
+        }.also { playbackCache = it; playbackAct = act }
+    }.getOrElse { Glog.w("Simkl playback", it); if (!limited) lastError = it.message ?: ""; null }
 
     fun removePlayback(id: Long): Boolean = runCatching { call("DELETE", "/sync/playback/$id").first in 200..299 }.getOrDefault(false)
 
@@ -162,6 +203,8 @@ class Simkl(ctx: Context) {
 
     /** "Plan to watch" (movies and shows). */
     fun planToWatch(): List<Item>? = runCatching {
+        val act = activity()
+        planCache?.let { if (act != null && act == planAct) return@runCatching it }
         val (c, t) = call("GET", "/sync/all-items/?extended=full")
         check(c in 200..299) { "Simkl answered HTTP $c" }
         val o = JSONObject(t)
@@ -178,7 +221,7 @@ class Simkl(ctx: Context) {
                 out += Item(imdb, type, m.optString("title"), poster)
             }
         }
-        out
+        out.also { planCache = it; planAct = act }
     }.getOrElse { Glog.w("Simkl list", it); null }
 
     /** Puts a paused position on Simkl (its Continue Watching). */

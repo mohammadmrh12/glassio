@@ -25,6 +25,12 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 2.0.4**
+- Coming back from Settings is smooth at once (the home screen and the Library are no longer rebuilt).
+- **Sync** also carries removals made in Nuvio, on Trakt or on Simkl to the other accounts, and says what happened
+  with each account. Glassio keeps within Simkl's daily request limit.
+- Glass menus keep the remote inside them; the shuffle button works with any remote button.
+
 **New in 2.0.3**
 - **Hold OK on Play**: a small glass menu to add the title to your Library, **Like** it (sent to Trakt and Simkl) or
   **change its artwork** from small pictures. Apps in the dock get the same glass menu.

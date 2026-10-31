@@ -146,6 +146,10 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
         }
     }
 
+    /** Everything the carousel's titles depend on: Settings reloads the catalogs only when this changed. */
+    fun signature(): String = listOf(allAddons(), selectedKeys.value.sorted(), settings.catalogsNuvio, settings.catalogsStremio,
+        settings.perCatalog, settings.maxItems, settings.shuffle, settings.surprise, settings.surpriseMin, settings.descLang, settings.tmdbToken.length).toString()
+
     suspend fun refresh() = loadLock.withLock {
         withContext(Dispatchers.IO) {
             status.value = "Loading catalogs…"
@@ -201,14 +205,17 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
                         gate.withPermit {
                             results[c.key] = runCatching { fetchCatalog(c, per) }.getOrDefault(emptyList())
                             // Show the first results early instead of waiting for every catalog.
-                            if (results.size <= 3 || results.size % 8 == 0) items.value = merge(false)
+                            // (Only when there's nothing on screen yet: a reload while the carousel shows titles
+                            // replaced them several times, and each time the home screen was built again.)
+                            if (items.value.isEmpty() && (results.size <= 3 || results.size % 8 == 0)) items.value = merge(false)
                             status.value = "Loading ${results.size}/${chosen.size} catalogs…"
                         }
                     }
                 }.awaitAll()
             }
             val merged = merge(settings.shuffle || settings.surprise)
-            items.value = merged
+            // The same titles as now (in the same order, unless shuffled on purpose): nothing changes on screen.
+            if (merged.map { it.key } != items.value.map { it.key }) items.value = merged
             status.value = "${merged.size} titles from ${chosen.size} catalogs"
         }
     }
