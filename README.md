@@ -25,6 +25,24 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 2.0.5 / 2.0.6** — backgrounds, a glass clock, app lock and the doorbell
+- **Backgrounds** (Settings → **Background & glass**): title backdrops, **Photos in 4K** (Bing, Wikimedia Commons,
+  Unsplash with a free key, or your own), **your own video**, or **the screensaver's videos**. Each has **Next** and
+  **Shuffle**, fades like the screensaver and is kept in a cache that clears its oldest files. The place and credit
+  can show on the background, like on the screensaver.
+- **Large clock** over the background, made of the dock's glass (or white). Size, position and the **Glass blur**
+  setting apply to it, and it follows a video background live.
+- **Depth effect** for photos: the subject comes in front of the clock (done on the TV with a small depth model,
+  only for pictures).
+- **App lock**: lock any app with a 4-digit code (0000 by default). Hold OK on it → Lock. A glass code window opens it
+  as soon as the code is right, with an optional hint. Only apps opened from Glassio are locked.
+- **Doorbell from Home Assistant**: the camera pops up in the corner over any app, with a soft chime and your own words
+  (ready-made Arabic or English). See [Doorbell](#doorbell-pop-up).
+- **Cameras**: *Find cameras* adds every channel of a recorder (NVR/XVR). You can choose the doorbell camera, make it go
+  round your cameras, and set the size of the Hold Home camera.
+- **Sharp corners** for the menus, dock and icons. New theme names: **Dynamic Glass**, **Still Glass**, **Frosted Glass**.
+- Smoother glass in every theme, in step with the background, and much less memory with your own background.
+
 **New in 2.0.4**
 - Coming back from Settings is smooth at once (the home screen and the Library are no longer rebuilt).
 - **Sync** also carries removals made in Nuvio, on Trakt or on Simkl to the other accounts, and says what happened
@@ -106,8 +124,16 @@ Tested on the Google TV Streamer (4K).
   or **Stremio** (Settings → Connections → *Open titles in*; **Auto** picks the first installed).
 
 **Glass**
-- Real refraction (AGSL shader), a blurred backdrop shared by every glass surface, six themes: Glass still, Glass is
-  glass (with ripples), Liquid, Clear, Black AMOLED, Black on white. The glass follows a video background live.
+- Real refraction (AGSL shader), a blurred backdrop shared by every glass surface, six themes: Still Glass, Dynamic
+  Glass (with ripples), Frosted Glass, Clear, Black AMOLED, Black on white. Optional sharp corners. The glass follows a
+  video background live.
+
+**Background**
+- Title backdrops, Photos in 4K (Bing, Wikimedia Commons, Unsplash or your own), your own picture or video, or the
+  screensaver's videos, with Next, Shuffle, a cache, place and credit, a large glass clock and a depth effect for photos.
+
+**App lock**
+- A 4-digit code for any app opened from Glassio (Settings → System), with an optional hint.
 
 **Dock & icons**
 - 6 apps per row, Apps folder with every app, move / hide / change icon / app info (hold OK).
@@ -285,6 +311,32 @@ actions:
 
 Use the IP address of Home Assistant (the TV may not resolve `homeassistant.local`). `local_only: true` keeps the webhook
 on your home network.
+
+### Doorbell pop-up
+
+Settings → **Cameras → Doorbell pop-up**. When the doorbell rings, the camera shows in the corner over any app, for as
+long as you set, with an optional chime and words at the bottom. **Try it** shows it straight away.
+
+**Easiest — no automation.** Under *Straight from Home Assistant*, add the Home Assistant link, a **long-lived access
+token** (your profile → Security; easier to paste from *Manage from phone*) and pick the **doorbell sensor**. Glassio
+watches that sensor itself (a binary sensor turning on, or an `event.` entity firing).
+
+**Or from an automation.** Home Assistant sends the same request PiPup takes to `http://<tv-ip>:7979/notify`:
+
+```yaml
+# configuration.yaml
+rest_command:
+  glassio_doorbell:
+    url: "http://<tv-ip>:7979/notify"
+    method: POST
+    content_type: "application/json"
+    payload: '{"camera": "Front door", "duration": 30, "title": "Front Door", "message": "Someone is at the door"}'
+```
+
+Then call `rest_command.glassio_doorbell` from the automation that runs when the doorbell rings.
+
+`camera` is the name of one of your cameras in Glassio (or send `video_url` with a stream link). Everything is optional:
+without it, Glassio uses the camera and words chosen in Settings. Keep port 7979 on your home network.
 
 ---
 
