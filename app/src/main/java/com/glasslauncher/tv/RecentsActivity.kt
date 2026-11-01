@@ -123,7 +123,7 @@ private fun Recents(app: GlassApp, close: () -> Unit) {
                 LazyRow(state = state, contentPadding = PaddingValues(horizontal = side), horizontalArrangement = Arrangement.spacedBy(36.dp)) {
                     itemsIndexed(shown, key = { _, e -> e.pkg }) { idx, e ->
                         RecentCard(app, e, cardW, cardH, if (idx == 0) Modifier.focusRequester(first) else Modifier,
-                            onOpen = { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } }; close() },
+                            onOpen = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e); close() },
                             onClose = {
                                 gone.add(e.pkg)
                                 // Closed for real (it stayed in the list and came back otherwise).

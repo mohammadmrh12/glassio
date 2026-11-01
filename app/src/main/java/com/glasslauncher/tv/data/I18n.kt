@@ -32,7 +32,7 @@ Library|المكتبة|کتابخانه|Kitaplık|Bibliothèque|Biblioteca|Media
 Carousel|الكاروسيل|کاروسل|Karusel|Carrousel|Carrusel|Karussell|Карусель|Carrossel
 Dock & icons|الشريط والأيقونات|داک و آیکون‌ها|Dock ve simgeler|Dock et icônes|Dock e iconos|Dock & Symbole|Док и значки|Dock e ícones
 Menu & themes|القائمة والثيمات|منو و پوسته‌ها|Menü ve temalar|Menu et thèmes|Menú y temas|Menü & Designs|Меню и темы|Menu e temas
-Clock & glass|الساعة والزجاج|ساعت و شیشه|Saat ve cam|Horloge et verre|Reloj y cristal|Uhr & Glas|Часы и стекло|Relógio e vidro
+Background & glass|الخلفية والزجاج|پس‌زمینه و شیشه|Arka plan ve cam|Fond et verre|Fondo y cristal|Hintergrund & Glas|Фон и стекло|Fundo e vidro
 Screensaver|شاشة التوقف|محافظ صفحه|Ekran koruyucu|Économiseur d'écran|Salvapantallas|Bildschirmschoner|Заставка|Protetor de tela
 Cameras|الكاميرات|دوربین‌ها|Kameralar|Caméras|Cámaras|Kameras|Камеры|Câmeras
 Performance|الأداء|کارایی|Performans|Performances|Rendimiento|Leistung|Производительность|Desempenho

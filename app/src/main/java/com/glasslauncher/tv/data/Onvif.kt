@@ -62,13 +62,48 @@ object Onvif {
     }
 
     /** Blocking. The camera's main live stream (rtsp://…), with the login put into the link. */
-    fun streamUri(found: Found, user: String, pass: String): String {
+    fun streamUri(found: Found, user: String, pass: String): String = streamUris(found, user, pass).first().second
+
+    /**
+     * Blocking. One main live stream per video input: a single camera gives one, a recorder (NVR / XVR / DVR)
+     * gives one for each of its channels. Pairs of (channel name, rtsp link with the login put in).
+     */
+    fun streamUris(found: Found, user: String, pass: String): List<Pair<String, String>> {
         val media = runCatching {
             val caps = soap(found.service, """<GetCapabilities xmlns="http://www.onvif.org/ver10/device/wsdl"><Category>Media</Category></GetCapabilities>""", user, pass)
             Regex("<[^>]*Media>.*?<[^>]*XAddr>([^<]+)<", RegexOption.DOT_MATCHES_ALL).find(caps)?.groupValues?.get(1)
         }.getOrNull() ?: found.service.replace("device_service", "media_service")
-        val profiles = soap(media, """<GetProfiles xmlns="http://www.onvif.org/ver10/media/wsdl"/>""", user, pass)
-        val token = Regex("""<[^>]*Profiles[^>]*token="([^"]+)"""").find(profiles)?.groupValues?.get(1) ?: error("The camera has no stream profile")
+        val xml = soap(media, """<GetProfiles xmlns="http://www.onvif.org/ver10/media/wsdl"/>""", user, pass)
+        val profiles = profiles(xml)
+        if (profiles.isEmpty()) error("The camera has no stream profile")
+        // Each video input (SourceToken) usually has a main stream then smaller sub streams; keep the biggest.
+        val mains = profiles.groupBy { it.source ?: it.token }.values.map { g -> g.maxByOrNull { it.pixels } ?: g.first() }
+        val out = ArrayList<Pair<String, String>>()
+        var lastError: Throwable? = null
+        mains.forEachIndexed { i, p ->
+            runCatching { getUri(media, p.token, user, pass) }
+                .onSuccess { uri -> out += (if (mains.size > 1) "${found.name} ${i + 1}" else found.name) to uri }
+                .onFailure { lastError = it; Glog.w("Camera channel ${p.token}", it) }
+        }
+        if (out.isEmpty()) throw (lastError ?: IllegalStateException("The camera gave no stream link"))
+        return out
+    }
+
+    private class Profile(val token: String, val source: String?, val pixels: Int)
+
+    private fun profiles(xml: String): List<Profile> =
+        Regex("""<([\w-]+:)?Profiles\b([^>]*)>(.*?)</([\w-]+:)?Profiles>""", RegexOption.DOT_MATCHES_ALL).findAll(xml).mapNotNull { m ->
+            val token = Regex("""token="([^"]+)"""").find(m.groupValues[2])?.groupValues?.get(1) ?: return@mapNotNull null
+            val body = m.groupValues[3]
+            val vsc = Regex("""<([\w-]+:)?VideoSourceConfiguration\b.*?</([\w-]+:)?VideoSourceConfiguration>""", RegexOption.DOT_MATCHES_ALL).find(body)?.value.orEmpty()
+            val source = Regex("""<([\w-]+:)?SourceToken>([^<]+)<""").find(vsc)?.groupValues?.get(2)?.trim()
+            val enc = Regex("""<([\w-]+:)?VideoEncoderConfiguration\b.*?</([\w-]+:)?VideoEncoderConfiguration>""", RegexOption.DOT_MATCHES_ALL).find(body)?.value.orEmpty()
+            val w = Regex("""<([\w-]+:)?Width>(\d+)<""").find(enc)?.groupValues?.get(2)?.toIntOrNull() ?: 0
+            val h = Regex("""<([\w-]+:)?Height>(\d+)<""").find(enc)?.groupValues?.get(2)?.toIntOrNull() ?: 0
+            Profile(token, source, w * h)
+        }.toList()
+
+    private fun getUri(media: String, token: String, user: String, pass: String): String {
         val r = soap(media, """<GetStreamUri xmlns="http://www.onvif.org/ver10/media/wsdl"><StreamSetup><Stream xmlns="http://www.onvif.org/ver10/schema">RTP-Unicast</Stream><Transport xmlns="http://www.onvif.org/ver10/schema"><Protocol>RTSP</Protocol></Transport></StreamSetup><ProfileToken>$token</ProfileToken></GetStreamUri>""", user, pass)
         val uri = Regex("<[^>]*Uri>([^<]+)<").find(r)?.groupValues?.get(1)?.replace("&amp;", "&") ?: error("The camera gave no stream link")
         return if (user.isBlank() || uri.contains("@")) uri

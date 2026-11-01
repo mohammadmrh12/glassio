@@ -9,3 +9,7 @@
 -dontwarn org.bouncycastle.**
 -dontwarn javax.naming.**
 -keep class dadb.** { *; }
+
+# LiteRT (depth effect): the native side calls into these classes.
+-keep class org.tensorflow.lite.** { *; }
+-dontwarn org.tensorflow.lite.**

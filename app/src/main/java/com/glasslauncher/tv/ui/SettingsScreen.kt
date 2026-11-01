@@ -85,8 +85,8 @@ private fun <T> cycle(list: List<T>, cur: T, d: Int): T {
     val i = list.indexOf(cur).let { if (it < 0) 0 else it }
     return list[(i + d).mod(list.size)]
 }
-private fun styleName(v: String) = when (v) { "water" -> "Glass like glass"; "water_still" -> "Glass like glass (still)"; "clear" -> "Clear (matte)"; "amoled" -> "AMOLED black"; "bow" -> "Black on white"; else -> "Liquid glass" }
-private fun themeName(v: String) = when (v) { "bow" -> "Black on white"; "amoled" -> "Black AMOLED"; "liquid" -> "Liquid"; "clear" -> "Clear"; "water_still" -> "Glass still"; "water" -> "Glass is glass"; else -> "Custom" }
+private fun styleName(v: String) = when (v) { "water" -> "Dynamic Glass"; "water_still" -> "Still Glass"; "clear" -> "Clear (matte)"; "amoled" -> "AMOLED black"; "bow" -> "Black on white"; else -> "Frosted Glass" }
+private fun themeName(v: String) = when (v) { "bow" -> "Black on white"; "amoled" -> "Black AMOLED"; "liquid" -> "Frosted Glass"; "clear" -> "Clear"; "water_still" -> "Still Glass"; "water" -> "Dynamic Glass"; else -> "Custom" }
 private fun hostOf(u: String) = runCatching { java.net.URI(u).host }.getOrNull() ?: "add-on"
 private fun pct(f: Float) = "${(f * 100).roundToInt()}%"
 private fun tenth(f: Float, d: Int) = ((f * 10).roundToInt() + d) / 10f
@@ -330,7 +330,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Act("Reload carousel now", "") { io { app.catalogs.refresh(); app.catalogs.status.value } },
             )
         },
-        Category("Clock & glass") {
+        Category("Background & glass") {
             val bgFolder = CustomBackground.folder(ctx).absolutePath
             fun pick(video: Boolean) {
                 val files = CustomBackground.files(ctx, video)
@@ -342,9 +342,65 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 })
             }
             listOf(
+                link("Dock & icons", "Where the dock sits over your background, its apps and icons"),
+                Adjust("Dock glass", "The glass of the dock (the large clock follows it)", { styleName(st.dockStyle) },
+                    { st.dockStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.dockStyle, it); st.theme = "" }),
+                Adjust("Dock position", "With your own picture, photos, video or screensaver", { when (st.dockPos) { "center" -> "Middle"; "left" -> "Left (column)"; else -> "Bottom" } },
+                    { st.dockPos = cycle(listOf("bottom", "center", "left"), st.dockPos, it) }),
                 Adjust("Background", "Each title's own picture, or yours: a picture or a video, from a link or the folder below",
-                    { when (st.bgMode) { "image" -> "My picture"; "video" -> "My video"; "aerial" -> "Screensaver (aerials)"; else -> "Title backdrops" } },
-                    { st.bgMode = cycle(listOf("carousel", "image", "video", "aerial"), st.bgMode, it) }),
+                    { when (st.bgMode) { "image" -> "My picture"; "video" -> "My video"; "aerial" -> "Screensaver (aerials)"; "photos" -> "Photos (4K)"; else -> "Title backdrops" } },
+                    { st.bgMode = cycle(listOf("carousel", "image", "photos", "video", "aerial"), st.bgMode, it) }),
+                Adjust("Screensaver videos as background", "1080p is lightest behind the glass; the screensaver's quality also plays the videos it saved on the TV", {
+                    if (st.bgAerialQuality == "saver") "Screensaver's quality" else "1080p"
+                }, { st.bgAerialQuality = cycle(listOf("1080", "saver"), st.bgAerialQuality, it) }),
+                Toggle("Shuffle screensaver videos", "A new one when each ends, fading through black like the screensaver", { st.bgShuffle }, { st.bgShuffle = it }),
+                Toggle("Shuffle my videos", "My video: the other videos in the folder too, one after another (else the chosen one loops)", { st.bgVideoShuffle }, { st.bgVideoShuffle = it }),
+                Toggle("Shuffle my pictures", "My picture: another picture from the folder every \"Change every\"", { st.bgImageShuffle }, { st.bgImageShuffle = it }),
+                Act("Next", "The next video, picture or photo now", "") { CustomBackground.nextNow(st); toast(ctx, "Next") },
+                Note("Photos: 4K pictures that change by themselves"),
+                Adjust("Photos from", "Bing and Wikimedia need no account; Unsplash needs a free key", {
+                    com.glasslauncher.tv.data.Photos.SOURCES.firstOrNull { it.first == st.photoSource }?.second ?: st.photoSource
+                }, { st.photoSource = cycle(com.glasslauncher.tv.data.Photos.SOURCES.map { it.first }, st.photoSource, it); st.bgMode = "photos" }),
+                Adjust("Subject", "What Wikimedia and Unsplash photos show", { st.photoTopic.replaceFirstChar { c -> c.uppercase() } },
+                    { st.photoTopic = cycle(com.glasslauncher.tv.data.Photos.TOPICS, st.photoTopic, it) }),
+                Act("Unsplash key", "Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)",
+                    if (st.unsplashKey.isBlank()) "Not set" else "Saved") {
+                    dialog = TextEntry("Unsplash Access Key", st.unsplashKey, "Access Key") { v -> st.unsplashKey = v }
+                },
+                Adjust("Change every", "Photos, and your pictures with shuffle", {
+                    when (val e = st.photoEvery) { 0 -> "Never"; in 1..59 -> "$e s"; in 60..3599 -> "${e / 60} min"; else -> "${e / 3600} h" }
+                }, { st.photoEvery = cycle(listOf(60, 300, 600, 1800, 3600, 21600, 0), st.photoEvery, it) }),
+                Toggle("Shuffle photos", "A random order (else the source's own order)", { st.photoShuffle }, { st.photoShuffle = it }),
+                Adjust("Photos kept on the TV", "Shown again without downloading; the oldest go first", {
+                    "${if (st.photoCacheMb >= 1024) "${st.photoCacheMb / 1024} GB" else "${st.photoCacheMb} MB"} · ${com.glasslauncher.tv.data.Photos.cacheUsedMb(ctx)} MB used"
+                }, { st.photoCacheMb = cycle(listOf(256, 512, 1024, 2048, 4096), st.photoCacheMb, it) }),
+                Act("Next photo", com.glasslauncher.tv.data.Photos.status.ifBlank { "Shows the next one now" }, "") {
+                    if (st.bgMode != "photos") st.bgMode = "photos"
+                    com.glasslauncher.tv.data.Photos.next(); toast(ctx, "Next photo")
+                },
+                Note("Over your background (picture, photos, video, screensaver)"),
+                Toggle("Large clock", "In the middle, like a phone's lock screen", { st.bgClock }, { st.bgClock = it }),
+                Adjust("Large clock style", "With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)", {
+                    if (st.bgClockStyle == "white") "White" else "With the theme"
+                }, { st.bgClockStyle = cycle(listOf("theme", "white"), st.bgClockStyle, it) }),
+                Adjust("Large clock size", "", { pct(st.bgClockSize) }, { st.bgClockSize = ((st.bgClockSize * 10).roundToInt() + it) / 10f }),
+                Adjust("Large clock position", "◀ higher · lower ▶", {
+                    val v = (st.bgClockOffset * 100).roundToInt(); if (v == 0) "Middle" else if (v < 0) "Up ${-v}" else "Down $v"
+                }, { st.bgClockOffset = ((st.bgClockOffset * 100).roundToInt() + it * 2) / 100f }),
+                Toggle("Depth effect", Depth.status.ifBlank { "On pictures and photos with open sky (yours too): what stands in front (a mountain, a tower, a tree) covers the lower part of the large clock. Worked out on the TV, once per photo (a 33 MB model is downloaded the first time)" },
+                    { st.bgDepth }, { st.bgDepth = it }),
+                Note("Info over the photos and the screensaver videos, like the screensaver"),
+                Toggle("Place and credit", "Where the photo or video was taken and who took it", { st.bgInfo }, { st.bgInfo = it }),
+                Toggle("Time", "", { st.bgInfoClock }, { st.bgInfoClock = it }),
+                Toggle("Date", "", { st.bgInfoDate }, { st.bgInfoDate = it }),
+                Toggle("Weather", "", { st.bgInfoWeather }, { st.bgInfoWeather = it }),
+                Adjust("Info style", "", { if (st.bgInfoStyle == "netflix") "Netflix (one by one)" else "Apple" },
+                    { st.bgInfoStyle = cycle(listOf("apple", "netflix"), st.bgInfoStyle, it) }),
+                Adjust("Info position", "", { when (st.bgInfoPos) { "tl" -> "Top left"; "tr" -> "Top right"; "br" -> "Bottom right"; "move" -> "Moves each time"; else -> "Bottom left" } },
+                    { st.bgInfoPos = cycle(listOf("bl", "br", "tl", "tr", "move"), st.bgInfoPos, it) }),
+                Adjust("Info shows for", "After each new photo or video", { if (st.bgInfoSec == 0) "Always" else "${st.bgInfoSec} s" },
+                    { st.bgInfoSec = cycle(listOf(0, 10, 20, 30, 60), st.bgInfoSec, it) }),
+                Note("Your own"),
                 Act("Picture from a link", st.bgImage.ifBlank { "https://… (jpg, png, webp)" }, "") {
                     dialog = TextEntry("Picture link", st.bgImage.takeIf { it.startsWith("http") }.orEmpty(), "https://…") { v -> if (v.isNotBlank()) { st.bgImage = v.trim(); st.bgMode = "image" } }
                 },
@@ -399,7 +455,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Adjust("Dock position", "With your own picture, video or screensaver background",
                     { when (st.dockPos) { "center" -> "Middle"; "left" -> "Left (column)"; else -> "Bottom" } },
                     { st.dockPos = cycle(listOf("bottom", "center", "left"), st.dockPos, it) }))
+                add(Toggle("Sharp corners", "The menu, the dock and the icons with square corners", { st.squareCorners }, { st.squareCorners = it }))
                 add(Toggle("Down from the dock opens the Library", "From the dock's last row", { st.libraryDown }, { st.libraryDown = it }))
+                add(link("Background & glass", "Your picture, photos, video or screensaver behind the dock, the large clock and the glass"))
                 add(Adjust("Dock background", "Behind the apps row and the Apps folder", { styleName(st.dockStyle) },
                     { st.dockStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.dockStyle, it); st.theme = "" }))
                 add(Adjust("Settings background", "Behind settings and the icon picker", { styleName(st.panelStyle) },
@@ -459,7 +517,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     { st.menuStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.menuStyle, it); st.theme = "" }),
                 Toggle("Clock in the menu", "", { st.menuClock }, { st.menuClock = it }),
                 Toggle("Date in the menu", "", { st.menuDate }, { st.menuDate = it }),
-                Toggle("Weather in the menu", "Temperature, conditions, high / low, humidity and wind (city in Clock & glass)", { st.menuWeather }, { st.menuWeather = it; app.weather.reload() }),
+                Toggle("Weather in the menu", "Temperature, conditions, high / low, humidity and wind (city in Background & glass)", { st.menuWeather }, { st.menuWeather = it; app.weather.reload() }),
                 Toggle("City in the menu", "", { st.menuCity }, { st.menuCity = it }),
                 Toggle("Library in the menu", "", { st.menuLibrary }, { st.menuLibrary = it }),
                 Toggle("Android settings in the menu", "", { st.menuAndroid }, { st.menuAndroid = it }),
@@ -657,9 +715,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         dialog = MenuDialog("Cameras found", found.map { f -> "${f.name} · ${f.ip}" to {
                             dialog = TextEntry("Login for ${f.name}", "admin:", "user:password (the camera's own login)") { login ->
                                 io {
-                                    val uri = com.glasslauncher.tv.data.Onvif.streamUri(f, login.substringBefore(':'), login.substringAfter(':', ""))
-                                    st.cameras = (st.cameras + Cam(f.name, uri).line()).distinct(); tvRev.intValue++
-                                    "Added ${f.name}"
+                                    val chans = com.glasslauncher.tv.data.Onvif.streamUris(f, login.substringBefore(':'), login.substringAfter(':', ""))
+                                    st.cameras = (st.cameras + chans.map { (n, uri) -> Cam(n, uri).line() }).distinct(); tvRev.intValue++
+                                    if (chans.size > 1) "Added ${chans.size} cameras from ${f.name}" else "Added ${f.name}"
                                 }
                             }
                         } })
@@ -681,18 +739,86 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Toggle("Hold Home shows a camera", "In the corner, over any app (needs the Home button service: System)", { st.homeLong == "camera" },
                     { st.homeLong = if (it) "camera" else "off" }))
                 val camList = st.cameras.mapNotNull { Cam.parse(it) }
-                if (camList.size > 1) add(Adjust("  · Camera", "Which camera opens when you hold Home (◀ ▶ on it still switches)",
+                if (camList.size > 1) add(Adjust("  · Camera", "Which camera opens when you hold Home",
                     { (camList.firstOrNull { it.url == st.cornerCamera } ?: camList.first()).name },
                     { d ->
                         val i = camList.indexOfFirst { it.url == st.cornerCamera }.coerceAtLeast(0)
                         st.cornerCamera = camList[(i + d).mod(camList.size)].url
                     }))
-                if (camList.size > 1) add(Adjust("  · Switch cameras every", "Goes round your cameras on its own (◀ ▶ still switch by hand)",
+                add(Adjust("  · Size", "", { pct(st.cameraScale) }, { st.cameraScale = ((st.cameraScale * 10).roundToInt() + it) / 10f }))
+                if (camList.size > 1) add(Adjust("  · Switch cameras every", "Goes round your cameras on its own",
                     { if (st.cameraCycleSec == 0) "Off" else if (st.cameraCycleSec < 60) "${st.cameraCycleSec} s" else "${st.cameraCycleSec / 60} min" },
                     { st.cameraCycleSec = cycle(listOf(0, 5, 10, 15, 20, 30, 60), st.cameraCycleSec, it) }))
                 add(Adjust("  · Corner camera closes after", "It goes away on its own after this (Back or holding Home again closes it sooner)",
                     { if (st.cameraCornerSec == 0) "Never" else if (st.cameraCornerSec < 60) "${st.cameraCornerSec} s" else "${st.cameraCornerSec / 60} min" },
                     { st.cameraCornerSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.cameraCornerSec, it) }))
+                add(Note("Doorbell from Home Assistant"))
+                add(Toggle("Doorbell pop-up", "Home Assistant sends to http://<this TV>:7979/notify (the same as PiPup): the camera shows in the corner over any app",
+                    { st.doorbellOn }, { st.doorbellOn = it }))
+                if (st.doorbellOn) {
+                    add(Adjust("  · Size", "", { pct(st.doorbellScale) }, { st.doorbellScale = ((st.doorbellScale * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("  · Camera", "From Home Assistant: the one its automation sends; or one of your cameras here",
+                        { camList.firstOrNull { it.url == st.doorbellCamera }?.name ?: "From Home Assistant" },
+                        { d ->
+                            val opts = listOf("") + camList.map { it.url }
+                            val i = opts.indexOf(st.doorbellCamera).coerceAtLeast(0)
+                            st.doorbellCamera = opts[(i + d).mod(opts.size)]
+                        }))
+                    if (camList.isNotEmpty()) add(Adjust("  · Switch cameras every", "Goes round your cameras on its own, starting with the doorbell's",
+                        { if (st.doorbellCycleSec == 0) "Off" else if (st.doorbellCycleSec < 60) "${st.doorbellCycleSec} s" else "${st.doorbellCycleSec / 60} min" },
+                        { st.doorbellCycleSec = cycle(listOf(0, 5, 10, 15, 20, 30), st.doorbellCycleSec, it) }))
+                    add(Adjust("  · Shows for", "Then it goes away on its own (Back closes it sooner)",
+                        { if (st.doorbellSec < 60) "${st.doorbellSec} s" else "${st.doorbellSec / 60} min" + (if (st.doorbellSec % 60 != 0) " ${st.doorbellSec % 60} s" else "") },
+                        { st.doorbellSec = cycle(listOf(5, 10, 15, 20, 30, 45, 60, 90, 120), st.doorbellSec, it) }))
+                    add(Toggle("  · Words", "Where and what, at the bottom of the camera", { st.doorbellText }, { st.doorbellText = it }))
+                    if (st.doorbellText) {
+                        // Ready-made words, or your own.
+                        val presets = listOf(
+                            "العربية" to ("الباب الأمامي" to "يوجد شخص عند الباب"),
+                            "English" to ("Front Door" to "Someone is at the door"),
+                        )
+                        val cur = presets.firstOrNull { it.second.first == st.doorbellTitle && it.second.second == st.doorbellMessage }?.first ?: "Custom"
+                        add(Adjust("  · Language", "Ready-made words, or write your own below", { cur }, { d ->
+                            val names = presets.map { it.first }
+                            val i = names.indexOf(cur)
+                            val next = presets[((if (i < 0) -1 else i) + d).mod(presets.size)].second
+                            st.doorbellTitle = next.first; st.doorbellMessage = next.second
+                        }))
+                        add(Act("  · Title", "", st.doorbellTitle) {
+                            dialog = TextEntry("Doorbell title", st.doorbellTitle, "Front Door") { t -> st.doorbellTitle = t.trim() }
+                        })
+                        add(Act("  · Message", "", st.doorbellMessage) {
+                            dialog = TextEntry("Doorbell message", st.doorbellMessage, "Someone is at the door") { t -> st.doorbellMessage = t.trim() }
+                        })
+                    }
+                    add(Toggle("  · Chime", "A soft ding-dong when it shows", { st.doorbellChime }, { st.doorbellChime = it }))
+                    add(Act("  · Try it", "Shows the pop-up now with your camera", "") {
+                        io { runCatching { com.glasslauncher.tv.net.NotifyServer.show(app, org.json.JSONObject()); "Shown" }.getOrElse { it.message ?: "Couldn't show it" } }
+                    })
+                    // Glassio watches the doorbell sensor itself: works with no automation in Home Assistant.
+                    val ha = com.glasslauncher.tv.net.HaWatch
+                    add(Note("Straight from Home Assistant (no automation needed)"))
+                    add(Act("  · Home Assistant link", "Now: ${ha.status}", st.haUrl.ifBlank { "Not set" }) {
+                        dialog = TextEntry("Home Assistant link", st.haUrl.ifBlank { "http://" }, "http://homeassistant.local:8123") { u ->
+                            st.haUrl = u; ha.restart(); tvRev.intValue++
+                        }
+                    })
+                    add(Act("  · Token", "Home Assistant → your profile → Security → Long-lived access tokens. Easier to paste from your phone (Manage from phone)",
+                        if (st.haToken.isBlank()) "Not set" else "Saved") {
+                        dialog = TextEntry("Home Assistant token", "", "Long-lived access token") { t ->
+                            if (t.isNotBlank()) { st.haToken = t; ha.restart(); tvRev.intValue++ }
+                        }
+                    })
+                    add(Act("  · Doorbell sensor", "The one that turns on when the doorbell rings", st.haDoorbellEntity.ifBlank { "Pick" }) {
+                        io {
+                            check(st.haUrl.startsWith("http") && st.haToken.isNotBlank()) { "Add the Home Assistant link and token first" }
+                            val list = ha.sensors(st.haUrl, st.haToken)
+                            if (list.isEmpty()) return@io "No sensors found"
+                            dialog = MenuDialog("Doorbell sensor", list.map { (id, n) -> "$n · $id" to { st.haDoorbellEntity = id; ha.restart(); tvRev.intValue++ } })
+                            "${list.size} sensors"
+                        }
+                    })
+                }
                 add(link("Manage from phone", "Add, rename and remove cameras from your phone"))
             }
         },
@@ -820,6 +946,14 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             val devOn = runCatching { AndroidSettings.Global.getInt(ctx.contentResolver, AndroidSettings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1 }.getOrDefault(false)
             val adbOn = runCatching { AndroidSettings.Global.getInt(ctx.contentResolver, AndroidSettings.Global.ADB_ENABLED, 0) == 1 }.getOrDefault(false)
             listOf(
+                Note("App lock (only when opened from Glassio)"),
+                Act("Change the code", "4 digits, 0000 at first. Asks for the current code, then the new one: OK saves it (the same code again is fine too)",
+                    "${st.lockedApps.size} locked") { AppLock.change(app, ctx) },
+                Toggle("Show a hint", "Your own words under the digits", { st.lockHintOn }, { st.lockHintOn = it }),
+                Act("Hint", "Anything you like (even the code itself)", st.lockHint.ifBlank { "Not set" }) {
+                    dialog = TextEntry("Hint under the digits", st.lockHint, "e.g. year we met") { v -> st.lockHint = v.trim(); if (v.isNotBlank()) st.lockHintOn = true }
+                },
+                Note("Lock an app: hold OK on it in the dock → Lock. It then asks for the code when opened from Glassio: ▲ ▼ change a digit, ◀ ▶ move, and it opens as soon as the code is right."),
                 Toggle("Home button opens Glassio", "Needs the accessibility service below", { st.interceptHome }, { st.interceptHome = it }),
                 Act("Turn on the accessibility service", "Find Glassio and switch it on", "") { openSystem(ctx, AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS) },
                 Act("Turn it on with ADB", if (homeKeyOn) "The accessibility service is on" else "When the TV doesn't let you (restricted setting / greyed out). Needs TV access (ADB), below", "") {
@@ -998,7 +1132,7 @@ private fun appMenu(app: GlassApp, e: AppEntry, ctx: Context, scope: kotlinx.cor
     }
     opts += "Icon from my phone (Manage from phone)" to { toast(ctx, "Open Settings > Manage from phone, scan the QR code, then pick ${e.label}") }
     if (app.icons.has(e.pkg)) opts += "Reset to the original icon" to { app.icons.reset(e.pkg) }
-    opts += "Open app" to { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } }
+    opts += "Open app" to { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) }
     show(MenuDialog(e.label, opts))
 }
 
@@ -1185,7 +1319,7 @@ private fun videoName(u: String): String = runCatching {
 
 /** The settings sections in order: accounts and what they feed, then the look, then the screensaver and the TV. */
 val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
-    "Cameras", "Clock & glass", "Screensaver", "Performance", "Manage from phone", "System", "About")
+    "Cameras", "Background & glass", "Screensaver", "Performance", "Manage from phone", "System", "About")
 
 /**
  * Settings pages scroll like a TV list: the selected row settles at the same height (a third of the way down)

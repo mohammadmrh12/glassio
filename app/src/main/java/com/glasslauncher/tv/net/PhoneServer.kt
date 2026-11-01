@@ -206,6 +206,19 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             app.settings.tmdbToken = t; app.catalogs.clearEnrichment()
             if (t.isBlank()) "TMDB token removed" else "TMDB token saved and working"
         }
+        "/api/unsplash" -> {
+            app.settings.unsplashKey = j.optString("key")
+            if (app.settings.unsplashKey.isNotBlank()) { app.settings.photoSource = "unsplash"; app.settings.bgMode = "photos" }
+            if (app.settings.unsplashKey.isBlank()) "Unsplash key removed" else "Unsplash key saved: the background now shows Unsplash photos"
+        }
+        "/api/ha/doorbell" -> {
+            val u = j.optString("url").trim(); val t = j.optString("token").trim()
+            require(u.startsWith("http")) { "The link starts with http:// or https://" }
+            app.settings.haUrl = u
+            if (t.isNotBlank()) app.settings.haToken = t
+            HaWatch.restart()
+            "Saved. Now pick the doorbell sensor on the TV: Settings → Cameras"
+        }
         "/api/ha" -> { app.settings.haWebhook = j.optString("url"); app.settings.haOnLaunch = app.settings.haWebhook.startsWith("http"); "Home Assistant webhook saved" }
         "/api/aerial/add" -> {
             val u = j.optString("url").trim()
@@ -299,6 +312,8 @@ button.s{background:#232a40;color:#eef1fb;padding:8px 12px;font-size:13px;margin
 <h2>App icons</h2><p>Pick an app, then paste an image link or upload an image from this phone.</p><div id="apps"></div>
 <h2>TMDB token (logos, synopsis, ratings)</h2><p>Paste the <b>API Read Access Token</b> (the long one, starting eyJ...), not the short API Key. themoviedb.org &rarr; Settings &rarr; API.</p><p id="tks"></p><input type="text" id="tk" placeholder="TMDB API Read Access Token"><button onclick="send('/api/tmdb',{token:v('tk')},'tk')">Save token</button>
 <h2>Home Assistant webhook</h2><input type="text" id="ha" placeholder="http://homeassistant.local:8123/api/webhook/your_id"><button onclick="send('/api/ha',{url:v('ha')},'ha')">Save webhook</button>
+<h2>Unsplash photos (background)</h2><p>Free: unsplash.com/developers &rarr; New application &rarr; copy the <b>Access Key</b>.</p><input type="text" id="uk" placeholder="Unsplash Access Key"><button onclick="send('/api/unsplash',{key:v('uk')},'uk')">Save key</button>
+<h2>Home Assistant doorbell</h2><p>Glassio watches the doorbell itself, no automation needed. Token: Home Assistant &rarr; your profile &rarr; Security &rarr; Long-lived access tokens.</p><input type="text" id="hu" placeholder="http://homeassistant.local:8123"><input type="password" id="ht" placeholder="Long-lived access token" style="margin-top:8px"><button onclick="send('/api/ha/doorbell',{url:v('hu'),token:v('ht')},'ht')">Save</button>
 <h2>Screensaver video links</h2><div id="aerial"></div>
 <input type="text" id="av" placeholder="https://.../video.mp4"><button onclick="send('/api/aerial/add',{url:v('av')},'av')">Add video</button>
 <h2>Accounts</h2><p id="acc"></p>

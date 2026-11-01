@@ -1,5 +1,8 @@
 package com.glasslauncher.tv.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
@@ -139,7 +142,7 @@ private fun MenuDialogView(d: MenuDialog, onDismiss: () -> Unit) {
     var armed by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss) {
         DialogSurface(
-            width = 230,
+            width = if (d.options.any { it.first.length > 30 }) 400 else 230,
             modifier = Modifier.onPreviewKeyEvent { ev ->
                 if (!ev.isSelect || armed) false
                 else if (ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount == 0) { armed = true; false }
@@ -148,8 +151,11 @@ private fun MenuDialogView(d: MenuDialog, onDismiss: () -> Unit) {
         ) {
             Text(d.title, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-            d.options.forEachIndexed { i, (label, action) ->
-                DialogButton(label, Modifier.fillMaxWidth().padding(bottom = 3.dp).let { if (i == 0) it.focusRequester(fr) else it }) { onDismiss(); action() }
+            // Long lists (Home Assistant sensors, cameras…) scroll with the focus instead of running off the screen.
+            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                d.options.forEachIndexed { i, (label, action) ->
+                    DialogButton(label, Modifier.fillMaxWidth().padding(bottom = 3.dp).let { if (i == 0) it.focusRequester(fr) else it }) { onDismiss(); action() }
+                }
             }
         }
     }

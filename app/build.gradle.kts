@@ -13,8 +13,10 @@ android {
         applicationId = "com.glasslauncher.tv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 44
-        versionName = "2.0.4"
+        versionCode = 45
+        versionName = "2.0.5"
+        // TV boxes are ARM: the depth model's native library only for those (keeps the download small).
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         // Trakt app (PKCE, no secret). Kept in local.properties, which is not committed.
         val props = Properties().apply {
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
@@ -65,6 +67,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
     implementation("com.google.zxing:core:3.5.3")
     implementation("dev.mobile:dadb:1.2.10")
+    // Depth effect on photos: runs a small depth model (downloaded on first use) on the TV.
+    implementation("com.google.ai.edge.litert:litert:1.4.0")
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     testImplementation("junit:junit:4.13.2")
 }

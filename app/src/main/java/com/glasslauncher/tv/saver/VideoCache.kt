@@ -33,6 +33,13 @@ object VideoCache {
         return DefaultMediaSourceFactory(cached)
     }
 
+    /** The whole video is on the TV already (plays at once, no download). */
+    fun fullyCached(ctx: Context, gb: Int, url: String): Boolean = runCatching {
+        val c = get(ctx, gb)
+        val len = androidx.media3.datasource.cache.ContentMetadata.getContentLength(c.getContentMetadata(url))
+        len > 0 && c.getCachedBytes(url, 0, len) >= len
+    }.getOrDefault(false)
+
     /** Bytes kept on the TV. */
     fun used(ctx: Context): Long = runCatching { cache?.cacheSpace ?: dir(ctx).walkTopDown().filter { it.isFile }.sumOf { it.length() } }.getOrDefault(0)
 

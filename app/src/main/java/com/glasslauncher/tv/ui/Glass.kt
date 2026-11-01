@@ -83,6 +83,8 @@ data class GlassEnv(
     val pageNoSideShade: Boolean = false,
     /** 0..1: the blur of the open-dock veil, which fades in once the dock has finished opening ([veil] is the dimming). */
     val blur: androidx.compose.runtime.State<Float>? = null,
+    /** The "Glass blur" setting as a blur radius in dp: frosted glass (and the large clock) blur the sharp picture by this. */
+    val blurDp: Float = 0f,
 )
 
 const val SLIDE_PUSH = 1
@@ -121,10 +123,13 @@ val LocalScale = staticCompositionLocalOf { 1f }
  * [strength] 0..80 (the "Glass blur" setting).
  */
 fun blurredBackdrop(src: Bitmap, strength: Int): ImageBitmap {
-    val w = (320 - strength * 3).coerceIn(48, 320)
+    // Twice the old size with twice the blur radius: the same softness, but scaled up on screen it no longer
+    // shows blocks and steps (the frosted glass looked pixelated next to the clear one).
+    val w0 = (320 - strength * 3).coerceIn(48, 320)
+    val w = (w0 * 2).coerceAtMost(560)
     val h = max(8, w * src.height / max(1, src.width))
     val small = Bitmap.createScaledBitmap(src, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
-    val r = if (strength <= 0) 0 else (1 + strength / 20).coerceAtMost(4)
+    val r = if (strength <= 0) 0 else ((1 + strength / 20).coerceAtMost(4) * w / w0)
     if (r > 0) {
         val px = IntArray(w * h)
         small.getPixels(px, 0, w, 0, 0, w, h)
@@ -295,8 +300,16 @@ fun LiquidSurface(
     /** Keep the glass in its own cached texture. Off while the surface is resizing (the open/close of the
      *  dock): a texture re-made at a new size every frame showed one frame late, so the glass flickered. */
     cache: Boolean = true,
+    /**
+     * Frosted glass made the way the clear glass is: from the same sharp picture (the page's own, or the video's
+     * copy), blurred on the GPU by the Glass blur setting. It changes, slides and settles exactly with the page,
+     * like the clear glass (the small blurred copies made apart were ready at other moments).
+     */
+    frosted: Boolean = false,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
+    // Square look (Settings): every glass surface without rounded corners.
+    @Suppress("NAME_SHADOWING") val radius = if (GlassShape.square.value) 0.dp else radius
     val env = LocalGlassEnv.current
     val density = LocalDensity.current
     // Video behind: the glass changes every copy, a cached texture would only be drawn twice.
@@ -311,14 +324,23 @@ fun LiquidSurface(
     val rPx = with(density) { radius.toPx() }
     val bPx = with(density) { bezel.toPx() }
     val fPx = with(density) { refraction.toPx() }
-    val still = remember(sz, rPx, bPx, fPx) { refractor.effect(sz.width.toFloat(), sz.height.toFloat(), rPx, bPx, fPx, 0f) }
+    val blurPx = if (frosted) with(density) { env.blurDp.dp.toPx() } else 0f
+    // The blur first, then the rim's bending (one chain of effects on the same layer).
+    fun withBlur(e: androidx.compose.ui.graphics.RenderEffect?): androidx.compose.ui.graphics.RenderEffect? {
+        if (blurPx < 0.5f || Build.VERSION.SDK_INT < 31) return e
+        val b = RenderEffect.createBlurEffect(blurPx, blurPx, android.graphics.Shader.TileMode.CLAMP)
+        val r = e?.asAndroidRenderEffect()
+        return (if (r != null) RenderEffect.createChainEffect(r, b) else b).asComposeRenderEffect()
+    }
+    val still = remember(sz, rPx, bPx, fPx, blurPx) { withBlur(refractor.effect(sz.width.toFloat(), sz.height.toFloat(), rPx, bPx, fPx, 0f)) }
     val live = env.live
     Box(
         modifier
             .then(if (DebugHide.intValue and 262144 != 0) Modifier else Modifier.clip(RoundedCornerShape(radius)))
             .onGloballyPositioned { raw[0] = it.positionInRoot(); if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY); if (it.size != sz) sz = it.size },
     ) {
-        val bmp = if (sharp) env.sharp ?: env.bmp else env.bmp
+        val clearPic = sharp || frosted
+        val bmp = if (clearPic) env.sharp ?: env.bmp else env.bmp
         // The tint is drawn inside the cached glass layers when they're used (one less pass every frame).
         var tintDone = false
         fun androidx.compose.ui.graphics.drawscope.DrawScope.tintIn(t: Color) { if (t.alpha > 0f && DebugHide.intValue and 256 == 0) drawRect(t) }
@@ -343,80 +365,21 @@ fun LiquidSurface(
                     else drawRect(Color.Black.copy(alpha = v * VEIL_DIM))
                 }
             }
-            val prev = if (sharp) env.prevSharp ?: env.prevBmp else env.prevBmp
+            // A video behind: the glass shows the video's own frames; a picture changing under it (the next video's
+            // still) must not fade or slide through the glass (it showed the title pictures for a moment).
+            val prev = if (videoBehind) null else if (clearPic) env.prevSharp ?: env.prevBmp else env.prevBmp
             val dir = if (slideInside) env.slide else 0
-            if (prev != null && dir != 0 && Build.VERSION.SDK_INT >= 33) {
-                // Slide, Android 13+: the middle of the glass is drawn like the page (two plain pictures, cheap),
-                // and only the rim band, where the refraction is, is drawn with a shader brush that reads both
-                // pictures and bends them itself. No offscreen layer is redrawn and re-refracted per frame, and
-                // the rims look exactly as when the glass is still, so nothing jumps when the move ends.
-                val curS = remember(bmp) { PageShader(bmp) }
-                val prevS = remember(prev) { PageShader(prev) }
-                // Small glass (an app tile): the whole shape is drawn with the shader, not just the rim. With the
-                // middle left to the page underneath, the edge of the rim band showed as a glass rectangle inside the
-                // selected icon for as long as the slide lasted. On a small surface drawing it all costs nothing.
-                val whole = sz.width.toLong() * sz.height < env.rootW.toLong() * env.rootH / 12
-                val ring = remember(sz, rPx, bPx, whole) {
-                    val w = sz.width.toFloat(); val h = sz.height.toFloat()
-                    val rr = min(rPx, min(w, h) / 2f); val b = max(1f, bPx)
-                    androidx.compose.ui.graphics.Path().apply {
-                        fillType = androidx.compose.ui.graphics.PathFillType.EvenOdd
-                        addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, w, h, androidx.compose.ui.geometry.CornerRadius(rr)))
-                        if (!whole && w > 2 * b && h > 2 * b) addRoundRect(androidx.compose.ui.geometry.RoundRect(b, b, w - b, h - b,
-                            androidx.compose.ui.geometry.CornerRadius(max(0f, rr - b))))
-                    }
-                }
-                Canvas(Modifier.matchParentSize()) {
-                    val p = pos.value
-                    val W = env.rootW.toFloat()
-                    val f = slideFrame(env.slideKind, dir, env.mix?.value ?: 1f, W)
-                    // Clear glass showing the page pictures themselves: its middle is exactly the page that is
-                    // already drawn underneath, so it is left empty and only the rim is drawn. Small (blurred)
-                    // copies differ from the page, so they are drawn in full.
-                    if (!isPage(bmp)) {
-                        picture(prev, f.prevShift, withShade = false)
-                        if (f.dim > 0f) drawRect(Color.Black.copy(alpha = f.dim))
-                        val e = f.edge - p.x
-                        clipRect(left = if (f.curRight) e else -1e5f, right = if (f.curRight) 1e5f else e) { picture(bmp, f.curShift, withShade = false) }
-                        shade(bmp)
-                    }
-                    if (fPx < 0.5f) { veil(); return@Canvas }
-                    curS.place(env.rootW, env.rootH, p); prevS.place(env.rootW, env.rootH, p)
-                    val sh = GlassSlideShader.get()
-                    sh.setInputShader("cur", curS.shader)
-                    sh.setInputShader("prev", prevS.shader)
-                    sh.setFloatUniform("size", size.width, size.height)
-                    sh.setFloatUniform("radius", min(rPx, min(size.width, size.height) / 2f))
-                    sh.setFloatUniform("bezel", max(1f, bPx))
-                    sh.setFloatUniform("strength", fPx)
-                    sh.setFloatUniform("pos", p.x, p.y)
-                    sh.setFloatUniform("root", W, env.rootH.toFloat())
-                    sh.setFloatUniform("shc", f.curShift)
-                    sh.setFloatUniform("shp", f.prevShift)
-                    sh.setFloatUniform("edge", f.edge)
-                    sh.setFloatUniform("curRight", if (f.curRight) 1f else 0f)
-                    sh.setFloatUniform("dim", f.dim)
-                    val page = isPage(bmp)
-                    sh.setFloatUniform("side", if (!page || env.pageNoSideShade) 1f else 0f)
-                    sh.setFloatUniform("bottom", if (!page) 1f else 0f)
-                    drawPath(ring, androidx.compose.ui.graphics.ShaderBrush(sh))
-                    veil()
-                }
-            } else if (prev != null && dir != 0) {
-                // Slide: both pictures move behind the glass exactly as the page does. The rim refraction stays
-                // on: switching it off for the move made the rims jump when it came back (worse the stronger it is).
-                Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = still }) {
-                    val f = slideFrame(env.slideKind, dir, env.mix?.value ?: 1f, env.rootW.toFloat())
-                    picture(prev, f.prevShift, withShade = false)
-                    if (f.dim > 0f) drawRect(Color.Black.copy(alpha = f.dim))
-                    val e = f.edge - pos.value.x
-                    clipRect(
-                        left = if (f.curRight) e else -1e5f, right = if (f.curRight) 1e5f else e,
-                    ) { picture(bmp, f.curShift, withShade = false) }
-                    shade(bmp)
-                    veil()
-                }
-            } else {
+            // Frosted glass that crossfades while the page slides: the new picture comes in exactly as the page's
+            // moving edge passes over this surface (a plain crossfade finished before the slide got there: the glass
+            // changed ahead of the picture behind it).
+            fun crossAlpha(): Float {
+                val m = env.mix?.value ?: 1f
+                if (env.slide == 0 || slideInside || sz.width <= 0) return m
+                val f = slideFrame(env.slideKind, env.slide, m, env.rootW.toFloat())
+                val l = pos.value.x; val r = l + sz.width
+                return (if (f.curRight) (r - f.edge) / (r - l) else (f.edge - l) / (r - l)).coerceIn(0f, 1f)
+            }
+            val sliding = prev != null && dir != 0
                 // While the page crossfades, the old and the new glass are two cached layers and only the
                 // top one's opacity changes: in step with the page, without redrawing or re-refracting the glass.
                 // The old glass is refracted too (rendered once, it doesn't change), so the rims don't thin out
@@ -425,37 +388,116 @@ fun LiquidSurface(
                 // in, so these stay cached instead of being redrawn (picture, shades, refraction) every frame.
                 val veilPic = if (!videoBehind && DebugHide.intValue and 32768 == 0) env.heavy else null
                 val covered = { veilPic != null && (env.veil?.value ?: 0f) > 0.995f && DebugHide.intValue and 16 == 0 }
-                if (prev != null) Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = still; alpha = if (covered()) 0f else 1f }) { picture(prev, 0f); if (veilPic == null) veil(); tintIn(tint) }
+                if (prev != null && !sliding) Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = still; alpha = if (covered()) 0f else 1f }) { picture(prev, 0f); if (veilPic == null) veil(); tintIn(tint) }
+                // The glass as it is when still. It stays composed during a slide too (nearly invisible, under the
+                // moving picture), so its cached texture is ready when the slide ends: building it only then made
+                // the glass catch for a moment as the picture settled.
                 Canvas(Modifier.matchParentSize().graphicsLayer {
                     val w = if (wobble > 0f && live != null) live.value * wobble else 0f
-                    renderEffect = if (videoBehind && DebugHide.intValue and 2048 != 0) null else if (!cache && DebugHide.intValue and 16384 != 0) null else if (w < 0.01f) still else refractor.effect(size.width, size.height, rPx, bPx, fPx, w)
-                    alpha = if (covered()) 0f else if (prev != null) (env.mix?.value ?: 1f) else 1f
+                    renderEffect = if (videoBehind && DebugHide.intValue and 2048 != 0) null else if (!cache && DebugHide.intValue and 16384 != 0) null else if (w < 0.01f) still else withBlur(refractor.effect(size.width, size.height, rPx, bPx, fPx, w))
+                    alpha = if (sliding) 0.002f else if (covered()) 0f else if (prev != null) crossAlpha() else 1f
                     // Rendered once into its own texture and reused while nothing behind the glass changes:
                     // moving focus over the dock then costs one copy instead of the picture and its shades again.
                     if (cache && DebugHide.intValue and 1024 == 0) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }) {
                     // A video behind: the glass shows its live frames (sharp or frosted), with the page's shades.
-                    val live = if (sharp) VideoFrames.sharp.value ?: VideoFrames.soft.value else VideoFrames.soft.value ?: VideoFrames.sharp.value
+                    val live = if (clearPic) VideoFrames.sharp.value ?: VideoFrames.soft.value else VideoFrames.soft.value ?: VideoFrames.sharp.value
                     if (live != null) {
                         // The page's shades (pre-painted pictures) drawn over the live copy, as on the page itself.
                         drawBackdropRegion(live, env.rootW, env.rootH, pos.value, scrims = DebugHide.intValue and 128 == 0)
                     } else picture(bmp, 0f)
+                    // Shuffle: the background fades through black between videos, the glass with it.
+                    val d = VideoFrames.dim.floatValue
+                    if (d > 0.003f) drawRect(Color.Black.copy(alpha = d))
                     if (veilPic == null) veil()
                     tintIn(tint)
                 }
+                // Frosted glass slides with its whole picture drawn (blurred), not just the bent rim.
+                if (sliding && Build.VERSION.SDK_INT >= 33 && !frosted) {
+                // Slide, Android 13+: the middle of the glass is drawn like the page (two plain pictures, cheap),
+                    // and only the rim band, where the refraction is, is drawn with a shader brush that reads both
+                    // pictures and bends them itself. No offscreen layer is redrawn and re-refracted per frame, and
+                    // the rims look exactly as when the glass is still, so nothing jumps when the move ends.
+                    val curS = remember(bmp) { PageShader(bmp) }
+                    val prevS = remember(prev) { PageShader(prev) }
+                    // Small glass (an app tile): the whole shape is drawn with the shader, not just the rim. With the
+                    // middle left to the page underneath, the edge of the rim band showed as a glass rectangle inside the
+                    // selected icon for as long as the slide lasted. On a small surface drawing it all costs nothing.
+                    val whole = sz.width.toLong() * sz.height < env.rootW.toLong() * env.rootH / 12
+                    val ring = remember(sz, rPx, bPx, whole) {
+                        val w = sz.width.toFloat(); val h = sz.height.toFloat()
+                        val rr = min(rPx, min(w, h) / 2f); val b = max(1f, bPx)
+                        androidx.compose.ui.graphics.Path().apply {
+                            fillType = androidx.compose.ui.graphics.PathFillType.EvenOdd
+                            addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, w, h, androidx.compose.ui.geometry.CornerRadius(rr)))
+                            if (!whole && w > 2 * b && h > 2 * b) addRoundRect(androidx.compose.ui.geometry.RoundRect(b, b, w - b, h - b,
+                                androidx.compose.ui.geometry.CornerRadius(max(0f, rr - b))))
+                        }
+                    }
+                    Canvas(Modifier.matchParentSize()) {
+                        val p = pos.value
+                        val W = env.rootW.toFloat()
+                        val f = slideFrame(env.slideKind, dir, env.mix?.value ?: 1f, W)
+                        // Clear glass showing the page pictures themselves: its middle is exactly the page that is
+                        // already drawn underneath, so it is left empty and only the rim is drawn. Small (blurred)
+                        // copies differ from the page, so they are drawn in full.
+                        if (!isPage(bmp)) {
+                            picture(prev, f.prevShift, withShade = false)
+                            if (f.dim > 0f) drawRect(Color.Black.copy(alpha = f.dim))
+                            val e = f.edge - p.x
+                            clipRect(left = if (f.curRight) e else -1e5f, right = if (f.curRight) 1e5f else e) { picture(bmp, f.curShift, withShade = false) }
+                            shade(bmp)
+                        }
+                        if (fPx < 0.5f) { veil(); return@Canvas }
+                        curS.place(env.rootW, env.rootH, p); prevS.place(env.rootW, env.rootH, p)
+                        val sh = GlassSlideShader.get()
+                        sh.setInputShader("cur", curS.shader)
+                        sh.setInputShader("prev", prevS.shader)
+                        sh.setFloatUniform("size", size.width, size.height)
+                        sh.setFloatUniform("radius", min(rPx, min(size.width, size.height) / 2f))
+                        sh.setFloatUniform("bezel", max(1f, bPx))
+                        sh.setFloatUniform("strength", fPx)
+                        sh.setFloatUniform("pos", p.x, p.y)
+                        sh.setFloatUniform("root", W, env.rootH.toFloat())
+                        sh.setFloatUniform("shc", f.curShift)
+                        sh.setFloatUniform("shp", f.prevShift)
+                        sh.setFloatUniform("edge", f.edge)
+                        sh.setFloatUniform("curRight", if (f.curRight) 1f else 0f)
+                        sh.setFloatUniform("dim", f.dim)
+                        val page = isPage(bmp)
+                        sh.setFloatUniform("side", if (!page || env.pageNoSideShade) 1f else 0f)
+                        sh.setFloatUniform("bottom", if (!page) 1f else 0f)
+                        drawPath(ring, androidx.compose.ui.graphics.ShaderBrush(sh))
+                        veil()
+                    }
+                } else if (sliding) {
+                // Slide: both pictures move behind the glass exactly as the page does. The rim refraction stays
+                    // on: switching it off for the move made the rims jump when it came back (worse the stronger it is).
+                    Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = still }) {
+                        val f = slideFrame(env.slideKind, dir, env.mix?.value ?: 1f, env.rootW.toFloat())
+                        picture(prev, f.prevShift, withShade = false)
+                        if (f.dim > 0f) drawRect(Color.Black.copy(alpha = f.dim))
+                        val e = f.edge - pos.value.x
+                        clipRect(
+                            left = if (f.curRight) e else -1e5f, right = if (f.curRight) 1e5f else e,
+                        ) { picture(bmp, f.curShift, withShade = false) }
+                        shade(bmp)
+                        veil()
+                    }
+                } else {
                 if (veilPic != null && DebugHide.intValue and 16 == 0) {
-                    val veilOn by remember(env.veil) { androidx.compose.runtime.derivedStateOf { (env.veil?.value ?: 0f) > 0.005f } }
-                    if (veilOn) Canvas(Modifier.matchParentSize().graphicsLayer {
-                        alpha = env.veil?.value ?: 0f
-                        renderEffect = still
-                        if (cache && DebugHide.intValue and 1024 == 0) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
-                    }) {
-                        drawBackdropRegion(veilPic, env.rootW, env.rootH, pos.value, scrims = false, colorFilter = VeilFilter)
-                        tintIn(tint)
+                        val veilOn by remember(env.veil) { androidx.compose.runtime.derivedStateOf { (env.veil?.value ?: 0f) > 0.005f } }
+                        if (veilOn) Canvas(Modifier.matchParentSize().graphicsLayer {
+                            alpha = env.veil?.value ?: 0f
+                            renderEffect = still
+                            if (cache && DebugHide.intValue and 1024 == 0) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                        }) {
+                            drawBackdropRegion(veilPic, env.rootW, env.rootH, pos.value, scrims = false, colorFilter = VeilFilter)
+                            tintIn(tint)
+                        }
                     }
                 }
-                tintDone = true
-            }
+                tintDone = !sliding
         } else {
             Box(Modifier.matchParentSize().background(Color(0xFF1A1A22)))
         }
@@ -476,6 +518,7 @@ fun GlassPanel(
     cache: Boolean = refract,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    @Suppress("NAME_SHADOWING") val radius = if (GlassShape.square.value) 0.dp else radius
     val env = LocalGlassEnv.current
     val shape = RoundedCornerShape(radius)
     // The content always sits in the same place whatever the style: switching style (Settings background) used to
@@ -492,14 +535,15 @@ fun GlassPanel(
                 fill, radius, if (refract) (env.refractionDp * 1.5f).dp else 0.dp, (radius * 1.2f).coerceIn(12.dp, 34.dp),
                 tint = Color.Black.copy(alpha = darken.coerceAtMost(0.9f)), sharp = true, wobble = if (refract && style == "water") env.wobble else 0f, cache = cache,
             )
-            // Frosted panels show a blurred copy: during a slide they crossfade (looks the same, half the GPU work).
+            // Frosted panels slide their picture inside like the clear glass does (crossfading it ran ahead of the page).
             "clear" -> {
-                LiquidSurface(fill, radius, 0.dp, 10.dp, tint = Color.White.copy(alpha = 0.06f), slideInside = false, cache = cache)
-                if (darken > 0f) Box(fill.background(Color.Black.copy(alpha = darken)))
+                LiquidSurface(fill, radius, 0.dp, 10.dp, tint = Color.White.copy(alpha = 0.06f), cache = cache)
+                // Clipped to the panel's corners (unclipped it showed as a dark square around them).
+                if (darken > 0f) Box(fill.clip(shape).background(Color.Black.copy(alpha = darken)))
             }
             else -> LiquidSurface(
                 fill, radius, if (refract) env.refractionDp.dp else 0.dp, (radius * 1.1f).coerceIn(10.dp, 30.dp),
-                tint = Color.Black.copy(alpha = (0.14f + darken).coerceAtMost(0.9f)), slideInside = false, cache = cache,
+                tint = Color.Black.copy(alpha = (0.14f + darken).coerceAtMost(0.9f)), cache = cache,
             )
         }
         content()
@@ -509,7 +553,10 @@ fun GlassPanel(
 }
 
 /** Kept for the screens that only need the clip. */
-fun Modifier.roundClip(r: Dp) = this.clip(RoundedCornerShape(r))
+fun Modifier.roundClip(r: Dp) = this.clip(RoundedCornerShape(if (GlassShape.square.value) 0.dp else r))
+
+/** Square look (Settings → Dock & icons): menus, dock and icons with sharp corners. Set by the home screen. */
+object GlassShape { val square = androidx.compose.runtime.mutableStateOf(false) }
 
 /**
  * The glass during a slide: the rim refraction of [LIQUID_SKSL], reading the two pictures itself (the new

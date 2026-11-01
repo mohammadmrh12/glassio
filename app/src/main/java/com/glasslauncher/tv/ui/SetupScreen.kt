@@ -167,7 +167,7 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                         }
                         1 -> {
                             Title("Choose a look", "You can change it any time from the menu")
-                            val themes = listOf("water_still" to "Glass still", "water" to "Glass is glass", "liquid" to "Liquid",
+                            val themes = listOf("water_still" to "Still Glass", "water" to "Dynamic Glass", "liquid" to "Frosted Glass",
                                 "clear" to "Clear", "amoled" to "Black AMOLED", "bow" to "Black on white")
                             var cur by remember { mutableStateOf(st.theme) }
                             Buttons(themes.map { (k2, l) -> (if (cur == k2) "✓ $l" else l) to { st.applyTheme(k2); cur = k2 } }, wrap = true)

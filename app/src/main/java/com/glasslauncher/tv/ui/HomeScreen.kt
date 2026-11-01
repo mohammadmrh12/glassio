@@ -65,6 +65,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.asAndroidBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.focus.focusProperties
@@ -153,6 +154,11 @@ private fun imgReq(ctx: android.content.Context, data: Any?, w: Int = 1920, h: I
 
 private fun Modifier.clipR(r: Dp): Modifier = this.clip(RoundedCornerShape(r))
 
+/** The depth effect works on its own low-priority thread (the model's threads inherit it): the home screen first. */
+private val DepthWorker = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+    Thread({ android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "glass-depth").apply { isDaemon = true }
+}.asCoroutineDispatcher()
+
 /** Every dock measurement in dp, from the screen width and the "Dock size" setting (1.0 = full width). */
 private class DockMetrics(val s: Float, screenW: Float, dockScale: Float) {
     val padH = 18 * s * dockScale
@@ -216,7 +222,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val mix = remember { androidx.compose.animation.core.Animatable(1f) }
     // 0 = crossfade; 1 / -1 = the new picture slides in from the right / left (Slide animation).
     var slideDir by remember { mutableIntStateOf(0) }
-    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue) {
+    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value) {
         GlassCache.res = settings.glassRes
         BakeCache.max = when (settings.memTier) { 0 -> 2; 2 -> 4; else -> 3 }
         backdropScale = settings.pageScale
@@ -225,6 +231,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         GlassCache.limit(settings.memTier)
         // Your own picture / video: it replaces every title's backdrop (one picture, so nothing changes per slide).
         val custom = CustomBackground.still(ctx, settings)
+        // Your own background whose picture isn't ready yet (the next video's still is being made): keep what is
+        // there. Falling back to the titles' pictures flashed them through the glass between two videos.
+        val own = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial", "photos" -> true; else -> false }
+        if (own && custom == null) return@LaunchedEffect
         val u = custom ?: backdrop ?: return@LaunchedEffect
         if (custom != null && shownUrl.value == custom && backImgs != null) return@LaunchedEffect
         // Wait for both the full picture and its glass copy, then switch them in the same frame.
@@ -380,6 +390,38 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         pop = PopState(m.title, m.options.map { (label, action) -> PopOption(label, onClick = action) }, if (inFolder) null else PopAnchors.tiles[e.pkg])
     }
 
+    // Square look: read by every glass surface.
+    androidx.compose.runtime.SideEffect { GlassShape.square.value = settings.squareCorners }
+    // Your own background chosen: the carousel's decoded pictures (titles, glass copies) aren't needed any more.
+    LaunchedEffect(settings.bgMode) {
+        if (settings.bgMode == "carousel") return@LaunchedEffect
+        delay(4000)
+        runCatching { SingletonImageLoader.get(ctx).memoryCache?.clear() }
+        GlassCache.trim(); trimPageCaches()
+        com.glasslauncher.tv.data.Glog.i("Own background: carousel pictures let go")
+    }
+
+    // My picture: the next one from the menu, and by itself (shuffle) every "Change every".
+    val nextRev = CustomBackground.next.intValue
+    val seenNext = remember { intArrayOf(nextRev) }
+    LaunchedEffect(nextRev) { if (nextRev != seenNext[0]) { seenNext[0] = nextRev; if (settings.bgMode == "image") CustomBackground.nextPicture(ctx, settings) } }
+    LaunchedEffect(settings.bgMode, settings.bgImageShuffle, settings.photoEvery, settings.bgImage) {
+        if (settings.bgMode != "image" || !settings.bgImageShuffle || settings.photoEvery <= 0) return@LaunchedEffect
+        delay(settings.photoEvery * 1000L)
+        CustomBackground.nextPicture(ctx, settings)
+    }
+
+    // Depth effect: the subject of your photo cut out (once per photo, in the background) to cover the large clock.
+    LaunchedEffect(shownBackdrop, settings.bgClock, settings.bgDepth, settings.bgMode, settings.bgClockSize, settings.bgClockOffset) {
+        Depth.fg.value = null
+        // Off, or a background it isn't for: nothing of it stays in memory.
+        if (!settings.bgClock || !settings.bgDepth || settings.bgMode !in setOf("image", "photos")) { Depth.clear(); return@LaunchedEffect }
+        val b = shownBackdrop ?: return@LaunchedEffect
+        delay(settings.transitionMs.toLong() + 200)
+        val fg = withContext(DepthWorker) { Depth.cutout(ctx, b, settings.bgClockSize, settings.bgClockOffset) }
+        if (shownBackdrop === b) Depth.fg.value = fg
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         val density = LocalDensity.current
         val rootW = with(density) { maxWidth.roundToPx() }
@@ -409,7 +451,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val env = GlassEnv(backImgs?.first, pageSharp ?: backImgs?.second, backImgs?.third, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
             prevImgs?.first, if (prevImgs != null) (GlassHalf.peek(prevBackdrop) ?: prevImgs?.second) else null, mix.asState(), veil, sharpIsPage = pageSharp != null,
             slide = slideDir, slideKind = if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH,
-            pageNoSideShade = settings.slideAnim != "fade", blur = blur)
+            pageNoSideShade = settings.slideAnim != "fade", blur = blur, blurDp = settings.blurRadius * 0.45f)
         val radius = settings.cornerRadius
         val metrics = remember(s, maxWidth, settings.dockScale) { DockMetrics(s, maxWidth.value, settings.dockScale) }
 
@@ -430,18 +472,29 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
             }
             // Screensaver as background: one of its aerial videos (your links and / or Apple's feed).
-            val aerialKey = settings.saverSources.joinToString() + settings.saverQuality + settings.saverPick + settings.saverMine
+            val aerialKey = settings.saverSources.joinToString() + settings.saverQuality + settings.saverPick + settings.saverMine + settings.bgAerialQuality
             var lastAerialKey by remember { mutableStateOf(aerialKey) }
             LaunchedEffect(settings.bgMode, aerialKey) {
                 // The screensaver's video choice changed: pick again from the new list.
                 if (aerialKey != lastAerialKey) { lastAerialKey = aerialKey; CustomBackground.aerial.value = null }
                 if (settings.bgMode == "aerial" && CustomBackground.aerial.value == null)
                     CustomBackground.aerial.value = withContext(Dispatchers.IO) {
-                        runCatching { com.glasslauncher.tv.saver.AerialSource.playlist(app).also { CustomBackground.aerials = it }.let { CustomBackground.firstLive(it) } }.getOrNull()
+                        runCatching {
+                            // 1080 H.264 (light behind the glass), or the screensaver's own quality (its saved videos).
+                            val items = if (settings.bgAerialQuality == "saver") com.glasslauncher.tv.saver.AerialSource.playlistItems(app)
+                                else com.glasslauncher.tv.saver.AerialSource.playlistItems(app, "1080-H264")
+                            CustomBackground.aerialTitles = items.associate { (t, u) -> u to t }
+                            // The videos already on the TV first: they start at once.
+                            val (kept, rest) = items.map { it.second }.partition { settings.saverCache && com.glasslauncher.tv.saver.VideoCache.fullyCached(app, settings.saverCacheGb, it) }
+                            com.glasslauncher.tv.data.Glog.i("Screensaver background: ${kept.size} of ${items.size} videos already on the TV")
+                            (kept + rest).also { CustomBackground.aerials = it }.let { CustomBackground.firstLive(it) }
+                        }.getOrNull()
                     }
                         .also { com.glasslauncher.tv.data.Glog.i("Screensaver background: ${it ?: "no aerial videos (screensaver links / Apple feed)"}") }
             }
             val videoSrc = when (settings.bgMode) { "video" -> settings.bgVideo.ifBlank { null }; "aerial" -> CustomBackground.aerial.value; else -> null }
+            // No video any more (another background chosen mid-fade): nothing stays dark.
+            LaunchedEffect(videoSrc == null) { if (videoSrc == null) VideoFrames.dim.floatValue = 0f }
             if (videoSrc != null && !folderOpen) {
                 val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
                 val state by life.currentStateFlow.collectAsState()
@@ -458,14 +511,24 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     life.addObserver(o); onDispose { life.removeObserver(o) }
                 }
                 listOf(settings.dockStyle, settings.tileStyle, settings.menuStyle).let { st ->
-                    VideoFrames.wantSharp = st.any { it.startsWith("water") }
+                    // The large clock's glass digits are drawn from the sharp copy (blurred on the GPU), like the Still Glass.
+                    VideoFrames.wantSharp = st.any { it.startsWith("water") } || settings.bgClock
                     VideoFrames.wantSoft = st.any { it == "liquid" || it == "clear" }
+                    // The frosted copy of the video follows the Glass blur setting, like the pictures' glass copies.
+                    VideoFrames.softRadius = (settings.blurRadius / 13).coerceIn(1, 6)
                 }
-                androidx.compose.runtime.key(videoSrc, resumes) {
-                    VideoBackground(videoSrc, playing = screen == Screen.Home && state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && DebugHide.intValue and 4096 == 0,
-                        onError = { if (settings.bgMode == "aerial") CustomBackground.nextAerial() },
-                        onDone = if (settings.bgMode == "aerial" && settings.bgShuffle && CustomBackground.aerials.size > 1) ({ CustomBackground.nextAerial(ended = true) }) else null,
-                        busy = { System.currentTimeMillis() - app.interaction.longValue < 600 })
+                // The screensaver's videos: one player for the whole list (it isn't rebuilt for every video, so the
+                // next one comes from the screensaver's cache straight away); your video: that one, looping.
+                val aerialMode = settings.bgMode == "aerial"
+                val mine = remember(settings.bgVideo, settings.bgVideoShuffle) { CustomBackground.videoList(ctx, settings) }
+                val list = if (aerialMode) CustomBackground.aerials.ifEmpty { listOf(videoSrc) } else mine
+                // Not rebuilt when you come back from another app or the screensaver: the player keeps going on the new
+                // surface (a new player showed the last frame frozen in the glass, then black, until it started).
+                androidx.compose.runtime.key(if (aerialMode) list else videoSrc) {
+                    VideoBackground(list, start = list.indexOf(videoSrc).coerceAtLeast(0),
+                        playing = screen == Screen.Home && state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && DebugHide.intValue and 4096 == 0,
+                        advance = if (aerialMode) settings.bgShuffle else settings.bgVideoShuffle,
+                        onItem = { if (aerialMode) CustomBackground.aerial.value = it })
                 }
             }
             // Dock open: the whole page blurs and darkens (the glass draws the same veil, see LiquidSurface).
@@ -604,7 +667,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     menuClosedAt = android.os.SystemClock.uptimeMillis()
                     // With your own background there is no carousel to go back to (its stand-in passes focus up to
                     // the settings button, which opened the menu again): back to the dock.
-                    val custom = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial" -> true; else -> false }
+                    val custom = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial", "photos" -> true; else -> false }
                     val back = if (custom) firstTile else heroFocus
                     // The focus goes back first, straight from the menu, then the menu closes.
                     menuHasFocus = false
@@ -658,6 +721,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 )
             }
             DialogHost(dialog) { dialog = null }
+            // The 4-digit code for a locked app (or to change the code).
+            AppLockHost(app, s, settings.menuStyle)
             PopMenuHost(pop, s, settings.menuStyle) {
                 pop = null
                 // Back to what it was opened on (unless a choice moved the focus on, e.g. Move or another dialog).
@@ -674,7 +739,7 @@ private fun appMenu(
 ): DialogState {
     val hidden = e.pkg in app.settings.hiddenApps
     val opts = mutableListOf<Pair<String, () -> Unit>>()
-    if (hidden) opts += "Open" to { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } }
+    if (hidden) opts += "Open" to { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) }
     opts += "App info" to {
         runCatching {
             ctx.startActivity(
@@ -686,6 +751,8 @@ private fun appMenu(
     if (startMove != null) opts += "Move" to startMove
     opts += "Change icon" to pickIcon
     opts += (if (hidden) "Show in dock" else "Hide") to { app.apps.toggleHidden(e.pkg) }
+    // Asks for the 4-digit code when opened from Glassio (Settings → System sets the code).
+    opts += (if (AppLock.locked(app, e.pkg)) "Unlock" else "Lock") to { AppLock.toggle(app, ctx, e) }
     return MenuDialog(e.label, opts)
 }
 
@@ -988,8 +1055,10 @@ private fun HeroSection(
     var shot by remember { mutableIntStateOf(0) }
     LaunchedEffect(item?.key) { shot = 0 }
     val shotMs = (settings.heroIntervalSec * 1000L).coerceAtLeast(4000L)
-    LaunchedEffect(item?.key, gallery.size, hidden, paused, resumed) {
-        if (gallery.size < 2 || hidden || paused || !resumed) return@LaunchedEffect
+    // Your own background: the titles aren't shown, so none of their pictures are prepared or kept in memory.
+    val ownBg = settings.bgMode != "carousel"
+    LaunchedEffect(item?.key, gallery.size, hidden, paused, resumed, ownBg) {
+        if (ownBg || gallery.size < 2 || hidden || paused || !resumed) return@LaunchedEffect
         val loader = SingletonImageLoader.get(ctx)
         while (true) {
             val next = gallery[(shot + 1).mod(gallery.size)]
@@ -1018,8 +1087,8 @@ private fun HeroSection(
         val d = settings.prefetchDepth
         for (k in listOf(0) + (1..d + 1).flatMap { listOf(it, -it) }.take(d * 2)) app.catalogs.enrich(items[(index + k).mod(items.size)])
     }
-    LaunchedEffect(index, items.size, enriched.size, settings.artChoice) {
-        if (items.size < 2) return@LaunchedEffect
+    LaunchedEffect(index, items.size, enriched.size, settings.artChoice, ownBg) {
+        if (ownBg || items.size < 2) return@LaunchedEffect
         val loader = SingletonImageLoader.get(ctx)
         // Wait until you stop on a slide: while you hold Right, preparing the slides around each one passed only
         // filled the download queue, and the picture you landed on waited behind them. Everything below runs in
@@ -1071,7 +1140,9 @@ private fun HeroSection(
     val cwKeys = remember(cwItems) { cwItems.map { it.key } }
     LaunchedEffect(cwKeys) { cwItems.forEach { app.catalogs.enrich(it) } }
     val cwShown = cwItems.map { c -> (enriched[c.key] ?: c).let { withArtwork(it, settings.artChoice, settings.artPick(it.key)) } }
-    LaunchedEffect(cwShown.map { it.background + it.logo }, settings.imageQuality, settings.blurRadius) {
+    LaunchedEffect(cwShown.map { it.background + it.logo }, settings.imageQuality, settings.blurRadius, ownBg) {
+        // Not shown with your own background: what was kept for them is let go (tens of MB).
+        if (ownBg) { GlassCache.keepOnly(emptySet()); return@LaunchedEffect }
         val loader = SingletonImageLoader.get(ctx)
         val high = settings.imageQuality == "high"
         val keep = mutableSetOf<String>()
@@ -1099,7 +1170,8 @@ private fun HeroSection(
         if (homeRev != seenHome) {
             seenHome = homeRev
             index = 0
-            delay(120); runCatching { heroFocus.requestFocus() }
+            // Your own background has no carousel: Home goes to the dock (the stand-in above it opened the menu).
+            delay(120); runCatching { if (settings.bgMode != "carousel") firstTile.requestFocus() else heroFocus.requestFocus() }
         }
     }
     // Keeps playing while the carousel is selected; any Left/Right restarts the timer (index changes).
@@ -1117,11 +1189,18 @@ private fun HeroSection(
     val dotsAlpha by animateFloatAsState(if (dotsOn) 1f else 0f, tween(300), label = "dotsAlpha")
 
     // Your own picture / video / the screensaver behind: the page is just that, no title, details or buttons.
-    val customBg = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial" -> true; else -> false }
+    val customBg = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial", "photos" -> true; else -> false }
     // ModulateAlpha: no full-screen off-screen pass while it fades (the dock opening); the pieces barely overlap.
     Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }) {
         val shown = textItem
         if (customBg) {
+            // A large clock (with the depth effect on photos), and the place / credit of what's behind.
+            if (settings.bgClock) BigClock(settings, s)
+            // The place and credit (and, if chosen, time, date, weather) like the screensaver's info.
+            val info = CustomBackground.info(settings)
+            val infoChange = remember(info) { (info?.first ?: "").hashCode() }
+            if (info != null) com.glasslauncher.tv.saver.SaverInfo(app, info.first, infoChange, com.glasslauncher.tv.saver.InfoLook.background(settings), credit = info.second,
+                padTop = 30 * s, padBottom = if (settings.dockPos == "bottom") metrics.collapsedH + metrics.bottomMargin - 30 * s else 0f)
             // Holds the dock's Up: opens the menu (or selects the settings button) straight away.
             Box(Modifier.align(Alignment.TopStart).padding(start = (48 * s).dp, top = (300 * s).dp).size(1.dp)
                 .focusRequester(heroFocus)
@@ -1780,7 +1859,7 @@ private fun Dock(
                                     .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
                                 onFocus = { f -> if (f) { onExpanded(r > 0); onMove() } },
                                 onMoveKey = onMoveKey,
-                                onClick = { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } },
+                                onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
                                 onLong = { onMenu(e) }, edges = edges,
                             )
                         }
@@ -1835,7 +1914,7 @@ private fun VerticalDock(
                             modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() })
                                     .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
                             onFocus = { f -> if (f) { onExpanded(false); onMove() } }, onMoveKey = onMoveKey,
-                            onClick = { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } },
+                            onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
                             onLong = { onMenu(e) }, edges = edges)
                     }
                 }
@@ -1867,7 +1946,7 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
     // opening stutter.
     val veiled by remember(env.veil) { androidx.compose.runtime.derivedStateOf { (env.veil?.value ?: 0f) > 0.95f } }
     val pane = (flat || veiled || LocalDockOpen.current) && (style == "liquid" || style == "clear" || style.startsWith("water"))
-    val shape = RoundedCornerShape(radius)
+    val shape = RoundedCornerShape(if (GlassShape.square.value) 0.dp else radius)
     // The icon always sits in the same place: switching the plate under it no longer rebuilds every icon.
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val fill = Modifier.matchParentSize()
@@ -1896,8 +1975,7 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
             else -> LiquidSurface(
                 fill, radius = radius, refraction = if (focused) (env.refractionDp * 0.75f).dp else 0.dp, bezel = (14 * s).dp,
                 tint = Color.White.copy(alpha = if (focused) 0.10f else 0.04f),
-                // Frosted icons show a blurred copy: crossfading it during a slide looks the same as sliding it.
-                slideInside = false,
+                // Slides inside like the clear glass, in step with the page.
             )
         }
         Box(fill.clip(shape), contentAlignment = Alignment.Center, content = content)
@@ -2026,7 +2104,7 @@ private fun TileFrame(
     // Apple TV style: no frame. The icon lifts, grows a little and casts a soft shadow.
     val scale by animateFloatAsState(if (focused) (if (moving) 1.14f else if (zoom == "tile") 1.09f else 1f) else 1f, spring(0.72f, 520f), label = "tileScale")
     val shadow by animateDpAsState(if (focused && solid) (16 * s).dp else 0.dp, tween(180), label = "tileShadow")
-    val r = (radius * 0.75f * s).dp
+    val r = if (GlassShape.square.value) 0.dp else (radius * 0.75f * s).dp
     val shape = RoundedCornerShape(r)
     Column(
         modifier
@@ -2190,7 +2268,7 @@ private fun FolderOverlay(
                                             entry = e, app = app, s = s, radius = radius, moving = moving == e.pkg,
                                             modifier = Modifier.weight(1f).focusProperties { canFocus = !blocked }.focusRequester(fr).then(if (r == 0 && c == 0) Modifier.focusRequester(first) else Modifier),
                                             onFocus = {}, onMoveKey = onMoveKey,
-                                            onClick = { app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } } },
+                                            onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
                                             onLong = { onMenu(e) },
                                             alwaysLabel = true, flat = true,
                                             label = if (e.pkg in hidden) "${e.label} · hidden" else e.label, edges = edges,

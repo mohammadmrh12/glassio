@@ -126,6 +126,9 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         library = com.glasslauncher.tv.data.Library(this, settings, http, cw.trakt, scope, cw.simkl)
         cw.nuvio = library.nuvio
         sync = com.glasslauncher.tv.data.Sync(this, settings, library, cw, scope).also { it.start() }
+        com.glasslauncher.tv.net.NotifyServer.start(this)
+        com.glasslauncher.tv.net.HaWatch.start(this)
+        com.glasslauncher.tv.data.Photos.start(this)
         // Add-ons from the accounts that are on (Nuvio, Stremio), as one list (each add-on once, see CatalogRepository).
         catalogs.account = {
             val n = if (settings.catalogsNuvio && library.nuvio.connected) library.nuvio.addons() else emptyList()

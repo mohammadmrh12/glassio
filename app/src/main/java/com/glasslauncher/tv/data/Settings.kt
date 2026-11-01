@@ -361,12 +361,75 @@ class Settings(private val ctx: Context) {
     var cornerCamera: String get() = s("cornerCamera", ""); set(v) = putS("cornerCamera", v)
     /** Hold Home → camera: switch to the next camera every this many seconds (0 = stay on one). */
     var cameraCycleSec: Int get() = i("cameraCycleSec", 0); set(v) = putI("cameraCycleSec", if (v <= 0) 0 else v.coerceIn(5, 600))
+    /** Doorbell pop-ups from Home Assistant (port 7979, PiPup's request). */
+    var doorbellOn: Boolean get() = b("doorbellOn", true); set(v) = putB("doorbellOn", v)
+    var doorbellScale: Float get() = f("doorbellScale", 1.0f); set(v) = putF("doorbellScale", v.coerceIn(0.6f, 1.6f))
+    var doorbellText: Boolean get() = b("doorbellText", true); set(v) = putB("doorbellText", v)
+    var doorbellTitle: String get() = s("doorbellTitle", "الباب الأمامي"); set(v) = putS("doorbellTitle", v)
+    var doorbellMessage: String get() = s("doorbellMessage", "يوجد شخص عند الباب"); set(v) = putS("doorbellMessage", v)
+    /** The doorbell's camera: a saved camera's link, or "" = the one Home Assistant sends. */
+    var doorbellCamera: String get() = s("doorbellCamera", ""); set(v) = putS("doorbellCamera", v)
+    /** Doorbell: go round the cameras every this many seconds (0 = stay on the doorbell camera). */
+    var doorbellCycleSec: Int get() = i("doorbellCycleSec", 0); set(v) = putI("doorbellCycleSec", if (v <= 0) 0 else v.coerceIn(5, 600))
+    /** Hold Home → camera: its size (1 = a third of the screen wide). */
+    var cameraScale: Float get() = f("cameraScale", 1.0f); set(v) = putF("cameraScale", v.coerceIn(0.6f, 1.6f))
+    var doorbellChime: Boolean get() = b("doorbellChime", true); set(v) = putB("doorbellChime", v)
+    /** Doorbell straight from Home Assistant (no automation): its link, a long-lived token, and the sensor to watch. */
+    var haUrl: String get() = s("haUrl", ""); set(v) = putS("haUrl", v.trim().trimEnd('/'))
+    var haToken: String get() = s("haToken", ""); set(v) = putS("haToken", v.trim())
+    var haDoorbellEntity: String get() = s("haDoorbellEntity", ""); set(v) = putS("haDoorbellEntity", v.trim())
+    var doorbellSec: Int get() = i("doorbellSec", 20); set(v) = putI("doorbellSec", v.coerceIn(5, 300))
     var cameraCornerSec: Int get() = i("cameraCornerSec", 20); set(v) = putI("cameraCornerSec", v.coerceIn(0, 600))
     var homeLong: String get() = s("homeLong", if (b("homeRecents", false)) "recents" else "off"); set(v) = putS("homeLong", v)
     /** Ask before removing a title from the Library. */
     var libraryConfirm: Boolean get() = b("libraryConfirm", true); set(v) = putB("libraryConfirm", v)
     /** Background video: a new one when each ends (else the same one loops). */
     var bgShuffle: Boolean get() = b("bgShuffle", true); set(v) = putB("bgShuffle", v)
+    /** Screensaver as background: "1080" (light behind the glass) or "saver" (the screensaver's quality and its saved videos). */
+    var bgAerialQuality: String get() = s("bgAerialQuality", "1080"); set(v) = putS("bgAerialQuality", v)
+    /** Background "Photos": where they come from (mine = the backgrounds folder, bing, wallhaven, unsplash). */
+    var photoSource: String get() = s("photoSource", "bing").let { if (it == "wallhaven") "commons" else it }; set(v) = putS("photoSource", v)
+    /** What the photos show (Wallhaven and Unsplash search for it). */
+    var photoTopic: String get() = s("photoTopic", "nature"); set(v) = putS("photoTopic", v)
+    /** A new photo every this many seconds (0 = keep the one on screen). */
+    var photoEvery: Int get() = i("photoEvery", 300); set(v) = putI("photoEvery", if (v <= 0) 0 else v.coerceIn(30, 86_400))
+    /** Photos in a random order (else in the source's order). */
+    var photoShuffle: Boolean get() = b("photoShuffle", true); set(v) = putB("photoShuffle", v)
+    var unsplashKey: String get() = s("unsplashKey", ""); set(v) = putS("unsplashKey", v.trim())
+    /** The photo on screen (url, place, credit), so it comes back at once after a restart. */
+    var photoLast: String get() = sp.getString("photoLast", "") ?: ""; set(v) { sp.edit().putString("photoLast", v).apply() }
+    /** Your own background: the place / title of the video or photo, like the screensaver. */
+    var bgInfo: Boolean get() = b("bgInfo", true); set(v) = putB("bgInfo", v)
+    var bgInfoPos: String get() = s("bgInfoPos", "bl"); set(v) = putS("bgInfoPos", v)
+    /** Shown for this many seconds after each change (0 = always). */
+    var bgInfoSec: Int get() = i("bgInfoSec", 0); set(v) = putI("bgInfoSec", v.coerceIn(0, 600))
+    /** Your own background: a large clock in the middle, like a phone's lock screen. */
+    var bgClock: Boolean get() = b("bgClock", false); set(v) = putB("bgClock", v)
+    var bgClockSize: Float get() = f("bgClockSize", 1.0f); set(v) = putF("bgClockSize", v.coerceIn(0.6f, 1.6f))
+    /** Depth effect: on a photo, what's in front (a mountain, a person) covers the large clock. */
+    var bgDepth: Boolean get() = b("bgDepth", true); set(v) = putB("bgDepth", v)
+    /** Large clock: "theme" (glass numerals in the glass themes, black on Black on white) or "white". */
+    /** Sharp corners for the menu, the dock and the icons (no rounding). */
+    var squareCorners: Boolean get() = b("squareCorners", false); set(v) = putB("squareCorners", v)
+    var bgClockStyle: String get() = s("bgClockStyle", "theme"); set(v) = putS("bgClockStyle", v)
+    /** Large clock: moved up (negative) or down, as a part of the screen's height. */
+    var bgClockOffset: Float get() = f("bgClockOffset", 0f); set(v) = putF("bgClockOffset", v.coerceIn(-0.2f, 0.3f))
+    /** My video / My picture: go round the others in the folder (else the chosen one stays). */
+    var bgVideoShuffle: Boolean get() = b("bgVideoShuffle", false); set(v) = putB("bgVideoShuffle", v)
+    var bgImageShuffle: Boolean get() = b("bgImageShuffle", false); set(v) = putB("bgImageShuffle", v)
+    /** App lock: your own reminder under the digits (anything, the code itself too), and whether it shows. */
+    var lockHintOn: Boolean get() = b("lockHintOn", false); set(v) = putB("lockHintOn", v)
+    var lockHint: String get() = s("lockHint", ""); set(v) = putS("lockHint", v)
+    /** The info over your background, like the screensaver's: style, which lines, corner, how long. */
+    var bgInfoStyle: String get() = s("bgInfoStyle", "apple"); set(v) = putS("bgInfoStyle", v)
+    var bgInfoClock: Boolean get() = b("bgInfoClock", false); set(v) = putB("bgInfoClock", v)
+    var bgInfoDate: Boolean get() = b("bgInfoDate", false); set(v) = putB("bgInfoDate", v)
+    var bgInfoWeather: Boolean get() = b("bgInfoWeather", false); set(v) = putB("bgInfoWeather", v)
+    /** Pictures kept on the TV for the Photos background (oldest go first), in MB. */
+    var photoCacheMb: Int get() = i("photoCacheMb", 1024); set(v) = putI("photoCacheMb", v.coerceIn(100, 8192))
+    /** Apps that ask for the 4-digit code when opened from Glassio. */
+    var lockedApps: List<String> get() = list("lockedApps"); set(v) = putList("lockedApps", v)
+    var lockCode: String get() = s("lockCode", "0000"); set(v) = putS("lockCode", v.filter { it.isDigit() }.take(4).padStart(4, '0'))
 
     /** Existing installs skip the first-run setup (it is for new TVs). */
     fun firstRun() { if (!sp.contains("setupDone")) putB("setupDone", sp.all.size > 8) }

@@ -163,35 +163,51 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
     }
 }
 
-/** Clock, date, weather, place and the TV's numbers over the screensaver. */
+/** What the info shows and how: the screensaver's settings, or the background's own (same choices). */
+data class InfoLook(
+    val style: String, val clock: Boolean, val date: Boolean, val weather: Boolean, val place: Boolean, val sys: Boolean,
+    val pos: String, val showSec: Int, val netflixHide: Boolean, val bar: String, val size: Float,
+) {
+    companion object {
+        fun saver(st: com.glasslauncher.tv.data.Settings) = InfoLook(st.saverStyle, st.saverClock, st.saverDate, st.saverWeather, st.saverPlace, st.saverSys,
+            st.saverPos, st.saverShowSec, st.saverNetflixHide, st.saverBar, st.saverSize)
+        /** Over the home screen's own background (photos, the screensaver's videos). */
+        fun background(st: com.glasslauncher.tv.data.Settings) = InfoLook(st.bgInfoStyle, st.bgInfoClock, st.bgInfoDate, st.bgInfoWeather, st.bgInfo, false,
+            st.bgInfoPos, st.bgInfoSec, st.saverNetflixHide, st.saverBar, st.saverSize)
+    }
+}
+
+/** Clock, date, weather, place and the TV's numbers over the screensaver (and, with [look], over the home background). */
 @Composable
-private fun SaverInfo(app: GlassApp, place: String, change: Int) {
+fun SaverInfo(app: GlassApp, place: String, change: Int, look: InfoLook = InfoLook.saver(app.settings), credit: String = "",
+              padTop: Float = 0f, padBottom: Float = 0f) {
     val st = app.settings
-    val k = st.saverSize
+    val k = look.size
     val time by produceState(clockText(st.clock24h)) { while (true) { value = clockText(st.clock24h); delay(5_000) } }
     val date by produceState(dateLine()) { while (true) { value = dateLine(); delay(60_000) } }
     val wx by app.weather.now.collectAsState()
-    val sys by produceState<SystemInfo.Snap?>(null, st.saverSys) {
-        if (!st.saverSys) return@produceState
+    val sys by produceState<SystemInfo.Snap?>(null, look.sys) {
+        if (!look.sys) return@produceState
         while (true) { value = withContext(Dispatchers.IO) { SystemInfo.read(app) }; delay(5_000) }
     }
     // Where it shows: a fixed corner, or another one with every video (so nothing burns in).
-    val corner = remember(change, st.saverPos) {
-        if (st.saverPos == "move") listOf("bl", "br", "tl", "tr").random() else st.saverPos
+    val corner = remember(change, look.pos) {
+        if (look.pos == "move") listOf("bl", "br", "tl", "tr").random() else look.pos
     }
     // Shown for a while after each video change, or always.
     val shown = remember { Animatable(0f) }
-    LaunchedEffect(change, st.saverShowSec) {
+    LaunchedEffect(change, look.showSec) {
         shown.animateTo(1f, tween(900))
-        if (st.saverShowSec > 0) { delay(st.saverShowSec * 1000L); shown.animateTo(0f, tween(1200)) }
+        if (look.showSec > 0) { delay(look.showSec * 1000L); shown.animateTo(0f, tween(1200)) }
     }
     val shade = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 10f))
     val lines = buildList {
-        if (st.saverClock) add("Time" to time)
-        if (st.saverDate) add("Date" to date)
+        if (look.clock) add("Time" to time)
+        if (look.date) add("Date" to date)
         val w = wx
-        if (st.saverWeather && w != null) add("Weather" to (w.temp(st.weatherF) + (if (w.condition.isNotBlank()) "  " + w.condition else "")))
-        if (st.saverPlace && place.isNotBlank()) add("Place" to place)
+        if (look.weather && w != null) add("Weather" to (w.temp(st.weatherF) + (if (w.condition.isNotBlank()) "  " + w.condition else "")))
+        if (look.place && place.isNotBlank()) add("Place" to place)
+        if (look.place && credit.isNotBlank()) add("Credit" to credit)
         sys?.let { y ->
             if (st.sysRam && y.ramTotal > 0) add("RAM" to "${(100 * y.ramUsed / y.ramTotal)}%")
             if (st.sysCpu && y.cpu >= 0) add("CPU" to "${y.cpu}%")
@@ -205,9 +221,9 @@ private fun SaverInfo(app: GlassApp, place: String, change: Int) {
     val hidden by SaverControl.infoHidden
     val vis by androidx.compose.animation.core.animateFloatAsState(if (hidden) 0f else 1f, tween(400), label = "info")
     if (vis < 0.01f) return
-    if (st.saverStyle == "netflix") {
+    if (look.style == "netflix") {
         // Like the notes before a Netflix film: top left, a bar, then each line comes in one after another.
-        Column(Modifier.fillMaxSize().graphicsLayer { alpha = vis }.padding(start = (52 * k).dp, top = (44 * k).dp)) {
+        Column(Modifier.fillMaxSize().graphicsLayer { alpha = vis }.padding(start = (52 * k).dp, top = (44 * k).dp + padTop.dp)) {
             val n = lines.size
             lines.forEachIndexed { i, (label, value) ->
                 val a = remember(change) { Animatable(0f) }
@@ -215,12 +231,12 @@ private fun SaverInfo(app: GlassApp, place: String, change: Int) {
                     delay(500L + i * 650L)
                     a.animateTo(1f, tween(500))
                     // "Hide when complete": all of them go 4 s after the last one came in.
-                    if (st.saverNetflixHide) { delay((n - 1 - i) * 650L + 4_000L); a.animateTo(0f, tween(700)) }
-                    else if (st.saverShowSec > 0) { delay(st.saverShowSec * 1000L); a.animateTo(0f, tween(700)) }
+                    if (look.netflixHide) { delay((n - 1 - i) * 650L + 4_000L); a.animateTo(0f, tween(700)) }
+                    else if (look.showSec > 0) { delay(look.showSec * 1000L); a.animateTo(0f, tween(700)) }
                 }
                 Row(Modifier.padding(bottom = (6 * k).dp).graphicsLayer { alpha = a.value; translationX = (1f - a.value) * -24f * density },
                     verticalAlignment = Alignment.CenterVertically) {
-                    val bar = when (st.saverBar) { "white" -> Color.White; "black" -> Color.Black; "off" -> null; else -> Color(0xFFE50914) }
+                    val bar = when (look.bar) { "white" -> Color.White; "black" -> Color.Black; "off" -> null; else -> Color(0xFFE50914) }
                     if (bar != null) Box(Modifier.width((3 * k).dp).height((22 * k).dp).background(bar))
                     Text(label.uppercase(), color = Color.White, fontSize = (13 * k).sp, fontWeight = FontWeight.Bold, letterSpacing = (1.4f * k).sp,
                         style = shade, modifier = Modifier.padding(start = if (bar != null) (10 * k).dp else 0.dp))
@@ -234,10 +250,12 @@ private fun SaverInfo(app: GlassApp, place: String, change: Int) {
     // Apple: the time large and light, the rest small under it.
     val align = when (corner) { "tl" -> Alignment.TopStart; "tr" -> Alignment.TopEnd; "br" -> Alignment.BottomEnd; else -> Alignment.BottomStart }
     val end = corner.endsWith("r")
-    Box(Modifier.fillMaxSize().padding(horizontal = (56 * k).dp, vertical = (44 * k).dp).graphicsLayer { alpha = shown.value * vis }) {
+    Box(Modifier.fillMaxSize().padding(start = (56 * k).dp, end = (56 * k).dp, top = (44 * k).dp + padTop.dp, bottom = (44 * k).dp + padBottom.dp)
+        .graphicsLayer { alpha = shown.value * vis }) {
         Column(Modifier.align(align), horizontalAlignment = if (end) Alignment.End else Alignment.Start, verticalArrangement = Arrangement.spacedBy((2 * k).dp)) {
             lines.forEach { (label, value) ->
                 if (label == "Time") Text(value, color = Color.White, fontSize = (46 * k).sp, fontWeight = FontWeight.Light, style = shade)
+                else if (label == "Credit") Text(value, color = Color.White.copy(alpha = 0.6f), fontSize = (11 * k).sp, fontWeight = FontWeight.Medium, style = shade)
                 else Text(if (label == "Date" || label == "Weather" || label == "Place") value else "$label  $value",
                     color = Color.White.copy(alpha = 0.88f), fontSize = (14 * k).sp, fontWeight = FontWeight.Medium, style = shade)
             }

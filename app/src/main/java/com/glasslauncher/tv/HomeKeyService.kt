@@ -35,6 +35,17 @@ class HomeKeyService : AccessibilityService() {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP))
     }
 
+    /** A doorbell pop-up (Home Assistant → [com.glasslauncher.tv.net.NotifyServer]): the corner camera with its words. */
+    fun showDoorbell(cam: com.glasslauncher.tv.ui.Cam, all: List<com.glasslauncher.tv.ui.Cam>, seconds: Int, caption: Pair<String, String>?) {
+        val st = (application as GlassApp).settings
+        camera?.close()
+        val list = listOf(cam) + all.filterNot { it.url == cam.url }
+        camera = CameraOverlay(this, list, seconds, 0, st.doorbellCycleSec, st.doorbellScale, caption).also { it.show() }
+        if (st.doorbellChime) Chime.play()
+    }
+
+    fun closeDoorbell() { camera?.close(); camera = null }
+
     private fun toggleCamera() {
         camera?.let { if (it.showing) { it.close(); camera = null; return } }
         val cams = (application as GlassApp).settings.cameras.mapNotNull { com.glasslauncher.tv.ui.Cam.parse(it) }
@@ -42,7 +53,7 @@ class HomeKeyService : AccessibilityService() {
         val st = (application as GlassApp).settings
         // The camera chosen in Settings → Cameras (the first one if none is chosen or it was removed).
         val start = cams.indexOfFirst { it.url == st.cornerCamera }.coerceAtLeast(0)
-        camera = CameraOverlay(this, cams, st.cameraCornerSec, start, st.cameraCycleSec).also { it.show() }
+        camera = CameraOverlay(this, cams, st.cameraCornerSec, start, st.cameraCycleSec, st.cameraScale).also { it.show() }
     }
 
     private fun enabled(): Boolean = (application as? GlassApp)?.settings?.interceptHome == true
@@ -134,6 +145,7 @@ class HomeKeyService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         runCatching { registerReceiver(screenReceiver, android.content.IntentFilter(Intent.ACTION_SCREEN_ON)) }
         // Ask for key events explicitly; some TV builds ignore the flag from the XML alone.
         serviceInfo = serviceInfo.apply {
@@ -143,7 +155,13 @@ class HomeKeyService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    companion object {
+        /** The running service (the doorbell pop-up is drawn by it). */
+        @Volatile var instance: HomeKeyService? = null
+    }
+
     override fun onDestroy() {
+        if (instance === this) instance = null
         runCatching { unregisterReceiver(screenReceiver) }
         super.onDestroy()
     }

@@ -60,8 +60,8 @@ import kotlin.math.roundToInt
 private val EASE = CubicBezierEasing(0.22f, 0f, 0f, 1f)
 
 private val THEMES = listOf(
-    "bow" to "Black on white", "amoled" to "Black AMOLED", "liquid" to "Liquid",
-    "clear" to "Clear", "water_still" to "Glass still", "water" to "Glass is glass",
+    "bow" to "Black on white", "amoled" to "Black AMOLED", "liquid" to "Frosted Glass",
+    "clear" to "Clear", "water_still" to "Still Glass", "water" to "Dynamic Glass",
 )
 
 /**
@@ -211,24 +211,36 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     BG_MODES.forEachIndexed { i, (key, label) ->
                         MenuRow(s, light, label, if (st.bgMode == key) "✓" else "",
                             modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
-                            first = i == 0, last = i == BG_MODES.lastIndex && st.bgMode != "aerial", onLeft = back,
+                            first = i == 0, last = i == BG_MODES.lastIndex && st.bgMode == "carousel", onLeft = back,
                             glyph = { c -> glyph(if (st.bgMode == key) "dotOn" else "dotOff", c) },
                             onClick = {
                                 target = i
                                 when {
-                                    key == "image" && st.bgImage.isBlank() -> toast(ctx, "Choose a picture first: Glassio settings → Clock & glass")
-                                    key == "video" && st.bgVideo.isBlank() -> toast(ctx, "Choose a video first: Glassio settings → Clock & glass")
+                                    key == "image" && st.bgImage.isBlank() -> toast(ctx, "Choose a picture first: Glassio settings → Background & glass")
+                                    key == "video" && st.bgVideo.isBlank() -> toast(ctx, "Choose a video first: Glassio settings → Background & glass")
                                     else -> st.bgMode = key
                                 }
                             })
                     }
-                    // Screensaver background: a new video when each ends, or the same one again.
-                    if (st.bgMode == "aerial") {
+                    // Your background: shuffle (a new one by itself) and the next one now, for whichever kind it is.
+                    val extra: Pair<Pair<String, Boolean>, Pair<String, () -> Unit>>? = when (st.bgMode) {
+                        "aerial" -> ("Shuffle videos" to st.bgShuffle) to ("Next video" to { st.bgShuffle = !st.bgShuffle })
+                        "video" -> ("Shuffle my videos" to st.bgVideoShuffle) to ("Next video" to { st.bgVideoShuffle = !st.bgVideoShuffle })
+                        "image" -> ("Shuffle my pictures" to st.bgImageShuffle) to ("Next picture" to { st.bgImageShuffle = !st.bgImageShuffle })
+                        "photos" -> ("Shuffle photos" to st.photoShuffle) to ("Next photo" to { st.photoShuffle = !st.photoShuffle })
+                        else -> null
+                    }
+                    if (extra != null) {
                         val n = BG_MODES.size
-                        MenuRow(s, light, "Shuffle videos", if (st.bgShuffle) "On" else "Off",
+                        val (shuffle, next) = extra
+                        MenuRow(s, light, shuffle.first, if (shuffle.second) "On" else "Off",
                             modifier = Modifier.focusRequester(reqs[n]), onFocused = { current = n },
+                            first = false, last = false, onLeft = back,
+                            glyph = { c -> glyph(if (shuffle.second) "dotOn" else "dotOff", c) }, onClick = { target = n; next.second() })
+                        MenuRow(s, light, next.first, "",
+                            modifier = Modifier.focusRequester(reqs[n + 1]), onFocused = { current = n + 1 },
                             first = false, last = true, onLeft = back,
-                            glyph = { c -> glyph(if (st.bgShuffle) "dotOn" else "dotOff", c) }, onClick = { target = n; st.bgShuffle = !st.bgShuffle })
+                            glyph = { c -> glyph("dotOff", c) }, onClick = { target = n + 1; CustomBackground.nextNow(st) })
                     }
                 } else if (saverPage) {
                     Text("Screensaver", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
@@ -367,7 +379,7 @@ private fun DrawScope.plateGlyph(p: String, c: Color) {
     drawRoundRect(c, cornerRadius = r, style = Stroke(size.width * 0.1f))
 }
 
-private val BG_MODES = listOf("carousel" to "Title backdrops", "image" to "My picture", "video" to "My video", "aerial" to "Screensaver")
+private val BG_MODES = listOf("carousel" to "Title backdrops", "image" to "My picture", "photos" to "Photos", "video" to "My video", "aerial" to "Screensaver")
 
 private fun themeLabel(t: String) = THEMES.firstOrNull { it.first == t }?.second ?: "Custom"
 
