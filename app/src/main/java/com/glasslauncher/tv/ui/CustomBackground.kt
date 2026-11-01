@@ -315,6 +315,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
         val v = view ?: return@LaunchedEffect
         if (!ready || !playing || android.os.Build.VERSION.SDK_INT < 24) return@LaunchedEffect
         val myGen = VideoFrames.gen
+        if (rendered) VideoFrames.showing.value = true
         // One copy at a time, into buffers used in turn: a new copy never lands in the picture on screen
         // (that showed as flashes in the glass).
         val inFlight = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -349,7 +350,10 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                 }.onFailure { inFlight.set(false) }
             }
         } finally {
-            worker.quitSafely(); VideoFrames.clear()
+            // Paused (the Library, another screen): the last copies stay, and the video is still the background.
+            // Clearing them here left the glass and the clock on the still picture after coming back, until the
+            // next video started. They are cleared only when the video goes away (onDispose).
+            worker.quitSafely()
         }
     }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
