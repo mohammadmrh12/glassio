@@ -90,6 +90,7 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
         else ask = MenuDialog("Remove “$name”?", listOf("Remove" to f, "Cancel" to {}))
     }
     val ctx = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val menuFn: (HeroItem, () -> Unit) -> Unit = { item, remove ->
         val opts = mutableListOf<Pair<String, () -> Unit>>()
         NuvioLaunch.installedTargets(ctx).forEach { (t, n) -> opts += "Open in $n" to { NuvioLaunch.openIn(ctx, t, item) } }
@@ -98,13 +99,30 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
             val label = runCatching { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(enriched.platform)
             opts += "Open in $label" to { NuvioLaunch.openApp(ctx, pkg) }
         }
+        // Its trailer, over the whole screen (Back stops it).
+        if (item.id.startsWith("tt")) opts += "Trailer" to {
+            scope.launch {
+                val got = withContext(Trailers.background) { runCatching { Trailers.prepare(app, item.type, item.id) }.getOrNull() }
+                if (got?.second == null) toast(ctx, "No trailer for ${item.name}")
+                else Trailers.play("lib:" + item.key, got.first, got.second, overlay = true)
+            }
+        }
         opts += "Remove" to remove
         ask = MenuDialog(item.name, opts)
     }
+    val overlay = Trailers.playing.value?.overlay == true
     androidx.compose.runtime.CompositionLocalProvider(LocalAsk provides askFn, LocalGlow provides app.settings.glow, LocalItemMenu provides menuFn) {
-        LibraryPage(app, onTopUp, active, onClose)
+        // While a trailer plays over the Library, the remote is its own: Back stops it, nothing else moves below.
+        Box(Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
+            if (!overlay) false
+            else { if (ev.key == Key.Back && ev.type == KeyEventType.KeyUp) Trailers.stop(); true }
+        }) { LibraryPage(app, onTopUp, active, onClose) }
     }
     DialogHost(ask) { ask = null }
+    BackHandler(enabled = overlay) { Trailers.stop() }
+    LibraryTrailer(app, LocalScale.current)
+    // Leaving the Library stops it.
+    LaunchedEffect(active) { if (!active && Trailers.playing.value?.overlay == true) Trailers.stop() }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
@@ -235,7 +253,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                     Text("Library", color = Color.White, fontSize = (26 * s).sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height((4 * s).dp))
                     Text(
-                        if (hasAny) "OK opens · hold OK to remove" else "Nothing here yet. On the home screen, press + next to Play to save a title.",
+                        if (hasAny) "OK opens · hold OK for its trailer and more" else "Nothing here yet. On the home screen, press + next to Play to save a title.",
                         color = Color.White.copy(alpha = 0.55f), fontSize = (10 * s).sp,
                     )
                 }

@@ -131,7 +131,7 @@ class ContinueWatching(
                 val e = CwEntry(p.imdb, p.season, p.episode, p.percent, p.at, "Trakt")
                 if (p.percent >= 92) { recordFinished(e); continue }
                 val other = list.firstOrNull { it.imdb == p.imdb }
-                if (other != null && other.at >= p.at) continue
+                if (other != null && !replaces(other, p.at, "Trakt")) continue
                 list.removeAll { it.imdb == p.imdb }
                 list.add(e)
                 ids.put(e.key, p.id)
@@ -232,7 +232,7 @@ class ContinueWatching(
                 if (r.e.percent >= 92) { recordFinished(r.e); continue }
                 if (r.e.percent < 1) continue
                 val other = list.firstOrNull { it.imdb == r.e.imdb }
-                if (other != null && other.at >= r.e.at) continue
+                if (other != null && !replaces(other, r.e.at, app)) continue
                 list.removeAll { it.imdb == r.e.imdb }
                 list.add(r.e)
                 ids.put(r.e.key, r.ref)
@@ -352,8 +352,27 @@ class ContinueWatching(
     }
 
     /** Turns entries into carousel items using Cinemeta (name, art, logo, synopsis, rating). */
+    private fun isNuvio(app: String) = app == "Nuvio" || app == "Nuvio Legacy"
+
+    /**
+     * Nuvio is the truth (Settings → Continue Watching): what Nuvio shows is what shows here, with Nuvio's own
+     * progress. The other accounts still sync, but never replace a Nuvio title or add their own (their progress
+     * for the same title was often older or rounded differently).
+     */
+    private fun nuvioFirst(): Boolean = settings.cwNuvioOnly && ((settings.cwNuvioAccount && nuvio?.connected == true) || settings.cwLegacy)
+
+    /** Whether [incoming] from [app] may take the place of [other] (the same title, from another source). */
+    private fun replaces(other: CwEntry, incomingAt: Long, app: String): Boolean = when {
+        nuvioFirst() && isNuvio(app) -> true
+        nuvioFirst() && isNuvio(other.app) -> false
+        else -> incomingAt > other.at
+    }
+
+    /** Builds the list again (after a setting that changes what shows). */
+    fun refreshItems() { scope.launch(Dispatchers.IO) { rebuildItems() } }
+
     private fun rebuildItems() {
-        val watching = entries.value.filter { it.percent >= 2 }
+        val watching = entries.value.filter { it.percent >= 2 && (!nuvioFirst() || isNuvio(it.app)) }
         val next = if (settings.cwNextUp) nextUp.value.filter { n -> watching.none { it.imdb == n.imdb } } else emptyList()
         val out = (watching + next).sortedByDescending { it.at }.mapNotNull { e ->
             runCatching {

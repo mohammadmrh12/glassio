@@ -37,6 +37,8 @@
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:hardwareAccelerated="true">
+        <!-- Lets the TV's own profiler (simpleperf) see where time goes in this build; nothing else changes. -->
+        <profileable android:shell="true" />
 
         <activity
             android:name=".MainActivity"

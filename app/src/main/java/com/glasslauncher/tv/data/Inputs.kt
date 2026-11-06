@@ -27,9 +27,26 @@ object Inputs {
     fun isInput(pkg: String) = pkg.startsWith(PREFIX)
 
     /** Blocking. Reads the inputs again (TV list, else CEC devices through the TV's debugging connection). */
+    /**
+     * The inputs found last time, straight away (kept on the TV): after the TV was off, its CEC list is empty for a
+     * while and the PlayStation icon left the dock until it was read again.
+     */
+    fun load(ctx: Context) {
+        if (list.value.isNotEmpty()) return
+        val saved = ctx.getSharedPreferences("glass_inputs", Context.MODE_PRIVATE).getString("list", "").orEmpty()
+        val l = saved.lines().mapNotNull { ln -> ln.split('\t').takeIf { it.size == 3 }?.let { Input(it[0], it[1], it[2].toIntOrNull() ?: 0) } }
+        if (l.isNotEmpty()) list.value = l
+    }
+
+    private fun save(ctx: Context, l: List<Input>) =
+        ctx.getSharedPreferences("glass_inputs", Context.MODE_PRIVATE).edit().putString("list", l.joinToString("\n") { "${it.id}\t${it.label}\t${it.port}" }).apply()
+
     fun refresh(ctx: Context): List<Input> {
-        val l = runCatching { tvInputs(ctx) }.getOrDefault(emptyList()).ifEmpty { runCatching { cecDevices(ctx) }.getOrDefault(emptyList()) }
-        if (l != list.value) list.value = l
+        load(ctx)
+        val found = runCatching { tvInputs(ctx) }.getOrDefault(emptyList()).ifEmpty { runCatching { cecDevices(ctx) }.getOrDefault(emptyList()) }
+        // Nothing answering just now (the TV or the device waking up): the ones known stay.
+        val l = found.ifEmpty { list.value }
+        if (l != list.value) { list.value = l; save(ctx, l) } else if (found.isNotEmpty()) save(ctx, l)
         // Devices switched through the TV's shell: its quick connection is kept open, so a switch goes out at once.
         if (l.any { it.id.startsWith("cec:") }) LocalShell.warm(ctx)
         return l
@@ -81,6 +98,10 @@ object Inputs {
         }.onFailure { Glog.w("Input $raw", it) }.isSuccess
         else {
             val la = raw.removePrefix("cec:").substringBefore(':')
+            // At once on screen, while the TV switches (the device itself takes a moment to answer).
+            list.value.firstOrNull { it.id == raw }?.let { i ->
+                android.os.Handler(android.os.Looper.getMainLooper()).post { android.widget.Toast.makeText(ctx, "Switching to ${i.label}…", android.widget.Toast.LENGTH_SHORT).show() }
+            }
             LocalShell.quick(ctx, "cmd hdmi_control deviceselect $la")
             true
         }

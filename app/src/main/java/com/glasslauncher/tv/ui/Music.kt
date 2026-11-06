@@ -12,6 +12,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,11 +71,121 @@ import androidx.compose.material3.Text
 import com.glasslauncher.tv.GlassApp
 import com.glasslauncher.tv.data.NowPlaying
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** The music player's shared bits: what opens the menu on its music page (the dock's Music icon). */
 object MusicUi {
+    /** The music page's background for one song: the artwork blurred (the page) and its small copy for the glass. */
+    class StagePics(val back: androidx.compose.ui.graphics.ImageBitmap, val glass: androidx.compose.ui.graphics.ImageBitmap?)
+    /** The song's pictures now, the last song's while the new one fades in over it, and that fade (0..1). */
+    val stageCur = mutableStateOf<StagePics?>(null)
+    val stagePrev = mutableStateOf<StagePics?>(null)
+    val stageMix = androidx.compose.animation.core.Animatable(1f)
+    private var stageKey: String? = null
+    /** Paused: the music page (and the glass over it) dims; 0..0.6, the same scale as the open-dock veil. */
+    val pauseDim = androidx.compose.animation.core.Animatable(0f)
+    /** Whether the selection was in the music player (it goes back to the carousel or the dock when the player goes). */
+    var stageFocused = false
+
+    /**
+     * The same artwork comes as a new picture with every update from the music app (each position change): a few
+     * of its pixels tell whether it is really another one.
+     */
+    fun artKey(b: android.graphics.Bitmap?): String? = b?.let {
+        runCatching {
+            var h = it.width * 31 + it.height
+            for (y in 1..5) for (x in 1..5) h = h * 31 + it.getPixel(it.width * x / 6, it.height * y / 6)
+            "${it.width}x${it.height}:$h"
+        }.getOrNull()
+    }
+
+    /**
+     * A new song's background: worked out off the main thread (it stuttered when blurred while drawing), then faded
+     * in over the last one (both stay fully drawn under it, so the page never dips to black), the glass with it.
+     */
+    /**
+     * The song for the music page: the playing one, or the last one for a moment after it went (between two songs,
+     * or while an app changes its session, there is often a moment with no song: the page and the dock's glass
+     * flashed the carousel picture). Stop from Glassio takes it away at once.
+     */
+    @Composable
+    fun heldTrack(): NowPlaying.Track? {
+        val t by NowPlaying.track.collectAsState()
+        var last by remember { androidx.compose.runtime.mutableStateOf<NowPlaying.Track?>(null) }
+        LaunchedEffect(t) {
+            if (t != null) last = t
+            else if (android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt < 3000) last = null
+            else { delay(1500); last = null }
+        }
+        return t ?: last?.takeIf { android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt > 3000 }
+    }
+
+    suspend fun stageTo(art: android.graphics.Bitmap?) {
+        if (art == null) { stageKey = null; stageCur.value = null; stagePrev.value = null; stageMix.snapTo(1f); return }
+        val key = artKey(art)
+        if (key == stageKey && stageCur.value != null) return
+        stageKey = key
+        val pics = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            runCatching { val b = blurredBackdrop(art, 70); StagePics(b, stagePicture(art, b)) }.getOrNull()
+        } ?: return
+        val old = stageCur.value
+        if (old == null) { stageCur.value = pics; return }
+        stageMix.snapTo(0f)
+        stagePrev.value = old; stageCur.value = pics
+        try { stageMix.animateTo(1f, androidx.compose.animation.core.tween(900)) }
+        finally { kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { stageMix.snapTo(1f); stagePrev.value = null } }
+    }
+
     val openInMenu = mutableStateOf(false)
     const val DOCK_PKG = "music:player"
+
+    /** The island opened up (▲ on the screensaver) with its buttons; [islandSel] is the button selected. */
+    val islandOpen = mutableStateOf(false)
+    val islandSel = androidx.compose.runtime.mutableIntStateOf(2)
+    /** Shuffle as the playing app last reported it (the island's shuffle button). */
+    val shuffled = NowPlaying.shuffled
+
+    /**
+     * A key while the island is open (the screensaver passes them here): ◀ ▶ choose a button, OK presses it,
+     * ▼ or Back close it. True when used.
+     */
+    fun islandKey(ctx: android.content.Context, code: Int): Boolean {
+        when (code) {
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> islandSel.intValue = (islandSel.intValue - 1).coerceAtLeast(0)
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> islandSel.intValue = (islandSel.intValue + 1).coerceAtMost(5)
+            android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> when (islandSel.intValue) {
+                0 -> NowPlaying.shuffle(ctx, !shuffled.value)
+                1 -> NowPlaying.previous()
+                2 -> NowPlaying.playPause()
+                3 -> NowPlaying.next()
+                4 -> { islandOpen.value = false; NowPlaying.stop() }
+                // The list: the playing app itself (its queue and playlists).
+                5 -> NowPlaying.track.value?.pkg?.let { islandOpen.value = false; openMusicApp(ctx, it) }
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_BACK -> islandOpen.value = false
+            android.view.KeyEvent.KEYCODE_DPAD_UP -> {}
+            else -> return false
+        }
+        return true
+    }
+
+    /**
+     * The music mode's background as a small picture (the artwork blurred and darkened, as the stage draws it), so
+     * the glass of the dock and menus shows the music page instead of the carousel picture under it.
+     */
+    fun stagePicture(art: android.graphics.Bitmap, blurred: androidx.compose.ui.graphics.ImageBitmap? = null): androidx.compose.ui.graphics.ImageBitmap? = runCatching {
+        val w = 480; val h = 270
+        val out = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(out)
+        c.drawColor(android.graphics.Color.BLACK)
+        val blur = (blurred ?: blurredBackdrop(art, 70)).asAndroidBitmap()
+        val sc = maxOf(w.toFloat() / blur.width, h.toFloat() / blur.height)
+        val dw = blur.width * sc; val dh = blur.height * sc
+        c.drawBitmap(blur, null, android.graphics.RectF((w - dw) / 2, (h - dh) / 2, (w + dw) / 2, (h + dh) / 2),
+            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG).apply { alpha = (0.85f * 255).toInt() })
+        c.drawColor(android.graphics.Color.argb((0.35f * 255).toInt(), 0, 0, 0))
+        out.asImageBitmap()
+    }.getOrNull()
 
     /** The artwork's main colour (for the island's bars), or white. */
     fun tint(b: android.graphics.Bitmap?): Color {
@@ -120,8 +234,12 @@ private fun progressOf(t: NowPlaying.Track): Float {
 /** A few bars rising and falling while the music plays (in the artwork's colour or white). */
 @Composable
 fun MusicBars(playing: Boolean, color: Color, modifier: Modifier) {
-    val tr = rememberInfiniteTransition(label = "bars")
-    val t by tr.animateFloat(0f, 6.2832f, infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart), label = "t")
+    // About 12 steps a second, and none while paused: at the screen's 60 a second these few bars made the whole
+    // home screen draw again all the time (the TV's GPU was always busy, the Library scrolled slower).
+    val t by produceState(0f, playing) {
+        if (!playing) return@produceState
+        while (true) { value = (android.os.SystemClock.uptimeMillis() % 1400L) / 1400f * 6.2832f; delay(80) }
+    }
     val on by animateFloatAsState(if (playing) 1f else 0.15f, tween(300), label = "on")
     Canvas(modifier) {
         val n = 4
@@ -142,53 +260,131 @@ fun MusicBars(playing: Boolean, color: Color, modifier: Modifier) {
 fun MusicIsland(app: GlassApp, s: Float) {
     val st = app.settings
     val t by NowPlaying.track.collectAsState()
-    val tr = t ?: return
+    if (t == null) { androidx.compose.runtime.SideEffect { if (MusicUi.islandOpen.value) MusicUi.islandOpen.value = false }; return }
+    val tr = t!!
     val k = s * st.islandScale
-    val glass = st.islandStyle == "glass"
+    // Its look, as the dock's panel is drawn: with the theme (Black AMOLED black, Black on white white, Frosted
+    // frosted, Clear clear, Still Glass still glass), or chosen.
+    val look = when (st.islandStyle) { "none" -> "none"; "black" -> "amoled"; "glass" -> "water_still"; else -> st.dockStyle }
+    val ink = if (look == "bow") Color(0xFF111114) else Color.White
+    val inkOn = if (look == "bow") Color.White else Color.Black
+    // No background at all: the song and buttons float over the picture (with a soft shadow to stay readable).
+    val bare = look == "none"
     val attached = st.islandAttached
-    val shape = if (attached) RoundedCornerShape(bottomStart = (22 * k).dp, bottomEnd = (22 * k).dp) else RoundedCornerShape(50)
-    val color = remember(tr.art) { if (st.islandBars == "white") Color.White else MusicUi.tint(tr.art) }
+    val open = MusicUi.islandOpen.value
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(open) { if (open) { MusicUi.islandSel.intValue = 2 } }
+    // Paused for a while: the island goes away (back as soon as it plays, or when opened).
+    var away by remember { mutableStateOf(false) }
+    LaunchedEffect(tr.playing, open) { if (tr.playing || open) away = false else { kotlinx.coroutines.delay(20_000); away = true } }
+    val shown by animateFloatAsState(if (away) 0f else 1f, tween(600), label = "islandShown")
+    // (It fades out but stays composed: leaving the composition from here while its animations were still
+    // being drawn crashed the home screen once — "a state created after the snapshot was taken".)
+    val color = remember(tr.art) { if (st.islandBars == "white") ink else MusicUi.tint(tr.art) }
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) { enter.animateTo(1f, androidx.compose.animation.core.spring(0.7f, 260f)) }
+    val img = remember(tr.art) { tr.art?.asImageBitmap() }
+    // Like the iPhone's Dynamic Island: one shape that grows from its middle (springy, settling softly), its
+    // corners rounding out a little, the new content fading in once there is room for it.
+    val morph = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntSize>(0.82f, 320f)
+    val grow by animateFloatAsState(if (open) 1f else 0f, androidx.compose.animation.core.spring(0.82f, 320f), label = "island")
+    val r = (22 * k + 6 * k * grow).dp
+    val shape = if (attached) RoundedCornerShape(bottomStart = r, bottomEnd = r) else RoundedCornerShape(r)
     Box(Modifier.fillMaxWidth().padding(top = if (attached) 0.dp else (14 * s + st.islandOffset * s).dp), contentAlignment = Alignment.TopCenter) {
-        Row(
-            Modifier.graphicsLayer { scaleX = 0.6f + 0.4f * enter.value; scaleY = scaleX; alpha = enter.value; translationY = (attached).let { if (it) (st.islandOffset * s) * density else 0f } }
-                .clip(shape)
-                .background(if (glass) Color.White.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.92f))
-                .then(if (glass) Modifier.border((0.8f * k).dp, Color.White.copy(alpha = 0.35f), shape) else Modifier)
-                .padding(start = (8 * k).dp, end = (14 * k).dp, top = (if (attached) 10 else 7).let { (it * k).dp }, bottom = (7 * k).dp)
-                .widthIn(max = (360 * k).dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (st.islandArt) {
-                val img = remember(tr.art) { tr.art?.asImageBitmap() }
-                Box(Modifier.size((30 * k).dp).clip(RoundedCornerShape((7 * k).dp)).background(Color.White.copy(alpha = 0.1f))) {
-                    if (img != null) Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+      // The panel is its own layer under the content and takes its size every frame (as the background of the
+      // morphing content itself it vanished while the island opened and closed).
+      Box(Modifier.graphicsLayer { scaleX = 0.6f + 0.4f * enter.value; scaleY = scaleX; alpha = enter.value * shown; translationY = (attached).let { if (it) (st.islandOffset * s) * density else 0f } }) {
+        if (!bare) GlassPanel(Modifier.matchParentSize(), radius = r, style = look, refract = look.startsWith("water") || look == "liquid", cache = false) {}
+        androidx.compose.animation.AnimatedContent(
+            targetState = open,
+            transitionSpec = {
+                (androidx.compose.animation.fadeIn(tween(220, delayMillis = 110)) togetherWith androidx.compose.animation.fadeOut(tween(110)))
+                    .using(androidx.compose.animation.SizeTransform(clip = true) { _, _ -> morph })
+            },
+            contentAlignment = Alignment.TopCenter,
+            label = "islandMorph",
+            modifier = Modifier.clip(shape),
+        ) { isOpen ->
+          androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides androidx.compose.ui.text.TextStyle(
+              shadow = if (bare) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.7f), blurRadius = 10f) else null)) {
+            if (!isOpen) Row(Modifier.padding(start = (8 * k).dp, end = (14 * k).dp, top = ((if (attached) 10 else 7) * k).dp, bottom = (7 * k).dp).widthIn(max = (360 * k).dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                if (st.islandArt) {
+                    Box(Modifier.size((30 * k).dp).clip(RoundedCornerShape((7 * k).dp)).background(Color.White.copy(alpha = 0.1f))) {
+                        if (img != null) Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    }
+                    Spacer(Modifier.width((9 * k).dp))
                 }
-                Spacer(Modifier.width((9 * k).dp))
-            }
-            Column(Modifier.weight(1f, fill = false)) {
-                if (st.islandTitle) {
-                    Text(tr.title, color = Color.White, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (tr.artist.isNotBlank()) Text(tr.artist, color = Color.White.copy(alpha = 0.6f), fontSize = (9.5f * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.weight(1f, fill = false)) {
+                    if (st.islandTitle) {
+                        Text(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (tr.artist.isNotBlank()) Text(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (st.islandProgress) {
+                        val p = progressOf(tr)
+                        Spacer(Modifier.height((5 * k).dp))
+                        Box(Modifier.width((150 * k).dp).height((2.5f * k).dp).clip(RoundedCornerShape(50)).background(ink.copy(alpha = 0.22f))) {
+                            Box(Modifier.fillMaxWidth(p).height((2.5f * k).dp).background(ink))
+                        }
+                    }
                 }
-                if (st.islandProgress) {
-                    val p = progressOf(tr)
-                    Spacer(Modifier.height((5 * k).dp))
-                    Box(Modifier.width((150 * k).dp).height((2.5f * k).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.22f))) {
-                        Box(Modifier.fillMaxWidth(p).height((2.5f * k).dp).background(Color.White))
+                Spacer(Modifier.width((12 * k).dp))
+                MusicBars(tr.playing, color, Modifier.size((20 * k).dp, (16 * k).dp))
+            } else Column(Modifier.padding(start = (18 * k).dp, end = (18 * k).dp, top = ((if (attached) 18 else 15) * k).dp, bottom = (16 * k).dp)) {
+                // Open: the artwork, the song, its progress and the buttons (shuffle, ◀◀, play / pause, ▶▶, stop, the app's list).
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size((52 * k).dp).clip(RoundedCornerShape((10 * k).dp)).background(Color.White.copy(alpha = 0.1f))) {
+                        if (img != null) Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    }
+                    Spacer(Modifier.width((12 * k).dp))
+                    Column(Modifier.width((262 * k).dp)) {
+                        Text(tr.title, color = ink, fontSize = (13 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (tr.artist.isNotBlank()) Text(tr.artist, color = ink.copy(alpha = 0.65f), fontSize = (11 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.width((10 * k).dp))
+                    MusicBars(tr.playing, color, Modifier.size((22 * k).dp, (18 * k).dp))
+                }
+                Spacer(Modifier.height((10 * k).dp))
+                val p = progressOf(tr)
+                Box(Modifier.width((358 * k).dp).height((3 * k).dp).clip(RoundedCornerShape(50)).background(ink.copy(alpha = 0.22f))) {
+                    Box(Modifier.fillMaxWidth(p).height((3 * k).dp).background(ink))
+                }
+                Spacer(Modifier.height((10 * k).dp))
+                val sel = MusicUi.islandSel.intValue
+                Row(Modifier.width((358 * k).dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    for (b in 0..5) {
+                        val on = sel == b
+                        val size = (if (b == 2) 36 else 30) * k
+                        val sc by animateFloatAsState(if (on) 1.12f else 1f, androidx.compose.animation.core.spring(0.7f, 700f), label = "ib$b")
+                        Box(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(size.dp).clip(CircleShape)
+                            .background(if (on) ink else ink.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                            val fg = if (on) inkOn else ink
+                            val shuffleOn = MusicUi.shuffled.value
+                            Canvas(Modifier.size((size * 0.42f).dp)) {
+                                when (b) {
+                                    0 -> shuffleGlyph(if (shuffleOn) fg else fg.copy(alpha = 0.4f))
+                                    1 -> skipGlyph(fg, false)
+                                    2 -> playGlyph(fg, tr.playing)
+                                    3 -> skipGlyph(fg, true)
+                                    4 -> stopGlyph(fg)
+                                    else -> listGlyph(fg)
+                                }
+                            }
+                            if (b == 0 && shuffleOn) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = (size * 0.1f).dp).size((size * 0.09f).dp).clip(CircleShape).background(fg))
+                        }
                     }
                 }
             }
-            Spacer(Modifier.width((12 * k).dp))
-            MusicBars(tr.playing, color, Modifier.size((20 * k).dp, (16 * k).dp))
+          }
         }
+      }
     }
 }
 
 /** A round player button: in the theme's look, white or black, the other way round when selected (like Play). */
 @Composable
-private fun MusicButton(size: Dp, look: String, light: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit, glyph: DrawScope.(Color) -> Unit) {
+private fun MusicButton(size: Dp, look: String, light: Boolean, modifier: Modifier = Modifier, active: Boolean = false, onOff: Boolean = false, onClick: () -> Unit, glyph: DrawScope.(Color) -> Unit) {
+    val back = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current
     var f by remember { mutableStateOf(false) }
     val sc by animateFloatAsState(if (f) 1.12f else 1f, androidx.compose.animation.core.spring(0.7f, 700f), label = "mb")
     val (bg, fg) = when (look) {
@@ -200,9 +396,15 @@ private fun MusicButton(size: Dp, look: String, light: Boolean, modifier: Modifi
     Box(
         modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(size).clip(CircleShape).background(bg)
             .onFocusChanged { f = it.isFocused }
-            .tvPress(onClick = onClick),
+            // Back: always to the home screen's own Back (unhandled here, the first press only moved the selection
+            // off the button and nothing happened).
+            .tvPress(onKey = { ev -> if (ev.key == Key.Back) { if (ev.type == KeyEventType.KeyUp) back?.onBackPressedDispatcher?.onBackPressed(); true } else false }, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Canvas(Modifier.size(size * 0.42f)) { glyph(fg) } }
+    ) {
+        Canvas(Modifier.size(size * 0.42f)) { glyph(if (active || !onOff) fg else fg.copy(alpha = 0.4f)) }
+        // On (shuffle): a dot under the mark, so it shows clearly in every button look.
+        if (active) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = size * 0.1f).size(size * 0.09f).clip(CircleShape).background(fg))
+    }
 }
 
 private fun DrawScope.playGlyph(c: Color, playing: Boolean) {
@@ -234,8 +436,9 @@ private fun DrawScope.listGlyph(c: Color) {
 
 /** The music apps on the TV (the ones Glassio knows), as package → name. */
 fun installedMusicApps(ctx: android.content.Context): List<Pair<String, String>> =
-    NowPlaying.MUSIC_APPS.entries.filter { e -> runCatching { ctx.packageManager.getPackageInfo(e.key, 0) }.isSuccess }
-        .map { it.key to it.value }.distinctBy { it.second }
+    (NowPlaying.MUSIC_APPS.entries.map { it.key to it.value } + listOf("com.google.android.youtube.tv" to "YouTube", "com.google.android.youtube.googletv" to "YouTube"))
+        .filter { (pkg, _) -> runCatching { ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess }
+        .distinctBy { it.second }
 
 /** Opens a music app (the chosen platform), to pick something to play. */
 fun openMusicApp(ctx: android.content.Context, pkg: String) {
@@ -251,23 +454,43 @@ fun openMusicApp(ctx: android.content.Context, pkg: String) {
 @Composable
 fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: FocusRequester, onApps: () -> Unit) {
     val st = app.settings
-    val t by NowPlaying.track.collectAsState()
-    val tr = t ?: return
+    val tr = MusicUi.heldTrack() ?: return
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val img = remember(tr.art) { tr.art?.asImageBitmap() }
-    val blurred = remember(tr.art) { tr.art?.let { runCatching { blurredBackdrop(it, 70) }.getOrNull() } }
     val k = s * st.musicStageScale
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // A new song fades in over the last one (its background, artwork and names), like Apple Music on TV. The
+    // background is the one the glass shows (MusicUi.stageTo): the new picture fades in over the old one, still
+    // fully drawn, so nothing dips to black in between.
+    val cur = MusicUi.stageCur.value
+    val prev = MusicUi.stagePrev.value
+    // The artwork by its look, not by the picture object (the app sends a new one with every update).
+    val artKey = remember(tr.art) { MusicUi.artKey(tr.art) }
+    val artImg = remember(artKey) { tr.art?.asImageBitmap() }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (blurred != null) Image(blurred, null, Modifier.fillMaxSize().graphicsLayer { alpha = 0.85f }, contentScale = ContentScale.Crop)
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
-        Column(Modifier.align(Alignment.Center).offset(y = (-34 * s).dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size((190 * k).dp).clip(RoundedCornerShape((14 * k).dp)).background(Color.White.copy(alpha = 0.08f))) {
-                if (img != null) Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (prev != null) Image(prev.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (cur != null) Image(cur.back, null, Modifier.fillMaxSize().graphicsLayer { alpha = if (prev != null) MusicUi.stageMix.value else 1f },
+            contentScale = ContentScale.Crop)
+        // The page darkened as before (the blurred artwork at 85 % on black, then 35 % black over it), and more while
+        // paused (the glass over it dims the same way: its veil).
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = MusicUi.pauseDim.value * VEIL_DIM }.background(Color.Black))
+        Column(Modifier.align(Alignment.Center).offset(y = (-34 * s).dp).onFocusChanged { MusicUi.stageFocused = it.hasFocus },
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            // A soft shadow under the artwork, as if it floats over the page.
+            Box(Modifier.size((190 * k).dp).shadow((22 * k).dp, RoundedCornerShape((14 * k).dp), ambientColor = Color.Black, spotColor = Color.Black)
+                .clip(RoundedCornerShape((14 * k).dp)).background(Color.White.copy(alpha = 0.08f))) {
+                androidx.compose.animation.Crossfade(artImg, animationSpec = tween(700), label = "art") { img ->
+                    if (img != null) Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
             }
+          androidx.compose.animation.Crossfade(tr.title to tr.artist, animationSpec = tween(600), label = "song") { (title, artist) ->
+           Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height((16 * k).dp))
-            Text(tr.title, color = Color.White, fontSize = (19 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            Text(title, color = Color.White, fontSize = (19 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = (520 * k).dp))
-            if (tr.artist.isNotBlank()) Text(tr.artist, color = Color.White.copy(alpha = 0.7f), fontSize = (13 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (artist.isNotBlank()) Text(artist, color = Color.White.copy(alpha = 0.7f), fontSize = (13 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+           }
+          }
             Spacer(Modifier.height((12 * k).dp))
             val p = progressOf(tr)
             Box(Modifier.width((300 * k).dp).height((3 * k).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f))) {
@@ -277,13 +500,18 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
             val look = st.musicButtons
             val light = st.dockStyle == "bow" && look == "theme"
             val big = (40 * k).dp; val small = (32 * k).dp
-            var shuffled by remember(tr.pkg) { mutableStateOf(NowPlaying.shuffleOn(ctx)) }
+            val shuffled = NowPlaying.shuffled.value
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
-                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = { shuffled = !shuffled; NowPlaying.shuffle(ctx, shuffled) }) { shuffleGlyph(if (shuffled) it else it.copy(alpha = 0.55f)) }
+                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, active = shuffled, onOff = true, onClick = { NowPlaying.shuffle(ctx, !shuffled) }) { shuffleGlyph(it) }
                 MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = { NowPlaying.previous() }) { skipGlyph(it, false) }
                 MusicButton(big, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = firstTile }, onClick = { NowPlaying.playPause() }) { playGlyph(it, tr.playing) }
                 MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = { NowPlaying.next() }) { skipGlyph(it, true) }
-                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = { NowPlaying.stop() }) { stopGlyph(it) }
+                // Stop: the player goes away, so the selection moves to the dock (it was left nowhere).
+                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = {
+                    runCatching { firstTile.requestFocus() }
+                    NowPlaying.stop()
+                    scope.launch { delay(120); runCatching { firstTile.requestFocus() } }
+                }) { stopGlyph(it) }
                 MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
@@ -338,14 +566,15 @@ fun MusicMenuPage(app: GlassApp, s: Float, light: Boolean, first: FocusRequester
             Box(Modifier.fillMaxWidth(p).height((3 * s).dp).background(ink))
         }
         Spacer(Modifier.height((10 * s).dp))
-        var shuffled by remember(tr.pkg) { mutableStateOf(NowPlaying.shuffleOn(ctx)) }
+        val shuffled = NowPlaying.shuffled.value
         val look = app.settings.musicButtons
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             val left = Modifier.onKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft) { onBack(); true } else false }
-            MusicButton((26 * s).dp, look, light, left, onClick = { shuffled = !shuffled; NowPlaying.shuffle(ctx, shuffled) }) { shuffleGlyph(if (shuffled) it else it.copy(alpha = 0.55f)) }
+            MusicButton((26 * s).dp, look, light, left, active = shuffled, onOff = true, onClick = { NowPlaying.shuffle(ctx, !shuffled) }) { shuffleGlyph(it) }
             MusicButton((26 * s).dp, look, light, onClick = { NowPlaying.previous() }) { skipGlyph(it, false) }
             MusicButton((34 * s).dp, look, light, Modifier.focusRequester(first), onClick = { NowPlaying.playPause() }) { playGlyph(it, tr.playing) }
             MusicButton((26 * s).dp, look, light, onClick = { NowPlaying.next() }) { skipGlyph(it, true) }
+            MusicButton((26 * s).dp, look, light, onClick = { NowPlaying.stop() }) { stopGlyph(it) }
             MusicButton((26 * s).dp, look, light, onClick = onApps) { listGlyph(it) }
         }
     }

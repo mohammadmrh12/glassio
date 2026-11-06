@@ -68,13 +68,21 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
                 addView(status, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
             }
             line.addView(card, LinearLayout.LayoutParams(cardW, cardH).apply { if (i > 0) marginStart = gap })
+            // Sharp: each camera's main stream (its full picture) where the TV decodes in hardware; the small
+            // sub-stream on small / older TVs (decoded by the processor), or when the main one won't play.
+            val st = (ctx.applicationContext as GlassApp).settings
+            val main = when (st.multiQuality) { "high" -> true; "light" -> false; else -> !CamPlayer.software(ctx) }
+            var onMain = main && CamPlayer.subStream(c.url) != c.url
             players += CamPlayer.build(ctx).apply {
                 setVideoTextureView(tex)
                 addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) status.visibility = View.GONE }
-                    override fun onPlayerError(error: PlaybackException) { status.text = "Can't reach the camera"; status.visibility = View.VISIBLE }
+                    override fun onPlayerError(error: PlaybackException) {
+                        if (onMain) { onMain = false; com.glasslauncher.tv.data.Glog.w("Multi-view ${c.name}: main stream ${error.errorCodeName}, the small one instead"); CamPlayer.play(ctx, this@apply, CamPlayer.subStream(c.url)); return }
+                        status.text = "Can't reach the camera"; status.visibility = View.VISIBLE
+                    }
                 })
-                CamPlayer.play(ctx, this, CamPlayer.subStream(c.url))
+                CamPlayer.play(ctx, this, if (main) c.url else CamPlayer.subStream(c.url))
             }
         }
         val box = FrameLayout(ctx).apply { addView(line, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) }

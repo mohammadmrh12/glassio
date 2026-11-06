@@ -25,6 +25,10 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
                     okhttp3.OkHttpClient.Builder().dispatcher(okhttp3.Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 12 }).build()
                 }))
             }
+            // Pictures decoded two at a time: decoding on every core at once (the titles around, their glass copies,
+            // the logos, the Library) took the whole processor for seconds after start-up, and the home screen
+            // stuttered meanwhile. The one on screen still comes first (the others wait behind it).
+            .decoderCoroutineContext(kotlinx.coroutines.Dispatchers.Default.limitedParallelism(2))
             // A fixed size by memory tier: a percentage of the (large) heap gave Coil over 100 MB on 2 GB TVs,
             // and Android then closed Glassio while you browsed.
             .memoryCache { coil3.memory.MemoryCache.Builder().maxSizeBytes(when (settings.memTier) { 0 -> 40L; 2 -> 120L; else -> 72L } * 1024 * 1024).build() }
@@ -151,6 +155,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         http = Http(this)
         icons = IconStore(this)
         packs = IconPacks(this)
+        // The TV's inputs known from last time, before the dock is built (so an input's icon is there at once).
+        if (settings.menuInputs || settings.inputsDock) com.glasslauncher.tv.data.Inputs.load(this)
         apps = AppRepository(this, settings, packs, icons).also { it.start() }
         catalogs = CatalogRepository(this, settings, http).also { it.start(scope) }
         cw = com.glasslauncher.tv.data.ContinueWatching(this, settings, http, scope).also { it.start() }
@@ -163,7 +169,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         com.glasslauncher.tv.data.Photos.start(this)
         // Music: follows what any music app plays (its listener is switched on when Music is turned on).
         if (settings.musicOn) Thread { runCatching { com.glasslauncher.tv.data.NowPlaying.grant(this); com.glasslauncher.tv.data.NowPlaying.start(this) } }.apply { isDaemon = true }.start()
-        // The TV's inputs (HDMI, CEC devices), read now and every few minutes while asked for.
+        // The TV's inputs (HDMI, CEC devices): read now and every few minutes.
         scope.launch {
             while (true) {
                 if (settings.menuInputs || settings.inputsDock) {

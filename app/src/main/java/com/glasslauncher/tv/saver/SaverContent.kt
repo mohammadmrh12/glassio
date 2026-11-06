@@ -56,7 +56,7 @@ object SaverControl {
     /** +1 next video, -1 previous one (read and cleared by the player loop). */
     @Volatile var step = 0
     val infoHidden = androidx.compose.runtime.mutableStateOf(false)
-    /** The large clock on the screensaver (▲ shows / hides it; remembered in Settings.saverClockShown). */
+    /** The large clock on the screensaver (shown whenever it is on in Settings). */
     val clockShown = androidx.compose.runtime.mutableStateOf(true)
     /** Bumped by OK to show the info again (it then goes after its time, as after a new video). */
     val showRev = androidx.compose.runtime.mutableIntStateOf(0)
@@ -77,8 +77,9 @@ object SaverControl {
     fun handles(code: Int, st: com.glasslauncher.tv.data.Settings): Boolean = when (code) {
         android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT,
         android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> true
-        android.view.KeyEvent.KEYCODE_DPAD_UP -> st.saverBigClock
-        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> st.saverMultiCam
+        // ▲ opens the music island (while a song plays), ▼ closes it, or brings up the cameras.
+        android.view.KeyEvent.KEYCODE_DPAD_UP -> islandHere(st)
+        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> st.saverMultiCam || com.glasslauncher.tv.ui.MusicUi.islandOpen.value
         else -> false
     }
 
@@ -86,8 +87,21 @@ object SaverControl {
      * A key while the screensaver plays (activity or the TV's own screensaver). OK acts when it is let go
      * (a short press shows / hides the info); held, it locks or releases the video. True when used.
      */
+    private fun islandHere(st: com.glasslauncher.tv.data.Settings) =
+        st.musicOn && st.musicIsland && com.glasslauncher.tv.data.NowPlaying.track.value != null
+
+    /** The app (for the island's buttons). */
+    @Volatile var ctx: android.content.Context? = null
+
     fun onKey(e: android.view.KeyEvent, st: com.glasslauncher.tv.data.Settings): Boolean {
         val code = e.keyCode
+        // The island open: its keys (◀ ▶ choose, OK presses, ▼ / Back close it).
+        if (com.glasslauncher.tv.ui.MusicUi.islandOpen.value) {
+            val c = ctx ?: return false
+            if (e.action == android.view.KeyEvent.ACTION_DOWN) return com.glasslauncher.tv.ui.MusicUi.islandKey(c, code)
+            return code in setOf(android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT, android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_BACK)
+        }
         // Back with the cameras up closes just them (the screensaver stays).
         if (code == android.view.KeyEvent.KEYCODE_BACK && com.glasslauncher.tv.HomeKeyService.instance?.multiShowing == true) {
             if (e.action == android.view.KeyEvent.ACTION_UP) com.glasslauncher.tv.HomeKeyService.instance?.closeMulti()
@@ -105,8 +119,7 @@ object SaverControl {
             return true
         }
         if (e.action == android.view.KeyEvent.ACTION_DOWN && e.repeatCount == 0) {
-            // ▲: the large clock in or out, remembered for the next time.
-            if (code == android.view.KeyEvent.KEYCODE_DPAD_UP) { clockShown.value = !clockShown.value; st.saverClockShown = clockShown.value }
+            if (code == android.view.KeyEvent.KEYCODE_DPAD_UP) com.glasslauncher.tv.ui.MusicUi.islandOpen.value = true
             else key(code)
         }
         return true
@@ -156,7 +169,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
     var change by remember { mutableIntStateOf(0) }
     var failed by remember { mutableStateOf(false) }
     // The clock as it was left last time (shown or hidden); no padlock left over from last time.
-    remember { SaverControl.clockShown.value = st.saverClockShown; SaverControl.lockShown.value = null; SaverControl.out.value = false; 0 }
+    remember { SaverControl.clockShown.value = true; SaverControl.lockShown.value = null; SaverControl.out.value = false; SaverControl.ctx = ctx.applicationContext; com.glasslauncher.tv.ui.MusicUi.islandOpen.value = false; 0 }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         val list = items
         if (list == null) { /* loading: black */ }
@@ -170,7 +183,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 volume = 0f
                 addListener(object : Player.Listener { override fun onRenderedFirstFrame() { rendered[k] = true } })
             } } }
-            DisposableEffect(Unit) { onDispose { players.forEach { it.release() }; SaverControl.step = 0; SaverControl.infoHidden.value = false; SaverControl.lockShown.value = null; SaverFrames.sharp.value = null; com.glasslauncher.tv.HomeKeyService.instance?.closeMulti() } }
+            DisposableEffect(Unit) { onDispose { players.forEach { it.release() }; SaverControl.step = 0; SaverControl.infoHidden.value = false; SaverControl.lockShown.value = null; SaverFrames.sharp.value = null; com.glasslauncher.tv.ui.MusicUi.islandOpen.value = false; com.glasslauncher.tv.HomeKeyService.instance?.closeMulti() } }
             // One SurfaceView: the video goes straight to the TV at its own size and colour, so 4K is really 4K and
             // HDR / Dolby Vision is shown as HDR. Changing video fades through black with a layer above it (the
             // TV ignored a SurfaceView's own transparency, so cross-fading two of them cut instead).
@@ -181,7 +194,27 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             // The large clock in a glass look shows this video through its digits, like the dock's glass: live
             // copies of the video (PixelCopy, scaled on the GPU), ~15 a second, only while the clock is up.
             val glassClock = st.saverBigClock && com.glasslauncher.tv.ui.clockLook(st) != "white" && st.dockStyle != "bow" && st.dockStyle != "amoled"
-            LaunchedEffect(Unit) { snapshotFlow { black.value }.collect { SaverFrames.dim.floatValue = it } }
+            LaunchedEffect(Unit) { snapshotFlow { black.value }.collect { SaverFrames.dim.floatValue = it; com.glasslauncher.tv.ui.VideoFrames.dim.floatValue = it } }
+            // The music island in a glass look: live copies of this video for its glass (see MusicIsland).
+            val islandGlass = st.musicOn && st.musicIsland && st.islandStyle != "none" &&
+                (if (st.islandStyle == "theme") st.dockStyle !in setOf("amoled", "bow") else st.islandStyle == "glass")
+            if (islandGlass) {
+                LaunchedEffect(Unit) {
+                    while (view[0] == null) delay(50)
+                    val iv = com.glasslauncher.tv.ui.VideoFrames
+                    val look = if (st.islandStyle == "glass") "water_still" else st.dockStyle
+                    iv.wantSharp = look.startsWith("water"); iv.wantSoft = !look.startsWith("water")
+                    iv.softRadius = (st.blurRadius / 13).coerceIn(1, 6)
+                    snapshotFlow { rendered[0] }.collect { }
+                }
+                LaunchedEffect(Unit) {
+                    while (view[0] == null) delay(50)
+                    while (!rendered[0]) delay(100)
+                    com.glasslauncher.tv.ui.VideoFrames.showing.value = true
+                    com.glasslauncher.tv.ui.copyVideoFrames(view[0]!!, { rendered[0] })
+                }
+                DisposableEffect(Unit) { onDispose { com.glasslauncher.tv.ui.VideoFrames.clear() } }
+            }
             if (glassClock && android.os.Build.VERSION.SDK_INT >= 24) LaunchedEffect(Unit) {
                 while (view[0] == null) delay(50)
                 val v = view[0]!!
@@ -267,7 +300,17 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
         LockBadge()
         // Music playing: the island at the top.
         if (st.musicOn && st.musicIsland) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-            com.glasslauncher.tv.ui.MusicIsland(app, maxWidth.value / 960f)
+            // The island's glass shows the video behind it (live copies, as the home screen's glass does over a
+            // video): the screensaver has no page picture of its own to give it.
+            val env = remember(constraints.maxWidth, constraints.maxHeight, st.blurRadius) {
+                val none = androidx.compose.ui.graphics.ImageBitmap(1, 1)
+                com.glasslauncher.tv.ui.GlassEnv(none, none, none, constraints.maxWidth, constraints.maxHeight, st.glassTint, st.refraction,
+                    blurDp = st.blurRadius * 0.45f)
+            }
+            val envRef = androidx.compose.runtime.rememberUpdatedState(env)
+            androidx.compose.runtime.CompositionLocalProvider(com.glasslauncher.tv.ui.LocalGlassEnv provides env, com.glasslauncher.tv.ui.LocalGlassEnvRef provides envRef) {
+                com.glasslauncher.tv.ui.MusicIsland(app, maxWidth.value / 960f)
+            }
         }
         // The large clock, sliding down from the top (▼ shows / hides it).
         if (st.saverBigClock) androidx.compose.animation.AnimatedVisibility(SaverControl.clockShown.value,
@@ -278,7 +321,10 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             val island = st.musicOn && st.musicIsland && song != null
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
                 val k = maxWidth.value / 960f
-                val drop by androidx.compose.animation.core.animateFloatAsState(if (island) (st.islandOffset + 58f * st.islandScale) * k else 0f, tween(420), label = "drop")
+                // (Further while the island is open with its buttons.)
+                val tall = if (com.glasslauncher.tv.ui.MusicUi.islandOpen.value) 118f else 40f
+                val drop by androidx.compose.animation.core.animateFloatAsState(if (island) (st.islandOffset + tall * st.islandScale) * k else 0f,
+                    androidx.compose.animation.core.spring(0.78f, 260f), label = "drop")
                 Box(Modifier.fillMaxSize().graphicsLayer { translationY = drop * density }) {
                     com.glasslauncher.tv.ui.BigClock(st, k, inSaver = true)
                 }

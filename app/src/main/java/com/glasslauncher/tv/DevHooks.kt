@@ -40,6 +40,7 @@ object DevHooks {
         // ---- Open a screen (safe for anyone)
         if (i.getBooleanExtra("open_folder", false)) app.requestFolder.value = true
         i.getIntExtra("open_settings", -1).takeIf { it >= 0 }?.let { app.requestSettings.intValue = it; app.requestSettingsRev.intValue++ }
+        if (i.getBooleanExtra("show_tour", false)) com.glasslauncher.tv.ui.WhatsNew.show()
         if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
         // Home Assistant cameras: lists them and asks for the first one's live link (log only).
@@ -58,6 +59,8 @@ object DevHooks {
                 java.io.File(app.getExternalFilesDir(null), "trailer.txt").writeText(r.video + "\n" + (r.audio ?: "") + "\n" + r.subs.joinToString("\n") { "${it.lang} ${it.auto} ${it.url}" } + "\n")
             }
         }.start() }
+        // Starts (or stops) the trailer of the title on screen, like the Play menu: --ez trailer_now true.
+        if (i.getBooleanExtra("trailer_now", false)) com.glasslauncher.tv.ui.Trailers.request.intValue++
         if (i.hasExtra("fake_song")) {
             if (i.getBooleanExtra("fake_song", false)) {
                 val b = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)

@@ -1,11 +1,5 @@
 package com.glasslauncher.tv.ui
 
-import android.annotation.SuppressLint
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +28,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.glasslauncher.tv.GlassApp
+import kotlinx.coroutines.asCoroutineDispatcher
 import com.glasslauncher.tv.data.Glog
 import com.glasslauncher.tv.data.Http
 
@@ -44,12 +39,16 @@ import com.glasslauncher.tv.data.Http
  */
 object Trailers {
     /** [streams]: played by Glassio's own player; null = YouTube's player (a page) as before. */
-    data class Req(val key: String, val ytId: String, val rev: Int, val streams: com.glasslauncher.tv.data.TrailerSource.Streams? = null)
+    data class Req(val key: String, val ytId: String, val rev: Int, val streams: com.glasslauncher.tv.data.TrailerSource.Streams? = null,
+                   /** Played over the Library (hold OK on a poster → Trailer): the whole screen, its own, never paused there. */
+                   val overlay: Boolean = false)
 
     /** The trailer playing now, or null. */
     val playing = mutableStateOf<Req?>(null)
     /** Its picture is on screen (the dock and the page dots step aside then). */
     val started = mutableStateOf(false)
+    /** ▼ pressed while the trailer hides the dock: the dock comes back (until the next trailer). */
+    val dockAsked = mutableStateOf(false)
     /** Settings, the Library or another page is open: the trailer waits, and goes on when you are back home. */
     val held = mutableStateOf(false)
     /** Bumped when a trailer ends on its own (the carousel then moves on). */
@@ -78,12 +77,25 @@ object Trailers {
     /** Versions made for accessibility (a sign-language interpreter in the picture, audio description): skipped. */
     private val accessible = Regex("""\b(ASL|BSL|sign[- ]language|audio[- ]descri\w*|described video|lengua de se[ñn]as|langue des signes)\b""", RegexOption.IGNORE_CASE)
 
-    fun play(key: String, ytId: String, streams: com.glasslauncher.tv.data.TrailerSource.Streams? = null) {
-        started.value = false; playing.value = Req(key, ytId, ++rev, streams)
+    fun play(key: String, ytId: String, streams: com.glasslauncher.tv.data.TrailerSource.Streams? = null, overlay: Boolean = false) {
+        started.value = false; dockAsked.value = false; playing.value = Req(key, ytId, ++rev, streams, overlay)
     }
-    fun stop() { playing.value = null; started.value = false }
-    /** Glassio's player couldn't play it: YouTube's player takes over. */
-    fun toWeb(r: Req) { if (playing.value?.rev == r.rev) { started.value = false; playing.value = r.copy(streams = null, rev = ++rev) } }
+    fun stop() { playing.value = null; started.value = false; dockAsked.value = false }
+    /**
+     * One low-priority thread for finding trailers ahead: reading YouTube's page and its player script takes the
+     * processor for a second or more, and on the normal threads it made the carousel and the start-up stutter.
+     */
+    val background: kotlinx.coroutines.CoroutineDispatcher = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread({ android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "glass-trailers").apply { isDaemon = true }
+    }.asCoroutineDispatcher()
+
+    /** Asks the home screen to start the trailer of the title on screen (the Play menu does the same; tests use it). */
+    val request = mutableIntStateOf(0)
+
+    /** Glassio's player couldn't play it: it stops (YouTube's own player, with its buttons and logo, is never used). */
+    fun failed(r: Req) { if (playing.value?.rev == r.rev) { Glog.w("Trailer ${r.ytId}: couldn't play"); bad += r.ytId; stop() } }
+    /** Trailers that wouldn't play this time: passed over for the title's next one. */
+    private val bad = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     /** The tallest trailer picture worth playing here: Automatic 1080p (720p on small TVs); Full the screen's own. */
     fun maxHeight(ctx: android.content.Context, full: Boolean): Int {
@@ -107,19 +119,14 @@ object Trailers {
         val full = app.settings.trailerQuality == "full"
         // The first ordinary trailer that plays here (one with a sign-language interpreter or audio description,
         // or one YouTube won't show here, is passed over for the next).
-        for (yt in ids.take(4)) {
+        for (yt in ids.filterNot { it in bad }.take(4)) {
             val st = com.glasslauncher.tv.data.TrailerSource.resolve(yt, maxHeight(app, full), full) ?: continue
             if (accessible.containsMatchIn(st.title)) { Glog.i("Trailer $yt skipped: ${st.title}"); continue }
             return yt to st
         }
-        return ids.first() to null
+        return null
     }
     fun isPlaying(key: String?) = key != null && playing.value?.key == key
-}
-
-private class TrailerBridge(val onState: (Int) -> Unit, val onError: (Int) -> Unit) {
-    @JavascriptInterface fun state(s: Int) = onState(s)
-    @JavascriptInterface fun error(e: Int) = onError(e)
 }
 
 /**
@@ -129,43 +136,11 @@ private class TrailerBridge(val onState: (Int) -> Unit, val onError: (Int) -> Un
 @Composable
 fun TrailerLayer(app: GlassApp, s: Float, dockInset: Float = 0f) {
     val req = Trailers.playing.value ?: return
+    if (req.overlay) return
     val st = app.settings
     val mode = st.trailerSize
-    if (req.streams != null) { androidx.compose.runtime.key(req.rev) { NativeTrailer(app, s, req, req.streams, mode, dockInset) }; return }
-    val alpha = remember(req.rev) { Animatable(0f) }
-    // Shown once it really plays (YouTube's own loading screen stays hidden).
-    var started by remember(req.rev) { mutableStateOf(false) }
-    // A moment after it starts: YouTube's title and pause marks of the first second stay unseen.
-    LaunchedEffect(started) { if (started) { kotlinx.coroutines.delay(1300); alpha.animateTo(1f, tween(600)) } }
-    // Never stuck on a trailer that doesn't start.
-    LaunchedEffect(req.rev) { kotlinx.coroutines.delay(15_000); if (!started && Trailers.playing.value?.rev == req.rev) Trailers.stop() }
-    val main = android.os.Handler(android.os.Looper.getMainLooper())
-    val view = @Composable { m: Modifier, fill: Boolean ->
-        AndroidView(
-            factory = { c -> trailerWebView(c, req.ytId, st.trailerMute, st.trailerSubs, st.trailerSubLang, fill,
-                onState = { stt -> main.post {
-                    if (Trailers.playing.value?.rev != req.rev) return@post
-                    if (stt == 1) { started = true; Trailers.started.value = true }
-                    if (stt == 0) { Trailers.stop(); Trailers.endedRev.intValue++ }
-                } },
-                onError = { e -> main.post { Glog.w("Trailer ${req.ytId}: YouTube error $e"); if (Trailers.playing.value?.rev == req.rev) Trailers.stop() } }) },
-            modifier = m,
-            onRelease = { it.stopLoading(); it.loadUrl("about:blank"); it.destroy() },
-        )
-    }
-    if (mode == "popup") {
-        val (pos, size) = popupPlace(s, st.trailerPopupScale, 16f / 9f)
-        val (w, h) = size
-        val shape = RoundedCornerShape((14 * s).dp)
-        Box(Modifier.offset { pos }.size(w, h).graphicsLayer { this.alpha = alpha.value }
-            .clip(shape).background(Color.Black).border((1 * s).dp, Color.White.copy(alpha = 0.35f), shape)) {
-            androidx.compose.runtime.key(req.rev) { view(Modifier.fillMaxSize(), false) }
-        }
-    } else {
-        Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha.value }.background(Color.Black)) {
-            androidx.compose.runtime.key(req.rev) { view(Modifier.fillMaxSize(), mode == "cinema") }
-        }
-    }
+    val streams = req.streams ?: return
+    androidx.compose.runtime.key(req.rev) { NativeTrailer(app, s, req, streams, mode, dockInset) }
 }
 
 /**
@@ -191,7 +166,7 @@ private fun popupPlace(s: Float, scale: Float, aspect: Float): Pair<IntOffset, P
 /**
  * Glassio's own player for the trailer: its picture fills the page (or its window) with nothing of YouTube on it,
  * the glass of the dock and menus shows it (live copies, as with a video background), and the subtitles are drawn
- * here. Any problem: YouTube's player takes over ([Trailers.toWeb]).
+ * here. Any problem: it stops ([Trailers.failed]); YouTube's own player is never shown.
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -202,6 +177,8 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
     var rendered by remember { mutableStateOf(false) }
     var aspect by remember { mutableStateOf(if (streams.height > 0) streams.width.toFloat() / streams.height else 16f / 9f) }
     var cues by remember { mutableStateOf("") }
+    // The video's own size: the surface's pictures are in it (not in the size it has on screen).
+    var vid by remember { mutableStateOf(streams.width to streams.height) }
     // Black bars inside the trailer's own picture (most trailers are wider than 16:9 and carry them): the share of
     // the height each one takes, found from the picture itself; -1 until known.
     var bar by remember { mutableStateOf(-1f) }
@@ -240,16 +217,16 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
             override fun onRenderedFirstFrame() {
                 if (!rendered) Glog.i("Trailer ${req.ytId}: on screen in ${android.os.SystemClock.uptimeMillis() - t0} ms (${streams.height}p)")
                 rendered = true; Trailers.started.value = true; if (!popup) VideoFrames.showing.value = true }
-            override fun onVideoSizeChanged(v: androidx.media3.common.VideoSize) { if (v.width > 0 && v.height > 0) aspect = v.width * v.pixelWidthHeightRatio / v.height }
+            override fun onVideoSizeChanged(v: androidx.media3.common.VideoSize) { if (v.width > 0 && v.height > 0) { aspect = v.width * v.pixelWidthHeightRatio / v.height; vid = v.width to v.height } }
             override fun onPlaybackStateChanged(state: Int) {
                 val now = android.os.SystemClock.uptimeMillis()
                 if (state == androidx.media3.common.Player.STATE_BUFFERING && rendered) waitFrom = now
                 if (state == androidx.media3.common.Player.STATE_READY && waitFrom > 0) { Glog.w("Trailer ${req.ytId}: waited ${now - waitFrom} ms for data"); waitFrom = 0 }
-                if (state == androidx.media3.common.Player.STATE_ENDED && Trailers.playing.value?.rev == req.rev) { Trailers.stop(); Trailers.endedRev.intValue++ }
+                if (state == androidx.media3.common.Player.STATE_ENDED && Trailers.playing.value?.rev == req.rev) { Trailers.stop(); if (!req.overlay) Trailers.endedRev.intValue++ }
             }
             override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
-                Glog.w("Trailer ${req.ytId}: own player ${e.errorCodeName}, YouTube's player instead")
-                Trailers.toWeb(req)
+                Glog.w("Trailer ${req.ytId}: own player ${e.errorCodeName}")
+                Trailers.failed(req)
             }
         }
         player.addListener(l)
@@ -258,7 +235,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
             if (!popup) VideoFrames.clear()
         }
     }
-    LaunchedEffect(Trailers.held.value) { player.playWhenReady = !Trailers.held.value }
+    LaunchedEffect(Trailers.held.value) { player.playWhenReady = req.overlay || !Trailers.held.value }
     // Subtitles: loaded here and shown by the trailer's time.
     if (st.trailerSubs) LaunchedEffect(Unit) {
         val got = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.TrailerSubs.load(streams.subs, st.trailerSubLang) }
@@ -267,7 +244,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         while (true) { cues = com.glasslauncher.tv.data.TrailerSubs.at(got.lines, player.currentPosition); kotlinx.coroutines.delay(120) }
     }
     // Never stuck on one that doesn't start.
-    LaunchedEffect(Unit) { kotlinx.coroutines.delay(12_000); if (!rendered) { Glog.w("Trailer ${req.ytId}: own player didn't start (state ${player.playbackState}), YouTube's player instead"); Trailers.toWeb(req) } }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(12_000); if (!rendered) { Glog.w("Trailer ${req.ytId}: own player didn't start (state ${player.playbackState})"); Trailers.failed(req) } }
     // The page's picture over the video until its first frame, then it fades into the trailer.
     var settled by remember { mutableStateOf(false) }
     LaunchedEffect(rendered) { if (rendered) { var w = 0; while (bar < 0f && w < 1200) { kotlinx.coroutines.delay(50); w += 50 }; settled = true } }
@@ -292,7 +269,9 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
             findBars(bars, { t.getBitmap(160, 90) }) { bar = it }
         }
         // A TextureView: the window has round corners and fades (a SurfaceView can do neither).
-        Box(Modifier.offset { pos }.size(size.first, size.second).graphicsLayer { alpha = a }
+        // Never fully see-through: a layer at 0 isn't drawn, so its TextureView got no surface and the trailer never
+        // started (the first one after opening the home screen stayed invisible).
+        Box(Modifier.offset { pos }.size(size.first, size.second).graphicsLayer { alpha = maxOf(a, 0.004f) }
             .clip(shape).background(Color.Black).border((1 * s).dp, Color.White.copy(alpha = 0.35f), shape)) {
             AndroidView(factory = { c -> android.view.TextureView(c).also { tv = it; player.setVideoTextureView(it) } },
                 modifier = Modifier.align(androidx.compose.ui.Alignment.Center).requiredSize(size.first, size.first / aspect))
@@ -300,6 +279,13 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
                 modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(horizontal = (8 * s).dp, vertical = (6 * s).dp))
         }
         return
+    }
+    // The glass follows the trailer about 30 times a second (the video background's 15 looked jerky behind the
+    // menus); small TVs keep 15.
+    DisposableEffect(Unit) {
+        VideoFrames.interval = if (Trailers.maxHeight(ctx, false) >= 1080) 33L else 66L
+        // Back to the video background's rate (a fixed value: two trailers handing over could leave it at 30).
+        onDispose { VideoFrames.interval = 66L }
     }
     // Which glass copies are made (as the video background does).
     listOf(st.dockStyle, st.tileStyle, st.menuStyle).let { l ->
@@ -330,25 +316,28 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         val ch = if (cinema == wide) sh else sw / content
         val vw = cw
         val vh = ch / c
-        // The part of the picture on screen (in the surface's pixels), and where on screen it is.
-        val dens = androidx.compose.ui.platform.LocalDensity.current.density
-        region[0] = if (cinema) FrameRegion(android.graphics.Rect(
-            (((vw - sw) / 2).value.coerceAtLeast(0f) * dens).toInt(), (((vh - sh) / 2).value.coerceAtLeast(0f) * dens).toInt(),
-            (((vw + sw) / 2).value.coerceAtMost(vw.value) * dens).toInt(), (((vh + sh) / 2).value.coerceAtMost(vh.value) * dens).toInt()),
-            android.graphics.RectF(0f, 0f, 1f, 1f))
+        // The part of the picture on screen, and where on screen it is. The copy is asked for in the video's own
+        // pixels (the surface holds the decoded frames at their size): asked in screen pixels, the glass showed
+        // another part of the trailer than the one behind it.
+        val (fw, fh) = vid
+        region[0] = if (cinema && fw > 0 && fh > 0) {
+            val x0 = ((vw - sw) / 2 / vw).coerceIn(0f, 1f); val y0 = ((vh - sh) / 2 / vh).coerceIn(0f, 1f)
+            FrameRegion(android.graphics.Rect((x0 * fw).toInt(), (y0 * fh).toInt(), ((1f - x0) * fw).toInt(), ((1f - y0) * fh).toInt()),
+                android.graphics.RectF(0f, 0f, 1f, 1f))
+        }
         else FrameRegion(null, android.graphics.RectF(((sw - vw) / 2 / sw).coerceAtLeast(0f), ((sh - vh) / 2 / sh).coerceAtLeast(0f),
             ((sw + vw) / 2 / sw).coerceAtMost(1f), ((sh + vh) / 2 / sh).coerceAtMost(1f)))
         if (!cinema && rendered) Box(Modifier.fillMaxSize().background(Color.Black))
         AndroidView(factory = { c -> android.view.SurfaceView(c).also { view = it; player.setVideoSurfaceView(it) } },
             modifier = Modifier.align(androidx.compose.ui.Alignment.Center).requiredSize(vw, vh))
-        if (pic != null && cover > 0.002f) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+        if (!req.overlay && pic != null && cover > 0.002f) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
             val sc = maxOf(size.width / pic.width, size.height / pic.height)
             val dw = pic.width * sc; val dh = pic.height * sc
             drawImage(pic, dstOffset = IntOffset(((size.width - dw) / 2).toInt(), ((size.height - dh) / 2).toInt()),
                 dstSize = androidx.compose.ui.unit.IntSize(dw.toInt(), dh.toInt()), alpha = cover)
         }
         // The page's shades over the video, so the title, its details and the buttons stay easy to read.
-        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+        if (!req.overlay) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
             val full = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt())
             drawImage(Scrims.side, dstSize = full, filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
             drawImage(Scrims.bottom, dstSize = full, filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
@@ -356,6 +345,19 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         if (cues.isNotBlank()) androidx.compose.material3.Text(cues, style = subStyle,
             // Above the dock while it shows, at the bottom while it is away.
             modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(start = (120 * s).dp, end = (120 * s).dp, bottom = (44 * s + dockInset).dp))
+    }
+}
+
+/**
+ * A trailer over the Library (hold OK on a poster → Trailer): the whole picture on black, over everything. The
+ * Library keeps the focus where it was; Back (or the end) stops it.
+ */
+@Composable
+fun LibraryTrailer(app: GlassApp, s: Float) {
+    val req = Trailers.playing.value?.takeIf { it.overlay } ?: return
+    val streams = req.streams ?: return
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        androidx.compose.runtime.key(req.rev) { NativeTrailer(app, s, req, streams, "original", 0f) }
     }
 }
 
@@ -414,64 +416,4 @@ private class BarFinder {
         best = if (best < 0f) bar else minOf(best, bar)
         return best
     }
-}
-
-@SuppressLint("SetJavaScriptEnabled")
-private fun trailerWebView(
-    c: android.content.Context, id: String, mute: Boolean, subs: Boolean, lang: String, fill: Boolean,
-    onState: (Int) -> Unit, onError: (Int) -> Unit,
-): WebView = WebView(c).apply {
-    isFocusable = false
-    isFocusableInTouchMode = false
-    setBackgroundColor(android.graphics.Color.BLACK)
-    settings.javaScriptEnabled = true
-    settings.mediaPlaybackRequiresUserGesture = false
-    settings.domStorageEnabled = true
-    webChromeClient = WebChromeClient()
-    webViewClient = object : WebViewClient() {
-        // One tap on the page (not on the player) once it has loaded: the page then counts as touched, so the
-        // trailer may get its sound (without it, turning the sound on paused the trailer).
-        override fun onPageFinished(v: WebView, url: String?) {
-            v.postDelayed({
-                val t = android.os.SystemClock.uptimeMillis()
-                listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP).forEach { a ->
-                    val e = android.view.MotionEvent.obtain(t, t, a, 2f, 2f, 0)
-                    v.dispatchTouchEvent(e); e.recycle()
-                }
-            }, 300)
-        }
-    }
-    addJavascriptInterface(TrailerBridge(onState, onError), "Glassio")
-    // The player is sized by script from the real window size: "cover" crops it to fill like a backdrop,
-    // otherwise the whole picture shows (centred, black bars). Started muted (allowed to play by itself), then
-    // given its sound once it plays.
-    val html = """
-        <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-        <style>html,body{margin:0;padding:0;background:#000;overflow:hidden;width:100%;height:100%}#p{position:absolute;pointer-events:none;border:0}</style></head>
-        <body><div id="p"></div>
-        <script src="https://www.youtube.com/iframe_api"></script>
-        <script>
-        var player, cover=${if (fill) "true" else "false"}, wantSound=${if (mute) "false" else "true"}, sounded=false;
-        function fit(){ var f=document.getElementById('p'); if(!f) return; var W=window.innerWidth, H=window.innerHeight; if(!W||!H) return;
-          var w=W, h=W*9/16; if(cover){ if(h<H){ h=H; w=H*16/9; } w*=1.08; h*=1.08; } else { if(h>H){ h=H; w=H*16/9; } }
-          f.style.width=w+'px'; f.style.height=h+'px'; f.style.left=((W-w)/2)+'px'; f.style.top=((H-h)/2)+'px'; }
-        window.addEventListener('resize', fit);
-        function onYouTubeIframeAPIReady(){
-          player = new YT.Player('p',{videoId:'$id',width:'100%',height:'100%',
-            playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,rel:0,playsinline:1,iv_load_policy:3,modestbranding:1,mute:1,
-              cc_load_policy:${if (subs) 1 else 0},cc_lang_pref:'$lang',hl:'$lang',origin:'https://glassio.app'},
-            events:{
-              onReady:function(e){ fit(); e.target.mute(); e.target.playVideo(); },
-              onStateChange:function(e){
-                if(e.data==1 && wantSound && !sounded){ sounded=true; e.target.unMute(); e.target.setVolume(100); }
-                // Nobody pauses it here: a pause (turning the sound on can cause one) is undone at once.
-                if(e.data==2){ setTimeout(function(){ e.target.playVideo(); }, 50); }
-                Glassio.state(e.data); },
-              onError:function(e){ Glassio.error(e.data); }
-            }});
-          fit();
-        }
-        </script></body></html>
-    """.trimIndent()
-    loadDataWithBaseURL("https://glassio.app/", html, "text/html", "utf-8", null)
 }

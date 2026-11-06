@@ -65,7 +65,8 @@ class MainActivity : ComponentActivity() {
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
                     .then(if (reader) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.clearAndSetSemantics { })) {
                     // The home screen is left out while the setup shows, so it can't take the remote's focus.
-                    if (setup) com.glasslauncher.tv.ui.SetupScreen(app) { setup = false; app.settings.setupDone = true }
+                    // A new install has nothing to catch up on (the setup explains it): the tour is for updates.
+                    if (setup) com.glasslauncher.tv.ui.SetupScreen(app) { setup = false; app.settings.setupDone = true; app.settings.tourSeen = com.glasslauncher.tv.ui.WhatsNew.ID }
                     else HomeScreen(app, screen) { screen = it }
                     // Back from the screensaver: out of black (it closes faded to black, so nothing snaps).
                     if (com.glasslauncher.tv.ui.SaverGate.cover.floatValue > 0f) {
@@ -157,6 +158,8 @@ class MainActivity : ComponentActivity() {
         if (com.glasslauncher.tv.ui.NavGate.blocks(event.keyCode)) return true
         // The shuffle button and "press the button you want" (also caught by the Home button service first).
         if (KeyHub.handle(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
+        // The What's new tour takes the remote while it shows.
+        if (com.glasslauncher.tv.ui.WhatsNew.onKey(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
         return super.dispatchKeyEvent(event)
     }
 

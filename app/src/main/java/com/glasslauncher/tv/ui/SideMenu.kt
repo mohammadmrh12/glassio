@@ -82,6 +82,8 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     var bgPage by remember { mutableStateOf(false) }
     var camPage by remember { mutableStateOf(false) }
     var saverPage by remember { mutableStateOf(false) }
+    var trailerPage by remember { mutableStateOf(false) }
+    var trailerRow by remember { mutableIntStateOf(0) }
     var inputsPage by remember { mutableStateOf(false) }
     // The music player (▶ in the menu, or the dock's Music icon).
     var musicPage by remember { mutableStateOf(MusicUi.openInMenu.value.also { MusicUi.openInMenu.value = false } && st.musicOn) }
@@ -98,10 +100,10 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     LaunchedEffect(Unit) { enter.animateTo(1f, tween(260, easing = EASE)) }
     var inside by remember { mutableStateOf(false) }
     // Take focus from the settings button (or wherever it is): retry until a row has it.
-    LaunchedEffect(themes, bgPage, camPage, saverPage, inputsPage, musicPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
+    LaunchedEffect(themes, bgPage, camPage, saverPage, trailerPage, inputsPage, musicPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
     var themesRow by remember { mutableIntStateOf(0) }
     var bgRow by remember { mutableIntStateOf(0) }
-    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage) { target = saverRow; saverPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (musicPage) { musicPage = false } else onClose() }
+    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (musicPage) { musicPage = false } else onClose() }
 
     val time by produceState(clockText(st.clock24h), st.clock24h) { while (true) { value = clockText(st.clock24h); delay(5_000) } }
     val date by produceState(longDate(), Unit) { while (true) { value = longDate(); delay(60_000) } }
@@ -280,12 +282,43 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             first = false, last = true, onLeft = back,
                             glyph = { c -> glyph("dotOff", c) }, onClick = { target = n + 1; CustomBackground.nextNow(st) })
                     }
+                } else if (trailerPage) {
+                    Text("Trailer", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
+                        modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
+                    val back = { target = trailerRow; trailerPage = false }
+                    val on = Trailers.playing.value != null
+                    val opts = buildList<Triple<String, String, () -> Unit>> {
+                        // Play: the menu closes and the home screen starts the trailer of the title on screen.
+                        add(Triple(if (on) "Stop trailer" else "Play trailer", "") {
+                            if (on) Trailers.stop() else { onClose(); Trailers.request.intValue++ }
+                        })
+                        add(Triple("Starts by itself", if (st.trailerAutoSec == 0) "Off" else "On · ${st.trailerAutoSec} s") {
+                            val o = listOf(0, 3, 5, 8, 10, 15, 20, 30)
+                            st.trailerAutoSec = o[(o.indexOf(st.trailerAutoSec).coerceAtLeast(0) + 1).mod(o.size)]
+                        })
+                        add(Triple("Size", when (st.trailerSize) { "original" -> "Original"; "popup" -> "Window"; else -> "Cinematic" }) {
+                            val o = listOf("cinema", "original", "popup")
+                            st.trailerSize = o[(o.indexOf(st.trailerSize).coerceAtLeast(0) + 1).mod(o.size)]
+                        })
+                        add(Triple("Hide the dock", if (st.trailerHideDock) "On" else "Off") { st.trailerHideDock = !st.trailerHideDock })
+                        add(Triple("Subtitles", if (st.trailerSubs) "On" else "Off") { st.trailerSubs = !st.trailerSubs })
+                        if (st.trailerSubs) add(Triple("Language", java.util.Locale(st.trailerSubLang).getDisplayLanguage(java.util.Locale.ENGLISH)) {
+                            val o = listOf("en", "ar", "fr", "de", "es", "it", "tr", "fa", "ru", "pt", "hi", "ja", "ko", "zh")
+                            st.trailerSubLang = o[(o.indexOf(st.trailerSubLang).coerceAtLeast(0) + 1).mod(o.size)]
+                        })
+                        add(Triple("Sound", if (st.trailerMute) "Off" else "On") { st.trailerMute = !st.trailerMute })
+                    }
+                    opts.forEachIndexed { i, (label, value, act) ->
+                        MenuRow(s, light, label, value, modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
+                            first = i == 0, last = i == opts.lastIndex, onLeft = back,
+                            glyph = { c -> glyph(if (i == 0) (if (on) "stop" else "play") else if (value.startsWith("On")) "dotOn" else "dotOff", c) },
+                            onClick = { target = i; act() })
+                    }
                 } else if (saverPage) {
                     Text("Screensaver", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
                     val back = { target = saverRow; saverPage = false }
                     val opts = buildList<Triple<String, String, () -> Unit>> {
-                        add(Triple("Start now", "") { onClose(); SaverGate.opening.value = true; runCatching { ctx.startActivity(Intent(ctx, com.glasslauncher.tv.saver.ScreensaverActivity::class.java)) } })
                         com.glasslauncher.tv.saver.AerialSource.SOURCES.forEach { src ->
                             val on = st.saverMode == "aerial" && src.key in st.saverSources
                             add(Triple(src.name, if (on) "✓" else "") {
@@ -297,10 +330,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         add(Triple("Posters", if (st.saverMode == "slideshow") "✓" else "") { st.saverMode = if (st.saverMode == "slideshow") "aerial" else "slideshow" })
                         add(Triple("Shuffle", if (st.saverShuffle) "On" else "Off") { st.saverShuffle = !st.saverShuffle })
                         if (st.saverLock) add(Triple("Locked only", if (st.saverLockedOnly) "On" else "Off · ${st.saverLocked.size}") { st.saverLockedOnly = !st.saverLockedOnly })
-                        add(Triple("Quality", com.glasslauncher.tv.saver.AerialSource.QUALITIES.firstOrNull { it.first == st.saverQuality }?.second?.substringBefore(" (") ?: "") {
-                            val q = com.glasslauncher.tv.saver.AerialSource.QUALITIES.map { it.first }
-                            st.saverQuality = q[(q.indexOf(st.saverQuality) + 1).mod(q.size)]
-                        })
+                        add(Triple("Large clock", if (st.saverBigClock) "On" else "Off") { st.saverBigClock = !st.saverBigClock })
                         add(Triple("Starts after", st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" }) {
                             val o = listOf(0, 10, 30, 60, 120, 300, 600)
                             st.idleSeconds = o[(o.indexOf(st.idleSeconds).coerceAtLeast(0) + 1).mod(o.size)]
@@ -309,7 +339,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     opts.forEachIndexed { i, (label, value, act) ->
                         MenuRow(s, light, label, value, modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
                             first = i == 0, last = i == opts.lastIndex, onLeft = back,
-                            glyph = { c -> glyph(if (i == 0) "play" else if (value == "✓" || value == "On") "dotOn" else "dotOff", c) },
+                            glyph = { c -> glyph(if (value == "✓" || value.startsWith("On")) "dotOn" else "dotOff", c) },
                             onClick = { target = i; act() })
                     }
                 } else if (!themes) {
@@ -323,11 +353,13 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         if (st.menuThemes) add(Triple("theme", "Themes") { target = 0; themes = true })
                         if (st.menuCamera && cams.isNotEmpty()) add(Triple("camera", "Camera") { target = 0; camPage = true })
                         if (st.menuSaver) add(Triple("saver", "Screensaver") { target = 0; saverPage = true })
+                        if (st.menuTrailer) add(Triple("trailer", "Trailer") { target = 0; trailerPage = true })
                         if (st.menuBackground) add(Triple("background", "Background") { target = BG_MODES.indexOfFirst { it.first == st.bgMode }.coerceAtLeast(0); bgPage = true })
                     }.sortedBy { r -> st.menuOrder.indexOf(r.first).let { if (it < 0) 99 else it } }
                     bgRow = rows.indexOfFirst { it.first == "background" }.coerceAtLeast(0)
                     camRow = rows.indexOfFirst { it.first == "camera" }.coerceAtLeast(0)
                     saverRow = rows.indexOfFirst { it.first == "saver" }.coerceAtLeast(0)
+                    trailerRow = rows.indexOfFirst { it.first == "trailer" }.coerceAtLeast(0)
                     themesRow = rows.indexOfFirst { it.first == "theme" }.coerceAtLeast(0)
                     rows.forEachIndexed { i, (icon, label, act) ->
                         MenuRow(s, light, label, when (icon) { "theme" -> themeLabel(st.theme); "background" -> BG_MODES.firstOrNull { it.first == st.bgMode }?.second.orEmpty(); else -> "" },
@@ -479,6 +511,14 @@ private fun DrawScope.glyph(kind: String, c: Color) {
             val p = Path().apply { moveTo(w * 0.18f, w * 0.64f); quadraticTo(w * 0.40f, w * 0.36f, w * 0.56f, w * 0.52f); quadraticTo(w * 0.70f, w * 0.62f, w * 0.82f, w * 0.40f) }
             drawPath(p, c, style = st)
         }
+        "trailer" -> {
+            // A film strip with a play mark.
+            drawRoundRect(c, Offset(w * 0.06f, w * 0.18f), Size(w * 0.88f, w * 0.64f), CornerRadius(w * 0.10f), style = st)
+            for (x in listOf(0.18f, 0.82f)) for (y in listOf(0.32f, 0.50f, 0.68f)) drawCircle(c, w * 0.035f, Offset(w * x, w * y))
+            val p = Path().apply { moveTo(w * 0.42f, w * 0.36f); lineTo(w * 0.64f, w * 0.50f); lineTo(w * 0.42f, w * 0.64f); close() }
+            drawPath(p, c)
+        }
+        "stop" -> drawRoundRect(c, Offset(w * 0.22f, w * 0.22f), Size(w * 0.56f, w * 0.56f), CornerRadius(w * 0.08f), style = st)
         "play" -> {
             val p = Path().apply { moveTo(w * 0.28f, w * 0.16f); lineTo(w * 0.84f, w * 0.50f); lineTo(w * 0.28f, w * 0.84f); close() }
             drawPath(p, c, style = st)

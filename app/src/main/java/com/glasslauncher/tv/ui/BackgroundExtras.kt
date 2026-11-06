@@ -229,8 +229,8 @@ object Depth {
 
 /** How the large clock is drawn: plain white, or exactly as the dock's own glass / plate is drawn. */
 internal fun clockLook(st: Settings): String =
-    // Black on white and Black AMOLED: white digits (their flat plates disappeared on photos).
-    if (st.bgClockStyle == "white" || st.dockStyle == "bow" || st.dockStyle == "amoled") "white"
+    // With the theme: the digits look like the dock in every theme (black on Black AMOLED, white on Black on white).
+    if (st.bgClockStyle == "white") "white"
     // Still Glass whatever the theme (and no blur).
     else if (st.bgClockStyle == "still") "water_still" else st.dockStyle
 
@@ -255,12 +255,14 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
             val small = TextStyle(fontSize = (12 * s * k).sp, fontWeight = FontWeight.SemiBold)
             val big = TextStyle(fontSize = (118 * s * k).sp, lineHeight = (118 * s * k).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-2 * s * k).sp)
             // The date in the same style as the time.
-            val blurOn = st.blurRadius > 0 && st.bgClockStyle != "still"
+            // Frosted is the blurred glass; Still, Dynamic and Clear stay sharp (all of them were blurred, and the
+            // theme's clock looked the same in every theme).
+            val blurOn = st.blurRadius > 0 && look == "liquid"
             // The date can be white on its own (Settings), whatever the time's look.
             if (look == "white" || st.bgClockDateWhite) Text(date, color = Color.White.copy(alpha = 0.9f), style = small.merge(shade))
-            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false, saver = inSaver)
+            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false, saver = inSaver, blurDp = st.blurRadius * 0.45f)
             if (look == "white") Text(time, color = Color.White.copy(alpha = 0.94f), style = big.merge(shade))
-            else ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver)
+            else ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver, blurDp = st.blurRadius * 0.45f)
         }
         // Depth: the subject drawn again over the clock, only where the clock is.
         val cut = if (inSaver) null else Depth.fg.value
@@ -291,7 +293,7 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
  * filled digits themselves, so no inner outlines show where the font's strokes overlap).
  */
 @Composable
-private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true, saver: Boolean = false) {
+private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true, saver: Boolean = false, blurDp: Float = 0f) {
     val env = LocalGlassEnv.current
     // The screen's size (the screensaver has no home page around it to give it).
     val rootView = androidx.compose.ui.platform.LocalView.current.rootView
@@ -331,8 +333,10 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
     // The dock's own tint for this theme, as a colour filter on the same pass.
     val tint = remember(look) {
         when (look) {
-            "liquid" -> android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setScale(0.86f, 0.86f, 0.86f, 1f) })
-            "clear" -> android.graphics.ColorMatrixColorFilter(floatArrayOf(0.94f, 0f, 0f, 0f, 15.3f, 0f, 0.94f, 0f, 0f, 15.3f, 0f, 0f, 0.94f, 0f, 15.3f, 0f, 0f, 0f, 1f, 0f))
+            // Frosted: milky, like the frosted dock (blurred, a white veil through it).
+            "liquid" -> android.graphics.ColorMatrixColorFilter(floatArrayOf(0.72f, 0f, 0f, 0f, 58f, 0f, 0.72f, 0f, 0f, 58f, 0f, 0f, 0.72f, 0f, 58f, 0f, 0f, 0f, 1f, 0f))
+            // Clear: sharp, with the clear theme's light veil.
+            "clear" -> android.graphics.ColorMatrixColorFilter(floatArrayOf(0.88f, 0f, 0f, 0f, 28f, 0f, 0.88f, 0f, 0f, 28f, 0f, 0f, 0.88f, 0f, 28f, 0f, 0f, 0f, 1f, 0f))
             else -> null
         }
     }
@@ -340,7 +344,8 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
     val paint = remember { android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.DITHER_FLAG) }
     // Glass blur (Settings): the same blur as the glass, made on the GPU from the sharp picture (the small blurred
     // copies, scaled up this much, came out in blocks).
-    val blurPx = if (blurOn && glass) env.blurDp * density.density else 0f
+    // (The screensaver has no glass environment of its own: the setting itself.)
+    val blurPx = if (blurOn && glass) (if (env.blurDp > 0f) env.blurDp else blurDp) * density.density else 0f
     val blur = remember(blurPx) {
         if (blurPx < 0.5f || android.os.Build.VERSION.SDK_INT < 31) null
         else android.graphics.RenderEffect.createBlurEffect(blurPx, blurPx, android.graphics.Shader.TileMode.CLAMP).asComposeRenderEffect()

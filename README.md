@@ -25,6 +25,31 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.0.0** (and 2.0.8 – 2.0.10) — music, trailers, inputs and a new screensaver
+- **What's new tour**: after an update, Glassio shows a short tour of what's new and where to switch each thing off or
+  change it (Settings → About → *What's new* opens it again).
+- **Music** (Settings → **Music**): Now Playing from any music app (Spotify, YouTube Music, Apple Music, Anghami,
+  YouTube…).
+  - **Music mode**: the home screen becomes a full-screen player with the blurred artwork, and songs cross-fade.
+  - A small player in the menu (press ▶), a Music tile for the dock, and a **dynamic island** on the screensaver and the
+    home screen: Up opens it with its controls, Down closes it.
+  - Play, skip, **shuffle** (the same in every player) and **stop** from anywhere.
+  - The island and the large clock follow your theme: black, white, frosted, clear or still glass.
+- **Trailers**: a title's trailer plays in place of its picture, in Glassio's own player (no YouTube buttons, it starts
+  in about a second), in **Cinematic** (fills the screen, its black bars cropped), **Original** or a small **Window**.
+  - **Subtitles in your language**, translated when YouTube has none.
+  - **Starts by itself** after a few seconds on a title, only while the carousel is selected (never from the dock).
+  - A **Trailer** page in the menu (play / stop, starts by itself, size, dock, subtitles, sound), and **hold OK on a
+    poster in the Library → Trailer**. The dock and the menus' glass follow the trailer.
+- **Inputs**: the TV's HDMI inputs and HDMI-CEC devices (PlayStation, receiver…) in the menu and as dock icons.
+- **Cameras**: multi-view with up to 4 cameras, Home Assistant cameras, remote buttons for multi-view and the corner
+  camera.
+- **Screensaver**: a large clock in your theme's glass (Up shows or hides it), hold OK to **lock** a video you like
+  (*Locked only* plays just those), Down shows the cameras, and it closes smoothly through black.
+- **Continue Watching** exactly as in Nuvio, with **Next Up** (the next episode of series you finished, #10), and
+  *Open in* to choose the app for a Library title.
+- **Smoother**: frosted glass slides as smoothly as clear glass, a faster start, a smoother carousel.
+
 **New in 2.0.5 / 2.0.6** — backgrounds, a glass clock, app lock and the doorbell
 - **Backgrounds** (Settings → **Background & glass**): title backdrops, **Photos in 4K** (Bing, Wikimedia Commons,
   Unsplash with a free key, or your own), **your own video**, or **the screensaver's videos**. Each has **Next** and
@@ -128,6 +153,17 @@ Tested on the Google TV Streamer (4K).
   Glass (with ripples), Frosted Glass, Clear, Black AMOLED, Black on white. Optional sharp corners. The glass follows a
   video background live.
 
+**Music**
+- Now Playing from any music app: music mode (a full-screen player that cross-fades between songs), a player in the menu,
+  a Music dock tile and a dynamic island on the screensaver and the home screen, in your theme's look.
+
+**Trailers**
+- In Glassio's own player, Cinematic / Original / Window, subtitles in your language, by itself on the carousel only,
+  from the menu's Trailer page or the Library (hold OK on a poster).
+
+**Inputs**
+- TV inputs and HDMI-CEC devices in the menu and the dock; Home brings you back.
+
 **Background**
 - Title backdrops, Photos in 4K (Bing, Wikimedia Commons, Unsplash or your own), your own picture or video, or the
   screensaver's videos, with Next, Shuffle, a cache, place and credit, a large glass clock and a depth effect for photos.
@@ -143,7 +179,8 @@ Tested on the Google TV Streamer (4K).
 
 **Top bar and menu**
 - Clock and date, weather (Open-Meteo, no key), auto-hide. The menu at the settings button, like the Apple TV Control
-  Center: clock, weather, TV info, Library, settings, Wi-Fi, themes, camera, screensaver and background — each optional.
+  Center: clock, weather, TV info, Library, settings, Wi-Fi, themes, camera, inputs, recent apps, screensaver, trailer and
+  background — each optional — and a music player (press ▶).
 
 **Home Assistant**
 - Webhook when a title opens (title, type, id, app). See [Home Assistant](#home-assistant).
@@ -366,7 +403,7 @@ Releases are signed with the same key, so they install over each other.
 - `tools/framestats.py` — summarises `adb shell dumpsys gfxinfo com.glasslauncher.tv framestats` per frame stage.
 
 Terminal helpers (`adb shell am start -n com.glasslauncher.tv/.MainActivity …`): `--ez open_folder true`,
-`--ei open_settings <tab>`, `--ez open_menu true`, `--ez open_library true`, `--ez start_saver true`. Changing settings
+`--ei open_settings <tab>`, `--ez open_menu true`, `--ez open_library true`, `--ez start_saver true`, `--ez show_tour true`. Changing settings
 from a computer needs the dev key (so other apps can't): see [CONTRIBUTING.md](CONTRIBUTING.md#testing-from-a-computer).
 
 ## Build

@@ -345,7 +345,12 @@ fun LiquidSurface(
     val bPx = with(density) { bezel.toPx() }
     val fPx = with(density) { refraction.toPx() }
     val blurDp by remember(ref) { androidx.compose.runtime.derivedStateOf { ref.value.blurDp } }
-    val blurPx = if (frosted) blurDp * density.density else 0f
+    // Frosted glass shows the ready-blurred copies of the picture (made with the picture, at the Glass blur
+    // setting), not the sharp picture blurred live: Android applies a layer's blur again every time the screen is
+    // drawn, so a dock and six icons blurred ten layers in every frame of a slide (~50 ms a frame at a strong blur;
+    // the carousel stuttered). Only a live video behind still needs the live blur (its frosted copies are small).
+    val liveBlur = frosted && videoBehind
+    val blurPx = if (liveBlur) blurDp * density.density else 0f
     // The blur first, then the rim's bending (one chain of effects on the same layer).
     fun withBlur(e: androidx.compose.ui.graphics.RenderEffect?): androidx.compose.ui.graphics.RenderEffect? {
         if (blurPx < 0.5f || Build.VERSION.SDK_INT < 31) return e
@@ -354,7 +359,11 @@ fun LiquidSurface(
         return (if (r != null) RenderEffect.createChainEffect(r, b) else b).asComposeRenderEffect()
     }
     val still = remember(sz, rPx, bPx, fPx, blurPx) { withBlur(refractor.effect(sz.width.toFloat(), sz.height.toFloat(), rPx, bPx, fPx, 0f)) }
-    val clearPic = sharp || frosted
+    // Frosted glass while the page slides: the rim's bending only, over the ready-blurred copies of the two
+    // pictures. Blurring the sharp pictures on the GPU every frame of the move cost ~70 ms a frame with a strong
+    // Glass blur (the slides stuttered); still, the glass is blurred live once and kept.
+    val slideFx = remember(sz, rPx, bPx, fPx, frosted) { if (frosted) refractor.effect(sz.width.toFloat(), sz.height.toFloat(), rPx, bPx, fPx, 0f) else null }
+    val clearPic = sharp || liveBlur
     // Shaders for the two pictures during a slide (Android 13+), made again only when a picture changes.
     val shaders = remember { PageShaders() }
     // The open-dock veil layer: only there while the veil shows (its own cached layer).
@@ -416,7 +425,10 @@ fun LiquidSurface(
             val n = now()
             val live = n.env.live
             val w = if (wobble > 0f && live != null) live.value * wobble else 0f
-            renderEffect = if (n.bmp == null) null else if (videoBehind && DebugHide.intValue and 2048 != 0) null else if (!cache && DebugHide.intValue and 16384 != 0) null else if (w < 0.01f) still else withBlur(refractor.effect(size.width, size.height, rPx, bPx, fPx, w))
+            // (No effect while the page slides: the layer is then nearly invisible under the moving picture, and its
+            // bending was still worked out again for every frame of the move. Its content stays recorded, so it is
+            // ready the moment the slide ends.)
+            renderEffect = if (n.bmp == null || n.sliding) null else if (videoBehind && DebugHide.intValue and 2048 != 0) null else if (!cache && DebugHide.intValue and 16384 != 0) null else if (w < 0.01f) still else withBlur(refractor.effect(size.width, size.height, rPx, bPx, fPx, w))
             alpha = if (n.bmp == null) 1f else if (n.sliding) 0.002f else if (n.covered()) 0f else if (n.prev != null) crossAlpha(n.env) else 1f
             // Rendered once into its own texture and reused while nothing behind the glass changes:
             // moving focus over the dock then costs one copy instead of the picture and its shades again.
@@ -437,7 +449,9 @@ fun LiquidSurface(
             if (n.veilPic == null) veil(n)
             tintIn(tint)
         }
-        if (Build.VERSION.SDK_INT >= 33 && !frosted) {
+        // (Frosted glass too: with its ready-blurred copies of the two pictures. Its own path, a whole offscreen
+        // layer blurred and bent again every frame of the move, cost ~50 ms a frame on the TV.)
+        if (Build.VERSION.SDK_INT >= 33 && (!frosted || blurPx < 0.5f || ref.value.bmp != null)) {
             // Slide, Android 13+: the middle of the glass is drawn like the page (two plain pictures, cheap),
             // and only the rim band, where the refraction is, is drawn with a shader brush that reads both
             // pictures and bends them itself. No offscreen layer is redrawn and re-refracted per frame, and
@@ -458,7 +472,9 @@ fun LiquidSurface(
             }
             Canvas(Modifier.matchParentSize()) {
                 val n = now()
-                val b = n.bmp; val pv = n.prev
+                val pre = frosted && blurPx >= 0.5f
+                val b = if (pre) n.env.bmp ?: n.bmp else n.bmp
+                val pv = if (pre) n.env.prevBmp ?: n.prev else n.prev
                 if (!n.sliding || b == null || pv == null) return@Canvas
                 val env = n.env
                 val p = pos.value
@@ -474,7 +490,9 @@ fun LiquidSurface(
                     clipRect(left = if (f.curRight) e else -1e5f, right = if (f.curRight) 1e5f else e) { picture(n, b, f.curShift, withShade = false) }
                     shade(n, b)
                 }
-                if (fPx < 0.5f) { veil(n); tintIn(tint); return@Canvas }
+                // Frosted glass: no bending while the page slides. Over a blurred picture the rim's bending hardly
+                // shows, and it was most of the GPU's time in every frame of a slide (~20 ms of ~50).
+                if (fPx < 0.5f || !clearPic) { veil(n); tintIn(tint); return@Canvas }
                 val curS = shaders.cur(b); val prevS = shaders.prev(pv)
                 curS.place(env.rootW, env.rootH, p); prevS.place(env.rootW, env.rootH, p)
                 val whole = sz.width.toLong() * sz.height < env.rootW.toLong() * env.rootH / 12
@@ -502,9 +520,12 @@ fun LiquidSurface(
         } else {
             // Slide: both pictures move behind the glass exactly as the page does. The rim refraction stays
             // on: switching it off for the move made the rims jump when it came back (worse the stronger it is).
-            Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = still; alpha = if (now().sliding) 1f else 0f }) {
+            Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = if (frosted && blurPx >= 0.5f) slideFx else still; alpha = if (now().sliding) 1f else 0f }) {
                 val n = now()
-                val b = n.bmp; val pv = n.prev
+                // (Frosted: the blurred copies, see slideFx.)
+                val pre = frosted && blurPx >= 0.5f
+                val b = if (pre) n.env.bmp ?: n.bmp else n.bmp
+                val pv = if (pre) n.env.prevBmp ?: n.prev else n.prev
                 if (!n.sliding || b == null || pv == null) return@Canvas
                 val f = slideFrame(n.env.slideKind, n.dir, n.env.mix?.value ?: 1f, n.env.rootW.toFloat())
                 picture(n, pv, f.prevShift, withShade = false)

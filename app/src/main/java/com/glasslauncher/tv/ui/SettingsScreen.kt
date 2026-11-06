@@ -559,6 +559,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Toggle("  · GPU", "Use, or its memory where the TV doesn't tell the use", { st.sysGpu }, { st.sysGpu = it }),
                 Toggle("  · RAM", "", { st.sysRam }, { st.sysRam = it }),
                 Toggle("  · Storage", "", { st.sysStorage }, { st.sysStorage = it }),
+                Toggle("Trailer in the menu", "Play or stop the trailer, and its size, starting by itself and subtitles", { st.menuTrailer }, { st.menuTrailer = it }),
                 Toggle("Screensaver in the menu", "Start it, choose its videos and when it starts", { st.menuSaver }, { st.menuSaver = it }),
                 Toggle("Camera in the menu", if (st.cameras.isEmpty()) "Add a camera in Settings → Cameras" else "Live view in the menu, like Apple TV", { st.menuCamera }, { st.menuCamera = it }),
                 link("Library", "Its rows, accounts and Continue Watching there"),
@@ -601,6 +602,8 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Adjust("Show Continue Watching", "Where titles you are watching appear", {
                     when (st.continueMode) { "off" -> "Off"; "mixed" -> "Mixed with catalogs"; else -> "At the start" }
                 }, { st.continueMode = cycle(listOf("first", "mixed", "off"), st.continueMode, it) }))
+                add(Toggle("Exactly as in Nuvio", "The titles and their progress from Nuvio only, even with Trakt, Simkl and Stremio syncing too (their progress for the same title could be older or off)",
+                    { st.cwNuvioOnly }, { st.cwNuvioOnly = it; app.cw.refreshItems() }))
                 if (st.continueMode == "first") add(Adjust("Slides at the start", "How many titles in progress open the carousel", {
                     if (st.cwLead <= 0) "All" else "${st.cwLead}"
                 }, { st.cwLead = cycle(listOf(1, 2, 3, 4, 5, 0), st.cwLead, it) }))
@@ -809,6 +812,8 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     chooser()
                 })
                 add(Adjust("  · Size", "", { pct(st.multiScale) }, { st.multiScale = ((st.multiScale * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("  · Picture", "Sharp: each camera's full stream. Light: its small stream (for small or older TVs). Automatic picks for this TV",
+                        { when (st.multiQuality) { "high" -> "Sharp"; "light" -> "Light"; else -> "Automatic" } }, { st.multiQuality = cycle(listOf("auto", "high", "light"), st.multiQuality, it) }))
                 add(Adjust("  · Shows for", "Then it goes away by itself", { if (st.multiSec == 0) "Until closed" else if (st.multiSec < 60) "${st.multiSec} s" else "${st.multiSec / 60} min" },
                     { st.multiSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.multiSec, it) }))
                 add(Act("  · Show it now", "In the middle of the screen (also: menu → Camera, then OK)", "") {
@@ -981,7 +986,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         { st.saverBar = cycle(listOf("red", "white", "black", "off"), st.saverBar, it) }))
                 }
                 add(Note("While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it."))
-                add(Toggle("Large clock", "The large glass clock in the middle. ▲ shows or hides it (it stays as you left it)", { st.saverBigClock }, { st.saverBigClock = it }))
+                add(Toggle("Large clock", "The large glass clock in the middle of the screensaver", { st.saverBigClock }, { st.saverBigClock = it }))
                 add(Toggle("Lock & release", "Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it", { st.saverLock }, { st.saverLock = it }))
                 if (st.saverLock) {
                     add(Toggle("  · Only locked videos", "Plays just the videos you locked (when there are some). Also in the menu's Screensaver page", { st.saverLockedOnly }, { st.saverLockedOnly = it }))
@@ -1017,6 +1022,8 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         chooser()
                     })
                     add(Adjust("  · Size", "", { pct(st.multiScale) }, { st.multiScale = ((st.multiScale * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("  · Picture", "Sharp: each camera's full stream. Light: its small stream (for small or older TVs). Automatic picks for this TV",
+                        { when (st.multiQuality) { "high" -> "Sharp"; "light" -> "Light"; else -> "Automatic" } }, { st.multiQuality = cycle(listOf("auto", "high", "light"), st.multiQuality, it) }))
                     add(Adjust("  · Shows for", "Then it goes away by itself", { if (st.multiSec == 0) "Until closed" else if (st.multiSec < 60) "${st.multiSec} s" else "${st.multiSec / 60} min" },
                         { st.multiSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.multiSec, it) }))
                     add(Act("  · Show it now", "In the middle of the screen (also: menu → Camera, then OK)", "") {
@@ -1026,9 +1033,10 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 }
                 if (st.musicOn) {
                     add(Note("Music island"))
-                    add(Toggle("Island", "While music plays, a small island at the top of the screensaver (like the iPhone's)", { st.musicIsland }, { st.musicIsland = it }))
+                    add(Toggle("Island", "While music plays, a small island at the top of the screensaver (like the iPhone's). ▲ opens it with its buttons, ▼ closes it", { st.musicIsland }, { st.musicIsland = it }))
+                    add(Toggle("  · Island on the home screen too", "When Music mode is off", { st.islandHome }, { st.islandHome = it }))
                     if (st.musicIsland) {
-                        add(Adjust("  · Look", "", { if (st.islandStyle == "glass") "Glass" else "Black" }, { st.islandStyle = cycle(listOf("black", "glass"), st.islandStyle, it) }))
+                        add(Adjust("  · Look", "", { when (st.islandStyle) { "glass" -> "Glass"; "black" -> "Black"; "none" -> "No background"; else -> "With the theme" } }, { st.islandStyle = cycle(listOf("none", "theme", "glass", "black"), st.islandStyle, it) }))
                         add(Toggle("  · Joined to the top", "Like a MacBook's notch, instead of floating below the top", { st.islandAttached }, { st.islandAttached = it }))
                         add(Adjust("  · Size", "", { pct(st.islandScale) }, { st.islandScale = ((st.islandScale * 10).roundToInt() + it) / 10f }))
                         add(Adjust("  · Lower", "", { "${st.islandOffset.roundToInt()}" }, { st.islandOffset = st.islandOffset + it * 4f }))
@@ -1100,9 +1108,10 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         when (st.musicButtons) { "white" -> "White"; "black" -> "Black"; else -> "With the theme" }
                     }, { st.musicButtons = cycle(listOf("theme", "white", "black"), st.musicButtons, it) }))
                     add(Note("Island on the screensaver"))
-                    add(Toggle("Island", "While music plays, a small island at the top of the screensaver (like the iPhone's)", { st.musicIsland }, { st.musicIsland = it }))
+                    add(Toggle("Island", "While music plays, a small island at the top of the screensaver (like the iPhone's). ▲ opens it with its buttons, ▼ closes it", { st.musicIsland }, { st.musicIsland = it }))
+                    add(Toggle("  · Island on the home screen too", "When Music mode is off", { st.islandHome }, { st.islandHome = it }))
                     if (st.musicIsland) {
-                        add(Adjust("  · Look", "", { if (st.islandStyle == "glass") "Glass" else "Black" }, { st.islandStyle = cycle(listOf("black", "glass"), st.islandStyle, it) }))
+                        add(Adjust("  · Look", "", { when (st.islandStyle) { "glass" -> "Glass"; "black" -> "Black"; "none" -> "No background"; else -> "With the theme" } }, { st.islandStyle = cycle(listOf("none", "theme", "glass", "black"), st.islandStyle, it) }))
                         add(Toggle("  · Joined to the top", "Like a MacBook's notch, instead of floating below the top", { st.islandAttached }, { st.islandAttached = it }))
                         add(Adjust("  · Size", "", { pct(st.islandScale) }, { st.islandScale = ((st.islandScale * 10).roundToInt() + it) / 10f }))
                         add(Adjust("  · Lower", "", { "${st.islandOffset.roundToInt()}" }, { st.islandOffset = st.islandOffset + it * 4f }))
@@ -1469,6 +1478,7 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
         }
         val rows = buildList<SRow> {
             add(Note("Glassio ${app.updater.current} · The most clean, comfortable and customisable launcher."))
+            add(Act("What's new", "A short tour of what's new and where to change it", "Open") { WhatsNew.show() })
             add(Act("Give Glassio a star on GitHub", "Scan the code with your phone and tap ★ Star. It helps others find it", "★") { toast(ctx, "Thank you! Scan the code on the left") })
             if (rel != null) {
                 add(Act("Install update ${rel!!.version}", if (status.isNotBlank()) status else "Downloads from GitHub and restarts Glass", "Install") { app.updater.install() })

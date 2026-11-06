@@ -71,12 +71,19 @@ object LocalShell {
     fun quick(ctx: Context, command: String, port: Int = 5555) {
         Thread {
             synchronized(quickLock) {
+                val t0 = android.os.SystemClock.uptimeMillis()
                 repeat(2) { attempt ->
+                    var tc = t0
                     val r = runCatching {
                         val d = quick ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { quick = it }
+                        tc = android.os.SystemClock.uptimeMillis()
                         d.shell(command)
                     }
-                    if (r.isSuccess) return@synchronized
+                    if (r.isSuccess) {
+                        val now = android.os.SystemClock.uptimeMillis()
+                        Glog.i("TV shell: $command (connection ${tc - t0} ms, command ${now - tc} ms)")
+                        return@synchronized
+                    }
                     runCatching { quick?.close() }; quick = null
                     if (attempt == 1) Glog.w("TV adb (quick): $command", r.exceptionOrNull())
                 }
