@@ -189,6 +189,50 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             Spacer(Modifier.height(22.dp))
                             Buttons(listOf("Next" to { page = 3 }), focusFirst = false)
                         }
+                        3 -> {
+                            Title("System", "Home button, home app, screensaver and starting with the TV. Uses the TV's debugging connection (ADB)")
+                            @Suppress("UNUSED_EXPRESSION") rev
+                            var state by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+                            var busy by remember { mutableStateOf("") }
+                            fun refresh() = scope.launch {
+                                state = withContext(Dispatchers.IO) {
+                                    val sys = com.glasslauncher.tv.data.SystemSetup
+                                    mapOf("adb" to sys.adb(app), "key" to sys.homeKeyOn(app), "home" to sys.isHomeApp(app),
+                                        "saver" to sys.isScreensaver(app), "boot" to st.bootStart)
+                                }
+                            }
+                            LaunchedEffect(Unit) { refresh() }
+                            fun run(label: String, f: () -> Boolean) {
+                                busy = "$label…"
+                                scope.launch {
+                                    val sys = com.glasslauncher.tv.data.SystemSetup
+                                    // TV access first: without it nothing else can be set from here.
+                                    val ok = withContext(Dispatchers.IO) {
+                                        if (!sys.adb(app)) false else runCatching { f() }.getOrDefault(false)
+                                    }
+                                    busy = if (ok) "" else if (!sys.developerOn(app)) "Turn on Developer options and USB debugging first (TV access below)"
+                                        else "Allow USB debugging for Glassio when the TV asks (Always allow), then try again"
+                                    refresh()
+                                }
+                            }
+                            fun tick(k: String, l: String) = if (state[k] == true) "✓ $l" else l
+                            val sys = com.glasslauncher.tv.data.SystemSetup
+                            Buttons(listOf(
+                                "Set up everything" to { run("Setting up") { listOf(sys.enableHomeKey(app), sys.makeHomeApp(app), sys.makeScreensaver(app), sys.startWithTv(app, st)).all { it } } },
+                                tick("adb", "TV access (ADB)") to {
+                                    if (!sys.developerOn(app)) runCatching { app.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                        .onFailure { busy = "Open Settings → About and press OK on the build number 7 times, then turn on USB debugging" }
+                                    else run("Asking the TV") { true }
+                                },
+                                tick("key", "Home button") to { run("Turning on the Home button service") { sys.enableHomeKey(app) } },
+                                tick("home", "Default home app") to { run("Making Glassio the home app") { sys.makeHomeApp(app) } },
+                                tick("saver", "Default screensaver") to { run("Making Glassio the screensaver") { sys.makeScreensaver(app) } },
+                                tick("boot", "Start with the TV") to { run("Starting with the TV") { sys.startWithTv(app, st) } },
+                            ), wrap = true)
+                            if (busy.isNotBlank()) { Spacer(Modifier.height(12.dp)); Text(busy, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, textAlign = TextAlign.Center) }
+                            Spacer(Modifier.height(22.dp))
+                            Buttons(listOf("Next" to { page = 4 }), focusFirst = false)
+                        }
                         else -> {
                             Title("You're all set", "▲ opens the menu  ·  ▼ from the dock opens the Library  ·  Hold OK on an app for options")
                             Buttons(listOf("Start" to onDone))
@@ -198,7 +242,7 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
             }
         }
         Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 26.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            repeat(4) { i ->
+            repeat(5) { i ->
                 val w by animateDpAsState(if (i == page) 26.dp else 8.dp, tween(260), label = "dot")
                 Box(Modifier.size(w, 8.dp).clip(CircleShape).background(Color.White.copy(alpha = if (i == page) 0.9f else 0.28f)))
             }

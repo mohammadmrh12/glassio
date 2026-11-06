@@ -83,16 +83,26 @@ object AerialSource {
     }
 
     /** Blocking. What the screensaver plays, as (title, link), in play order. */
-    fun playlistItems(app: GlassApp, quality: String = app.settings.saverQuality): List<Pair<String, String>> {
+    /** Link → video id of the last list made (the screensaver's Lock & release names videos by id). */
+    @Volatile var idOfUrl: Map<String, String> = emptyMap()
+
+    fun playlistItems(app: GlassApp, quality: String = app.settings.saverQuality, forSaver: Boolean = true): List<Pair<String, String>> {
         val st = app.settings
         val all = all(app)
         val pick = st.saverPick
-        val chosen = if (pick.isNotBlank()) all.filter { it.id == pick }.ifEmpty { all } else all
-        val list = chosen.mapNotNull { v -> v.url(quality)?.let { v.title to it } }.distinctBy { it.second }
+        var chosen = if (pick.isNotBlank()) all.filter { it.id == pick }.ifEmpty { all } else all
+        // Only the locked videos (Lock & release), when that is on and there are some.
+        if (forSaver && st.saverLock && st.saverLockedOnly && pick.isBlank()) {
+            val locked = st.saverLocked.toSet()
+            chosen.filter { it.id in locked }.takeIf { it.isNotEmpty() }?.let { chosen = it }
+        }
+        val pairs = chosen.mapNotNull { v -> v.url(quality)?.let { Triple(v.title, it, v.id) } }.distinctBy { it.second }
+        if (forSaver) idOfUrl = pairs.associate { it.second to it.third }
+        val list = pairs.map { it.first to it.second }
         return if (st.saverShuffle && pick.isBlank()) list.shuffled() else list
     }
 
     /** Blocking; call off the main thread. The links only (background video). */
     /** For the home screen's background: always 1080 H.264, the lightest to play (4K or HDR behind the glass slowed the whole home screen). */
-    fun playlist(app: GlassApp): List<String> = playlistItems(app, "1080-H264").map { it.second }
+    fun playlist(app: GlassApp): List<String> = playlistItems(app, "1080-H264", forSaver = false).map { it.second }
 }

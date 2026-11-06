@@ -81,6 +81,8 @@ class ContinueWatching(
                     val n = nuvio
                     if (settings.cwNuvioAccount && n?.connected == true && due("Nuvio")) { syncedAt["Nuvio"] = now; syncNuvio(n) }
                 }
+                if (settings.continueWanted && settings.cwNextUp) runCatching { val before = nextUp.value; updateNextUp(woke); if (nextUp.value != before) rebuildItems() }
+                    .onFailure { Glog.w("Next up", it) }
                 woke = false
                 // Every 20 s, or right away when Glass comes back to the front (pollNow).
                 runCatching { wake.tryAcquire(20, java.util.concurrent.TimeUnit.SECONDS) }
@@ -126,8 +128,8 @@ class ContinueWatching(
             val ids = JSONObject()
             val list = entries.value.filterNot { it.app == "Trakt" }.toMutableList()
             for (p in paused) {
-                if (p.percent >= 92) continue
                 val e = CwEntry(p.imdb, p.season, p.episode, p.percent, p.at, "Trakt")
+                if (p.percent >= 92) { recordFinished(e); continue }
                 val other = list.firstOrNull { it.imdb == p.imdb }
                 if (other != null && other.at >= p.at) continue
                 list.removeAll { it.imdb == p.imdb }
@@ -145,6 +147,80 @@ class ContinueWatching(
 
     private class Remote(val e: CwEntry, val ref: String)
 
+    // ---- Next up: after you finish an episode, the next one waits in Continue Watching (like Nuvio's own row).
+
+    /** Finished episodes seen here (any source), newest per series: imdb -> "season:episode:at". */
+    private fun finished(): JSONObject = runCatching { JSONObject(sp.getString("finished", null) ?: "{}") }.getOrDefault(JSONObject())
+
+    private fun recordFinished(e: CwEntry) {
+        if (e.type != "series" || e.episode <= 0) return
+        synchronized(this) {
+            val f = finished()
+            val old = f.optString(e.imdb).split(':').getOrNull(2)?.toLongOrNull() ?: 0L
+            if (e.at >= old) { f.put(e.imdb, "${e.season}:${e.episode}:${e.at}"); sp.edit().putString("finished", f.toString()).apply() }
+        }
+    }
+
+    /** Next-up episodes you removed (imdb_sXeY): they don't come back. */
+    private fun dismissedNext(): MutableSet<String> = sp.getStringSet("nextDismissed", emptySet())!!.toMutableSet()
+
+    /** The next episodes, worked out from finished ones (the Nuvio account's watched list and the ones seen here). */
+    val nextUp = MutableStateFlow(loadNext())
+    @Volatile private var nextAt = 0L
+
+    private fun updateNextUp(force: Boolean = false) {
+        if (!settings.continueWanted) return
+        val now = System.currentTimeMillis()
+        if (!force && now - nextAt < 10 * 60_000L) return
+        nextAt = now
+        // Seeds: the newest finished episode of each series, from the last two months.
+        val seeds = HashMap<String, Triple<Int, Int, Long>>()
+        fun seed(imdb: String, s: Int, e: Int, at: Long) {
+            val o = seeds[imdb]
+            if (o == null || at > o.third || (at == o.third && (s > o.first || (s == o.first && e > o.second)))) seeds[imdb] = Triple(s, e, at)
+        }
+        val n = nuvio
+        if (settings.cwNuvioAccount && n?.connected == true) n.watchedEpisodes()?.forEach { seed(it.imdb, it.season, it.episode, it.at) }
+        val f = finished()
+        f.keys().forEach { k -> f.optString(k).split(':').let { p -> if (p.size == 3) seed(k, p[0].toIntOrNull() ?: 0, p[1].toIntOrNull() ?: 0, p[2].toLongOrNull() ?: 0L) } }
+        val watching = entries.value
+        val dismissed = dismissedNext()
+        val out = seeds.entries.asSequence()
+            .filter { now - it.value.third < 60L * 24 * 3600 * 1000 }
+            // A series already in progress (a later episode started) shows that one instead.
+            .filter { (imdb, v) -> watching.none { it.imdb == imdb && it.at >= v.third } }
+            .sortedByDescending { it.value.third }
+            .take(15)
+            .mapNotNull { (imdb, v) ->
+                val next = nextEpisode(imdb, v.first, v.second) ?: return@mapNotNull null
+                if ("${imdb}_s${next.first}e${next.second}" in dismissed) return@mapNotNull null
+                CwEntry(imdb, next.first, next.second, 0, v.third, "Next up")
+            }.toList()
+        if (out.map { it.key } != nextUp.value.map { it.key }) Glog.i("Next up: ${out.size} (from ${seeds.size} finished series): " + out.take(5).joinToString { "${it.imdb} S${it.season}E${it.episode}" })
+        nextUp.value = out
+        sp.edit().putString("next", JSONArray().apply { out.forEach { put(JSONObject().put("imdb", it.imdb).put("s", it.season).put("e", it.episode).put("at", it.at)) } }.toString()).apply()
+    }
+
+    /** The episode after season [s] episode [e] that is already out (Cinemeta's list), or null. */
+    private fun nextEpisode(imdb: String, s: Int, e: Int): Pair<Int, Int>? = runCatching {
+        val meta = http.json("https://v3-cinemeta.strem.io/meta/series/$imdb.json", 24L * 3600 * 1000).optJSONObject("meta") ?: return null
+        val vids = meta.optJSONArray("videos") ?: return null
+        val now = System.currentTimeMillis()
+        (0 until vids.length()).mapNotNull { i ->
+            val v = vids.optJSONObject(i) ?: return@mapNotNull null
+            val vs = v.optInt("season"); val ve = v.optInt("episode", v.optInt("number"))
+            if (vs <= 0 || ve <= 0) return@mapNotNull null
+            val rel = v.optString("released").takeIf { it.isNotBlank() && it != "null" }?.let { r -> runCatching { java.time.Instant.parse(r).toEpochMilli() }.getOrNull() }
+            if (rel != null && rel > now) return@mapNotNull null
+            vs to ve
+        }.distinct().sortedWith(compareBy({ it.first }, { it.second })).firstOrNull { (vs, ve) -> vs > s || (vs == s && ve > e) }
+    }.getOrNull()
+
+    private fun loadNext(): List<CwEntry> = runCatching {
+        val a = JSONArray(sp.getString("next", "[]"))
+        (0 until a.length()).map { i -> a.getJSONObject(i).let { CwEntry(it.getString("imdb"), it.optInt("s"), it.optInt("e"), 0, it.optLong("at"), "Next up") } }
+    }.getOrDefault(emptyList())
+
     private fun refs(app: String): JSONObject = runCatching { JSONObject(sp.getString("refs_$app", null) ?: "{}") }.getOrDefault(JSONObject())
 
     /** [app]'s list replaces its titles here; a title another source saw more recently keeps that one's place. */
@@ -153,7 +229,8 @@ class ContinueWatching(
             val ids = JSONObject()
             val list = entries.value.filterNot { it.app == app }.toMutableList()
             for (r in remote) {
-                if (r.e.percent >= 92 || r.e.percent < 1) continue
+                if (r.e.percent >= 92) { recordFinished(r.e); continue }
+                if (r.e.percent < 1) continue
                 val other = list.firstOrNull { it.imdb == r.e.imdb }
                 if (other != null && other.at >= r.e.at) continue
                 list.removeAll { it.imdb == r.e.imdb }
@@ -235,7 +312,7 @@ class ContinueWatching(
     private fun upsert(e: CwEntry) {
         // One entry per title: a newer episode of the same series replaces the older one.
         val list = entries.value.filterNot { it.imdb == e.imdb }.toMutableList()
-        if (e.percent < 92) list.add(0, e)
+        if (e.percent < 92) list.add(0, e) else recordFinished(e)
         val trimmed = list.sortedByDescending { it.at }.take(30)
         entries.value = trimmed
         save(trimmed)
@@ -247,6 +324,14 @@ class ContinueWatching(
 
     /** Removes a title here and in the app it came from (Trakt, Simkl, Stremio, the Nuvio account). */
     fun remove(key: String) {
+        // A next-up episode: it stays away (until a later episode is finished).
+        nextUp.value.firstOrNull { it.key == key && entries.value.none { w -> w.key == key } }?.let { n ->
+            val d = dismissedNext(); d += "${n.imdb}_s${n.season}e${n.episode}"
+            sp.edit().putStringSet("nextDismissed", d).apply()
+            nextUp.value = nextUp.value.filterNot { it.key == key }
+            scope.launch(Dispatchers.IO) { rebuildItems() }
+            return
+        }
         val e = entries.value.firstOrNull { it.key == key }
         if (e?.app == "Trakt") {
             val id = traktIds().optLong(key, 0L)
@@ -268,7 +353,9 @@ class ContinueWatching(
 
     /** Turns entries into carousel items using Cinemeta (name, art, logo, synopsis, rating). */
     private fun rebuildItems() {
-        val out = entries.value.filter { it.percent >= 2 }.mapNotNull { e ->
+        val watching = entries.value.filter { it.percent >= 2 }
+        val next = if (settings.cwNextUp) nextUp.value.filter { n -> watching.none { it.imdb == n.imdb } } else emptyList()
+        val out = (watching + next).sortedByDescending { it.at }.mapNotNull { e ->
             runCatching {
                 val meta = http.json("https://v3-cinemeta.strem.io/meta/${e.type}/${e.imdb}.json", 7L * 24 * 3600 * 1000).optJSONObject("meta")
                     ?: return@runCatching null
@@ -276,12 +363,13 @@ class ContinueWatching(
                 val rating = meta.optString("imdbRating").toDoubleOrNull()?.let { String.format(Locale.US, "%.1f", it) }.orEmpty()
                 val year = Regex("(19|20)\\d{2}").find(str("releaseInfo").ifBlank { str("year") })?.value.orEmpty()
                 val genres = meta.optJSONArray("genres")?.let { a -> (0 until minOf(3, a.length())).map { a.optString(it) } }.orEmpty()
+                val isNext = e.app == "Next up"
                 val sub = if (e.type == "series") "S${e.season} · E${e.episode}" else ""
                 HeroItem(
                     key = e.key, id = e.imdb, type = e.type, name = str("name"),
                     poster = str("poster"), background = str("background").ifBlank { str("poster") }, logo = str("logo"),
                     overview = str("description"), rating = rating, year = year, genres = genres, platform = "",
-                    progress = e.percent / 100f, sub = sub,
+                    progress = e.percent / 100f, sub = sub, nextUp = isNext,
                 )
             }.getOrNull()
         }

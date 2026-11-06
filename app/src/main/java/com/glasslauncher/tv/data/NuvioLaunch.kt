@@ -38,11 +38,45 @@ object NuvioLaunch {
 
     fun packageName(ctx: Context, s: Settings) = TARGETS.getValue(resolve(ctx, s))
 
-    fun intent(ctx: Context, s: Settings, type: String, id: String): Intent {
+    fun intent(ctx: Context, s: Settings, type: String, id: String): Intent = intentFor(resolve(ctx, s), type, id)
+
+    /** The installed apps a title can be opened in (Nuvio's versions and Stremio), as target → name. */
+    fun installedTargets(ctx: Context): List<Pair<String, String>> =
+        TARGETS.entries.filter { installed(ctx, it.value) }.map { it.key to NAMES.getValue(it.key) }
+
+    /** Opens the title in one particular app ([target] as in [TARGETS]). */
+    fun openIn(ctx: Context, target: String, item: HeroItem): Boolean = runCatching { ctx.startActivity(intentFor(target, item.type, item.id)) }
+        .onFailure { Glog.w("Open in $target", it); Toast.makeText(ctx, "${NAMES[target]} can't open this title", Toast.LENGTH_LONG).show() }.isSuccess
+
+    /**
+     * Streaming apps by the names TMDB gives the platform (network) a title is on: name keyword → package.
+     * They are opened at their home page (they don't take a TMDB or IMDb id).
+     */
+    private val PLATFORMS = listOf(
+        "netflix" to "com.netflix.ninja", "apple tv" to "com.apple.atve.androidtv.appletv", "prime" to "com.amazon.amazonvideo.livingroom",
+        "amazon" to "com.amazon.amazonvideo.livingroom", "disney" to "com.disney.disneyplus", "hbo" to "com.wbd.stream", "max" to "com.wbd.stream",
+        "hulu" to "com.hulu.livingroomplus", "paramount" to "com.cbs.ott", "peacock" to "com.peacocktv.peacockandroid",
+        "shahid" to "net.mbc.shahidTV", "youtube" to "com.google.android.youtube.tv", "crunchyroll" to "com.crunchyroll.crunchyroid",
+        "osn" to "com.osn.go", "starz" to "com.bydeluxe.d3.android.program.starz", "mubi" to "com.mubi",
+    )
+
+    /** The installed streaming app for [platform] (e.g. "Apple TV+"), or null. */
+    fun platformApp(ctx: Context, platform: String): String? {
+        val p = platform.lowercase()
+        if (p.isBlank()) return null
+        return PLATFORMS.firstOrNull { p.contains(it.first) }?.second?.takeIf { installed(ctx, it) }
+    }
+
+    fun openApp(ctx: Context, pkg: String): Boolean = runCatching {
+        val pm = ctx.packageManager
+        val i = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg) ?: error("no launch intent")
+        ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.isSuccess
+
+    private fun intentFor(target: String, type: String, id: String): Intent {
         // No CLEAR_TASK: a running Nuvio is brought forward and opens the title at once, without
         // restarting (no splash). If Nuvio is not running it starts normally.
         val flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        val target = resolve(ctx, s)
         val pkg = TARGETS.getValue(target)
         val t = if (type.equals("movie", true)) "movie" else "series"
         val uri = if (target == "stremio") {

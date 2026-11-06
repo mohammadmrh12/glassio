@@ -53,11 +53,78 @@ object SaverControl {
     /** +1 next video, -1 previous one (read and cleared by the player loop). */
     @Volatile var step = 0
     val infoHidden = androidx.compose.runtime.mutableStateOf(false)
+    /** The large clock on the screensaver (▼ shows / hides it). */
+    val clockShown = androidx.compose.runtime.mutableStateOf(true)
+    /** Bumped by OK to show the info again (it then goes after its time, as after a new video). */
+    val showRev = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Whether the info is on screen right now (written while it draws). */
+    @Volatile var infoOnScreen = false
+    /** The link of the video on screen (for Lock & release). */
+    @Volatile var currentUrl: String? = null
+    /** Shown after a hold of OK: true = just locked, false = released; [lockRev] restarts the animation. */
+    val lockShown = androidx.compose.runtime.mutableStateOf<Boolean?>(null)
+    val lockRev = androidx.compose.runtime.mutableIntStateOf(0)
+
+    private var okDown = false
+    private var okLong = false
+
+    /** The keys the screensaver uses itself (any other key ends it). */
+    fun handles(code: Int, st: com.glasslauncher.tv.data.Settings): Boolean = when (code) {
+        android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT,
+        android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> true
+        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> st.saverBigClock
+        android.view.KeyEvent.KEYCODE_DPAD_UP -> st.saverMultiCam
+        else -> false
+    }
+
+    /**
+     * A key while the screensaver plays (activity or the TV's own screensaver). OK acts when it is let go
+     * (a short press shows / hides the info); held, it locks or releases the video. True when used.
+     */
+    fun onKey(e: android.view.KeyEvent, st: com.glasslauncher.tv.data.Settings): Boolean {
+        val code = e.keyCode
+        // Back with the cameras up closes just them (the screensaver stays).
+        if (code == android.view.KeyEvent.KEYCODE_BACK && com.glasslauncher.tv.HomeKeyService.instance?.multiShowing == true) {
+            if (e.action == android.view.KeyEvent.ACTION_UP) com.glasslauncher.tv.HomeKeyService.instance?.closeMulti()
+            return true
+        }
+        if (!handles(code, st)) return false
+        if (code == android.view.KeyEvent.KEYCODE_DPAD_CENTER || code == android.view.KeyEvent.KEYCODE_ENTER) {
+            if (e.action == android.view.KeyEvent.ACTION_DOWN) {
+                if (e.repeatCount == 0) { okDown = true; okLong = false }
+                else if (okDown && !okLong && st.saverLock) { okLong = true; toggleLock(st) }
+            } else if (e.action == android.view.KeyEvent.ACTION_UP) {
+                if (okDown && !okLong) key(code)
+                okDown = false
+            }
+            return true
+        }
+        if (e.action == android.view.KeyEvent.ACTION_DOWN && e.repeatCount == 0) key(code)
+        return true
+    }
+
+    private fun toggleLock(st: com.glasslauncher.tv.data.Settings) {
+        val id = currentUrl?.let { AerialSource.idOfUrl[it] } ?: return
+        val l = st.saverLocked
+        val now = id !in l
+        st.saverLocked = if (now) l + id else l - id
+        lockShown.value = now; lockRev.intValue++
+    }
+
     /** True when the key was used (◀ ▶ OK); any other key ends the screensaver. */
     fun key(code: Int): Boolean = when (code) {
         android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { step = 1; true }
         android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { step = -1; true }
-        android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> { infoHidden.value = !infoHidden.value; true }
+        // OK: hides the info when it is showing; when it isn't (hidden, or gone by itself after its time), it
+        // comes back. Toggling a flag alone needed two presses once the info had gone by itself.
+        android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> {
+            if (!infoHidden.value && infoOnScreen) infoHidden.value = true
+            else { infoHidden.value = false; showRev.intValue++ }
+            true
+        }
+        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> { clockShown.value = !clockShown.value; true }
+        // ▲: the cameras slide up from the bottom (multi-view).
+        android.view.KeyEvent.KEYCODE_DPAD_UP -> { com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(bottom = true); true }
         else -> false
     }
 }
@@ -93,7 +160,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 volume = 0f
                 addListener(object : Player.Listener { override fun onRenderedFirstFrame() { rendered[k] = true } })
             } } }
-            DisposableEffect(Unit) { onDispose { players.forEach { it.release() }; SaverControl.step = 0; SaverControl.infoHidden.value = false } }
+            DisposableEffect(Unit) { onDispose { players.forEach { it.release() }; SaverControl.step = 0; SaverControl.infoHidden.value = false; SaverControl.clockShown.value = true; com.glasslauncher.tv.HomeKeyService.instance?.closeMulti() } }
             // One SurfaceView: the video goes straight to the TV at its own size and colour, so 4K is really 4K and
             // HDR / Dolby Vision is shown as HDR. Changing video fades through black with a layer above it (the
             // TV ignored a SurfaceView's own transparency, so cross-fading two of them cut instead).
@@ -113,6 +180,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 p.repeatMode = if (single) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                 fun start(i: Int) {
                     rendered[0] = false
+                    SaverControl.currentUrl = list[i.mod(list.size)].second
                     p.setMediaItem(MediaItem.fromUri(list[i.mod(list.size)].second)); p.prepare(); p.play()
                     com.glasslauncher.tv.data.Glog.i("Saver: #${i.mod(list.size)}/${list.size} ${list[i.mod(list.size)].first}")
                 }
@@ -160,6 +228,65 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             Slideshow(app)
         }
         if (list != null) SaverInfo(app, if (slideshow || list.isEmpty() || failed) "" else title, change)
+        LockBadge()
+        // Music playing: the island at the top.
+        if (st.musicOn && st.musicIsland) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+            com.glasslauncher.tv.ui.MusicIsland(app, maxWidth.value / 960f)
+        }
+        // The large clock, sliding down from the top (▼ shows / hides it).
+        if (st.saverBigClock) androidx.compose.animation.AnimatedVisibility(SaverControl.clockShown.value,
+            enter = androidx.compose.animation.slideInVertically(tween(520)) { -it } + androidx.compose.animation.fadeIn(tween(420)),
+            exit = androidx.compose.animation.slideOutVertically(tween(420)) { -it } + androidx.compose.animation.fadeOut(tween(320))) {
+            // Moves down below the music island while a song plays, so the two never overlap.
+            val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
+            val island = st.musicOn && st.musicIsland && song != null
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+                val k = maxWidth.value / 960f
+                val drop by androidx.compose.animation.core.animateFloatAsState(if (island) (st.islandOffset + 58f * st.islandScale) * k else 0f, tween(420), label = "drop")
+                Box(Modifier.fillMaxSize().graphicsLayer { translationY = drop * density }) {
+                    com.glasslauncher.tv.ui.BigClock(st, k, inSaver = true)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * After a hold of OK: a small glass padlock in the middle that closes (locked) or opens (released), then fades.
+ * Minimal: a frosted round plate, the lock's body and its shackle, drawn as lines.
+ */
+@Composable
+private fun LockBadge() {
+    val locked = SaverControl.lockShown.value ?: return
+    val rev = SaverControl.lockRev.intValue
+    val shackle = remember(rev) { Animatable(if (locked) 0f else 1f) }
+    val alpha = remember(rev) { Animatable(0f) }
+    LaunchedEffect(rev) {
+        alpha.animateTo(1f, tween(180))
+        shackle.animateTo(if (locked) 1f else 0f, androidx.compose.animation.core.spring(0.55f, 380f))
+        delay(900)
+        alpha.animateTo(0f, tween(450))
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.size(132.dp).graphicsLayer { this.alpha = alpha.value; scaleX = 0.9f + 0.1f * alpha.value; scaleY = scaleX }) {
+            val w = size.width
+            drawCircle(Color.White.copy(alpha = 0.16f))
+            drawCircle(Color.White.copy(alpha = 0.55f), style = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.012f))
+            val stroke = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.05f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            // Body.
+            drawRoundRect(Color.White, androidx.compose.ui.geometry.Offset(w * 0.30f, w * 0.46f), androidx.compose.ui.geometry.Size(w * 0.40f, w * 0.30f),
+                androidx.compose.ui.geometry.CornerRadius(w * 0.06f), style = stroke)
+            drawCircle(Color.White, w * 0.03f, androidx.compose.ui.geometry.Offset(w * 0.5f, w * 0.60f))
+            // Shackle: down into the body when locked, lifted (and its right leg out) when open.
+            val lift = (1f - shackle.value) * w * 0.10f
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.37f, w * 0.46f - lift)
+                lineTo(w * 0.37f, w * 0.36f - lift)
+                arcTo(androidx.compose.ui.geometry.Rect(w * 0.37f, w * 0.23f - lift, w * 0.63f, w * 0.49f - lift), 180f, 180f, false)
+                lineTo(w * 0.63f, w * 0.40f - lift + (1f - shackle.value) * w * 0.02f)
+            }
+            drawPath(path, Color.White, style = stroke)
+        }
     }
 }
 
@@ -196,7 +323,8 @@ fun SaverInfo(app: GlassApp, place: String, change: Int, look: InfoLook = InfoLo
     }
     // Shown for a while after each video change, or always.
     val shown = remember { Animatable(0f) }
-    LaunchedEffect(change, look.showSec) {
+    val showRev = SaverControl.showRev.intValue
+    LaunchedEffect(change, look.showSec, showRev) {
         shown.animateTo(1f, tween(900))
         if (look.showSec > 0) { delay(look.showSec * 1000L); shown.animateTo(0f, tween(1200)) }
     }
@@ -220,14 +348,17 @@ fun SaverInfo(app: GlassApp, place: String, change: Int, look: InfoLook = InfoLo
     // OK on the remote shows / hides all of it.
     val hidden by SaverControl.infoHidden
     val vis by androidx.compose.animation.core.animateFloatAsState(if (hidden) 0f else 1f, tween(400), label = "info")
-    if (vis < 0.01f) return
+    if (vis < 0.01f) { SaverControl.infoOnScreen = false; return }
     if (look.style == "netflix") {
         // Like the notes before a Netflix film: top left, a bar, then each line comes in one after another.
-        Column(Modifier.fillMaxSize().graphicsLayer { alpha = vis }.padding(start = (52 * k).dp, top = (44 * k).dp + padTop.dp)) {
+        val netAlphas = remember(change) { HashMap<Int, Animatable<Float, androidx.compose.animation.core.AnimationVector1D>>() }
+        Column(Modifier.fillMaxSize().graphicsLayer { alpha = vis; SaverControl.infoOnScreen = vis > 0.5f && netAlphas.values.any { it.value > 0.5f } }
+            .padding(start = (52 * k).dp, top = (44 * k).dp + padTop.dp)) {
             val n = lines.size
             lines.forEachIndexed { i, (label, value) ->
                 val a = remember(change) { Animatable(0f) }
-                LaunchedEffect(change) {
+                netAlphas[i] = a
+                LaunchedEffect(change, showRev) {
                     delay(500L + i * 650L)
                     a.animateTo(1f, tween(500))
                     // "Hide when complete": all of them go 4 s after the last one came in.
@@ -251,7 +382,7 @@ fun SaverInfo(app: GlassApp, place: String, change: Int, look: InfoLook = InfoLo
     val align = when (corner) { "tl" -> Alignment.TopStart; "tr" -> Alignment.TopEnd; "br" -> Alignment.BottomEnd; else -> Alignment.BottomStart }
     val end = corner.endsWith("r")
     Box(Modifier.fillMaxSize().padding(start = (56 * k).dp, end = (56 * k).dp, top = (44 * k).dp + padTop.dp, bottom = (44 * k).dp + padBottom.dp)
-        .graphicsLayer { alpha = shown.value * vis }) {
+        .graphicsLayer { alpha = shown.value * vis; SaverControl.infoOnScreen = shown.value * vis > 0.5f }) {
         Column(Modifier.align(align), horizontalAlignment = if (end) Alignment.End else Alignment.Start, verticalArrangement = Arrangement.spacedBy((2 * k).dp)) {
             lines.forEach { (label, value) ->
                 if (label == "Time") Text(value, color = Color.White, fontSize = (46 * k).sp, fontWeight = FontWeight.Light, style = shade)

@@ -7,11 +7,11 @@ import androidx.compose.runtime.mutableIntStateOf
  * Every launcher option lives here. Reads touch a Compose state counter, so any composable that
  * reads a property recomposes automatically when a setter bumps it.
  */
-val MENU_KEYS = listOf("library", "sliders", "gear", "wifi", "theme", "camera", "saver", "background")
+val MENU_KEYS = listOf("library", "sliders", "gear", "wifi", "theme", "camera", "saver", "background", "recents", "inputs")
 /** The menu's order on a new TV. */
 val MENU_DEFAULT = listOf("library", "camera", "sliders", "gear", "wifi", "saver", "theme", "background")
 val MENU_NAMES = mapOf("library" to "Library", "sliders" to "Glassio settings", "gear" to "Android settings", "wifi" to "Wi-Fi",
-    "theme" to "Themes", "camera" to "Camera", "saver" to "Screensaver", "background" to "Background")
+    "theme" to "Themes", "camera" to "Camera", "saver" to "Screensaver", "background" to "Background", "recents" to "Recent apps", "inputs" to "Inputs")
 
 class Settings(private val ctx: Context) {
     private val sp = ctx.getSharedPreferences("glass", Context.MODE_PRIVATE)
@@ -152,6 +152,36 @@ class Settings(private val ctx: Context) {
         set(v) = putList("menuOrder", v)
     var menuAndroid: Boolean get() = b("menuAndroid", true); set(v) = putB("menuAndroid", v)
     var menuWifi: Boolean get() = b("menuWifi", false); set(v) = putB("menuWifi", v)
+    /** "Recent apps" in the menu: the app switcher (like holding Home). */
+    var menuRecents: Boolean get() = b("menuRecents", false); set(v) = putB("menuRecents", v)
+    // ---- Music (Settings → Music)
+    /** Music on: Glassio follows what any music app plays (needs its notification listener, switched on over ADB). */
+    var musicOn: Boolean get() = b("musicOn", false); set(v) = putB("musicOn", v)
+    /** ▶ in the menu turns it into the player. */
+    var musicMenu: Boolean get() = b("musicMenu", true); set(v) = putB("musicMenu", v)
+    /** A Music icon in the dock (opens the menu's player). */
+    var musicDock: Boolean get() = b("musicDock", false); set(v) = putB("musicDock", v)
+    /** Music mode: while a song plays, the home screen's background becomes the player (whatever background you chose). */
+    var musicMode: Boolean get() = b("musicMode", true); set(v) = putB("musicMode", v)
+    var musicStageScale: Float get() = f("musicStageScale", 1f); set(v) = putF("musicStageScale", v.coerceIn(0.7f, 1.4f))
+    /** theme | white | black: the player's buttons (the other way round when selected). */
+    var musicButtons: String get() = s("musicButtons", "theme"); set(v) = putS("musicButtons", v)
+    /** The island on the screensaver while music plays. */
+    var musicIsland: Boolean get() = b("musicIsland", true); set(v) = putB("musicIsland", v)
+    var islandStyle: String get() = s("islandStyle", "black"); set(v) = putS("islandStyle", v)
+    /** Joined to the top of the screen (like a MacBook's notch) instead of floating below it. */
+    var islandAttached: Boolean get() = b("islandAttached", false); set(v) = putB("islandAttached", v)
+    var islandScale: Float get() = f("islandScale", 1f); set(v) = putF("islandScale", v.coerceIn(0.6f, 1.8f))
+    var islandOffset: Float get() = f("islandOffset", 0f); set(v) = putF("islandOffset", v.coerceIn(0f, 120f))
+    var islandArt: Boolean get() = b("islandArt", true); set(v) = putB("islandArt", v)
+    var islandTitle: Boolean get() = b("islandTitle", true); set(v) = putB("islandTitle", v)
+    var islandProgress: Boolean get() = b("islandProgress", true); set(v) = putB("islandProgress", v)
+    /** art | white: the colour of the island's bars. */
+    var islandBars: String get() = s("islandBars", "art"); set(v) = putS("islandBars", v)
+    /** "Inputs" in the menu: the TV's HDMI inputs and what is plugged into them. */
+    var menuInputs: Boolean get() = b("menuInputs", false); set(v) = putB("menuInputs", v)
+    /** The inputs as icons in the dock too (moved, hidden and given icons like apps). */
+    var inputsDock: Boolean get() = b("inputsDock", false); set(v) = putB("inputsDock", v)
     var menuThemes: Boolean get() = b("menuThemes", true); set(v) = putB("menuThemes", v)
     var menuBackground: Boolean get() = b("menuBackground", true); set(v) = putB("menuBackground", v)
     /** Size of the menu (0.8 – 1.3). */
@@ -196,6 +226,18 @@ class Settings(private val ctx: Context) {
     /** Buttons under the title: apple (Play + round Next, like Apple TV) | play (Play only, when selected) | hidden */
     var heroButtons: String get() = s("heroButtons", "play"); set(v) = putS("heroButtons", v)
     var dotsMax: Int get() = i("dotsMax", 10); set(v) = putI("dotsMax", v.coerceIn(3, 20))
+    /** Trailers: a Trailer button next to Play (Apple TV buttons). */
+    var trailerButton: Boolean get() = b("trailerButton", true); set(v) = putB("trailerButton", v)
+    /** cinema (fills the screen) | original (its own shape) | popup (a small glass window by the buttons). */
+    var trailerSize: String get() = s("trailerSize", "cinema"); set(v) = putS("trailerSize", v)
+    var trailerMute: Boolean get() = b("trailerMute", false); set(v) = putB("trailerMute", v)
+    var trailerSubs: Boolean get() = b("trailerSubs", false); set(v) = putB("trailerSubs", v)
+    var trailerSubLang: String get() = s("trailerSubLang", "en"); set(v) = putS("trailerSubLang", v)
+    /** Seconds on a title before its trailer starts by itself (0 = only when asked). */
+    var trailerAutoSec: Int get() = i("trailerAutoSec", 0); set(v) = putI("trailerAutoSec", v.coerceIn(0, 60))
+    var trailerPopupScale: Float get() = f("trailerPopupScale", 1f); set(v) = putF("trailerPopupScale", v.coerceIn(0.6f, 2f))
+    /** Size of the carousel's dots bar (1 = as designed). */
+    var dotsScale: Float get() = f("dotsScale", 1f); set(v) = putF("dotsScale", v.coerceIn(0.5f, 1.5f))
     var perCatalog: Int get() = i("perCatalog", 50); set(v) = putI("perCatalog", v.coerceIn(5, 500))
     /** 0 = unlimited */
     var maxItems: Int get() = i("maxItems", 70); set(v) = putI("maxItems", v.coerceAtLeast(0))
@@ -254,6 +296,8 @@ class Settings(private val ctx: Context) {
     var continueJump: Boolean get() = b("continueJump", true); set(v) = putB("continueJump", v)
     var cwLegacy: Boolean get() = b("cwLegacy", true); set(v) = putB("cwLegacy", v)
     var cwProgress: Boolean get() = b("cwProgress", true); set(v) = putB("cwProgress", v)
+    /** The next episode after one you finished joins Continue Watching (like Nuvio's "Next up"). */
+    var cwNextUp: Boolean get() = b("cwNextUp", true); set(v) = putB("cwNextUp", v)
     /** 0.6 .. 1.0 (1.0 = full width) */
     var dockScale: Float get() = f("dockScale", 1.0f); set(v) = putF("dockScale", v.coerceIn(0.6f, 1.0f))
     /** Background of the dock and the Apps folder: liquid | clear | amoled | bow */
@@ -373,6 +417,18 @@ class Settings(private val ctx: Context) {
     var doorbellCycleSec: Int get() = i("doorbellCycleSec", 0); set(v) = putI("doorbellCycleSec", if (v <= 0) 0 else v.coerceIn(5, 600))
     /** Hold Home → camera: its size (1 = a third of the screen wide). */
     var cameraScale: Float get() = f("cameraScale", 1.0f); set(v) = putF("cameraScale", v.coerceIn(0.6f, 1.6f))
+    /** auto | software | hardware: how the cameras' video is decoded (see CamPlayer). */
+    var cameraDecoder: String get() = s("cameraDecoder", "auto"); set(v) = putS("cameraDecoder", v)
+    /** Multi-view: up to four cameras in one row. The cameras (links) in it; empty = the first four. */
+    var multiCams: List<String> get() = list("multiCams"); set(v) = putList("multiCams", v.take(4))
+    var multiScale: Float get() = f("multiScale", 1.0f); set(v) = putF("multiScale", v.coerceIn(0.6f, 1.4f))
+    /** Seconds it stays (0 = until closed). */
+    var multiSec: Int get() = i("multiSec", 30); set(v) = putI("multiSec", v.coerceIn(0, 600))
+    /** On the screensaver: ▲ brings the multi-view up from the bottom. */
+    var saverMultiCam: Boolean get() = b("saverMultiCam", false); set(v) = putB("saverMultiCam", v)
+    /** Remote buttons (any app): multi-view and the corner camera. 0 = none. */
+    var multiKey: Int get() = i("multiKey", 0); set(v) = putI("multiKey", v)
+    var cornerKey: Int get() = i("cornerKey", 0); set(v) = putI("cornerKey", v)
     var doorbellChime: Boolean get() = b("doorbellChime", true); set(v) = putB("doorbellChime", v)
     /** Doorbell straight from Home Assistant (no automation): its link, a long-lived token, and the sensor to watch. */
     var haUrl: String get() = s("haUrl", ""); set(v) = putS("haUrl", v.trim().trimEnd('/'))
@@ -412,6 +468,16 @@ class Settings(private val ctx: Context) {
     /** Sharp corners for the menu, the dock and the icons (no rounding). */
     var squareCorners: Boolean get() = b("squareCorners", false); set(v) = putB("squareCorners", v)
     var bgClockStyle: String get() = s("bgClockStyle", "theme"); set(v) = putS("bgClockStyle", v)
+    /** The large clock's date in white, whatever the time's look. */
+    var bgClockDateWhite: Boolean get() = b("bgClockDateWhite", false); set(v) = putB("bgClockDateWhite", v)
+    /** The large clock on the screensaver too (Down shows / hides it). */
+    var saverBigClock: Boolean get() = b("saverBigClock", false); set(v) = putB("saverBigClock", v)
+    /** Lock & release on the screensaver: hold OK on a video to keep it (and again to let it go). */
+    var saverLock: Boolean get() = b("saverLock", true); set(v) = putB("saverLock", v)
+    /** The locked videos (their ids). */
+    var saverLocked: List<String> get() = list("saverLocked"); set(v) = putList("saverLocked", v)
+    /** Only the locked videos play (when there are some). */
+    var saverLockedOnly: Boolean get() = b("saverLockedOnly", false); set(v) = putB("saverLockedOnly", v)
     /** Large clock: moved up (negative) or down, as a part of the screen's height. */
     var bgClockOffset: Float get() = f("bgClockOffset", 0f); set(v) = putF("bgClockOffset", v.coerceIn(-0.2f, 0.3f))
     /** My video / My picture: go round the others in the folder (else the chosen one stays). */

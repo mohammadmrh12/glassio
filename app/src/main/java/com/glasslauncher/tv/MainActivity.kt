@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
                     val idle = System.currentTimeMillis() - lastInput
                     if (secs > 0 && idle > secs * 1000L && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !systemSaverFirst(secs)) {
                         lastInput = System.currentTimeMillis()
+                        com.glasslauncher.tv.ui.SaverGate.opening.value = true
                         startActivity(Intent(this@MainActivity, ScreensaverActivity::class.java))
                     }
                 }
@@ -109,6 +110,7 @@ class MainActivity : ComponentActivity() {
         hideBars()
         (application as GlassApp).cw.pollNow()
         resumed = true
+        com.glasslauncher.tv.ui.SaverGate.opening.value = false
     }
 
     override fun onPause() {

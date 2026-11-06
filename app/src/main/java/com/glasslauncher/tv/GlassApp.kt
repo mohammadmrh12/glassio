@@ -161,6 +161,19 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         com.glasslauncher.tv.net.NotifyServer.start(this)
         com.glasslauncher.tv.net.HaWatch.start(this)
         com.glasslauncher.tv.data.Photos.start(this)
+        // Music: follows what any music app plays (its listener is switched on when Music is turned on).
+        if (settings.musicOn) Thread { runCatching { com.glasslauncher.tv.data.NowPlaying.grant(this); com.glasslauncher.tv.data.NowPlaying.start(this) } }.apply { isDaemon = true }.start()
+        // The TV's inputs (HDMI, CEC devices), read now and every few minutes while asked for.
+        scope.launch {
+            while (true) {
+                if (settings.menuInputs || settings.inputsDock) {
+                    val before = com.glasslauncher.tv.data.Inputs.list.value
+                    val now = runCatching { com.glasslauncher.tv.data.Inputs.refresh(this@GlassApp) }.getOrDefault(before)
+                    if (now != before && settings.inputsDock) apps.reload()
+                }
+                kotlinx.coroutines.delay(if (com.glasslauncher.tv.data.Inputs.list.value.isEmpty()) 20_000 else 180_000)
+            }
+        }
         // Add-ons from the accounts that are on (Nuvio, Stremio), as one list (each add-on once, see CatalogRepository).
         catalogs.account = {
             val n = if (settings.catalogsNuvio && library.nuvio.connected) library.nuvio.addons() else emptyList()

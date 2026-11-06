@@ -13,8 +13,8 @@ android {
         applicationId = "com.glasslauncher.tv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 47
-        versionName = "2.0.7"
+        versionCode = 48
+        versionName = "2.0.8"
         // TV boxes are ARM: the depth model's native library only for those (keeps the download small).
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         // Trakt app (PKCE, no secret). Kept in local.properties, which is not committed.
@@ -62,6 +62,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("io.coil-kt.coil3:coil-video:3.3.0")
     implementation("androidx.media3:media3-exoplayer:1.8.0")
+    // Shuffle in other apps' music players (their MediaSessionCompat).
+    implementation("androidx.media:media:1.7.0")
     implementation("androidx.media3:media3-ui:1.8.0")
     implementation("androidx.media3:media3-exoplayer-rtsp:1.8.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.8.0")

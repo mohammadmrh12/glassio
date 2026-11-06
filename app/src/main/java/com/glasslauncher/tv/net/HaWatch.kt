@@ -124,6 +124,51 @@ object HaWatch {
         else -> now == "on" && before != "on"
     }
 
+    /** Blocking. Home Assistant's cameras (any integration: Aqara through HomeKit, Frigate, ONVIF…): (entity id, name). */
+    fun cameras(url: String, token: String): List<Pair<String, String>> {
+        val req = Request.Builder().url(url.trimEnd('/') + "/api/states").header("Authorization", "Bearer $token").build()
+        val body = client.newBuilder().readTimeout(10, TimeUnit.SECONDS).build().newCall(req).execute().use { r ->
+            check(r.code != 401) { "Wrong token" }
+            check(r.isSuccessful) { "Home Assistant answered HTTP ${r.code}" }
+            r.body?.string().orEmpty()
+        }
+        val arr = JSONArray(body)
+        return (0 until arr.length()).mapNotNull { k ->
+            val o = arr.optJSONObject(k) ?: return@mapNotNull null
+            val id = o.optString("entity_id")
+            if (!id.startsWith("camera.")) return@mapNotNull null
+            id to (o.optJSONObject("attributes")?.optString("friendly_name")?.takeIf { it.isNotBlank() } ?: id)
+        }.sortedBy { it.second.lowercase() }
+    }
+
+    /**
+     * Blocking. A fresh live link (HLS) for a Home Assistant camera. Home Assistant hands these out per request and
+     * they stop working after a while, so a camera added from Home Assistant is kept as ha://camera.x and asked again
+     * every time it is shown.
+     */
+    fun streamUrl(url: String, token: String, entity: String): String? {
+        val done = CountDownLatch(1)
+        var out: String? = null
+        val sock = client.newWebSocket(Request.Builder().url(wsUrl(url)).build(), object : WebSocketListener() {
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val j = runCatching { JSONObject(text) }.getOrNull() ?: return
+                when (j.optString("type")) {
+                    "auth_required" -> webSocket.send(JSONObject().put("type", "auth").put("access_token", token).toString())
+                    "auth_ok" -> webSocket.send(JSONObject().put("id", 1).put("type", "camera/stream").put("entity_id", entity).put("format", "hls").toString())
+                    "auth_invalid" -> { webSocket.close(1000, null); done.countDown() }
+                    "result" -> {
+                        out = j.optJSONObject("result")?.optString("url")?.takeIf { it.isNotBlank() }?.let { u -> if (u.startsWith("http")) u else url.trimEnd('/') + u }
+                        if (out == null) Glog.w("Home Assistant camera $entity: " + (j.optJSONObject("error")?.optString("message") ?: "no stream"))
+                        webSocket.close(1000, null); done.countDown()
+                    }
+                }
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { done.countDown() }
+        })
+        if (!done.await(12, TimeUnit.SECONDS)) sock.cancel()
+        return out
+    }
+
     /** Blocking. The sensors that can be a doorbell, likeliest first: (entity id, friendly name). */
     fun sensors(url: String, token: String): List<Pair<String, String>> {
         val req = Request.Builder().url(url.trimEnd('/') + "/api/states").header("Authorization", "Bearer $token").build()

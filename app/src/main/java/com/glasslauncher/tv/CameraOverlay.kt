@@ -112,8 +112,8 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
         }
         runCatching { wm.addView(box, lp) }.onFailure { return }
         root = box
-        player = ExoPlayer.Builder(ctx).build().apply {
-            volume = 0f; setVideoTextureView(tex)
+        player = CamPlayer.build(ctx).apply {
+            setVideoTextureView(tex)
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) status?.visibility = View.GONE }
                 override fun onPlayerError(error: PlaybackException) { status?.text = "Can't reach the camera"; status?.visibility = View.VISIBLE }
@@ -129,11 +129,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
         val c = cams[index.mod(cams.size)]
         name?.text = c.name
         status?.text = "Connecting…"; status?.visibility = View.VISIBLE
-        p.stop(); p.clearMediaItems()
-        val item = MediaItem.fromUri(c.url)
-        if (c.url.startsWith("rtsp", true)) p.setMediaSource(RtspMediaSource.Factory().setForceUseRtpTcp(true).setTimeoutMs(8000).createMediaSource(item))
-        else p.setMediaItem(item)
-        p.prepare(); p.playWhenReady = true
+        CamPlayer.play(ctx, p, c.url)
     }
 
     /** The countdown starts again (also when you switch camera). */

@@ -230,11 +230,13 @@ object Depth {
 /** How the large clock is drawn: plain white, or exactly as the dock's own glass / plate is drawn. */
 private fun clockLook(st: Settings): String =
     // Black on white and Black AMOLED: white digits (their flat plates disappeared on photos).
-    if (st.bgClockStyle == "white" || st.dockStyle == "bow" || st.dockStyle == "amoled") "white" else st.dockStyle
+    if (st.bgClockStyle == "white" || st.dockStyle == "bow" || st.dockStyle == "amoled") "white"
+    // Still Glass whatever the theme (and no blur).
+    else if (st.bgClockStyle == "still") "water_still" else st.dockStyle
 
 /** The large clock over your own background (date above, time below), with the depth cut-out drawn over it. */
 @Composable
-fun BigClock(st: Settings, s: Float) {
+fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
     val k = st.bgClockSize
     val off = st.bgClockOffset
     // Like a phone's lock screen: no AM / PM (it made the clock much wider).
@@ -253,16 +255,15 @@ fun BigClock(st: Settings, s: Float) {
             val small = TextStyle(fontSize = (12 * s * k).sp, fontWeight = FontWeight.SemiBold)
             val big = TextStyle(fontSize = (118 * s * k).sp, lineHeight = (118 * s * k).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-2 * s * k).sp)
             // The date in the same style as the time.
-            if (look == "white") {
-                Text(date, color = Color.White.copy(alpha = 0.9f), style = small.merge(shade))
-                Text(time, color = Color.White.copy(alpha = 0.94f), style = big.merge(shade))
-            } else {
-                ThemedNumerals(date, small, look, blurOn = st.blurRadius > 0, rim = false)
-                ThemedNumerals(time, big, look, blurOn = st.blurRadius > 0)
-            }
+            val blurOn = st.blurRadius > 0 && st.bgClockStyle != "still"
+            // The date can be white on its own (Settings), whatever the time's look.
+            if (look == "white" || st.bgClockDateWhite) Text(date, color = Color.White.copy(alpha = 0.9f), style = small.merge(shade))
+            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false)
+            if (look == "white") Text(time, color = Color.White.copy(alpha = 0.94f), style = big.merge(shade))
+            else ThemedNumerals(time, big, look, blurOn = blurOn)
         }
         // Depth: the subject drawn again over the clock, only where the clock is.
-        val cut = Depth.fg.value
+        val cut = if (inSaver) null else Depth.fg.value
         val a by animateFloatAsState(if (cut != null) 1f else 0f, tween(450), label = "depth")
         val last = remember { arrayOfNulls<Depth.Cut>(1) }
         if (cut != null) last[0] = cut
@@ -351,6 +352,9 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
             val pos = arrayOf(posS.value)
             val video = VideoFrames.showing.value
             val pic = (if (video) VideoFrames.sharp.value ?: VideoFrames.soft.value else null) ?: env.sharp ?: env.bmp
+            // No picture to show through (the screensaver's own videos): see-through glass, the video behind it
+            // seen through a light tint of the theme.
+            if (pic == null || env.rootW <= 0) drawRect(Color.White.copy(alpha = when (look) { "liquid" -> 0.55f; "clear" -> 0.45f; else -> 0.36f }))
             if (pic != null && env.rootW > 0) {
                 val mag = 1.06f
                 val sc0 = max(env.rootW / pic.width.toFloat(), env.rootH / pic.height.toFloat())

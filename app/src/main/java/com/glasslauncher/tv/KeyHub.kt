@@ -24,6 +24,10 @@ object KeyHub {
             if (!down) { capture = null; main.post { c(code) } }
             return true
         }
+        // Camera buttons work in any app: multi-view and the corner camera.
+        val st = app.settings
+        if (st.multiKey != 0 && code == st.multiKey) { if (!down) main.post { HomeKeyService.instance?.toggleMulti(bottom = false) }; return true }
+        if (st.cornerKey != 0 && code == st.cornerKey) { if (!down) main.post { HomeKeyService.instance?.toggleCorner() }; return true }
         val shuffle = app.settings.shuffleKey
         if (shuffle != 0 && code == shuffle && homeInFront) {
             if (!down) main.post { app.shuffleRev.intValue++ }

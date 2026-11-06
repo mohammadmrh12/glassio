@@ -42,6 +42,23 @@ object DevHooks {
         i.getIntExtra("open_settings", -1).takeIf { it >= 0 }?.let { app.requestSettings.intValue = it; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
+        // Home Assistant cameras: lists them and asks for the first one's live link (log only).
+        if (i.getBooleanExtra("ha_cams", false)) Thread {
+            runCatching {
+                val l = com.glasslauncher.tv.net.HaWatch.cameras(app.settings.haUrl, app.settings.haToken)
+                com.glasslauncher.tv.data.Glog.i("HA cameras: " + l.joinToString { it.first })
+                l.firstOrNull()?.let { com.glasslauncher.tv.data.Glog.i("HA stream ${it.first}: " + (com.glasslauncher.tv.net.HaWatch.streamUrl(app.settings.haUrl, app.settings.haToken, it.first)?.replace(Regex("/api/hls/[^/]+/"), "/api/hls/…/") ?: "none")) }
+            }.onFailure { com.glasslauncher.tv.data.Glog.w("HA cameras", it) }
+        }.start()
+        // A pretend song for looking at the music player, the island and music mode (cleared with fake_song=false).
+        if (i.hasExtra("fake_song")) {
+            if (i.getBooleanExtra("fake_song", false)) {
+                val b = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)
+                android.graphics.Canvas(b).drawPaint(android.graphics.Paint().apply { shader = android.graphics.LinearGradient(0f, 0f, 300f, 300f, 0xFF7B61FF.toInt(), 0xFFFF6FA8.toInt(), android.graphics.Shader.TileMode.CLAMP) })
+                com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", "Test song", "Test artist", "Album", b,
+                    200_000, 60_000, android.os.SystemClock.elapsedRealtime(), 1f, true)
+            } else com.glasslauncher.tv.data.NowPlaying.track.value = null
+        }
         if (i.getBooleanExtra("start_saver", false)) a.startActivity(Intent(a, com.glasslauncher.tv.saver.ScreensaverActivity::class.java))
 
         if (!allowed(app, i)) return

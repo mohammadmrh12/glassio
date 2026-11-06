@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.glasslauncher.tv.GlassApp
+import com.glasslauncher.tv.MultiCamOverlay
 import com.glasslauncher.tv.data.AppEntry
 import com.glasslauncher.tv.data.NuvioLaunch
 import com.glasslauncher.tv.net.Net
@@ -312,6 +313,19 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     when (st.dotsMode) { "window" -> "Dots"; "liquid" -> "Liquid glass dots"; "progress" -> "Progress bar"; else -> "Hidden" }
                 }, { st.dotsMode = cycle(listOf("window", "liquid", "progress", "hidden"), st.dotsMode, it) }),
                 Adjust("Dots per group", "", { "${st.dotsMax}" }, { st.dotsMax += it }),
+                Adjust("Dots size", "The dots bar (and the liquid glass drops)", { pct(st.dotsScale) }, { st.dotsScale = ((st.dotsScale * 10).roundToInt() + it) / 10f }),
+                Toggle("Trailer button", "Next to Play (Apple TV buttons). Hold OK on Play has Trailer too", { st.trailerButton }, { st.trailerButton = it }),
+                Adjust("Trailer size", "Fill the screen, its own shape, or a small window by the buttons", {
+                    when (st.trailerSize) { "original" -> "Original"; "popup" -> "Window"; else -> "Cinematic (fill)" }
+                }, { st.trailerSize = cycle(listOf("cinema", "original", "popup"), st.trailerSize, it) }),
+                Adjust("Trailer window size", "", { pct(st.trailerPopupScale) }, { st.trailerPopupScale = ((st.trailerPopupScale * 10).roundToInt() + it) / 10f }),
+                Toggle("Trailer sound", "", { !st.trailerMute }, { st.trailerMute = !it }),
+                Toggle("Trailer subtitles", "", { st.trailerSubs }, { st.trailerSubs = it }),
+                Adjust("Subtitle language", "", { java.util.Locale(st.trailerSubLang).getDisplayLanguage(java.util.Locale.ENGLISH) },
+                    { st.trailerSubLang = cycle(listOf("en", "ar", "fr", "de", "es", "it", "tr", "fa", "ru", "pt", "hi", "ja", "ko", "zh"), st.trailerSubLang, it) }),
+                Adjust("Play trailers by themselves", "After this long on a title its trailer starts; when it ends (or ◀ ▶) the next title comes", {
+                    if (st.trailerAutoSec == 0) "Off" else "After ${st.trailerAutoSec} s"
+                }, { st.trailerAutoSec = cycle(listOf(0, 3, 5, 8, 10, 15, 20, 30), st.trailerAutoSec, it) }),
                 Adjust("Titles per catalog", "Reload to apply", { "${st.perCatalog}" }, { st.perCatalog += it * 5 }),
                 Adjust("Total titles", "0 = every title, endless loop", { if (st.maxItems == 0) "Unlimited" else "${st.maxItems}" }, { st.maxItems = (st.maxItems + it * 10).coerceAtLeast(0) }),
                 Toggle("Backdrop gallery", "Like Apple TV: each title shows several of its pictures (needs the TMDB token)", { st.heroGallery }, { st.heroGallery = it }),
@@ -381,8 +395,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Note("Over your background (picture, photos, video, screensaver)"),
                 Toggle("Large clock", "In the middle, like a phone's lock screen", { st.bgClock }, { st.bgClock = it }),
                 Adjust("Large clock style", "With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)", {
-                    if (st.bgClockStyle == "white") "White" else "With the theme"
-                }, { st.bgClockStyle = cycle(listOf("theme", "white"), st.bgClockStyle, it) }),
+                    when (st.bgClockStyle) { "white" -> "White"; "still" -> "Still Glass"; else -> "With the theme" }
+                }, { st.bgClockStyle = cycle(listOf("theme", "still", "white"), st.bgClockStyle, it) }),
+                Toggle("Large clock: white date", "The date above the time in white, whatever the clock's look", { st.bgClockDateWhite }, { st.bgClockDateWhite = it }),
                 Adjust("Large clock size", "", { pct(st.bgClockSize) }, { st.bgClockSize = ((st.bgClockSize * 10).roundToInt() + it) / 10f }),
                 Adjust("Large clock position", "◀ higher · lower ▶", {
                     val v = (st.bgClockOffset * 100).roundToInt(); if (v == 0) "Middle" else if (v < 0) "Up ${-v}" else "Down $v"
@@ -522,6 +537,11 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Toggle("Library in the menu", "", { st.menuLibrary }, { st.menuLibrary = it }),
                 Toggle("Android settings in the menu", "", { st.menuAndroid }, { st.menuAndroid = it }),
                 Toggle("Wi-Fi in the menu", "", { st.menuWifi }, { st.menuWifi = it }),
+                Toggle("Recent apps in the menu", "Opens the app switcher (like holding Home)", { st.menuRecents }, { st.menuRecents = it }),
+                Toggle("Inputs in the menu", "The TV's HDMI inputs and the devices plugged into them (found by themselves, by name over HDMI-CEC)",
+                    { st.menuInputs }, { st.menuInputs = it; if (it) scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }),
+                Toggle("Inputs in the dock", "Each input as an icon: move, hide and change its icon like an app",
+                    { st.inputsDock }, { st.inputsDock = it; scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx); app.apps.reload() } }),
                 Toggle("Themes in the menu", "", { st.menuThemes }, { st.menuThemes = it }),
                 Toggle("Background in the menu", "Switch between title backdrops, your picture, your video and the screensaver", { st.menuBackground }, { st.menuBackground = it }),
                 Adjust("Menu size", "", { pct(st.menuScale) }, { st.menuScale = ((st.menuScale * 20).roundToInt() + it) / 20f }),
@@ -581,6 +601,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 }, { st.cwLead = cycle(listOf(1, 2, 3, 4, 5, 0), st.cwLead, it) }))
                 add(Toggle("Open on what I just watched", "Back from Nuvio, the carousel shows that title first", { st.continueJump }, { st.continueJump = it }))
                 add(Toggle("Progress bar", "Shows Continue · S1 · E3 · 42% under the title", { st.cwProgress }, { st.cwProgress = it }))
+                add(Toggle("Next up", "After you finish an episode, the next one waits here (from the Nuvio account and what Glassio saw)", { st.cwNextUp }, { st.cwNextUp = it; app.cw.pollNow() }))
                 add(Note("Apps"))
                 add(Toggle("Nuvio Legacy", if (app.cw.hasLogAccess()) "Reading what you watch in Nuvio Legacy" else "Allow USB debugging for Glassio when the TV asks", { st.cwLegacy }, { st.cwLegacy = it }))
                 val trakt = app.cw.trakt
@@ -724,6 +745,20 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         "${found.size} found"
                     }
                 })
+                add(Act("Cameras from Home Assistant", "Aqara (through HomeKit), Frigate, Ring, Tapo… any camera Home Assistant shows. Uses the Home Assistant link and token (Doorbell, below)", "") {
+                    io {
+                        check(st.haUrl.startsWith("http") && st.haToken.isNotBlank()) { "Add the Home Assistant link and token first (Doorbell from Home Assistant, below)" }
+                        val list = com.glasslauncher.tv.net.HaWatch.cameras(st.haUrl, st.haToken)
+                        if (list.isEmpty()) return@io "Home Assistant has no cameras"
+                        dialog = MenuDialog("Home Assistant cameras", list.map { (id, n) ->
+                            (if (st.cameras.any { Cam.parse(it)?.url == "ha://$id" }) "✓ $n" else n) to {
+                                st.cameras = (st.cameras + Cam(n, "ha://$id").line()).distinctBy { Cam.parse(it)?.url ?: it }; tvRev.intValue++
+                                toast(ctx, "Added $n")
+                            }
+                        })
+                        "${list.size} cameras"
+                    }
+                })
                 add(Act("Add camera link", "rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link", "") {
                     dialog = TextEntry("Camera link", "rtsp://", "rtsp://user:password@camera-ip:554/stream1") { u ->
                         if (!u.contains("://")) { toast(ctx, "That isn't a link"); return@TextEntry }
@@ -752,6 +787,43 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Adjust("  · Corner camera closes after", "It goes away on its own after this (Back or holding Home again closes it sooner)",
                     { if (st.cameraCornerSec == 0) "Never" else if (st.cameraCornerSec < 60) "${st.cameraCornerSec} s" else "${st.cameraCornerSec / 60} min" },
                     { st.cameraCornerSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.cameraCornerSec, it) }))
+                add(Note("Multi-view: up to four cameras in a row"))
+                add(Toggle("On the screensaver", "▲ on the screensaver brings them up from the bottom (Back or ▲ again closes them)", { st.saverMultiCam }, { st.saverMultiCam = it }))
+                if (camList.isNotEmpty()) add(Act("  · Cameras", "Which ones, in this order (up to four). None chosen = the first four",
+                    MultiCamOverlay.cams(app).joinToString(" · ") { it.name }) {
+                    fun chooser() {
+                        val cur = st.multiCams
+                        dialog = MenuDialog("Multi-view cameras", camList.map { c ->
+                            (if (c.url in cur) "✓ ${c.name}" else c.name) to {
+                                st.multiCams = if (c.url in cur) cur - c.url else (cur + c.url).take(4)
+                                scope.launch { kotlinx.coroutines.delay(150); chooser() }
+                                Unit
+                            }
+                        } + listOf("Done" to {}))
+                    }
+                    chooser()
+                })
+                add(Adjust("  · Size", "", { pct(st.multiScale) }, { st.multiScale = ((st.multiScale * 10).roundToInt() + it) / 10f }))
+                add(Adjust("  · Shows for", "Then it goes away by itself", { if (st.multiSec == 0) "Until closed" else if (st.multiSec < 60) "${st.multiSec} s" else "${st.multiSec / 60} min" },
+                    { st.multiSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.multiSec, it) }))
+                add(Act("  · Show it now", "In the middle of the screen (also: menu → Camera, then OK)", "") {
+                    val svc = com.glasslauncher.tv.HomeKeyService.instance
+                    if (svc == null) toast(ctx, "Needs the Home button service: System → Turn it on") else svc.toggleMulti(bottom = false)
+                })
+                add(Note("Remote buttons (in any app)"))
+                add(Act("Multi-view button", "Press it anywhere: the cameras show in the middle (again closes them)",
+                    if (st.multiKey == 0) "Set" else "✓ " + keyName(st.multiKey), ok = if (st.multiKey != 0) true else null) {
+                    dialog = KeyCaptureDialog("Multi-view button") { code -> st.multiKey = code; tvRev.intValue++; toast(ctx, "Multi-view button: ${keyName(code)}") }
+                })
+                if (st.multiKey != 0) add(Act("  · Clear the multi-view button", "", "") { st.multiKey = 0 })
+                add(Act("Corner camera button", "Press it anywhere: the camera in the corner (again closes it)",
+                    if (st.cornerKey == 0) "Set" else "✓ " + keyName(st.cornerKey), ok = if (st.cornerKey != 0) true else null) {
+                    dialog = KeyCaptureDialog("Corner camera button") { code -> st.cornerKey = code; tvRev.intValue++; toast(ctx, "Corner camera button: ${keyName(code)}") }
+                })
+                if (st.cornerKey != 0) add(Act("  · Clear the corner camera button", "", "") { st.cornerKey = 0 })
+                add(Adjust("Camera video", "Software keeps the TV's own video playing while a camera shows (some TVs stopped it)", {
+                    when (st.cameraDecoder) { "software" -> "Software"; "hardware" -> "Hardware"; else -> "Auto (" + (if (com.glasslauncher.tv.CamPlayer.software(ctx)) "software" else "hardware") + ")" }
+                }, { st.cameraDecoder = cycle(listOf("auto", "software", "hardware"), st.cameraDecoder, it) }))
                 add(Note("Doorbell from Home Assistant"))
                 add(Toggle("Doorbell pop-up", "Home Assistant sends to http://<this TV>:7979/notify (the same as PiPup): the camera shows in the corner over any app",
                     { st.doorbellOn }, { st.doorbellOn = it }))
@@ -904,6 +976,12 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         { st.saverBar = cycle(listOf("red", "white", "black", "off"), st.saverBar, it) }))
                 }
                 add(Note("While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it."))
+                add(Toggle("Large clock", "The large glass clock of the home screen (Background & glass sets its look). ▼ shows or hides it", { st.saverBigClock }, { st.saverBigClock = it }))
+                add(Toggle("Lock & release", "Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it", { st.saverLock }, { st.saverLock = it }))
+                if (st.saverLock) {
+                    add(Toggle("  · Only locked videos", "Plays just the videos you locked (when there are some). Also in the menu's Screensaver page", { st.saverLockedOnly }, { st.saverLockedOnly = it }))
+                    add(Act("  · Clear locked videos", "${st.saverLocked.size} locked", "") { st.saverLocked = emptyList() })
+                }
                 add(Toggle("Clock", "", { st.saverClock }, { st.saverClock = it }))
                 add(Toggle("Date", "", { st.saverDate }, { st.saverDate = it }))
                 add(Toggle("Weather", "", { st.saverWeather }, { st.saverWeather = it; app.weather.reload() }))
@@ -939,6 +1017,47 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     add(Act(videoName(u), hostOf(u), "Remove") { st.aerialUrls = st.aerialUrls - u })
                 }
                 add(Act("Preview now", "") { ctx.startActivity(Intent(ctx, ScreensaverActivity::class.java)) })
+            }
+        },
+        Category("Music") {
+            buildList {
+                tvRev.intValue
+                val access = com.glasslauncher.tv.data.NowPlaying.hasAccess(ctx)
+                add(Toggle("Music", if (!st.musicOn) "Glassio follows what any music app plays (Spotify, YouTube Music, Apple Music, Anghami…)"
+                    else if (access) "On: following your music apps" else "Needs TV access (ADB, System) to read the music apps: press to try again",
+                    { st.musicOn }, { on ->
+                        st.musicOn = on
+                        if (on) io {
+                            val ok = com.glasslauncher.tv.data.NowPlaying.grant(ctx)
+                            com.glasslauncher.tv.data.NowPlaying.start(ctx); app.apps.reload(); tvRev.intValue++
+                            if (ok) "Music on" else "Allow TV access (ADB) first: Glassio settings → System"
+                        } else app.apps.reload()
+                    }))
+                if (st.musicOn) {
+                    add(Note("Where it shows"))
+                    add(Toggle("Player in the menu", "▶ in the menu turns it into a small player", { st.musicMenu }, { st.musicMenu = it }))
+                    add(Toggle("Music in the dock", "A Music icon (move, hide and change it like an app): opens the player", { st.musicDock }, { st.musicDock = it; app.apps.reload() }))
+                    add(Toggle("Music mode", "While a song plays, the home screen's background becomes the player (artwork, song, buttons). ■ stops the music and your background comes back",
+                        { st.musicMode }, { st.musicMode = it }))
+                    add(Adjust("  · Player size", "", { pct(st.musicStageScale) }, { st.musicStageScale = ((st.musicStageScale * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("  · Buttons", "White or black turn the other way round when selected", {
+                        when (st.musicButtons) { "white" -> "White"; "black" -> "Black"; else -> "With the theme" }
+                    }, { st.musicButtons = cycle(listOf("theme", "white", "black"), st.musicButtons, it) }))
+                    add(Note("Island on the screensaver"))
+                    add(Toggle("Island", "While music plays, a small island at the top of the screensaver (like the iPhone's)", { st.musicIsland }, { st.musicIsland = it }))
+                    if (st.musicIsland) {
+                        add(Adjust("  · Look", "", { if (st.islandStyle == "glass") "Glass" else "Black" }, { st.islandStyle = cycle(listOf("black", "glass"), st.islandStyle, it) }))
+                        add(Toggle("  · Joined to the top", "Like a MacBook's notch, instead of floating below the top", { st.islandAttached }, { st.islandAttached = it }))
+                        add(Adjust("  · Size", "", { pct(st.islandScale) }, { st.islandScale = ((st.islandScale * 10).roundToInt() + it) / 10f }))
+                        add(Adjust("  · Lower", "", { "${st.islandOffset.roundToInt()}" }, { st.islandOffset = st.islandOffset + it * 4f }))
+                        add(Toggle("  · Artwork", "", { st.islandArt }, { st.islandArt = it }))
+                        add(Toggle("  · Song and artist", "", { st.islandTitle }, { st.islandTitle = it }))
+                        add(Toggle("  · Progress bar", "", { st.islandProgress }, { st.islandProgress = it }))
+                        add(Adjust("  · Bars colour", "", { if (st.islandBars == "white") "White" else "From the artwork" }, { st.islandBars = cycle(listOf("art", "white"), st.islandBars, it) }))
+                    }
+                    add(Note("Music apps on this TV: " + installedMusicApps(ctx).joinToString { it.second }.ifBlank { "none yet" } +
+                        ". The player follows and controls whatever those apps play. Signing in to Spotify, YouTube Music or Apple Music for their playlists isn't here yet."))
+                }
             }
         },
         Category("Manage from phone", Kind.Phone),
@@ -1319,7 +1438,7 @@ private fun videoName(u: String): String = runCatching {
 
 /** The settings sections in order: accounts and what they feed, then the look, then the screensaver and the TV. */
 val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
-    "Cameras", "Background & glass", "Screensaver", "Performance", "Manage from phone", "System", "About")
+    "Cameras", "Background & glass", "Screensaver", "Music", "Performance", "Manage from phone", "System", "About")
 
 /**
  * Settings pages scroll like a TV list: the selected row settles at the same height (a third of the way down)

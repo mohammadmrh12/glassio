@@ -19,6 +19,22 @@ class HomeKeyService : AccessibilityService() {
     private var longDone = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var camera: CameraOverlay? = null
+    private var multi: MultiCamOverlay? = null
+
+    /** Multi-view: at the bottom (sliding up, on the screensaver) or in the middle; again closes it. */
+    fun toggleMulti(bottom: Boolean) {
+        multi?.let { if (it.showing) { it.close(); multi = null; return } }
+        val app = application as GlassApp
+        val cams = MultiCamOverlay.cams(app)
+        if (cams.isEmpty()) { android.widget.Toast.makeText(this, "Add a camera first: Glassio settings → Cameras", android.widget.Toast.LENGTH_LONG).show(); return }
+        multi = MultiCamOverlay(this, cams, bottom, app.settings.multiSec, app.settings.multiScale).also { it.show() }
+    }
+
+    fun closeMulti() { multi?.close(); multi = null }
+    val multiShowing get() = multi?.showing == true
+
+    /** The corner camera from a remote button (like holding Home with "Camera"). */
+    fun toggleCorner() = toggleCamera()
     /** Hold Home: what Settings → System → "Hold Home" says. */
     private val longPress = Runnable {
         longDone = true
@@ -75,6 +91,9 @@ class HomeKeyService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         // The camera in the corner: Back closes it (holding Home again too); every other key goes to the app as usual.
+        multi?.takeIf { it.showing }?.let { m ->
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) { if (event.action == KeyEvent.ACTION_UP) { m.close(); multi = null }; return true }
+        }
         camera?.takeIf { it.showing }?.let { c ->
             if (event.keyCode == KeyEvent.KEYCODE_BACK) { if (event.action == KeyEvent.ACTION_UP) { c.close(); camera = null }; return true }
         }
@@ -90,7 +109,12 @@ class HomeKeyService : AccessibilityService() {
             } else if (recents && !longDone && (event.flags and KeyEvent.FLAG_LONG_PRESS != 0 || System.currentTimeMillis() - homeDownAt > 500)) {
                 handler.removeCallbacks(longPress); longPress.run()
             }
-            KeyEvent.ACTION_UP -> { handler.removeCallbacks(longPress); if (!longDone) showGlass(); longDone = false }
+            KeyEvent.ACTION_UP -> {
+                handler.removeCallbacks(longPress)
+                // Back from an input Glassio switched to: the TV comes back to this box first.
+                if (!longDone) { com.glasslauncher.tv.data.Inputs.comeBack(this); showGlass() }
+                longDone = false
+            }
         }
         return true
     }

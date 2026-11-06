@@ -344,6 +344,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     BackHandler(enabled = screen == Screen.Home && movingPkg != null) { movingPkg = null }
     BackHandler(enabled = screen == Screen.Home && movingPkg == null && expanded && !folderOpen) { runCatching { firstTile.requestFocus() } }
     BackHandler(enabled = settings.backSaver && screen == Screen.Home && movingPkg == null && !expanded && !folderOpen && pickerFor == null) {
+        SaverGate.opening.value = true
         runCatching { ctx.startActivity(android.content.Intent(ctx, com.glasslauncher.tv.saver.ScreensaverActivity::class.java)) }
     }
 
@@ -1023,7 +1024,12 @@ private fun HeroSection(
     // Back from Nuvio: open the carousel on what was just watched.
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     val lifeState by lifecycle.currentStateFlow.collectAsState()
-    val resumed = lifeState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    // The screensaver is opening: the carousel holds still (a slide that started under its fade-in showed as a flash).
+    val resumed = lifeState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && !SaverGate.opening.value
+    // Never stuck: if the screensaver didn't open after all, the carousel goes on.
+    LaunchedEffect(SaverGate.opening.value) {
+        if (SaverGate.opening.value) { delay(4000); if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) SaverGate.opening.value = false }
+    }
     val jumpRev by app.cw.jumpRev.collectAsState()
     var jumpedRev by remember { mutableIntStateOf(jumpRev) }
     LaunchedEffect(resumed, jumpRev, items) {
@@ -1069,8 +1075,8 @@ private fun HeroSection(
     val shotMs = (settings.heroIntervalSec * 1000L).coerceAtLeast(4000L)
     // Your own background: the titles aren't shown, so none of their pictures are prepared or kept in memory.
     val ownBg = settings.bgMode != "carousel"
-    LaunchedEffect(item?.key, gallery.size, hidden, paused, resumed, ownBg) {
-        if (ownBg || gallery.size < 2 || hidden || paused || !resumed) return@LaunchedEffect
+    LaunchedEffect(item?.key, gallery.size, hidden, paused, resumed, ownBg, Trailers.playing.value != null) {
+        if (ownBg || gallery.size < 2 || hidden || paused || !resumed || Trailers.playing.value != null) return@LaunchedEffect
         val loader = SingletonImageLoader.get(ctx)
         while (true) {
             val next = gallery[(shot + 1).mod(gallery.size)]
@@ -1187,14 +1193,41 @@ private fun HeroSection(
         }
     }
     // Keeps playing while the carousel is selected; any Left/Right restarts the timer (index changes).
-    LaunchedEffect(index, items.size, settings.heroAutoplay, settings.heroIntervalSec, hidden, paused, resumed) {
-        if (settings.heroAutoplay && !hidden && !paused && resumed && items.size > 1) {
+    val trailerOn = Trailers.playing.value != null
+    LaunchedEffect(index, items.size, settings.heroAutoplay, settings.heroIntervalSec, hidden, paused, resumed, trailerOn) {
+        if (settings.heroAutoplay && !hidden && !paused && resumed && !trailerOn && items.size > 1) {
             val shots = item?.let { i -> if (settings.heroGallery) i.gallery.take(settings.galleryShots).size else 0 } ?: 0
             delay(settings.heroIntervalSec * 1000L * shots.coerceAtLeast(1))
             SlideDir.dir = 1
             index++
         }
     }
+
+    // Trailers: one starts with the Trailer button, from the Play menu, or by itself after a while on a title.
+    val trailerScope = androidx.compose.runtime.rememberCoroutineScope()
+    fun startTrailer(it: HeroItem, quiet: Boolean = false) {
+        if (Trailers.isPlaying(it.key)) { Trailers.stop(); return }
+        trailerScope.launch {
+            val yt = withContext(Dispatchers.IO) { Trailers.youtubeId(app.http, it.type, it.id) }
+            if (yt == null) { if (!quiet) toast(ctx, "No trailer for ${it.name}") }
+            // Only for the title on screen (the carousel may have moved on meanwhile).
+            else if (item?.key == it.key) Trailers.play(it.key, yt)
+        }
+    }
+    // A new title, or leaving the home screen: the trailer stops.
+    LaunchedEffect(item?.key, hidden, resumed) { if (Trailers.playing.value?.key != item?.key || hidden || !resumed) Trailers.stop() }
+    // When a trailer ends, the next title comes (like the Apple TV app).
+    val endedRev = Trailers.endedRev.intValue
+    val seenEnded = remember { intArrayOf(endedRev) }
+    LaunchedEffect(endedRev) { if (endedRev != seenEnded[0]) { seenEnded[0] = endedRev; if (items.size > 1) { SlideDir.dir = 1; index++ } } }
+    LaunchedEffect(item?.key, settings.trailerAutoSec, hidden, paused, resumed) {
+        val sec = settings.trailerAutoSec
+        val it = item ?: return@LaunchedEffect
+        if (sec <= 0 || hidden || paused || !resumed || settings.bgMode != "carousel") return@LaunchedEffect
+        delay(sec * 1000L)
+        if (Trailers.playing.value == null) startTrailer(it, quiet = true)
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Trailers.stop() } }
 
     val alpha by animateFloatAsState(if (hidden) 0f else 1f, tween(if (hidden) 150 else 220), label = "heroAlpha")
     val dotsOn = items.size > 1 && settings.dotsMode != "hidden" && (!settings.dotsAutoHide || focused)
@@ -1205,7 +1238,18 @@ private fun HeroSection(
     // ModulateAlpha: no full-screen off-screen pass while it fades (the dock opening); the pieces barely overlap.
     Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }) {
         val shown = textItem
-        if (customBg) {
+        // Music mode: while a song plays, the player is the background (whatever was chosen).
+        val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
+        val musicStage = settings.musicOn && settings.musicMode && song != null
+        // The trailer in place of the picture (under the text), or in its window.
+        if (!customBg && !musicStage && settings.trailerSize != "popup") TrailerLayer(app, s)
+        if (musicStage) {
+            MusicStage(app, s, heroFocus, firstTile, onApps = {
+                val apps = installedMusicApps(ctx)
+                if (apps.isEmpty()) toast(ctx, "No music app on this TV")
+                else onPop(PopState("Music apps", apps.map { (pkg, name) -> PopOption(name) { openMusicApp(ctx, pkg) } }, null))
+            })
+        } else if (customBg) {
             // A large clock (with the depth effect on photos), and the place / credit of what's behind.
             if (settings.bgClock) BigClock(settings, s)
             // The place and credit (and, if chosen, time, date, weather) like the screensaver's info.
@@ -1235,6 +1279,7 @@ private fun HeroSection(
                             val now = app.library.toggle(shown)
                             toast(ctx, if (now) "Saved to Library · ${shown.name}" else "Removed from Library · ${shown.name}")
                         },
+                        PopOption(if (Trailers.isPlaying(shown.key)) "Stop trailer" else "Trailer") { startTrailer(shown) },
                         PopOption(if (liked) "Liked" else "Like", if (liked) "♥" else "") {
                             val now = app.library.toggleLike(shown)
                             toast(ctx, if (now) "Liked · ${shown.name}" else "Like removed · ${shown.name}")
@@ -1245,15 +1290,17 @@ private fun HeroSection(
                     ), PopAnchors.play, PopState.Side.Right))
                 },
                 modifier = Modifier.align(Alignment.TopStart),
+                onTrailer = { startTrailer(shown) },
             )
         } else {
             EmptyHint(status, s, heroFocus, firstTile, Modifier.align(Alignment.TopStart)) {
                 app.requestSettings.intValue = CATALOGS_CATEGORY; app.requestSettingsRev.intValue++
             }
         }
-        if (!customBg && items.size > 1 && settings.dotsMode != "hidden") {
+        if (!customBg && !musicStage && settings.trailerSize == "popup") TrailerLayer(app, s)
+        if (!customBg && !musicStage && items.size > 1 && settings.dotsMode != "hidden") {
             Dots(
-                total = items.size, current = index.mod(items.size), mode = settings.dotsMode, max = settings.dotsMax, s = s,
+                total = items.size, current = index.mod(items.size), mode = settings.dotsMode, max = settings.dotsMax, s = s * settings.dotsScale,
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .padding(bottom = (metrics.collapsedH + metrics.bottomMargin + 10 * s).dp)
                     // Hidden dock: the dots go down to the bottom with it.
@@ -1302,7 +1349,7 @@ private fun EmptyHint(
 private fun HeroInfo(
     item: HeroItem, app: GlassApp, s: Float, focused: Boolean, heroFocus: FocusRequester, firstTile: FocusRequester,
     onFocus: (Boolean) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit, onLong: () -> Unit,
-    modifier: Modifier,
+    modifier: Modifier, onTrailer: () -> Unit = {},
 ) {
     val settings = app.settings
     val ms = settings.transitionMs
@@ -1312,7 +1359,8 @@ private fun HeroInfo(
     // move between the two and past them change the title, so holding a direction keeps browsing.
     val nextBtn = settings.heroButtons == "apple"
     // 0 = Play, 1 = + (save to Library), 2 = Next.
-    val order = if (settings.heroPlus) listOf(0, 1, 2) else listOf(0, 2)
+    // 3 = Trailer (before Next).
+    val order = (if (settings.heroPlus) listOf(0, 1) else listOf(0)) + (if (settings.trailerButton) listOf(3) else emptyList()) + listOf(2)
     var btn by remember { mutableIntStateOf(0) }
     val savedList by app.library.saved.collectAsState()
     val isSaved = savedList.any { it.key == item.key }
@@ -1334,6 +1382,7 @@ private fun HeroInfo(
                         val i = order.indexOf(btn); if (nextBtn && i > 0) btn = order[i - 1] else onPrev(); true
                     }
                     ev.isSelect && nextBtn && btn == 2 -> { if (ev.type == KeyEventType.KeyDown) onNext(); true }
+                    ev.isSelect && nextBtn && btn == 3 -> { if (ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount == 0) onTrailer(); true }
                     ev.isSelect && nextBtn && btn == 1 -> {
                         if (ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount == 0) {
                             val now = app.library.toggle(item)
@@ -1351,6 +1400,8 @@ private fun HeroInfo(
                     ev.key == Key.Menu -> { if (ev.type == KeyEventType.KeyDown) onLong(); true }
                     // Back is handled here like on the dock's tiles: left to Compose, it cleared the focus and the
                     // remote did nothing until the page was opened again.
+                    // A trailer playing: Back stops it (and stays on this title).
+                    ev.key == Key.Back && Trailers.playing.value != null -> { if (ev.type == KeyEventType.KeyUp) Trailers.stop(); true }
                     ev.key == Key.Back -> { if (ev.type == KeyEventType.KeyUp) backOwner?.onBackPressedDispatcher?.onBackPressed(); true }
                     else -> false
                 }
@@ -1384,7 +1435,11 @@ private fun HeroInfo(
                         if (it.platform.isNotBlank()) Chip(it.platform, s * m)
                     }
                 }
-                if (it.progress >= 0f && settings.cwProgress) {
+                if (it.nextUp && settings.cwProgress) {
+                    Spacer(Modifier.height((10 * s).dp))
+                    Text(listOf("Next up", it.sub).filter { x -> x.isNotBlank() }.joinToString("  ·  "),
+                        color = Color.White, fontSize = (10.5f * s * m).sp, fontWeight = FontWeight.Medium)
+                } else if (it.progress >= 0f && settings.cwProgress) {
                     Spacer(Modifier.height((10 * s).dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -1440,7 +1495,9 @@ private fun HeroInfo(
         }
         }
         // Apple TV buttons stay put while the title changes; only the text above fades.
-        if (nextBtn) Box(Modifier.onGloballyPositioned { PopAnchors.play = it.boundsInRoot() }) { HeroButtons(focused, btn, s, settings.cornerRadius, settings.heroPlus, isSaved) }
+        if (nextBtn) Box(Modifier.onGloballyPositioned { PopAnchors.play = it.boundsInRoot() }) {
+            HeroButtons(focused, btn, s, settings.cornerRadius, settings.heroPlus, isSaved, trailer = settings.trailerButton, trailerOn = Trailers.isPlaying(item.key))
+        }
       }
     }
 }
@@ -1998,6 +2055,9 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
     }
 }
 
+/** Set just before the screensaver is started from the home screen; cleared when the home screen is back in front. */
+object SaverGate { val opening = androidx.compose.runtime.mutableStateOf(false) }
+
 /** The dock is opening or open: its icons use plain panes (see TilePlate). */
 val LocalDockOpen = androidx.compose.runtime.compositionLocalOf { false }
 
@@ -2337,7 +2397,8 @@ private fun LiquidDots(total: Int, current: Int, max: Int, s: Float, modifier: M
  * selected, the selected one a little larger.
  */
 @Composable
-private fun HeroButtons(focused: Boolean, btn: Int, s: Float, corner: Int, plus: Boolean = false, saved: Boolean = false) {
+private fun HeroButtons(focused: Boolean, btn: Int, s: Float, corner: Int, plus: Boolean = false, saved: Boolean = false,
+                        trailer: Boolean = false, trailerOn: Boolean = false) {
     val h = (30 * s).dp
     Column {
         Spacer(Modifier.height((14 * s).dp))
@@ -2372,6 +2433,20 @@ private fun HeroButtons(focused: Boolean, btn: Int, s: Float, corner: Int, plus:
                         if (saved) { p.moveTo(w * 0.16f, hh * 0.52f); p.lineTo(w * 0.42f, hh * 0.78f); p.lineTo(w * 0.86f, hh * 0.24f) }
                         else { p.moveTo(w * 0.5f, hh * 0.12f); p.lineTo(w * 0.5f, hh * 0.88f); p.moveTo(w * 0.12f, hh * 0.5f); p.lineTo(w * 0.88f, hh * 0.5f) }
                         drawPath(p, fg, style = st)
+                    }
+                }
+                Spacer(Modifier.width((10 * s).dp))
+            }
+            if (trailer) {
+                // Trailer: a small screen with a play mark (a stop square while it plays).
+                RoundHeroButton(h, focused && btn == 3) { fg ->
+                    Canvas(Modifier.size((12 * s).dp)) {
+                        val w = size.width; val hh = size.height
+                        val st = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.11f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+                        drawRoundRect(fg, androidx.compose.ui.geometry.Offset(w * 0.04f, hh * 0.16f), androidx.compose.ui.geometry.Size(w * 0.92f, hh * 0.68f),
+                            androidx.compose.ui.geometry.CornerRadius(w * 0.14f), style = st)
+                        if (trailerOn) drawRect(fg, androidx.compose.ui.geometry.Offset(w * 0.38f, hh * 0.38f), androidx.compose.ui.geometry.Size(w * 0.24f, hh * 0.24f))
+                        else drawPath(androidx.compose.ui.graphics.Path().apply { moveTo(w * 0.40f, hh * 0.34f); lineTo(w * 0.64f, hh * 0.5f); lineTo(w * 0.40f, hh * 0.66f); close() }, fg)
                     }
                 }
                 Spacer(Modifier.width((10 * s).dp))

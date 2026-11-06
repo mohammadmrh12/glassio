@@ -56,16 +56,12 @@ fun CameraView(cam: Cam, s: Float, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     var state by remember(cam.url) { mutableStateOf("Connecting…") }
     val player = remember(cam.url) {
-        ExoPlayer.Builder(ctx).build().apply {
-            volume = 0f
-            val item = MediaItem.fromUri(cam.url)
-            if (cam.url.startsWith("rtsp", true)) setMediaSource(RtspMediaSource.Factory().setForceUseRtpTcp(true).setTimeoutMs(8000).createMediaSource(item))
-            else setMediaItem(item)
+        com.glasslauncher.tv.CamPlayer.build(ctx).apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) state = "" }
                 override fun onPlayerError(error: PlaybackException) { state = "Can't reach the camera" }
             })
-            prepare(); playWhenReady = true
+            com.glasslauncher.tv.CamPlayer.play(ctx, this, cam.url)
         }
     }
     DisposableEffect(player) { onDispose { player.release() } }

@@ -114,10 +114,8 @@ class ScreensaverActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // ◀ ▶ change the video, OK shows / hides the info; any other key ends it.
         val k = event.keyCode
-        if (app().settings.saverMode != "system" && k in setOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER)) {
-            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) SaverControl.key(k)
-            return true
-        }
+        val st = app().settings
+        if (st.saverMode != "system" && SaverControl.onKey(event, st)) return true
         if (event.action == KeyEvent.ACTION_DOWN) finish()
         return true
     }

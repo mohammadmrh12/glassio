@@ -79,6 +79,8 @@ import kotlinx.coroutines.withContext
 /** Asks before a title is removed (Settings: "Ask before removing"). */
 private val LocalAsk = androidx.compose.runtime.staticCompositionLocalOf<(String, () -> Unit) -> Unit> { { _, f -> f() } }
 private val LocalGlow = androidx.compose.runtime.staticCompositionLocalOf { "off" }
+/** Hold OK on a title: its menu (open it in one of your apps, or remove it). */
+private val LocalItemMenu = androidx.compose.runtime.staticCompositionLocalOf<(HeroItem, () -> Unit) -> Unit> { { _, remove -> remove() } }
 
 @Composable
 fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean = true, onClose: () -> Unit) {
@@ -87,7 +89,19 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
         if (!app.settings.libraryConfirm) f()
         else ask = MenuDialog("Remove “$name”?", listOf("Remove" to f, "Cancel" to {}))
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalAsk provides askFn, LocalGlow provides app.settings.glow) {
+    val ctx = LocalContext.current
+    val menuFn: (HeroItem, () -> Unit) -> Unit = { item, remove ->
+        val opts = mutableListOf<Pair<String, () -> Unit>>()
+        NuvioLaunch.installedTargets(ctx).forEach { (t, n) -> opts += "Open in $n" to { NuvioLaunch.openIn(ctx, t, item) } }
+        val enriched = app.catalogs.enrichedItems.value[item.key] ?: item
+        NuvioLaunch.platformApp(ctx, enriched.platform)?.let { pkg ->
+            val label = runCatching { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(enriched.platform)
+            opts += "Open in $label" to { NuvioLaunch.openApp(ctx, pkg) }
+        }
+        opts += "Remove" to remove
+        ask = MenuDialog(item.name, opts)
+    }
+    androidx.compose.runtime.CompositionLocalProvider(LocalAsk provides askFn, LocalGlow provides app.settings.glow, LocalItemMenu provides menuFn) {
         LibraryPage(app, onTopUp, active, onClose)
     }
     DialogHost(ask) { ask = null }
@@ -348,9 +362,9 @@ private fun Section(title: String, s: Float) {
 @Composable
 private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier, onOpen: () -> Unit, onRemove: () -> Unit) {
     val ctx = LocalContext.current
-    val askRemove = LocalAsk.current
     val removeNow = onRemove
-    @Suppress("NAME_SHADOWING") val onRemove = { askRemove(item.name, removeNow) }
+    val itemMenu = LocalItemMenu.current
+    @Suppress("NAME_SHADOWING") val onRemove = { itemMenu(item, removeNow) }
     var focused by remember { mutableStateOf(false) }
     val glow = LocalGlow.current
     var gc by remember(item.key) { mutableStateOf(Glow.cached("p:" + item.key)) }
@@ -436,9 +450,9 @@ fun sourceColor(app: String): Color = when (app) {
 @Composable
 private fun CwCard(item: HeroItem, source: String, s: Float, wide: Boolean, showSource: Boolean, modifier: Modifier, onOpen: () -> Unit, onRemove: () -> Unit) {
     val ctx = LocalContext.current
-    val askRemove = LocalAsk.current
     val removeNow = onRemove
-    @Suppress("NAME_SHADOWING") val onRemove = { askRemove(item.name, removeNow) }
+    val itemMenu = LocalItemMenu.current
+    @Suppress("NAME_SHADOWING") val onRemove = { itemMenu(item, removeNow) }
     var focused by remember { mutableStateOf(false) }
     val glow = LocalGlow.current
     var gc by remember(item.key) { mutableStateOf(Glow.cached("c:" + item.key)) }
@@ -474,10 +488,13 @@ private fun CwCard(item: HeroItem, source: String, s: Float, wide: Boolean, show
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = (9 * s).dp, vertical = (8 * s).dp)) {
             Text(item.name, color = Color.White, fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val pct = (item.progress * 100).toInt().coerceIn(0, 100)
-            Text(listOf(item.sub, "$pct%").filter { it.isNotBlank() }.joinToString("  ·  "), color = Color.White.copy(alpha = 0.75f), fontSize = (8.5f * s).sp)
-            Spacer(Modifier.height((5 * s).dp))
-            Box(Modifier.fillMaxWidth().height((3 * s).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f))) {
-                Box(Modifier.fillMaxWidth(item.progress.coerceIn(0f, 1f)).height((3 * s).dp).clip(RoundedCornerShape(50)).background(Color.White))
+            Text((if (item.nextUp) listOf("Next up", item.sub) else listOf(item.sub, "$pct%")).filter { it.isNotBlank() }.joinToString("  ·  "),
+                color = Color.White.copy(alpha = 0.75f), fontSize = (8.5f * s).sp)
+            if (!item.nextUp) {
+                Spacer(Modifier.height((5 * s).dp))
+                Box(Modifier.fillMaxWidth().height((3 * s).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f))) {
+                    Box(Modifier.fillMaxWidth(item.progress.coerceIn(0f, 1f)).height((3 * s).dp).clip(RoundedCornerShape(50)).background(Color.White))
+                }
             }
         }
     }

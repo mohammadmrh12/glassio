@@ -224,6 +224,38 @@ class NuvioAccount(ctx: Context) {
         }
     }.getOrElse { Glog.w("Nuvio progress", it); null }
 
+    /** An episode marked watched on the account (finished in Nuvio, or marked by hand). */
+    data class Watched(val imdb: String, val season: Int, val episode: Int, val at: Long)
+
+    /**
+     * The account's watched episodes (newest first), where Nuvio's own "Next up" comes from: a finished
+     * episode leaves the watch progress, so the next one has to be worked out from these. Null on failure.
+     */
+    fun watchedEpisodes(profile: Int = 1, maxPages: Int = 4): List<Watched>? = runCatching {
+        var tok = access() ?: return null
+        val out = mutableListOf<Watched>()
+        var page = 1
+        while (page <= maxPages) {
+            val body = JSONObject().put("p_profile_id", profile).put("p_page", page).put("p_page_size", 900)
+            var (c, t) = call("/rest/v1/rpc/sync_pull_watched_items", body, tok)
+            if (c == 401) { tok = access(force = true) ?: return null; val r = call("/rest/v1/rpc/sync_pull_watched_items", body, tok); c = r.first; t = r.second }
+            check(c in 200..299) { "Nuvio answered HTTP $c" }
+            val a = JSONArray(t)
+            for (i in 0 until a.length()) {
+                val o = a.optJSONObject(i) ?: continue
+                val imdb = o.optString("content_id").substringBefore(':')
+                if (!imdb.startsWith("tt")) continue
+                val season = o.optInt("season", 0); val ep = o.optInt("episode", 0)
+                if (ep <= 0 || season <= 0) continue
+                val at = o.opt("watched_at").let { v -> (v as? Number)?.toLong() ?: runCatching { java.time.OffsetDateTime.parse(v.toString()).toInstant().toEpochMilli() }.getOrNull() } ?: 0L
+                out += Watched(imdb, season, ep, at)
+            }
+            if (a.length() < 900) break
+            page++
+        }
+        out.sortedByDescending { it.at }
+    }.getOrElse { Glog.w("Nuvio watched", it); null }
+
     /** Takes a title out of the account's Continue Watching. */
     fun deleteProgress(key: String, profile: Int = 1): Boolean = runCatching {
         val tok = access() ?: return false
