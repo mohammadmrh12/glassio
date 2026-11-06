@@ -347,6 +347,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         SaverGate.opening.value = true
         runCatching { ctx.startActivity(android.content.Intent(ctx, com.glasslauncher.tv.saver.ScreensaverActivity::class.java)) }
     }
+    // A trailer playing (also with the dock selected while it is hidden): Back stops it first.
+    BackHandler(enabled = screen == Screen.Home && Trailers.playing.value != null && movingPkg == null && !folderOpen && pickerFor == null) { Trailers.stop() }
 
     // Moving an app to another row builds its tile again, and the focus went with the old one (nothing was
     // selected until Down brought it back to the dock): the moved app is selected again once it has its new place.
@@ -454,7 +456,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val blur = veil
         var dockHasFocus by remember { mutableStateOf(false) }
         // A trailer playing in the carousel: the dock steps aside (back when it stops or ends, or when you go to it).
-        val dockShownTarget = (!settings.dockHide && !(Trailers.started.value && screen == Screen.Home && settings.trailerHideDock && settings.trailerSize != "popup")) || dockHasFocus || expanded || folderOpen
+        // (Hidden even with the dock selected: the trailer has the whole page; Back stops it and the dock comes back.)
+        val trailerHides = Trailers.started.value && screen == Screen.Home && settings.trailerHideDock && settings.trailerSize != "popup"
+        val dockShownTarget = if (trailerHides) expanded || folderOpen else !settings.dockHide || dockHasFocus || expanded || folderOpen
+        // Away from the home screen (Settings, the Library): the trailer waits there and goes on when you come back.
+        androidx.compose.runtime.SideEffect { Trailers.held.value = screen != Screen.Home }
         val dockShown = animateFloatAsState(if (dockShownTarget) 1f else 0f, tween(if (dockShownTarget) 200 else 260, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)), label = "dockShown")
         // Where the open (and settled) dock covers the page; empty while it moves.
         val dockCover = remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }

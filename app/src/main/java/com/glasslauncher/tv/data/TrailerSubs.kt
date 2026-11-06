@@ -29,8 +29,30 @@ object TrailerSubs {
         // YouTube's own translation of them, when it allows it.
         if (l != code(src) && src.url.contains("youtube.com/api/timedtext"))
             get(src.url + "&tlang=$l")?.let { parse(it, src.mime) }?.takeIf { it.isNotEmpty() }?.let { return Loaded(l, it) }
-        return get(src.url)?.let { parse(it, src.mime) }?.takeIf { it.isNotEmpty() }?.let { Loaded(code(src), it) }
+        val orig = get(src.url)?.let { parse(it, src.mime) }?.takeIf { it.isNotEmpty() } ?: return null
+        // YouTube wouldn't translate them: Google Translate does (the English ones only when that fails too).
+        if (l != code(src)) translate(orig, code(src), l)?.let { return Loaded(l, it) }
+        return Loaded(code(src), orig)
     }
+
+    /** The lines in [to], each on its own (Google Translate, in batches), or null when it can't. */
+    private fun translate(lines: List<Line>, from: String, to: String): List<Line>? = runCatching {
+        val texts = lines.map { it.text.replace('\n', ' ') }
+        val out = ArrayList<String>(texts.size)
+        texts.chunked(40).forEach { batch ->
+            val c = java.net.URL("https://translate.googleapis.com/translate_a/t?client=gtx&sl=$from&tl=$to").openConnection() as java.net.HttpURLConnection
+            c.connectTimeout = 5_000; c.readTimeout = 8_000
+            c.requestMethod = "POST"; c.doOutput = true
+            c.setRequestProperty("User-Agent", TrailerSource.UA)
+            c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
+            c.outputStream.use { o -> o.write(batch.joinToString("&") { "q=" + java.net.URLEncoder.encode(it, "UTF-8") }.toByteArray()) }
+            check(c.responseCode == 200) { "translate ${c.responseCode}" }
+            val a = org.json.JSONArray(c.inputStream.bufferedReader().use { it.readText() })
+            check(a.length() == batch.size) { "translate: ${a.length()} for ${batch.size}" }
+            for (i in 0 until a.length()) out += when (val v = a.get(i)) { is org.json.JSONArray -> v.optString(0); else -> v.toString() }
+        }
+        lines.mapIndexed { i, ln -> ln.copy(text = out[i].ifBlank { ln.text }) }
+    }.onFailure { Glog.w("Trailer subtitles: no translation (${it.message})") }.getOrNull()
 
     fun parse(body: String, mime: String): List<Line> =
         if (mime.contains("vtt") || body.startsWith("WEBVTT")) vtt(body) else ttml(body)

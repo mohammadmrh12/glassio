@@ -50,6 +50,8 @@ object Trailers {
     val playing = mutableStateOf<Req?>(null)
     /** Its picture is on screen (the dock and the page dots step aside then). */
     val started = mutableStateOf(false)
+    /** Settings, the Library or another page is open: the trailer waits, and goes on when you are back home. */
+    val held = mutableStateOf(false)
     /** Bumped when a trailer ends on its own (the carousel then moves on). */
     val endedRev = mutableIntStateOf(0)
     private var rev = 0
@@ -207,7 +209,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
     val player = remember {
         val http = androidx.media3.datasource.DefaultHttpDataSource.Factory().setUserAgent(streams.userAgent)
             // Short waits: a piece that hangs is asked for again at once (a long timeout froze the trailer for 13 s).
-            .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(5_000).setReadTimeoutMs(5_000)
+            .setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(4_000).setReadTimeoutMs(3_500)
         // YouTube's streams read in pieces (one long download is slowed down after a few seconds).
         val chunked = androidx.media3.datasource.DataSource.Factory { com.glasslauncher.tv.data.YtChunkSource(http) }
         val prog = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(chunked)
@@ -256,6 +258,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
             if (!popup) VideoFrames.clear()
         }
     }
+    LaunchedEffect(Trailers.held.value) { player.playWhenReady = !Trailers.held.value }
     // Subtitles: loaded here and shown by the trailer's time.
     if (st.trailerSubs) LaunchedEffect(Unit) {
         val got = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.TrailerSubs.load(streams.subs, st.trailerSubLang) }
@@ -407,7 +410,7 @@ private class BarFinder {
         if (!bright || top < 0) return null
         var bar = minOf(top, h - 1 - last).toFloat() / h
         if (bar > 0.2f) return null
-        if (bar < 0.025f) bar = 0f
+        if (bar < 0.006f) bar = 0f
         best = if (best < 0f) bar else minOf(best, bar)
         return best
     }
