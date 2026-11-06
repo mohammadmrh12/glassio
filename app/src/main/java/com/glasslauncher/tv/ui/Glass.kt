@@ -598,7 +598,7 @@ fun GlassPanel(
         when (style) {
             "amoled" -> Box(fill.background(Color.Black.copy(alpha = 0.94f)))
             // Soft off-white like the iOS 26 light icons, shading a little towards the bottom (not paper white).
-            "bow" -> Box(fill.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF2E3E3E7), Color(0xF2D2D2D8)))))
+            "bow" -> Box(fill.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xF2EEEBE4), Color(0xF2E2DED5)))))
             // Glass like glass: almost no frost or tint, strong rim bending, ripples after a move.
             "water", "water_still" -> LiquidSurface(
                 fill, radius, if (refract) (env.refractionDp * 1.5f).dp else 0.dp, (radius * 1.2f).coerceIn(12.dp, 34.dp),

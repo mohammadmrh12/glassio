@@ -92,12 +92,23 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope) {
                 // 1) The TV's adb shell: silent, then Glass opens again by itself.
                 val viaShell = LocalShell.install(ctx, f)
                 if (viaShell.isSuccess) { status.value = "Installed, restarting…"; return@launch }
+                // The TV's installer refused it: no point asking Android's installer, it says the same.
+                (viaShell.exceptionOrNull() as? LocalShell.InstallRefused)?.let { status.value = refusal(it.reason); return@launch }
                 // 2) Android's installer (asks to confirm; needs "Install unknown apps" for Glass).
                 installWithPackageInstaller(f)
             } catch (e: Exception) {
                 status.value = "Update failed: ${e.message}"
             }
         }
+    }
+
+    /** What to do about an install the TV refused, in words. */
+    private fun refusal(reason: String): String = when {
+        reason.contains("UPDATE_INCOMPATIBLE") || reason.contains("SIGNATURE") ->
+            "Can't update this copy: it was signed differently. Back it up (Settings → System), uninstall Glassio and install it from GitHub"
+        reason.contains("INSUFFICIENT_STORAGE") -> "Not enough space on the TV for the update"
+        reason.contains("VERSION_DOWNGRADE") -> "A newer Glassio is already installed"
+        else -> "Update failed: $reason"
     }
 
     private fun download(r: Release): File {
@@ -142,6 +153,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope) {
         }
         status.value = "Confirm the update on screen"
     }
+    // (The installer's own failures come to InstallResultReceiver, which shows them.)
 }
 
 /** Receives the package installer's answer; shows its confirmation screen when it needs one. */

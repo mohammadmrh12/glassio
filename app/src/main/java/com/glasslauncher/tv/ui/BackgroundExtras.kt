@@ -350,7 +350,7 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
         if (blurPx < 0.5f || android.os.Build.VERSION.SDK_INT < 31) null
         else android.graphics.RenderEffect.createBlurEffect(blurPx, blurPx, android.graphics.Shader.TileMode.CLAMP).asComposeRenderEffect()
     }
-    val fill = if (look == "bow") Color(0xF2DCDCE0) else Color.Black.copy(alpha = 0.94f)
+    val fill = if (look == "bow") Color(0xF2E8E4DC) else Color.Black.copy(alpha = 0.94f)
     // Drawn like the Still Glass: the full-size sharp picture behind (the page's own, or the video's copy), a little
     // magnified like the glass bends it, then cut to the digits; the theme's tint on top of it.
     Box(Modifier.size(size).onGloballyPositioned { posS.value = it.positionInRoot() }

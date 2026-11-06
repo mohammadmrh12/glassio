@@ -263,6 +263,9 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
             }
             override fun onRenderedFirstFrame() { rendered = true; ready = true; errors = 0; VideoFrames.showing.value = true }
             override fun onMediaItemTransition(item: androidx.media3.common.MediaItem?, reason: Int) {
+                // The same video starting again (one video, or Shuffle off) plays on without a new "first frame":
+                // marking it as not drawn stopped the glass copies for good (dock, menu and clock froze).
+                if (reason == androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) return
                 rendered = false
                 val u = item?.localConfiguration?.uri?.toString() ?: return
                 list.firstOrNull { CustomBackground.uri(it) == u }?.let { Glog.i("Background video: $it"); onItem(it) }
@@ -281,6 +284,13 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
         }
     }
     androidx.compose.runtime.LaunchedEffect(playing) { player.playWhenReady = playing }
+    // Never left "not drawn" while the video plays on (a video following another without a new first-frame
+    // report): the glass copies would stop and everything glass froze on the last picture.
+    androidx.compose.runtime.LaunchedEffect(rendered, ready, view) {
+        if (rendered || !ready) return@LaunchedEffect
+        kotlinx.coroutines.delay(1500)
+        if (player.isPlaying && view?.holder?.surface?.isValid == true) { Glog.i("Background video: drawing again"); rendered = true }
+    }
     // The fade in, once the first frame of a video is on screen.
     androidx.compose.runtime.LaunchedEffect(rendered) {
         if (rendered && dim.floatValue > 0f)

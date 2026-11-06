@@ -479,7 +479,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // Music mode: the glass (dock, menus, pop-ups) shows the music page (its blurred artwork), not the carousel
         // picture under it, and changes with each song.
         val songNow = MusicUi.heldTrack()
-        val stageWanted = settings.musicOn && settings.musicMode && songNow != null
+        val stageWanted = settings.musicOn && settings.musicMode && MusicUi.stageAllowed(settings) && songNow != null
         val stageArt = songNow?.art?.takeIf { stageWanted }
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
         // (Keyed by how the artwork looks: the app sends a new picture object with every update.) A song whose
@@ -701,7 +701,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // A trailer in its own window: over the dock and the dots too (only the pop-up menu is above it).
                 if (settings.trailerSize == "popup") TrailerLayer(app, s)
                 // The music island at the top of the home screen (Settings → Music), when Music mode isn't showing.
-                if (settings.musicOn && settings.islandHome && !settings.musicMode) MusicIsland(app, s)
+                if (settings.musicOn && settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings))) MusicIsland(app, s)
             }
             // The folder fades out over the home screen instead of vanishing: the dock's glass is drawn again under it
             // first (it showed black for a couple of frames as the folder closed).
@@ -1247,7 +1247,7 @@ private fun HeroSection(
     val trailerOn = Trailers.playing.value != null
     // Music mode on screen: the carousel stands still under it (it went on moving, unseen).
     val songOn = MusicUi.heldTrack()
-    val stageOn = settings.musicOn && settings.musicMode && songOn != null
+    val stageOn = settings.musicOn && settings.musicMode && MusicUi.stageAllowed(settings) && songOn != null
     LaunchedEffect(stageOn) { if (stageOn && Trailers.playing.value?.overlay != true) Trailers.stop() }
     LaunchedEffect(index, items.size, settings.heroAutoplay, settings.heroIntervalSec, hidden, paused, resumed, trailerOn, stageOn) {
         if (settings.heroAutoplay && !hidden && !paused && resumed && !trailerOn && !stageOn && items.size > 1) {
@@ -1328,7 +1328,7 @@ private fun HeroSection(
         val shown = textItem
         // Music mode: while a song plays, the player is the background (whatever was chosen).
         val song = MusicUi.heldTrack()
-        val musicStage = settings.musicOn && settings.musicMode && song != null
+        val musicStage = settings.musicOn && settings.musicMode && MusicUi.stageAllowed(settings) && song != null
         // The player went (the app stopped, e.g. YouTube when you leave it) with the selection in it: the selection
         // comes back to the carousel (or the dock), not left nowhere.
         LaunchedEffect(musicStage) {
@@ -2164,8 +2164,8 @@ object SaverGate {
 val LocalDockOpen = androidx.compose.runtime.compositionLocalOf { false }
 
 
-private val BowRest = Brush.verticalGradient(listOf(Color(0xFFE1E1E5), Color(0xFFCECED4)))
-private val BowFocused = Brush.verticalGradient(listOf(Color(0xFFEDEDF0), Color(0xFFDADADF)))
+private val BowRest = Brush.verticalGradient(listOf(Color(0xFFE9E5DD), Color(0xFFD9D4CA)))
+private val BowFocused = Brush.verticalGradient(listOf(Color(0xFFF3F0EA), Color(0xFFE5E1D8)))
 private val grayscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 private val whiteGlyph = ColorFilter.tint(Color.White, BlendMode.SrcIn)
 private val blackGlyph = ColorFilter.tint(Color(0xFF111114), BlendMode.SrcIn)
@@ -2368,7 +2368,7 @@ private fun FolderTile(
                         row.forEach { e ->
                             val art by produceState(app.apps.cachedArtwork(e), e.pkg, app.settings.iconPack, app.icons.rev.intValue) { value = app.apps.artwork(e) }
                             Box(Modifier.weight(1f).fillMaxHeight().clipR((4 * s).dp)
-                                .background(if (style == "bow") Color(0xFFE2E2E6) else Color.White.copy(alpha = 0.06f))) {
+                                .background(if (style == "bow") Color(0xFFE8E4DC) else Color.White.copy(alpha = 0.06f))) {
                                 IconArt(art, "", style, s * 0.35f)
                             }
                         }

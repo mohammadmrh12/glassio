@@ -40,6 +40,13 @@ object DevHooks {
         // ---- Open a screen (safe for anyone)
         if (i.getBooleanExtra("open_folder", false)) app.requestFolder.value = true
         i.getIntExtra("open_settings", -1).takeIf { it >= 0 }?.let { app.requestSettings.intValue = it; app.requestSettingsRev.intValue++ }
+        // The silent update path, with this same APK (Glassio restarts): --ez self_install true.
+        if (i.getBooleanExtra("self_install", false)) Thread {
+            val f = java.io.File(app.cacheDir, "self.apk")
+            java.io.File(app.applicationInfo.sourceDir).copyTo(f, overwrite = true)
+            val r = com.glasslauncher.tv.data.LocalShell.install(app, f)
+            com.glasslauncher.tv.data.Glog.i("Self install: ${r.exceptionOrNull()?.let { "${it.javaClass.simpleName} ${it.message}" } ?: "ok"}")
+        }.start()
         if (i.getBooleanExtra("show_tour", false)) com.glasslauncher.tv.ui.WhatsNew.show()
         if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }

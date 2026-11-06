@@ -75,6 +75,13 @@ import kotlinx.coroutines.launch
 
 /** The music player's shared bits: what opens the menu on its music page (the dock's Music icon). */
 object MusicUi {
+    /**
+     * Music mode takes the page only over the carousel: with your own picture, photos, video or the screensaver's
+     * videos as the background, that background stays and the island shows the music instead.
+     */
+    fun stageAllowed(st: com.glasslauncher.tv.data.Settings): Boolean =
+        when (st.bgMode) { "image" -> st.bgImage.isBlank(); "video" -> st.bgVideo.isBlank(); "aerial", "photos" -> false; else -> true }
+
     /** The music page's background for one song: the artwork blurred (the page) and its small copy for the glass. */
     class StagePics(val back: androidx.compose.ui.graphics.ImageBitmap, val glass: androidx.compose.ui.graphics.ImageBitmap?)
     /** The song's pictures now, the last song's while the new one fades in over it, and that fade (0..1). */

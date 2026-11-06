@@ -1101,7 +1101,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     add(Note("Where it shows"))
                     add(Toggle("Player in the menu", "▶ in the menu turns it into a small player", { st.musicMenu }, { st.musicMenu = it }))
                     add(Toggle("Music in the dock", "A Music icon (move, hide and change it like an app): opens the player", { st.musicDock }, { st.musicDock = it; app.apps.reload() }))
-                    add(Toggle("Music mode", "While a song plays, the home screen's background becomes the player (artwork, song, buttons). ■ stops the music and your background comes back",
+                    add(Toggle("Music mode", "While a song plays, the carousel's place becomes the player (artwork, song, buttons). ■ stops the music. With your own picture, photos, video or the screensaver's videos as the background, the island shows instead",
                         { st.musicMode }, { st.musicMode = it }))
                     add(Adjust("  · Player size", "", { pct(st.musicStageScale) }, { st.musicStageScale = ((st.musicStageScale * 10).roundToInt() + it) / 10f }))
                     add(Adjust("  · Buttons", "White or black turn the other way round when selected", {

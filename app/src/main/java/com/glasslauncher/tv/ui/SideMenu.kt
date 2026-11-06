@@ -554,7 +554,7 @@ private fun DrawScope.glyph(kind: String, c: Color) {
 private fun DrawScope.swatch(key: String, light: Boolean) {
     val w = size.width
     val (fill, edge) = when (key) {
-        "bow" -> Color(0xFFF4F4F6) to Color(0xFF111114)
+        "bow" -> Color(0xFFF2EFE8) to Color(0xFF111114)
         "amoled" -> Color.Black to Color.White.copy(alpha = 0.5f)
         "clear" -> Color.White.copy(alpha = 0.14f) to Color.White.copy(alpha = 0.35f)
         "liquid" -> Color.White.copy(alpha = 0.32f) to Color.White.copy(alpha = 0.7f)

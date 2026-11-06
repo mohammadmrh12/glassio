@@ -24,16 +24,50 @@ object LocalShell {
      * Copies an APK to the TV and installs it from the shell, detached, so the install survives this app
      * being stopped for the update; Glass is opened again afterwards.
      */
-    @Synchronized
-    fun install(ctx: Context, apk: File, port: Int = 5555): Result<Unit> = runCatching {
-        val d = conn ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { conn = it }
+    /** The TV's installer said no (the reason as pm gives it, e.g. INSTALL_FAILED_UPDATE_INCOMPATIBLE). */
+    class InstallRefused(val reason: String) : Exception(reason)
+
+    /**
+     * Copies an APK to the TV and installs it from the shell. The install runs detached (it survives this app
+     * being stopped for the update) and writes its answer to a file that is read back: a refusal is reported
+     * ([InstallRefused]) instead of the update hanging on "Installing…". The connection and the copy have a time
+     * limit: a TV still asking "Allow USB debugging?" (or one that was refused) no longer waits for ever.
+     */
+    fun install(ctx: Context, apk: File, port: Int = 5555): Result<Unit> {
+        val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
         val remote = "/data/local/tmp/glass-update.apk"
-        d.push(apk, remote)
-        val cmd = "nohup sh -c 'pm install -r -d $remote && rm -f $remote; " +
-            "am start -n ${ctx.packageName}/.MainActivity' >/dev/null 2>&1 &"
-        val r = d.shell(cmd)
-        check(r.exitCode == 0) { r.allOutput.trim().ifBlank { "exit ${r.exitCode}" } }
-    }.onFailure { runCatching { conn?.close() }; conn = null }
+        val log = "/data/local/tmp/glass-update.log"
+        try {
+            // Connect and copy (a 12 MB copy takes a few seconds).
+            val d = runCatching {
+                pool.submit<Dadb> {
+                    synchronized(this) {
+                        val d = conn ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { conn = it }
+                        d.push(apk, remote)
+                        val cmd = "rm -f $log; nohup sh -c 'pm install -r -d $remote > $log 2>&1; rm -f $remote; " +
+                            "grep -q Success $log && am start -n ${ctx.packageName}/.MainActivity' >/dev/null 2>&1 &"
+                        val r = d.shell(cmd)
+                        check(r.exitCode == 0) { r.allOutput.trim().ifBlank { "exit ${r.exitCode}" } }
+                        d
+                    }
+                }.get(45, java.util.concurrent.TimeUnit.SECONDS)
+            }.getOrElse { e ->
+                Glog.w("Update over the TV's adb: ${e.javaClass.simpleName} ${e.message}")
+                runCatching { conn?.close() }; conn = null
+                return Result.failure(e)
+            }
+            // The installer's answer (on success this app is stopped and opened again before long).
+            val until = android.os.SystemClock.uptimeMillis() + 120_000
+            while (android.os.SystemClock.uptimeMillis() < until) {
+                Thread.sleep(1500)
+                val out = runCatching { pool.submit<String> { d.shell("cat $log 2>/dev/null").allOutput }.get(10, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() ?: continue
+                if (out.contains("Success")) return Result.success(Unit)
+                val bad = Regex("""(Failure|Error)[^\n]*""").find(out)?.value
+                if (bad != null) { Glog.w("Update refused: $bad"); return Result.failure(InstallRefused(bad.trim())) }
+            }
+            return Result.failure(java.util.concurrent.TimeoutException("no answer from the installer"))
+        } finally { pool.shutdownNow() }
+    }
 
     /** Blocking; call off the main thread. Keeps one connection open and reconnects if it drops. */
     @Synchronized

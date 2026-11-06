@@ -76,7 +76,10 @@ object NuvioLaunch {
     private fun intentFor(target: String, type: String, id: String): Intent {
         // No CLEAR_TASK: a running Nuvio is brought forward and opens the title at once, without
         // restarting (no splash). If Nuvio is not running it starts normally.
-        val flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        // Stremio is the exception: a running Stremio takes the link as a new intent and ignores it (it just came to
+        // the front on its home page), so its task starts again and the title's page opens (still quick: warm start).
+        val flags = if (target == "stremio") Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            else Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         val pkg = TARGETS.getValue(target)
         val t = if (type.equals("movie", true)) "movie" else "series"
         val uri = if (target == "stremio") {
