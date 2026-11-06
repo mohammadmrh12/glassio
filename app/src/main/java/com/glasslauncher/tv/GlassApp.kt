@@ -42,8 +42,23 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
      * Only when memory is really short: "UI hidden" (level 20) just means another app is in front, and clearing
      * everything then made every return to the home screen decode its pictures again.
      */
+    /** Activities of Glassio on screen; when 0 another app is in front. */
+    @Volatile private var shown = 0
+    @Volatile private var hiddenAt = 0L
+    private val smallTv by lazy {
+        val mi = android.app.ActivityManager.MemoryInfo().also { (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(it) }
+        mi.totalMem < 3L * 1024 * 1024 * 1024
+    }
+    private fun releasePictures(why: String) {
+        com.glasslauncher.tv.data.Glog.w("Freeing picture caches ($why)")
+        runCatching { coil3.SingletonImageLoader.get(this).memoryCache?.clear() }
+        com.glasslauncher.tv.ui.GlassCache.trim()
+        com.glasslauncher.tv.ui.trimPageCaches()
+    }
+
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        if (level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) hiddenAt = System.currentTimeMillis()
         @Suppress("DEPRECATION") when {
             // In the background and Android is looking for memory: everything that can be made again goes.
             level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> {
@@ -52,7 +67,15 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
                 com.glasslauncher.tv.ui.GlassCache.trim()
                 com.glasslauncher.tv.ui.trimPageCaches()
             }
-            level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> Unit
+            // Another app in front. Glassio's home-key service keeps it running, so Android never asks it for
+            // memory the way it asks a closed app: on a small TV (2 GB) its pictures stayed while you watched, and the
+            // TV swapped and stuttered. There they go after a minute away (a quick trip out and back keeps them).
+            level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> if (settings.memTier == 0 || smallTv) {
+                val at = hiddenAt; scope.launch {
+                    kotlinx.coroutines.delay(60_000)
+                    if (shown == 0 && hiddenAt == at) releasePictures("in the background")
+                }
+            }
             // In front and memory is getting short (older Android): half the decoded pictures, the screen stays.
             level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
                 com.glasslauncher.tv.data.Glog.w("Low memory (level $level): halving the picture cache")
@@ -108,6 +131,15 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             previous?.uncaughtException(t, e)
         }
         settings = Settings(this)
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(a: android.app.Activity) { shown++ }
+            override fun onActivityStopped(a: android.app.Activity) { shown = (shown - 1).coerceAtLeast(0) }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+            override fun onActivityResumed(a: android.app.Activity) {}
+            override fun onActivityPaused(a: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: android.app.Activity) {}
+        })
         com.glasslauncher.tv.data.I18n.lang = settings.lang
         settings.firstRun()
         Thread { runCatching { DevHooks.key(this) } }.apply { isDaemon = true }.start()

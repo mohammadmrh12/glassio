@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
@@ -48,7 +49,18 @@ class MainActivity : ComponentActivity() {
             com.glasslauncher.tv.ui.GlassType {
                 var setup by androidx.compose.runtime.remember { mutableStateOf(!app.settings.setupDone) }
                 LaunchedEffect(app.requestSetup.intValue) { if (app.requestSetup.intValue > 0) setup = true }
-                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                // Glassio's own accessibility service (the Home key) counts as "accessibility on", so Compose kept
+                // checking the whole screen's semantics after every change (~7 ms on the main thread, many times a
+                // second, also while the carousel slid). Without a screen reader there's nobody to read them: the
+                // tree is left empty. With TalkBack on, everything is there as before.
+                val reader by androidx.compose.runtime.produceState(screenReaderOn()) {
+                    val am = getSystemService(android.view.accessibility.AccessibilityManager::class.java)
+                    val l = android.view.accessibility.AccessibilityManager.TouchExplorationStateChangeListener { value = it }
+                    am?.addTouchExplorationStateChangeListener(l)
+                    awaitDispose { am?.removeTouchExplorationStateChangeListener(l) }
+                }
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
+                    .then(if (reader) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.clearAndSetSemantics { })) {
                     // The home screen is left out while the setup shows, so it can't take the remote's focus.
                     if (setup) com.glasslauncher.tv.ui.SetupScreen(app) { setup = false; app.settings.setupDone = true }
                     else HomeScreen(app, screen) { screen = it }
@@ -80,6 +92,9 @@ class MainActivity : ComponentActivity() {
         val tv = runCatching { android.provider.Settings.System.getInt(cr, "screen_off_timeout") }.getOrDefault(Int.MAX_VALUE)
         return tv <= secs * 1000L + 5_000
     }
+
+    private fun screenReaderOn(): Boolean =
+        getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
 
     private fun hideBars() {
         WindowInsetsControllerCompat(window, window.decorView).apply {

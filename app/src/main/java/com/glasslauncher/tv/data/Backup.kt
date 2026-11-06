@@ -44,7 +44,7 @@ object Backup {
             all.put(name, o)
         }
         return JSONObject().put("glassio", 1).put("version", com.glasslauncher.tv.BuildConfig.VERSION_NAME)
-            .put("made", System.currentTimeMillis()).put("prefs", all)
+            .put("made", System.currentTimeMillis()).put("device", android.os.Build.MODEL).put("prefs", all)
     }
 
     /** Replaces the settings files with the backup's. Returns how many files were restored. */
@@ -68,6 +68,12 @@ object Backup {
                 }
             }
             ed.commit(); n++
+        }
+        // From another TV: the performance settings were made for that TV (a 4 GB box's caches on a 2 GB TV made it
+        // swap and stutter). This one goes back to Auto, which picks them for its own memory and graphics chip.
+        if (j.optString("device") != android.os.Build.MODEL) {
+            ctx.getSharedPreferences("glass", Context.MODE_PRIVATE).edit().putString("perfMode", "auto").commit()
+            Settings(ctx).applyMode("auto")
         }
         return n
     }

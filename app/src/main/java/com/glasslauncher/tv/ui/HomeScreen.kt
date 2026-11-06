@@ -387,7 +387,18 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         ) as MenuDialog
         // The glass menu right above the app (in the Apps folder: in the middle of the screen).
         popReturn = if (inFolder) null else tileFocus[e.pkg]
-        pop = PopState(m.title, m.options.map { (label, action) -> PopOption(label, onClick = action) }, if (inFolder) null else PopAnchors.tiles[e.pkg])
+        pop = PopState(m.title, m.options.map { (label, action) ->
+            // Hidden from the dock: its tile goes away with the focus (nothing was selected until Home). The app
+            // next to it is selected instead (the one after it, else the one before, else the first tile).
+            if (!inFolder && label == "Hide") PopOption(label, onClick = {
+                val list = app.apps.ordered()
+                val i = list.indexOfFirst { it.pkg == e.pkg }
+                val near = (list.getOrNull(i + 1) ?: list.getOrNull(i - 1))?.pkg
+                action()
+                // After the menu's own return to the (now gone) tile, once the dock has been laid out again.
+                scope.launch { delay(120); runCatching { (near?.let { tileFocus[it] } ?: firstTile).requestFocus() } }
+            }) else PopOption(label, onClick = action)
+        }, if (inFolder) null else PopAnchors.tiles[e.pkg])
     }
 
     // Square look: read by every glass surface.
@@ -455,7 +466,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val radius = settings.cornerRadius
         val metrics = remember(s, maxWidth, settings.dockScale) { DockMetrics(s, maxWidth.value, settings.dockScale) }
 
-        CompositionLocalProvider(LocalGlassEnv provides env, LocalScale provides s) {
+        val envRef = androidx.compose.runtime.rememberUpdatedState(env)
+        CompositionLocalProvider(LocalGlassEnv provides env, LocalGlassEnvRef provides envRef, LocalScale provides s) {
             // Nothing under the folder is drawn: it covers the whole screen (the TV GPU is the bottleneck).
             // Backdrop and scrims are flattened into one cached GPU layer: moving focus in the dock then
             // composites a single texture instead of redrawing the photo and both gradients every frame.
@@ -1305,6 +1317,7 @@ private fun HeroInfo(
     val savedList by app.library.saved.collectAsState()
     val isSaved = savedList.any { it.key == item.key }
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val backOwner = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current
     // The block itself is the focus target (invisible): Left/Right change slide, OK opens the title.
     Box(
         modifier
@@ -1336,6 +1349,9 @@ private fun HeroInfo(
                         true
                     }
                     ev.key == Key.Menu -> { if (ev.type == KeyEventType.KeyDown) onLong(); true }
+                    // Back is handled here like on the dock's tiles: left to Compose, it cleared the focus and the
+                    // remote did nothing until the page was opened again.
+                    ev.key == Key.Back -> { if (ev.type == KeyEventType.KeyUp) backOwner?.onBackPressedDispatcher?.onBackPressed(); true }
                     else -> false
                 }
             }
@@ -1823,7 +1839,7 @@ private fun Dock(
         val fits = fullH <= expandedH + 1f
         // Panes stay until the page has cleared again after closing: switching back to glass then happens once
         // everything has stopped moving (it made the first frame of the close slow).
-        val genv = LocalGlassEnv.current
+        val genv = rememberGlassStatic()
         val veilUp by remember(genv.veil) { androidx.compose.runtime.derivedStateOf { (genv.veil?.value ?: 0f) > 0.02f } }
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides (if (fits) NoScroll else androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current),
@@ -1939,7 +1955,7 @@ private fun gridEdges(col: Int, rowSize: Int, row: Int, rows: Int, allowUp: Bool
 /** The plate behind an icon, in the chosen style. */
 @Composable
 private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, flat: Boolean = false, content: @Composable BoxScope.() -> Unit) {
-    val env = LocalGlassEnv.current
+    val env = rememberGlassStatic()
     // Dock opening or open (page blurred and darkened behind it), or inside the folder: the page behind is (about
     // to be) one blurred image, so a plain translucent pane looks the same and costs the GPU nothing extra. It
     // switches the moment the dock starts to open: glass in every icon while the second row slid in made the
@@ -2241,7 +2257,8 @@ private fun FolderOverlay(
 
     val outer = LocalGlassEnv.current
     val env = outer.copy(bmp = outer.heavy ?: outer.bmp, sharp = outer.heavy ?: outer.sharp, wobble = 0f, prevBmp = null, prevSharp = null, mix = null, veil = null, sharpIsPage = false)
-    CompositionLocalProvider(LocalGlassEnv provides env) {
+    val envRef = androidx.compose.runtime.rememberUpdatedState(env)
+    CompositionLocalProvider(LocalGlassEnv provides env, LocalGlassEnvRef provides envRef) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // Blurred page and its dimming in one pass.
         val bg = env.bmp
@@ -2308,7 +2325,7 @@ private fun LiquidDots(total: Int, current: Int, max: Int, s: Float, modifier: M
         launch { tail.animateTo(li, spring(dampingRatio = 0.86f, stiffness = 380f)) }
     }
     // On a small liquid-glass capsule, the same glass as the dock.
-    val st = LocalGlassEnv.current
+    val st = rememberGlassStatic()
     GlassPanel(modifier, radius = (11 * s).dp, style = "water_still", refract = st.refractionDp > 0) {
         GlassDots(count, { head.value }, { tail.value }, s, Modifier.padding(horizontal = (3 * s).dp, vertical = (2 * s).dp))
     }
