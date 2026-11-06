@@ -30,6 +30,8 @@ object Inputs {
     fun refresh(ctx: Context): List<Input> {
         val l = runCatching { tvInputs(ctx) }.getOrDefault(emptyList()).ifEmpty { runCatching { cecDevices(ctx) }.getOrDefault(emptyList()) }
         if (l != list.value) list.value = l
+        // Devices switched through the TV's shell: its quick connection is kept open, so a switch goes out at once.
+        if (l.any { it.id.startsWith("cec:") }) LocalShell.warm(ctx)
         return l
     }
 
@@ -79,7 +81,7 @@ object Inputs {
         }.onFailure { Glog.w("Input $raw", it) }.isSuccess
         else {
             val la = raw.removePrefix("cec:").substringBefore(':')
-            Thread { LocalShell.run(ctx, "cmd hdmi_control deviceselect $la").onFailure { Glog.w("CEC switch to $la", it) } }.apply { isDaemon = true }.start()
+            LocalShell.quick(ctx, "cmd hdmi_control deviceselect $la")
             true
         }
     }
@@ -88,7 +90,7 @@ object Inputs {
     fun comeBack(ctx: Context) {
         if (awayAt == 0L) return
         awayAt = 0L
-        if (list.value.any { it.id.startsWith("cec:") }) Thread { LocalShell.run(ctx, "cmd hdmi_control otp") }.apply { isDaemon = true }.start()
+        if (list.value.any { it.id.startsWith("cec:") }) LocalShell.quick(ctx, "cmd hdmi_control otp")
     }
 
     /** A simple icon for an input: its name with an HDMI mark, see-through like the apps' glyph icons (the icon can be changed like any app's). */

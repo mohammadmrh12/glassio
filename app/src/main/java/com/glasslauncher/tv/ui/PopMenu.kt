@@ -76,6 +76,8 @@ class PopState(val title: String, val options: List<PopOption>, val anchor: Rect
 /** Where the menu opens from: the Play button and the dock's apps report their place on screen here. */
 object PopAnchors {
     @Volatile var play: Rect? = null
+    /** Where the open pop-up menu is (a trailer in its window then sits next to it), or null. */
+    val menu = androidx.compose.runtime.mutableStateOf<Rect?>(null)
     val tiles = java.util.concurrent.ConcurrentHashMap<String, Rect>()
 }
 
@@ -105,6 +107,7 @@ private fun PopMenu(state: PopState, s: Float, style: String, onDismiss: () -> U
     // Back is read from the key itself: the home screen's own Back actions (screensaver, dock) could take it first,
     // and the menu stayed open with the remote somewhere else.
     val back = { if (page != null) page = null else onDismiss() }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { PopAnchors.menu.value = null } }
 
     val width = ((if (page != null) 470 else 236) * s).dp
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -120,9 +123,10 @@ private fun PopMenu(state: PopState, s: Float, style: String, onDismiss: () -> U
                         state.side == PopState.Side.Right -> (a.right.toInt() + gap) to (a.center.y.toInt() - p.height / 2)
                         else -> (a.center.x.toInt() - p.width / 2) to (a.top.toInt() - gap - p.height)
                     }
-                    layout(c.maxWidth, c.maxHeight) {
-                        p.place(x.coerceIn(gap, (rootW - p.width - gap).coerceAtLeast(gap)), y.coerceIn(gap, (rootH - p.height - gap).coerceAtLeast(gap)))
-                    }
+                    val px = x.coerceIn(gap, (rootW - p.width - gap).coerceAtLeast(gap)); val py = y.coerceIn(gap, (rootH - p.height - gap).coerceAtLeast(gap))
+                    val r = Rect(px.toFloat(), py.toFloat(), (px + p.width).toFloat(), (py + p.height).toFloat())
+                    if (PopAnchors.menu.value != r) PopAnchors.menu.value = r
+                    layout(c.maxWidth, c.maxHeight) { p.place(px, py) }
                 }
                 .width(width)
                 .graphicsLayer {

@@ -453,7 +453,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val veil = animateFloatAsState(if (veilIn) 1f else 0f, if (veilIn) tween(150, delayMillis = 110) else tween(100), label = "veil")
         val blur = veil
         var dockHasFocus by remember { mutableStateOf(false) }
-        val dockShownTarget = !settings.dockHide || dockHasFocus || expanded || folderOpen
+        // A trailer playing in the carousel: the dock steps aside (back when it stops or ends, or when you go to it).
+        val dockShownTarget = (!settings.dockHide && !(Trailers.started.value && screen == Screen.Home && settings.trailerHideDock && settings.trailerSize != "popup")) || dockHasFocus || expanded || folderOpen
         val dockShown = animateFloatAsState(if (dockShownTarget) 1f else 0f, tween(if (dockShownTarget) 200 else 260, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)), label = "dockShown")
         // Where the open (and settled) dock covers the page; empty while it moves.
         val dockCover = remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
@@ -657,6 +658,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         },
                     onCover = { dockCover.value = it },
                 )
+                // A trailer in its own window: over the dock and the dots too (only the pop-up menu is above it).
+                if (settings.trailerSize == "popup") TrailerLayer(app, s)
             }
             // The folder fades out over the home screen instead of vanishing: the dock's glass is drawn again under it
             // first (it showed black for a couple of frames as the folder closed).
@@ -1208,10 +1211,24 @@ private fun HeroSection(
     fun startTrailer(it: HeroItem, quiet: Boolean = false) {
         if (Trailers.isPlaying(it.key)) { Trailers.stop(); return }
         trailerScope.launch {
-            val yt = withContext(Dispatchers.IO) { Trailers.youtubeId(app.http, it.type, it.id) }
-            if (yt == null) { if (!quiet) toast(ctx, "No trailer for ${it.name}") }
+            // Usually ready already (prepared while the title was on screen): starts at once.
+            val got = withContext(Dispatchers.IO) { Trailers.prepare(app, it.type, it.id) }
+            if (got == null) { if (!quiet) toast(ctx, "No trailer for ${it.name}") }
             // Only for the title on screen (the carousel may have moved on meanwhile).
-            else if (item?.key == it.key) Trailers.play(it.key, yt)
+            else if (item?.key == it.key) Trailers.play(it.key, got.first, got.second)
+        }
+    }
+    // The trailer of the title on screen is found ahead (a second after it shows), so it starts without a wait.
+    LaunchedEffect(item?.key, hidden, resumed) {
+        val it = item ?: return@LaunchedEffect
+        if (hidden || !resumed || settings.bgMode != "carousel") return@LaunchedEffect
+        delay(300)
+        withContext(Dispatchers.IO) { runCatching { Trailers.prepare(app, it.type, it.id) } }
+        // And the next one in the carousel, so it is ready before it comes.
+        if (settings.trailerAutoSec > 0 && items.size > 1) {
+            val next = items[(index + 1).mod(items.size)]
+            delay(1500)
+            withContext(Dispatchers.IO) { runCatching { Trailers.prepare(app, next.type, next.id) } }
         }
     }
     // A new title, or leaving the home screen: the trailer stops.
@@ -1230,7 +1247,8 @@ private fun HeroSection(
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Trailers.stop() } }
 
     val alpha by animateFloatAsState(if (hidden) 0f else 1f, tween(if (hidden) 150 else 220), label = "heroAlpha")
-    val dotsOn = items.size > 1 && settings.dotsMode != "hidden" && (!settings.dotsAutoHide || focused)
+    // A trailer playing: the dots step aside with the dock (back when it stops or ends).
+    val dotsOn = items.size > 1 && settings.dotsMode != "hidden" && (!settings.dotsAutoHide || focused) && !(Trailers.started.value && settings.trailerHideDock && settings.trailerSize != "popup")
     val dotsAlpha by animateFloatAsState(if (dotsOn) 1f else 0f, tween(300), label = "dotsAlpha")
 
     // Your own picture / video / the screensaver behind: the page is just that, no title, details or buttons.
@@ -1242,7 +1260,9 @@ private fun HeroSection(
         val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
         val musicStage = settings.musicOn && settings.musicMode && song != null
         // The trailer in place of the picture (under the text), or in its window.
-        if (!customBg && !musicStage && settings.trailerSize != "popup") TrailerLayer(app, s)
+        // The subtitles sit above the dock while it shows.
+        val dockUp by animateFloatAsState(if (dockShown.value > 0.5f) metrics.collapsedH + metrics.bottomMargin else 0f, tween(300), label = "subsUp")
+        if (!customBg && !musicStage && settings.trailerSize != "popup") TrailerLayer(app, s, dockUp)
         if (musicStage) {
             MusicStage(app, s, heroFocus, firstTile, onApps = {
                 val apps = installedMusicApps(ctx)
@@ -1297,7 +1317,6 @@ private fun HeroSection(
                 app.requestSettings.intValue = CATALOGS_CATEGORY; app.requestSettingsRev.intValue++
             }
         }
-        if (!customBg && !musicStage && settings.trailerSize == "popup") TrailerLayer(app, s)
         if (!customBg && !musicStage && items.size > 1 && settings.dotsMode != "hidden") {
             Dots(
                 total = items.size, current = index.mod(items.size), mode = settings.dotsMode, max = settings.dotsMax, s = s * settings.dotsScale,
@@ -2056,7 +2075,11 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
 }
 
 /** Set just before the screensaver is started from the home screen; cleared when the home screen is back in front. */
-object SaverGate { val opening = androidx.compose.runtime.mutableStateOf(false) }
+object SaverGate {
+    val opening = androidx.compose.runtime.mutableStateOf(false)
+    /** Black over the home screen when the screensaver has just closed (faded to black): it fades out on resume. */
+    val cover = androidx.compose.runtime.mutableFloatStateOf(0f)
+}
 
 /** The dock is opening or open: its icons use plain panes (see TilePlate). */
 val LocalDockOpen = androidx.compose.runtime.compositionLocalOf { false }

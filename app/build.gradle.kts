@@ -13,8 +13,8 @@ android {
         applicationId = "com.glasslauncher.tv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "2.0.8"
+        versionCode = 49
+        versionName = "2.0.9"
         // TV boxes are ARM: the depth model's native library only for those (keeps the download small).
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         // Trakt app (PKCE, no secret). Kept in local.properties, which is not committed.
@@ -37,6 +37,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // NewPipe Extractor uses java.nio / java.time below Android 13.
+        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
@@ -68,6 +70,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-rtsp:1.8.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
     implementation("com.google.zxing:core:3.5.3")
+    // Trailers played by Glassio's own player (no YouTube page): finds the trailer's video and sound streams.
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
     implementation("dev.mobile:dadb:1.2.10")
     // Depth effect on photos: runs a small depth model (downloaded on first use) on the TV.
     implementation("com.google.ai.edge.litert:litert:1.4.0")

@@ -51,6 +51,13 @@ object DevHooks {
             }.onFailure { com.glasslauncher.tv.data.Glog.w("HA cameras", it) }
         }.start()
         // A pretend song for looking at the music player, the island and music mode (cleared with fake_song=false).
+        // Finds a trailer's streams (log: "Trailer …"): --es trailer_test <YouTube id>.
+        i.getStringExtra("trailer_test")?.let { id -> Thread {
+            com.glasslauncher.tv.data.TrailerSource.resolve(id, 1080)?.let { r ->
+                // The links (for testing their speed from a computer); written to the app's own folder.
+                java.io.File(app.getExternalFilesDir(null), "trailer.txt").writeText(r.video + "\n" + (r.audio ?: "") + "\n" + r.subs.joinToString("\n") { "${it.lang} ${it.auto} ${it.url}" } + "\n")
+            }
+        }.start() }
         if (i.hasExtra("fake_song")) {
             if (i.getBooleanExtra("fake_song", false)) {
                 val b = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)

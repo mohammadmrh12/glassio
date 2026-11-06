@@ -232,6 +232,10 @@ class Settings(private val ctx: Context) {
     var trailerSize: String get() = s("trailerSize", "cinema"); set(v) = putS("trailerSize", v)
     var trailerMute: Boolean get() = b("trailerMute", false); set(v) = putB("trailerMute", v)
     var trailerSubs: Boolean get() = b("trailerSubs", false); set(v) = putB("trailerSubs", v)
+    /** While a trailer fills the page, the dock and the page dots step aside (never with the trailer in its window). */
+    var trailerHideDock: Boolean get() = b("trailerHideDock", true); set(v) = putB("trailerHideDock", v)
+    /** "auto": H.264 up to 1080p (720p on small TVs); "full": the best this TV plays, up to its screen (4K: VP9 / AV1). */
+    var trailerQuality: String get() = s("trailerQuality", "auto"); set(v) = putS("trailerQuality", v)
     var trailerSubLang: String get() = s("trailerSubLang", "en"); set(v) = putS("trailerSubLang", v)
     /** Seconds on a title before its trailer starts by itself (0 = only when asked). */
     var trailerAutoSec: Int get() = i("trailerAutoSec", 0); set(v) = putI("trailerAutoSec", v.coerceIn(0, 60))
@@ -475,6 +479,8 @@ class Settings(private val ctx: Context) {
     /** Lock & release on the screensaver: hold OK on a video to keep it (and again to let it go). */
     var saverLock: Boolean get() = b("saverLock", true); set(v) = putB("saverLock", v)
     /** The locked videos (their ids). */
+    /** The screensaver's large clock was left shown (true) or hidden (▲ on the remote). */
+    var saverClockShown: Boolean get() = b("saverClockShown", true); set(v) = putB("saverClockShown", v)
     var saverLocked: List<String> get() = list("saverLocked"); set(v) = putList("saverLocked", v)
     /** Only the locked videos play (when there are some). */
     var saverLockedOnly: Boolean get() = b("saverLockedOnly", false); set(v) = putB("saverLockedOnly", v)

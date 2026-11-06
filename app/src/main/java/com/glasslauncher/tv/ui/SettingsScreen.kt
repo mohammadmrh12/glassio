@@ -315,10 +315,15 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Adjust("Dots per group", "", { "${st.dotsMax}" }, { st.dotsMax += it }),
                 Adjust("Dots size", "The dots bar (and the liquid glass drops)", { pct(st.dotsScale) }, { st.dotsScale = ((st.dotsScale * 10).roundToInt() + it) / 10f }),
                 Toggle("Trailer button", "Next to Play (Apple TV buttons). Hold OK on Play has Trailer too", { st.trailerButton }, { st.trailerButton = it }),
-                Adjust("Trailer size", "Fill the screen, its own shape, or a small window by the buttons", {
+                Adjust("Trailer size", "Fill the screen (no black bars), its own shape, or a window by the buttons (shaped like the trailer)", {
                     when (st.trailerSize) { "original" -> "Original"; "popup" -> "Window"; else -> "Cinematic (fill)" }
                 }, { st.trailerSize = cycle(listOf("cinema", "original", "popup"), st.trailerSize, it) }),
                 Adjust("Trailer window size", "", { pct(st.trailerPopupScale) }, { st.trailerPopupScale = ((st.trailerPopupScale * 10).roundToInt() + it) / 10f }),
+                Toggle("Hide the dock during trailers", "The dock and the dots step aside while a trailer fills the page, and come back when it stops or ends (never with the window)",
+                    { st.trailerHideDock }, { st.trailerHideDock = it }),
+                Adjust("Trailer quality", "Automatic: H.264 up to 1080p (720p on small TVs). Full: the best this TV can play, up to 4K", {
+                    if (st.trailerQuality == "full") "Full" else "Automatic"
+                }, { st.trailerQuality = cycle(listOf("auto", "full"), st.trailerQuality, it) }),
                 Toggle("Trailer sound", "", { !st.trailerMute }, { st.trailerMute = !it }),
                 Toggle("Trailer subtitles", "", { st.trailerSubs }, { st.trailerSubs = it }),
                 Adjust("Subtitle language", "", { java.util.Locale(st.trailerSubLang).getDisplayLanguage(java.util.Locale.ENGLISH) },
@@ -788,7 +793,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     { if (st.cameraCornerSec == 0) "Never" else if (st.cameraCornerSec < 60) "${st.cameraCornerSec} s" else "${st.cameraCornerSec / 60} min" },
                     { st.cameraCornerSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.cameraCornerSec, it) }))
                 add(Note("Multi-view: up to four cameras in a row"))
-                add(Toggle("On the screensaver", "▲ on the screensaver brings them up from the bottom (Back or ▲ again closes them)", { st.saverMultiCam }, { st.saverMultiCam = it }))
+                add(Toggle("On the screensaver", "▼ on the screensaver brings them up from the bottom (Back or ▼ again closes them)", { st.saverMultiCam }, { st.saverMultiCam = it }))
                 if (camList.isNotEmpty()) add(Act("  · Cameras", "Which ones, in this order (up to four). None chosen = the first four",
                     MultiCamOverlay.cams(app).joinToString(" · ") { it.name }) {
                     fun chooser() {
@@ -976,11 +981,62 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         { st.saverBar = cycle(listOf("red", "white", "black", "off"), st.saverBar, it) }))
                 }
                 add(Note("While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it."))
-                add(Toggle("Large clock", "The large glass clock of the home screen (Background & glass sets its look). ▼ shows or hides it", { st.saverBigClock }, { st.saverBigClock = it }))
+                add(Toggle("Large clock", "The large glass clock in the middle. ▲ shows or hides it (it stays as you left it)", { st.saverBigClock }, { st.saverBigClock = it }))
                 add(Toggle("Lock & release", "Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it", { st.saverLock }, { st.saverLock = it }))
                 if (st.saverLock) {
                     add(Toggle("  · Only locked videos", "Plays just the videos you locked (when there are some). Also in the menu's Screensaver page", { st.saverLockedOnly }, { st.saverLockedOnly = it }))
                     add(Act("  · Clear locked videos", "${st.saverLocked.size} locked", "") { st.saverLocked = emptyList() })
+                }
+                if (st.saverBigClock) {
+                    add(Note("Large clock (the same look as the home screen's large clock)"))
+                    add(Adjust("Large clock style", "With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)", {
+                    when (st.bgClockStyle) { "white" -> "White"; "still" -> "Still Glass"; else -> "With the theme" }
+                }, { st.bgClockStyle = cycle(listOf("theme", "still", "white"), st.bgClockStyle, it) }))
+                    add(Toggle("Large clock: white date", "The date above the time in white, whatever the clock's look", { st.bgClockDateWhite }, { st.bgClockDateWhite = it }))
+                    add(Adjust("Large clock size", "", { pct(st.bgClockSize) }, { st.bgClockSize = ((st.bgClockSize * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("Large clock position", "◀ higher · lower ▶", {
+                    val v = (st.bgClockOffset * 100).roundToInt(); if (v == 0) "Middle" else if (v < 0) "Up ${-v}" else "Down $v"
+                }, { st.bgClockOffset = ((st.bgClockOffset * 100).roundToInt() + it * 2) / 100f }))
+                }
+                run {
+                    add(Note("Cameras on the screensaver"))
+                    val camList = st.cameras.mapNotNull { Cam.parse(it) }
+                    add(Toggle("Cameras (multi-view)", "▼ on the screensaver brings them up from the bottom (Back or ▼ again closes them)", { st.saverMultiCam }, { st.saverMultiCam = it }))
+                    if (camList.isNotEmpty()) add(Act("  · Cameras", "Which ones, in this order (up to four). None chosen = the first four",
+                        MultiCamOverlay.cams(app).joinToString(" · ") { it.name }) {
+                        fun chooser() {
+                            val cur = st.multiCams
+                            dialog = MenuDialog("Multi-view cameras", camList.map { c ->
+                                (if (c.url in cur) "✓ ${c.name}" else c.name) to {
+                                    st.multiCams = if (c.url in cur) cur - c.url else (cur + c.url).take(4)
+                                    scope.launch { kotlinx.coroutines.delay(150); chooser() }
+                                    Unit
+                                }
+                            } + listOf("Done" to {}))
+                        }
+                        chooser()
+                    })
+                    add(Adjust("  · Size", "", { pct(st.multiScale) }, { st.multiScale = ((st.multiScale * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("  · Shows for", "Then it goes away by itself", { if (st.multiSec == 0) "Until closed" else if (st.multiSec < 60) "${st.multiSec} s" else "${st.multiSec / 60} min" },
+                        { st.multiSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.multiSec, it) }))
+                    add(Act("  · Show it now", "In the middle of the screen (also: menu → Camera, then OK)", "") {
+                        val svc = com.glasslauncher.tv.HomeKeyService.instance
+                        if (svc == null) toast(ctx, "Needs the Home button service: System → Turn it on") else svc.toggleMulti(bottom = false)
+                    })
+                }
+                if (st.musicOn) {
+                    add(Note("Music island"))
+                    add(Toggle("Island", "While music plays, a small island at the top of the screensaver (like the iPhone's)", { st.musicIsland }, { st.musicIsland = it }))
+                    if (st.musicIsland) {
+                        add(Adjust("  · Look", "", { if (st.islandStyle == "glass") "Glass" else "Black" }, { st.islandStyle = cycle(listOf("black", "glass"), st.islandStyle, it) }))
+                        add(Toggle("  · Joined to the top", "Like a MacBook's notch, instead of floating below the top", { st.islandAttached }, { st.islandAttached = it }))
+                        add(Adjust("  · Size", "", { pct(st.islandScale) }, { st.islandScale = ((st.islandScale * 10).roundToInt() + it) / 10f }))
+                        add(Adjust("  · Lower", "", { "${st.islandOffset.roundToInt()}" }, { st.islandOffset = st.islandOffset + it * 4f }))
+                        add(Toggle("  · Artwork", "", { st.islandArt }, { st.islandArt = it }))
+                        add(Toggle("  · Song and artist", "", { st.islandTitle }, { st.islandTitle = it }))
+                        add(Toggle("  · Progress bar", "", { st.islandProgress }, { st.islandProgress = it }))
+                        add(Adjust("  · Bars colour", "", { if (st.islandBars == "white") "White" else "From the artwork" }, { st.islandBars = cycle(listOf("art", "white"), st.islandBars, it) }))
+                    }
                 }
                 add(Toggle("Clock", "", { st.saverClock }, { st.saverClock = it }))
                 add(Toggle("Date", "", { st.saverDate }, { st.saverDate = it }))

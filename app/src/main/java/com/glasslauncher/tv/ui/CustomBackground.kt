@@ -408,3 +408,66 @@ private object Shades {
         b.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap().also { img = it }
     }
 }
+
+/**
+ * Live copies of a video for the glass (the dock, menus and pop-up menus follow the picture), ~15 a second:
+ * the same copies as the video background's, for any other video on a SurfaceView (the carousel's trailers).
+ * Runs until cancelled; [rendered] says a frame of the video is on screen.
+ */
+/** The part of a video's surface on screen ([src], null = all of it) and where it sits on screen (fractions). */
+class FrameRegion(val src: android.graphics.Rect?, val dst: android.graphics.RectF)
+
+suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean, region: () -> FrameRegion? = { null }) {
+    if (android.os.Build.VERSION.SDK_INT < 24) return
+    val myGen = VideoFrames.gen
+    val inFlight = java.util.concurrent.atomic.AtomicBoolean(false)
+    val sharpBufs = Array(4) { android.graphics.Bitmap.createBitmap(720, 405, android.graphics.Bitmap.Config.ARGB_8888) }
+    val smallBufs = Array(2) { android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888) }
+    val softBufs = Array(4) { android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888) }
+    val soften = Softener(320, 180)
+    val worker = android.os.HandlerThread("glass-trailer-copy").apply { start() }
+    val h = android.os.Handler(worker.looper)
+    var k = 0
+    try {
+        while (true) {
+            kotlinx.coroutines.delay(if (VideoFrames.wantSharp) VideoFrames.interval else 100L)
+            if (!v.holder.surface.isValid || !rendered()) continue
+            if (!inFlight.compareAndSet(false, true)) continue
+            val i = k++ % 4
+            val wantSharp = VideoFrames.wantSharp; val wantSoft = VideoFrames.wantSoft
+            val dst = if (wantSharp) sharpBufs[i] else smallBufs[i % 2]
+            val reg = region()
+            val whole = reg == null || (reg.dst.left <= 0f && reg.dst.top <= 0f && reg.dst.right >= 1f && reg.dst.bottom >= 1f)
+            // Only part of the screen (bars around it): copied small, then placed where it is, black around.
+            val into = if (whole) dst else tmpFor(dst, reg!!.dst)
+            val done = { r: Int ->
+                try {
+                    if (r == android.view.PixelCopy.SUCCESS && myGen == VideoFrames.gen) {
+                        if (!whole) android.graphics.Canvas(dst).apply {
+                            drawColor(android.graphics.Color.BLACK)
+                            drawBitmap(into, null, android.graphics.RectF(reg!!.dst.left * dst.width, reg.dst.top * dst.height, reg.dst.right * dst.width, reg.dst.bottom * dst.height), placePaint)
+                        }
+                        val soft = if (wantSoft || !wantSharp) softBufs[i].also { soften.make(dst, it, fromLarge = wantSharp) } else null
+                        VideoFrames.publish(myGen, if (wantSharp) dst.asImageBitmap() else null, soft?.asImageBitmap())
+                    }
+                } finally { inFlight.set(false) }
+            }
+            runCatching {
+                val src = reg?.src
+                if (src != null && android.os.Build.VERSION.SDK_INT >= 26) android.view.PixelCopy.request(v, src, into, { r -> done(r) }, h)
+                else android.view.PixelCopy.request(v, into, { r -> done(r) }, h)
+            }.onFailure { inFlight.set(false) }
+        }
+    } finally { worker.quitSafely() }
+}
+
+private val placePaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+private val tmpBufs = java.util.concurrent.ConcurrentHashMap<String, android.graphics.Bitmap>()
+
+/** A buffer the size of the [part] of [full] (kept for the next copies). */
+private fun tmpFor(full: android.graphics.Bitmap, part: android.graphics.RectF): android.graphics.Bitmap {
+    val w = (full.width * (part.right - part.left)).toInt().coerceAtLeast(16)
+    val h = (full.height * (part.bottom - part.top)).toInt().coerceAtLeast(16)
+    return tmpBufs.getOrPut("${w}x$h") { android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888) }
+}
+

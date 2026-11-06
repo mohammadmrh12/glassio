@@ -51,4 +51,36 @@ object LocalShell {
         }
         return Result.failure(IllegalStateException())
     }
+
+    // A second connection for quick commands (switching the TV's input): it never waits behind a long command on
+    // the main one, and it is opened ahead ([warm]), so the switch goes out at once.
+    private var quick: Dadb? = null
+    private val quickLock = Any()
+
+    /** Opens the quick connection now (off the main thread), so the next [quick] needs no handshake. */
+    fun warm(ctx: Context, port: Int = 5555) {
+        Thread {
+            synchronized(quickLock) {
+                if (quick == null) runCatching { Dadb.create("127.0.0.1", port, keyPair(ctx)).also { it.shell("true") } }
+                    .onSuccess { quick = it }.onFailure { Glog.w("TV adb (quick)", it) }
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
+    /** Runs [command] on the quick connection, on its own thread (nothing waits for it). */
+    fun quick(ctx: Context, command: String, port: Int = 5555) {
+        Thread {
+            synchronized(quickLock) {
+                repeat(2) { attempt ->
+                    val r = runCatching {
+                        val d = quick ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { quick = it }
+                        d.shell(command)
+                    }
+                    if (r.isSuccess) return@synchronized
+                    runCatching { quick?.close() }; quick = null
+                    if (attempt == 1) Glog.w("TV adb (quick): $command", r.exceptionOrNull())
+                }
+            }
+        }.apply { isDaemon = true }.start()
+    }
 }

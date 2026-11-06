@@ -30,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -53,7 +56,7 @@ object SaverControl {
     /** +1 next video, -1 previous one (read and cleared by the player loop). */
     @Volatile var step = 0
     val infoHidden = androidx.compose.runtime.mutableStateOf(false)
-    /** The large clock on the screensaver (▼ shows / hides it). */
+    /** The large clock on the screensaver (▲ shows / hides it; remembered in Settings.saverClockShown). */
     val clockShown = androidx.compose.runtime.mutableStateOf(true)
     /** Bumped by OK to show the info again (it then goes after its time, as after a new video). */
     val showRev = androidx.compose.runtime.mutableIntStateOf(0)
@@ -64,6 +67,8 @@ object SaverControl {
     /** Shown after a hold of OK: true = just locked, false = released; [lockRev] restarts the animation. */
     val lockShown = androidx.compose.runtime.mutableStateOf<Boolean?>(null)
     val lockRev = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Closing: everything fades to black before the screen goes. */
+    val out = androidx.compose.runtime.mutableStateOf(false)
 
     private var okDown = false
     private var okLong = false
@@ -72,8 +77,8 @@ object SaverControl {
     fun handles(code: Int, st: com.glasslauncher.tv.data.Settings): Boolean = when (code) {
         android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT,
         android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> true
-        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> st.saverBigClock
-        android.view.KeyEvent.KEYCODE_DPAD_UP -> st.saverMultiCam
+        android.view.KeyEvent.KEYCODE_DPAD_UP -> st.saverBigClock
+        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> st.saverMultiCam
         else -> false
     }
 
@@ -99,7 +104,11 @@ object SaverControl {
             }
             return true
         }
-        if (e.action == android.view.KeyEvent.ACTION_DOWN && e.repeatCount == 0) key(code)
+        if (e.action == android.view.KeyEvent.ACTION_DOWN && e.repeatCount == 0) {
+            // ▲: the large clock in or out, remembered for the next time.
+            if (code == android.view.KeyEvent.KEYCODE_DPAD_UP) { clockShown.value = !clockShown.value; st.saverClockShown = clockShown.value }
+            else key(code)
+        }
         return true
     }
 
@@ -122,9 +131,8 @@ object SaverControl {
             else { infoHidden.value = false; showRev.intValue++ }
             true
         }
-        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> { clockShown.value = !clockShown.value; true }
-        // ▲: the cameras slide up from the bottom (multi-view).
-        android.view.KeyEvent.KEYCODE_DPAD_UP -> { com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(bottom = true); true }
+        // ▼: the cameras slide up from the bottom (multi-view).
+        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> { com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(bottom = true); true }
         else -> false
     }
 }
@@ -147,6 +155,8 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
     var title by remember { mutableStateOf("") }
     var change by remember { mutableIntStateOf(0) }
     var failed by remember { mutableStateOf(false) }
+    // The clock as it was left last time (shown or hidden); no padlock left over from last time.
+    remember { SaverControl.clockShown.value = st.saverClockShown; SaverControl.lockShown.value = null; SaverControl.out.value = false; 0 }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         val list = items
         if (list == null) { /* loading: black */ }
@@ -160,7 +170,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 volume = 0f
                 addListener(object : Player.Listener { override fun onRenderedFirstFrame() { rendered[k] = true } })
             } } }
-            DisposableEffect(Unit) { onDispose { players.forEach { it.release() }; SaverControl.step = 0; SaverControl.infoHidden.value = false; SaverControl.clockShown.value = true; com.glasslauncher.tv.HomeKeyService.instance?.closeMulti() } }
+            DisposableEffect(Unit) { onDispose { players.forEach { it.release() }; SaverControl.step = 0; SaverControl.infoHidden.value = false; SaverControl.lockShown.value = null; SaverFrames.sharp.value = null; com.glasslauncher.tv.HomeKeyService.instance?.closeMulti() } }
             // One SurfaceView: the video goes straight to the TV at its own size and colour, so 4K is really 4K and
             // HDR / Dolby Vision is shown as HDR. Changing video fades through black with a layer above it (the
             // TV ignored a SurfaceView's own transparency, so cross-fading two of them cut instead).
@@ -168,6 +178,32 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             val black = remember { Animatable(1f) }
             AndroidView(factory = { c -> SurfaceView(c).also { view[0] = it } }, modifier = Modifier.fillMaxSize())
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = black.value }.background(Color.Black))
+            // The large clock in a glass look shows this video through its digits, like the dock's glass: live
+            // copies of the video (PixelCopy, scaled on the GPU), ~15 a second, only while the clock is up.
+            val glassClock = st.saverBigClock && com.glasslauncher.tv.ui.clockLook(st) != "white" && st.dockStyle != "bow" && st.dockStyle != "amoled"
+            LaunchedEffect(Unit) { snapshotFlow { black.value }.collect { SaverFrames.dim.floatValue = it } }
+            if (glassClock && android.os.Build.VERSION.SDK_INT >= 24) LaunchedEffect(Unit) {
+                while (view[0] == null) delay(50)
+                val v = view[0]!!
+                val bufs = Array(3) { android.graphics.Bitmap.createBitmap(720, 405, android.graphics.Bitmap.Config.ARGB_8888) }
+                val busy = java.util.concurrent.atomic.AtomicBoolean(false)
+                val worker = android.os.HandlerThread("saver-clock-copy").apply { start() }
+                val h = android.os.Handler(worker.looper)
+                var k = 0
+                try {
+                    while (true) {
+                        delay(66)
+                        if (!SaverControl.clockShown.value || !rendered[0] || !v.holder.surface.isValid) continue
+                        if (!busy.compareAndSet(false, true)) continue
+                        val dst = bufs[k++ % 3]
+                        runCatching {
+                            android.view.PixelCopy.request(v, dst, { r ->
+                                try { if (r == android.view.PixelCopy.SUCCESS) SaverFrames.sharp.value = dst.asImageBitmap() } finally { busy.set(false) }
+                            }, h)
+                        }.onFailure { busy.set(false) }
+                    }
+                } finally { worker.quitSafely() }
+            }
             LaunchedEffect(list) {
                 while (view[0] == null) delay(16)
                 // One player: this TV's decoder can't run a second video while one plays (getting the next one
@@ -248,6 +284,9 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 }
             }
         }
+        // Closing: to black (ScreensaverActivity.exit).
+        val outA by androidx.compose.animation.core.animateFloatAsState(if (SaverControl.out.value) 1f else 0f, tween(210), label = "out")
+        if (outA > 0f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = outA }.background(Color.Black))
     }
 }
 
@@ -259,33 +298,42 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
 private fun LockBadge() {
     val locked = SaverControl.lockShown.value ?: return
     val rev = SaverControl.lockRev.intValue
+    // 1 = closed; 0 = open, the shackle swung out to the side on its left leg.
     val shackle = remember(rev) { Animatable(if (locked) 0f else 1f) }
     val alpha = remember(rev) { Animatable(0f) }
     LaunchedEffect(rev) {
-        alpha.animateTo(1f, tween(180))
-        shackle.animateTo(if (locked) 1f else 0f, androidx.compose.animation.core.spring(0.55f, 380f))
-        delay(900)
-        alpha.animateTo(0f, tween(450))
+        alpha.animateTo(1f, tween(160))
+        shackle.animateTo(if (locked) 1f else 0f, androidx.compose.animation.core.spring(0.6f, 320f))
+        delay(800)
+        alpha.animateTo(0f, tween(400))
+        // Played once: it doesn't come back with the next screensaver.
+        if (SaverControl.lockRev.intValue == rev) SaverControl.lockShown.value = null
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(Modifier.size(132.dp).graphicsLayer { this.alpha = alpha.value; scaleX = 0.9f + 0.1f * alpha.value; scaleY = scaleX }) {
+        androidx.compose.foundation.Canvas(Modifier.size(78.dp).graphicsLayer { this.alpha = alpha.value; scaleX = 0.9f + 0.1f * alpha.value; scaleY = scaleX }) {
             val w = size.width
             drawCircle(Color.White.copy(alpha = 0.16f))
-            drawCircle(Color.White.copy(alpha = 0.55f), style = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.012f))
-            val stroke = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.05f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawCircle(Color.White.copy(alpha = 0.55f), style = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.014f))
+            val stroke = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.055f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
             // Body.
-            drawRoundRect(Color.White, androidx.compose.ui.geometry.Offset(w * 0.30f, w * 0.46f), androidx.compose.ui.geometry.Size(w * 0.40f, w * 0.30f),
+            drawRoundRect(Color.White, androidx.compose.ui.geometry.Offset(w * 0.30f, w * 0.47f), androidx.compose.ui.geometry.Size(w * 0.40f, w * 0.29f),
                 androidx.compose.ui.geometry.CornerRadius(w * 0.06f), style = stroke)
-            drawCircle(Color.White, w * 0.03f, androidx.compose.ui.geometry.Offset(w * 0.5f, w * 0.60f))
-            // Shackle: down into the body when locked, lifted (and its right leg out) when open.
-            val lift = (1f - shackle.value) * w * 0.10f
+            drawCircle(Color.White, w * 0.032f, androidx.compose.ui.geometry.Offset(w * 0.5f, w * 0.61f))
+            // Shackle: lifts a little out of the body, then swings sideways on its left leg (like a real padlock
+            // seen from the front, its free leg turns out to the left).
+            val open = 1f - shackle.value
+            val lift = (open * 2f).coerceAtMost(1f) * w * 0.05f
+            val swing = ((open - 0.3f) / 0.7f).coerceIn(0f, 1f)
             val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(w * 0.37f, w * 0.46f - lift)
+                moveTo(w * 0.37f, w * 0.47f - lift)
                 lineTo(w * 0.37f, w * 0.36f - lift)
                 arcTo(androidx.compose.ui.geometry.Rect(w * 0.37f, w * 0.23f - lift, w * 0.63f, w * 0.49f - lift), 180f, 180f, false)
-                lineTo(w * 0.63f, w * 0.40f - lift + (1f - shackle.value) * w * 0.02f)
+                lineTo(w * 0.63f, w * 0.43f - lift)
             }
-            drawPath(path, Color.White, style = stroke)
+            // The swing: the shackle mirrored about its left leg, squeezed as it turns (a 3-D turn seen flat).
+            withTransform({ scale(1f - 2f * swing, 1f, androidx.compose.ui.geometry.Offset(w * 0.37f, w * 0.4f)) }) {
+                drawPath(path, Color.White, style = stroke)
+            }
         }
     }
 }
@@ -395,3 +443,10 @@ fun SaverInfo(app: GlassApp, place: String, change: Int, look: InfoLook = InfoLo
 }
 
 private fun dateLine(): String = java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.ENGLISH).format(java.util.Date())
+
+/** Live copies of the screensaver's video for the glass clock (the home screen's own copies are in VideoFrames). */
+object SaverFrames {
+    val sharp = androidx.compose.runtime.mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
+    /** The fade through black between two videos (the digits darken with it). */
+    val dim = androidx.compose.runtime.mutableFloatStateOf(0f)
+}

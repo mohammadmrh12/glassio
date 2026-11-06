@@ -13,3 +13,14 @@
 # LiteRT (depth effect): the native side calls into these classes.
 -keep class org.tensorflow.lite.** { *; }
 -dontwarn org.tensorflow.lite.**
+
+# NewPipe Extractor (trailers)
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter
+-dontwarn org.mozilla.javascript.tools.**
+-keep class org.schabi.newpipe.extractor.timeago.patterns.** { *; }
+-keep class org.schabi.newpipe.extractor.services.youtube.** { *; }
+-dontwarn org.jsoup.**
+-dontwarn java.beans.**
+-dontwarn javax.script.**
+-dontwarn jdk.dynalink.**

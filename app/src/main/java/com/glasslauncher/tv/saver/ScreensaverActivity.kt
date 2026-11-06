@@ -116,11 +116,26 @@ class ScreensaverActivity : ComponentActivity() {
         val k = event.keyCode
         val st = app().settings
         if (st.saverMode != "system" && SaverControl.onKey(event, st)) return true
-        if (event.action == KeyEvent.ACTION_DOWN) finish()
+        if (event.action == KeyEvent.ACTION_DOWN) exit()
         return true
     }
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean { finish(); return true }
-    override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean { if (ev.actionMasked != MotionEvent.ACTION_HOVER_EXIT) finish(); return true }
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean { exit(); return true }
+    override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean { if (ev.actionMasked != MotionEvent.ACTION_HOVER_EXIT) exit(); return true }
+
+    /**
+     * Closes it faded to black, and the home screen then comes out of black. Closing straight away showed the home
+     * screen half over the video for a moment, then it snapped (the video's surface went before the fade ended).
+     */
+    private var exiting = false
+    private fun exit() {
+        if (exiting || isFinishing) return
+        exiting = true
+        SaverControl.out.value = true
+        window.decorView.postDelayed({
+            com.glasslauncher.tv.ui.SaverGate.cover.floatValue = 1f
+            finish(); @Suppress("DEPRECATION") overridePendingTransition(0, 0)
+        }, 230)
+    }
 }
 
 /** Slow Ken Burns over the catalog backdrops, with each title's logo. */

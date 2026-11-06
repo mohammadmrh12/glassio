@@ -6,6 +6,8 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,6 +67,18 @@ class MainActivity : ComponentActivity() {
                     // The home screen is left out while the setup shows, so it can't take the remote's focus.
                     if (setup) com.glasslauncher.tv.ui.SetupScreen(app) { setup = false; app.settings.setupDone = true }
                     else HomeScreen(app, screen) { screen = it }
+                    // Back from the screensaver: out of black (it closes faded to black, so nothing snaps).
+                    if (com.glasslauncher.tv.ui.SaverGate.cover.floatValue > 0f) {
+                        // Runs once the home screen draws again (a stopped activity doesn't compose).
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            val cover = com.glasslauncher.tv.ui.SaverGate.cover
+                            kotlinx.coroutines.delay(80)
+                            androidx.compose.animation.core.animate(cover.floatValue, 0f, animationSpec = androidx.compose.animation.core.tween(420)) { v, _ -> cover.floatValue = v }
+                        }
+                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
+                            .then(androidx.compose.ui.Modifier.graphicsLayer { alpha = com.glasslauncher.tv.ui.SaverGate.cover.floatValue })
+                            .then(androidx.compose.ui.Modifier.background(androidx.compose.ui.graphics.Color.Black)))
+                    }
                     androidx.compose.runtime.SideEffect { KeyHub.homeInFront = resumed && screen == Screen.Home && !setup }
                 }
             }

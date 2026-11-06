@@ -228,7 +228,7 @@ object Depth {
 }
 
 /** How the large clock is drawn: plain white, or exactly as the dock's own glass / plate is drawn. */
-private fun clockLook(st: Settings): String =
+internal fun clockLook(st: Settings): String =
     // Black on white and Black AMOLED: white digits (their flat plates disappeared on photos).
     if (st.bgClockStyle == "white" || st.dockStyle == "bow" || st.dockStyle == "amoled") "white"
     // Still Glass whatever the theme (and no blur).
@@ -258,9 +258,9 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
             val blurOn = st.blurRadius > 0 && st.bgClockStyle != "still"
             // The date can be white on its own (Settings), whatever the time's look.
             if (look == "white" || st.bgClockDateWhite) Text(date, color = Color.White.copy(alpha = 0.9f), style = small.merge(shade))
-            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false)
+            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false, saver = inSaver)
             if (look == "white") Text(time, color = Color.White.copy(alpha = 0.94f), style = big.merge(shade))
-            else ThemedNumerals(time, big, look, blurOn = blurOn)
+            else ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver)
         }
         // Depth: the subject drawn again over the clock, only where the clock is.
         val cut = if (inSaver) null else Depth.fg.value
@@ -291,8 +291,10 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
  * filled digits themselves, so no inner outlines show where the font's strokes overlap).
  */
 @Composable
-private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true) {
+private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true, saver: Boolean = false) {
     val env = LocalGlassEnv.current
+    // The screen's size (the screensaver has no home page around it to give it).
+    val rootView = androidx.compose.ui.platform.LocalView.current.rootView
     val tm = androidx.compose.ui.text.rememberTextMeasurer()
     val density = androidx.compose.ui.platform.LocalDensity.current
     // The digits' shape and their rim are painted once (when the time changes), not on every frame. Each frame
@@ -351,21 +353,25 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
         if (glass) Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = blur }) {
             val pos = arrayOf(posS.value)
             val video = VideoFrames.showing.value
-            val pic = (if (video) VideoFrames.sharp.value ?: VideoFrames.soft.value else null) ?: env.sharp ?: env.bmp
+            // On the screensaver: live copies of its own video (com.glasslauncher.tv.saver.SaverFrames).
+            val pic = if (saver) com.glasslauncher.tv.saver.SaverFrames.sharp.value
+                else (if (video) VideoFrames.sharp.value ?: VideoFrames.soft.value else null) ?: env.sharp ?: env.bmp
+            val rootW = if (env.rootW > 0) env.rootW else rootView.width
+            val rootH = if (env.rootH > 0) env.rootH else rootView.height
             // No picture to show through (the screensaver's own videos): see-through glass, the video behind it
             // seen through a light tint of the theme.
-            if (pic == null || env.rootW <= 0) drawRect(Color.White.copy(alpha = when (look) { "liquid" -> 0.55f; "clear" -> 0.45f; else -> 0.36f }))
-            if (pic != null && env.rootW > 0) {
+            if (pic == null || rootW <= 0) drawRect(Color.White.copy(alpha = when (look) { "liquid" -> 0.55f; "clear" -> 0.45f; else -> 0.36f }))
+            if (pic != null && rootW > 0) {
                 val mag = 1.06f
-                val sc0 = max(env.rootW / pic.width.toFloat(), env.rootH / pic.height.toFloat())
+                val sc0 = max(rootW / pic.width.toFloat(), rootH / pic.height.toFloat())
                 val cx = pos[0].x + this.size.width / 2f; val cy = pos[0].y + this.size.height / 2f
-                val ox = cx + ((env.rootW - pic.width * sc0) / 2f - cx) * mag - pos[0].x
-                val oy = cy + ((env.rootH - pic.height * sc0) / 2f - cy) * mag - pos[0].y
+                val ox = cx + ((rootW - pic.width * sc0) / 2f - cx) * mag - pos[0].x
+                val oy = cy + ((rootH - pic.height * sc0) / 2f - cy) * mag - pos[0].y
                 m.reset(); m.setScale(sc0 * mag, sc0 * mag); m.postTranslate(ox, oy)
                 paint.colorFilter = tint
                 drawIntoCanvas { it.nativeCanvas.drawBitmap(pic.asAndroidBitmap(), m, paint) }
                 // Between two videos the background fades through black: the digits darken with it.
-                val d = VideoFrames.dim.floatValue
+                val d = if (saver) com.glasslauncher.tv.saver.SaverFrames.dim.floatValue else VideoFrames.dim.floatValue
                 if (d > 0.003f) drawRect(Color.Black.copy(alpha = d))
             }
         }
