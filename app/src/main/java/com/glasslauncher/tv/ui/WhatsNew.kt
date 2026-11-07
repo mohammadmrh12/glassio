@@ -41,16 +41,32 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 54
+    const val ID = 55
 
     class Page(val title: String, val points: List<String>, val where: String)
 
     val PAGES = listOf(
-        Page("What's new in Glassio 3.1", listOf(
-            "Philips Hue lights in the colours of the screen, a new Settings with search, and much more.",
+        Page("What's new in Glassio 3.2", listOf(
+            "Remote mapping: any button on your remote opens what you choose, in any app.",
+            "Then everything that came with 3.1: Hue Sync, the new Settings and more.",
             "Each page says what's new and where to switch it off or change it.",
             "◀ ▶ to look through · OK for the next page · Back to close.",
         ), "You can open this again in Settings → About → What's new."),
+        Page("Remote mapping", listOf(
+            "Give a remote button an app, the Apps folder, the recent apps or a TV input (HDMI…).",
+            "It works everywhere, also inside other apps. Pressed again, the Apps folder or the recent apps close.",
+            "Shuffle, multi-view, the corner camera, Hold Home and Back for the screensaver are set here too.",
+        ), "Settings → Remote mapping. Buttons in other apps need System → Home button service."),
+        Page("Also in 3.2", listOf(
+            "A locked app's menu (hold OK) asks for its code first.",
+            "Signing out of Nuvio, Stremio, Trakt or Simkl asks first.",
+            "A row you change (◀ ▶) takes the Switch colour: burgundy, green or purple.",
+            "Music mode: opening the dock keeps the song's picture behind it.",
+            "The selection always comes back: after the screensaver, the Apps folder or the recent apps.",
+        ), "Settings → Menu & themes → Switch colour."),
+        Page("From Glassio 3.1", listOf(
+            "Philips Hue lights in the colours of the screen, a new Settings with search, and much more.",
+        ), "The next pages."),
         Page("Hue Sync", listOf(
             "Your Philips Hue lights take the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork.",
             "Each light follows its own part of the screen (pictures show which), or its place in a Hue entertainment area.",

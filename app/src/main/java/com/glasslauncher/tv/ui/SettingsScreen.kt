@@ -205,6 +205,8 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             }
         }
     }
+    // Signing out asks first (one stray OK on the row signed you out).
+    fun signOutAsk(name: String, run: () -> Unit) { dialog = MenuDialog("Sign out of $name?", listOf("Sign out" to run, "Cancel" to { })) }
     // Connect / sign out of the Nuvio account: the same row in Menu & Library, Catalogs and Nuvio & Home Assistant.
     fun connectStremio() {
         val sm = app.cw.stremio
@@ -252,7 +254,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                             app.library.nuvioUrl.value?.let { u -> dialog = QrCodeDialog("Connect Nuvio", u, nuvioShort,
                                 "Scan with your phone and approve on nuvio.tv. This closes by itself once you approve.") }
                         }
-                    } else Act("Nuvio account", "Signed in" + app.library.nuvio.email.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty() + ": Library, add-ons and saving use it", "Sign out") { app.library.nuvio.signOut(); app.library.nuvioList.value = emptyList(); st.libraryNuvio = st.libraryNuvio; toast(ctx, "Signed out of Nuvio") }
+                    } else Act("Nuvio account", "Signed in" + app.library.nuvio.email.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty() + ": Library, add-ons and saving use it", "Sign out") { signOutAsk("Nuvio") { app.library.nuvio.signOut(); app.library.nuvioList.value = emptyList(); st.libraryNuvio = st.libraryNuvio; toast(ctx, "Signed out of Nuvio") } }
 
 
     // Made once: the pages read what they show when they are drawn (rebuilt with every change, the whole of
@@ -290,11 +292,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             listOfNotNull(
                 Toggle("Auto-play", "Slides change on their own", { st.heroAutoplay }, { st.heroAutoplay = it }),
                 Adjust("Slide time", "Seconds before the next title", { "${st.heroIntervalSec} s" }, { st.heroIntervalSec += it }),
-                Act("Shuffle button", "Press it on the home screen: the catalog titles come in a new random order (Continue Watching keeps its place)",
-                    if (st.shuffleKey == 0) "Set" else "✓ " + keyName(st.shuffleKey), ok = if (st.shuffleKey != 0) true else null) {
-                    dialog = KeyCaptureDialog("Shuffle button") { code -> st.shuffleKey = code; tvRev.intValue++; toast(ctx, "Shuffle button: ${keyName(code)}") }
-                },
-                if (st.shuffleKey != 0) Act("  · Clear the shuffle button", "", "") { st.shuffleKey = 0 } else null,
+                link("Remote mapping", "The shuffle button and every other remote button"),
                 Toggle("New titles first", "Titles a catalog has just added open the carousel for two days", { st.newFirst }, { st.newFirst = it }),
                 Adjust("Transition speed", "Fade between slides (lower = faster)", { "${st.transitionMs} ms" }, { st.transitionMs += it * 100 }),
                 Adjust("Slide animation", "Apple TV: the next picture opens up from the right (from the left going back) · Slide: pushed in · Fade",
@@ -537,7 +535,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
         Category("Menu & themes") {
             val themes = listOf("bow", "amoled", "liquid", "clear", "water_still", "water")
             listOf(
-                Act("Switch colour", "The colour of the switches in Settings", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
+                Act("Switch colour", "The colour of the switches in Settings, and of a row while you change it", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
                     dialog = ThumbDialog("Switch colour", SETTINGS_ACCENTS.map { (k, v) -> ThumbItem(v.first, if (k == "burgundy") "Default" else "", HueArt.swatch(v.second), checked = k == st.settingsAccent) { st.settingsAccent = k } })
                 },
                 Adjust("Theme", "One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)",
@@ -640,7 +638,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                                 "This closes by itself once you approve. The code works for about 10 minutes.")
                         }
                     })
-                    else add(Act("Sign out of Trakt", trakt.user, "") { trakt.signOut(); st.cwTrakt = st.cwTrakt; toast(ctx, "Signed out of Trakt") })
+                    else add(Act("Sign out of Trakt", trakt.user, "") { signOutAsk("Trakt") { trakt.signOut(); st.cwTrakt = st.cwTrakt; toast(ctx, "Signed out of Trakt") } })
                 }
                 val smC = app.cw.stremio
                 if (smC.connected) add(Toggle("Stremio", "What you paused in Stremio" + (cwStatusCw["Stremio"]?.let { " · $it" } ?: ""), { st.cwStremio }, { st.cwStremio = it; app.cw.pollNow() }))
@@ -715,7 +713,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         }
                     })
                 } else {
-                    add(Act("Stremio account", "Signed in" + sm.email.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty(), "Sign out", ok = true) { sm.signOut(); tvRev.intValue++; toast(ctx, "Signed out of Stremio") })
+                    add(Act("Stremio account", "Signed in" + sm.email.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty(), "Sign out", ok = true) { signOutAsk("Stremio") { sm.signOut(); tvRev.intValue++; toast(ctx, "Signed out of Stremio") } })
                     add(Toggle("Continue Watching from Stremio", cwStatus["Stremio"] ?: "", { st.cwStremio }, { st.cwStremio = it; app.cw.pollNow() }))
                     add(Toggle("Catalogs from Stremio's add-ons", "One that's already here isn't added twice", { st.catalogsStremio }, { on -> io { app.catalogs.useAccount(on, "stremio") } }))
                 }
@@ -733,7 +731,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         }
                     })
                     else {
-                        add(Act("Trakt account", "Signed in as ${trakt.user.ifBlank { "your account" }}", "Sign out", ok = true) { trakt.signOut(); st.cwTrakt = st.cwTrakt; toast(ctx, "Signed out of Trakt") })
+                        add(Act("Trakt account", "Signed in as ${trakt.user.ifBlank { "your account" }}", "Sign out", ok = true) { signOutAsk("Trakt") { trakt.signOut(); st.cwTrakt = st.cwTrakt; toast(ctx, "Signed out of Trakt") } })
                         add(Toggle("Continue Watching from Trakt", "", { st.cwTrakt }, { st.cwTrakt = it; app.cw.syncTraktNow() }))
                         add(Toggle("Trakt watchlist in the Library", "", { st.libraryTrakt }, { st.libraryTrakt = it; scope.launch(Dispatchers.IO) { app.library.refreshWatchlist() } }))
                     }
@@ -743,7 +741,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 val sk = app.cw.simkl
                 if (!sk.connected) add(Act("Connect Simkl", "Scan a QR code with your phone and approve" + (if (!sk.available) " (first its app id, from the phone)" else ""), "") { connectSimkl() })
                 else {
-                    add(Act("Simkl account", "Signed in" + sk.user.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty(), "Sign out", ok = true) { sk.signOut(); tvRev.intValue++; toast(ctx, "Signed out of Simkl") })
+                    add(Act("Simkl account", "Signed in" + sk.user.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty(), "Sign out", ok = true) { signOutAsk("Simkl") { sk.signOut(); tvRev.intValue++; toast(ctx, "Signed out of Simkl") } })
                     add(Toggle("Continue Watching from Simkl", cwStatus["Simkl"] ?: "", { st.cwSimkl }, { st.cwSimkl = it; app.cw.pollNow() }))
                     add(Toggle("Simkl \"Plan to watch\" in the Library", "", { st.librarySimkl }, { st.librarySimkl = it; scope.launch(Dispatchers.IO) { app.library.refreshSimkl() } }))
                     add(Toggle("+ saves to Simkl too", "", { st.libraryToSimkl }, { st.libraryToSimkl = it }))
@@ -860,16 +858,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     if (svc == null) toast(ctx, "Needs the Home button service: System → Turn it on") else svc.toggleMulti(bottom = false)
                 })
                 add(Note("Remote buttons (in any app)"))
-                add(Act("Multi-view button", "Press it anywhere: the cameras show in the middle (again closes them)",
-                    if (st.multiKey == 0) "Set" else "✓ " + keyName(st.multiKey), ok = if (st.multiKey != 0) true else null) {
-                    dialog = KeyCaptureDialog("Multi-view button") { code -> st.multiKey = code; tvRev.intValue++; toast(ctx, "Multi-view button: ${keyName(code)}") }
-                })
-                if (st.multiKey != 0) add(Act("  · Clear the multi-view button", "", "") { st.multiKey = 0 })
-                add(Act("Corner camera button", "Press it anywhere: the camera in the corner (again closes it)",
-                    if (st.cornerKey == 0) "Set" else "✓ " + keyName(st.cornerKey), ok = if (st.cornerKey != 0) true else null) {
-                    dialog = KeyCaptureDialog("Corner camera button") { code -> st.cornerKey = code; tvRev.intValue++; toast(ctx, "Corner camera button: ${keyName(code)}") }
-                })
-                if (st.cornerKey != 0) add(Act("  · Clear the corner camera button", "", "") { st.cornerKey = 0 })
+                add(link("Remote mapping", "The multi-view and corner camera buttons"))
                 add(Adjust("Camera video", "Software keeps the TV's own video playing while a camera shows (some TVs stopped it)", {
                     when (st.cameraDecoder) { "software" -> "Software"; "hardware" -> "Hardware"; else -> "Auto (" + (if (com.glasslauncher.tv.CamPlayer.software(ctx)) "software" else "hardware") + ")" }
                 }, { st.cameraDecoder = cycle(listOf("auto", "software", "hardware"), st.cameraDecoder, it) }))
@@ -1095,7 +1084,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Adjust("Size", "", { pct(st.saverSize) }, { st.saverSize = ((st.saverSize * 10).roundToInt() + it) / 10f }))
                 add(Adjust("Shows for", "After each new video", { if (st.saverShowSec == 0) "Always" else "${st.saverShowSec} s" }, { st.saverShowSec = cycle(listOf(0, 10, 20, 30, 60), st.saverShowSec, it) }))
                 add(Note("More"))
-                add(Toggle("Back on the home screen starts it", "Like Apple TV: press Back on the home screen", { st.backSaver }, { st.backSaver = it }))
+                add(link("Remote mapping", "Back on the home screen starts it, and the other buttons"))
                 add(Act("Add video link", "A direct .mp4 / .mov link (Manage from phone can also save it to the TV)", "") {
                     dialog = TextEntry("Video link", "", "https://…/video.mp4") { u ->
                         if (u.startsWith("http")) st.aerialUrls = (st.aerialUrls + u.trim()).distinct() else toast(ctx, "The link must start with http")
@@ -1162,6 +1151,71 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     add(Note("Music apps on this TV: " + installedMusicApps(ctx).joinToString { it.second }.ifBlank { "none yet" } +
                         ". The player follows and controls whatever those apps play. Signing in to Spotify, YouTube Music or Apple Music for their playlists isn't here yet."))
                 }
+            }
+        },
+        Category("Remote mapping") {
+            tvRev.intValue
+            val svcOn = com.glasslauncher.tv.HomeKeyService.instance != null
+            // One button does one thing: taking it for something new frees it from what it did before.
+            fun free(code: Int) {
+                if (st.multiKey == code) st.multiKey = 0
+                if (st.cornerKey == code) st.cornerKey = 0
+                if (st.shuffleKey == code) st.shuffleKey = 0
+                com.glasslauncher.tv.data.RemoteMap.remove(st, code)
+            }
+            fun mapTo(code: Int, action: String, label: String) {
+                free(code); com.glasslauncher.tv.data.RemoteMap.set(st, code, action, label); tvRev.intValue++
+                toast(ctx, "${keyName(code)}: " + com.glasslauncher.tv.data.RemoteMap.describe(com.glasslauncher.tv.data.RemoteMap.Map(code, action, label)).lowercase())
+            }
+            // What a button should open: an app (with its picture), the Apps folder, the recent apps or a TV input.
+            fun choose(code: Int) {
+                val opts = mutableListOf<ThumbItem>()
+                opts += ThumbItem("The Apps folder", "Every app · press again to close it", HueArt.folder()) { mapTo(code, "folder", "Apps folder") }
+                opts += ThumbItem("Recent apps", "The open apps, like holding Home", HueArt.recents()) { mapTo(code, "recents", "Recent apps") }
+                com.glasslauncher.tv.data.Inputs.list.value.forEach { inp ->
+                    val pic = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == com.glasslauncher.tv.data.Inputs.PREFIX + inp.id }?.let { app.apps.cachedArtwork(it)?.bmp }
+                        ?: HueArt.input(inp.label)
+                    opts += ThumbItem(inp.label, "TV input", pic) { mapTo(code, com.glasslauncher.tv.data.Inputs.PREFIX + inp.id, inp.label) }
+                }
+                app.apps.ordered(includeHidden = true).filter { !com.glasslauncher.tv.data.Inputs.isInput(it.pkg) && it.pkg != MusicUi.DOCK_PKG }.forEach { e ->
+                    opts += ThumbItem(e.label, "App", app.apps.cachedArtwork(e)?.bmp) { mapTo(code, "app:" + e.pkg, e.label) }
+                }
+                dialog = ThumbDialog("${keyName(code)} opens…", opts)
+            }
+            // A set button asks first (a "Clear" row of its own was one OK away from losing it).
+            fun keyRow(title: String, desc: String, get: () -> Int, set: (Int) -> Unit): List<SRow> = listOf(
+                Act(title, desc, if (get() == 0) "Set" else keyName(get()), ok = if (get() != 0) true else null) {
+                    val capture = { dialog = KeyCaptureDialog(title) { code -> free(code); set(code); tvRev.intValue++; toast(ctx, "$title: ${keyName(code)}") } }
+                    if (get() == 0) capture()
+                    else dialog = MenuDialog("$title · ${keyName(get())}", listOf("Choose another button" to { capture() }, "Clear this button" to { set(0); tvRev.intValue++ }))
+                },
+            )
+            buildList {
+                if (!svcOn) add(Note("Buttons in other apps need the Home button service: System → Home button service."))
+                add(Note("Buttons that open something"))
+                com.glasslauncher.tv.data.RemoteMap.all(st).forEach { m ->
+                    add(Act(keyName(m.code), com.glasslauncher.tv.data.RemoteMap.describe(m), "Change") {
+                        dialog = MenuDialog(keyName(m.code), listOf(
+                            "Open something else" to { choose(m.code) },
+                            "Remove this button" to { com.glasslauncher.tv.data.RemoteMap.remove(st, m.code); tvRev.intValue++ },
+                        ))
+                    })
+                }
+                add(Act("Add a button", "Press a remote button (Netflix, YouTube, a colour button…), then choose an app, the Apps folder, the recent apps or an input", "Add") {
+                    dialog = KeyCaptureDialog("Press the button you want") { code -> choose(code) }
+                })
+                add(Note("Glassio's buttons"))
+                addAll(keyRow("Shuffle button", "On the home screen: the catalog titles in a new random order", { st.shuffleKey }, { st.shuffleKey = it }))
+                addAll(keyRow("Multi-view button", "Anywhere: the cameras in the middle (again closes them)", { st.multiKey }, { st.multiKey = it }))
+                addAll(keyRow("Corner camera button", "Anywhere: the camera in the corner (again closes it)", { st.cornerKey }, { st.cornerKey = it }))
+                add(Note("Home and Back"))
+                add(Act("Hold Home", "What holding the Home button does, in any app", when (st.homeLong) {
+                    "recents" -> "Recent apps"; "camera" -> "Corner camera"; "library" -> "The Library"; "menu" -> "The menu"; else -> "Nothing" }) {
+                    dialog = ThumbDialog("Hold Home", listOf("recents" to ("Recent apps" to "The open apps, like the Apple TV app switcher"),
+                        "camera" to ("Corner camera" to "A live camera in the corner, over any app"), "library" to ("The Library" to ""),
+                        "menu" to ("The menu" to ""), "off" to ("Nothing" to "")).map { (k, v) -> ThumbItem(v.first, v.second, null, checked = st.homeLong == k) { st.homeLong = k; tvRev.intValue++ } })
+                })
+                add(Toggle("Back on the home screen starts the screensaver", "Like Apple TV", { st.backSaver }, { st.backSaver = it }))
             }
         },
         Category("Hue lights") {
@@ -1327,9 +1381,7 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         toast(ctx, if (r.isSuccess) "Glassio opens when the TV starts" else "Saved. Allow TV access (ADB) below so the TV lets Glassio open")
                     }
                 }),
-                Adjust("Hold Home", "What holding the Home button does, in any app (needs the Home button service above)", {
-                    when (st.homeLong) { "recents" -> "Open apps (like Apple TV)"; "camera" -> "Camera in the corner, over any app"; "library" -> "Open the Library"; "menu" -> "Open the menu"; else -> "Nothing" }
-                }, { st.homeLong = cycle(listOf("off", "recents", "camera", "library", "menu"), st.homeLong, it) }),
+                link("Remote mapping", "Hold Home, Back and your own buttons"),
                 Adjust("Language", "The menu, the settings sections, the setup and the main rows (the rest stays English for now). Reopen the screen to see it",
                     { com.glasslauncher.tv.data.I18n.LANGS[st.lang] ?: "English" }, { st.lang = cycle(com.glasslauncher.tv.data.I18n.LANGS.keys.toList(), st.lang, it) }),
                 Act("Back up now", "Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private", "Back up") {
@@ -1521,7 +1573,9 @@ private fun appMenu(app: GlassApp, e: AppEntry, ctx: Context, scope: kotlinx.cor
     opts += "Icon from my phone (Manage from phone)" to { toast(ctx, "Open Settings > Manage from phone, scan the QR code, then pick ${e.label}") }
     if (app.icons.has(e.pkg)) opts += "Reset to the original icon" to { app.icons.reset(e.pkg) }
     opts += "Open app" to { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) }
-    show(MenuDialog(e.label, opts))
+    // A locked app's menu asks for the code first (its icon and place could be changed without it).
+    if (com.glasslauncher.tv.ui.AppLock.locked(app, e.pkg)) com.glasslauncher.tv.ui.AppLock.ask.value = com.glasslauncher.tv.ui.AppLock.Ask(e.label) { show(MenuDialog(e.label, opts)) }
+    else show(MenuDialog(e.label, opts))
 }
 
 /** What Settings looked up once while Glassio runs: the icon packs, and whether each TMDB token works. */
@@ -1535,6 +1589,9 @@ val SettingsCovers = mutableStateOf(false)
 
 /** Settings → Menu & themes → Switch colour. */
 val SETTINGS_ACCENTS = linkedMapOf("burgundy" to ("Burgundy" to 0xFFA3243F.toInt()), "green" to ("Green" to 0xFF34C759.toInt()), "purple" to ("Purple" to 0xFF7B61FF.toInt()))
+/** A row being changed (◀ ▶) or moved: the Switch colour, see-through. */
+@Composable
+fun editAccent(): Color = accentOf((androidx.compose.ui.platform.LocalContext.current.applicationContext as com.glasslauncher.tv.GlassApp).settings.settingsAccent).copy(alpha = 0.55f)
 fun accentOf(key: String): Color = Color(SETTINGS_ACCENTS[key]?.second ?: SETTINGS_ACCENTS.getValue("burgundy").second)
 
 /** The text colour on a row: white, or near-black on the selected (white) row, like tvOS. */
@@ -1656,7 +1713,7 @@ private fun Frame(
                 .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
                 .clip(if (focused || editing) RoundedCornerShape(r) else shape)
                 .background(when {
-                    editing -> Color(0xFF7B61FF).copy(alpha = 0.55f)
+                    editing -> editAccent()
                     focused -> Color.White.copy(alpha = 0.94f)
                     else -> Color.Transparent
                 })
@@ -1840,7 +1897,7 @@ private fun videoName(u: String): String = runCatching {
 private val CATEGORY_BREAKS = setOf("Library", "Cameras", "Performance")
 
 val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
-    "Cameras", "Background & glass", "Screensaver", "Music", "Hue lights", "Performance", "Manage from phone", "System", "About")
+    "Cameras", "Background & glass", "Screensaver", "Music", "Hue lights", "Remote mapping", "Performance", "Manage from phone", "System", "About")
 
 /**
  * Settings pages scroll like a TV list: the selected row settles at the same height (a third of the way down)

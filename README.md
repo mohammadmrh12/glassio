@@ -25,6 +25,15 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.2.0** — Remote mapping
+- **Remote mapping** (Settings → **Remote mapping**, #12): give any remote button an app, the **Apps folder**, the
+  **recent apps** or a **TV input**; it works in any app (with the Home button service). Pressed again, the Apps folder
+  and the recent apps close. Shuffle, multi-view, the corner camera, Hold Home and Back for the screensaver live here too.
+- A locked app's menu (hold OK) asks for the code first; signing out of any account asks first.
+- The row you change with ◀ ▶ takes the **Switch colour** (burgundy, green or purple).
+- Fixed: in Music mode, opening the dock showed the carousel title behind it; the selection is always back after the
+  screensaver, the Apps folder or the recent apps.
+
 **New in 3.1.0** — Hue Sync, a new Settings with search, a self-hosted Nuvio
 - **Hue Sync** (Settings → **Hue lights**): Philips Hue lights in the colours of what's on screen — the backdrop, the
   poster or the logo, your video background, trailers, the screensaver's videos and the music's artwork.

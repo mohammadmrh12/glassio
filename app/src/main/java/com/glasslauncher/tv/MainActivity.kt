@@ -142,6 +142,10 @@ class MainActivity : ComponentActivity() {
         com.glasslauncher.tv.data.NuvioWatch.start(this)
         com.glasslauncher.tv.ui.MusicUi.resumedRev.intValue++
         resumed = true
+        // Set here too: a pause and resume in the same frame (another start of Glassio while it's in front) left
+        // the screen unchanged, nothing was composed again, and Glassio counted as "not in front" until the next
+        // change (a remote button meant for the home screen started Glassio again instead).
+        KeyHub.homeInFront = screen == Screen.Home && (application as GlassApp).settings.setupDone
         com.glasslauncher.tv.ui.SaverGate.opening.value = false
     }
 

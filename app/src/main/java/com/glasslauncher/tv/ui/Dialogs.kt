@@ -219,7 +219,7 @@ private fun ReorderDialogView(d: ReorderDialog, onDismiss: () -> Unit) {
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 3.dp).focusRequester(fr).onFocusChanged { f = it.isFocused }
                         .clip(RoundedCornerShape(9.dp))
-                        .background(when { lifted -> Color(0xFF7B61FF).copy(alpha = 0.55f); f -> Color.White.copy(alpha = 0.92f); else -> Color.White.copy(alpha = 0.06f) })
+                        .background(when { lifted -> editAccent(); f -> Color.White.copy(alpha = 0.92f); else -> Color.White.copy(alpha = 0.06f) })
                         .onPreviewKeyEvent { ev ->
                             if (ev.isSelect) {
                                 if (ev.type == KeyEventType.KeyDown) armed = true

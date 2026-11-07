@@ -50,10 +50,20 @@ class RecentsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = application as GlassApp
-        setContent { Recents(app) { finish(); overridePendingTransition(0, android.R.anim.fade_out) } }
+        showing = this
+        setContent { Recents(app) { close() } }
+    }
+
+    fun close() { if (!isFinishing) { finish(); overridePendingTransition(0, android.R.anim.fade_out) } }
+
+    override fun onDestroy() {
+        if (showing === this) showing = null
+        super.onDestroy()
     }
 
     companion object {
+        /** The recent apps on screen now: their remote button pressed again closes them. */
+        @Volatile var showing: RecentsActivity? = null
         private val SKIP = setOf(
             "com.glasslauncher.tv", "nl.rogro82.pipup", "com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher",
             "com.android.tv.settings", "com.google.android.tv.settings", "com.android.systemui", "com.google.android.apps.tv.dreamx",

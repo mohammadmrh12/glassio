@@ -108,6 +108,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     val interaction = mutableLongStateOf(0L)
     /** Set by `am start ... --ez open_folder true`: opens the Apps folder (testing without the remote). */
     val requestFolder = androidx.compose.runtime.mutableStateOf(false)
+    /** A remote button set to the Apps folder, pressed on the home screen: opens it, or closes it when open. */
+    val folderToggle = androidx.compose.runtime.mutableIntStateOf(0)
     /** Set by `am start ... --ei open_settings <tab>`: opens Settings on that tab. */
     val requestSettings = androidx.compose.runtime.mutableIntStateOf(-1)
     /** Bumped with every request, so asking for the same tab twice (or while the screen was asleep) still works. */

@@ -39,6 +39,10 @@ object DevHooks {
         i ?: return
         // ---- Open a screen (safe for anyone)
         if (i.getBooleanExtra("open_folder", false)) app.requestFolder.value = true
+        // A remote button set to a locked app: its code is asked here first (AppLock).
+        i.getStringExtra("open_app")?.let { pkg ->
+            app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == pkg }?.let { e -> com.glasslauncher.tv.ui.AppLock.open(app, a, e) }
+        }
         i.getIntExtra("open_settings", -1).takeIf { it >= 0 }?.let { app.requestSettings.intValue = it; app.requestSettingsRev.intValue++ }
         // The silent update path, with this same APK (Glassio restarts): --ez self_install true.
         if (i.getBooleanExtra("self_install", false)) Thread {
@@ -112,6 +116,12 @@ object DevHooks {
         if (i.getBooleanExtra("dump_hidden", false)) android.util.Log.i("GlassPrefs", "hiddenApps(all)=" + st.hiddenApps.joinToString(","))
         i.getStringExtra("icon_pack")?.let { p ->
             if (p == "none") st.iconPack = "" else if (app.packs.installed().any { it.pkg == p }) st.iconPack = p
+        }
+        // A remote mapping action, run 1.5 s later as if its button was pressed: --es run_map folder|recents|app:<pkg>
+        i.getStringExtra("run_map")?.let { act ->
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                com.glasslauncher.tv.data.RemoteMap.run(app, com.glasslauncher.tv.data.RemoteMap.Map(0, act, ""))
+            }, 1500)
         }
         // ---- Measuring
         if (i.hasExtra("timing")) com.glasslauncher.tv.data.Glog.timing = i.getBooleanExtra("timing", false)

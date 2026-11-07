@@ -67,13 +67,14 @@ object AppLock {
         ask.value = Ask(e.label) { go() }
     }
 
-    /** Lock [e] (no code needed), or unlock it (needs the code). */
-    fun toggle(app: GlassApp, ctx: android.content.Context, e: AppEntry) {
+    /** Lock [e] (no code needed), or unlock it (needs the code, unless it was just given for its menu: [verified]). */
+    fun toggle(app: GlassApp, ctx: android.content.Context, e: AppEntry, verified: Boolean = false) {
         val st = app.settings
         if (!locked(app, e.pkg)) {
             st.lockedApps = (st.lockedApps + e.pkg).distinct()
             toast(ctx, "${e.label} is locked: Glassio asks for the code to open it (code: Settings → System)")
-        } else ask.value = Ask("Unlock ${e.label}") {
+        } else if (verified) { st.lockedApps = st.lockedApps - e.pkg; toast(ctx, "${e.label} unlocked") }
+        else ask.value = Ask("Unlock ${e.label}") {
             st.lockedApps = st.lockedApps - e.pkg
             toast(ctx, "${e.label} unlocked")
         }

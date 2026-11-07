@@ -24,8 +24,13 @@ object KeyHub {
             if (!down) { capture = null; main.post { c(code) } }
             return true
         }
-        // Camera buttons work in any app: multi-view and the corner camera.
         val st = app.settings
+        // Remote mapping: a button that opens an app, the Apps folder, the recent apps or an input, in any app.
+        com.glasslauncher.tv.data.RemoteMap.find(st, code)?.let { m ->
+            if (!down) main.post { com.glasslauncher.tv.data.RemoteMap.run(app, m) }
+            return true
+        }
+        // Camera buttons work in any app: multi-view and the corner camera.
         if (st.multiKey != 0 && code == st.multiKey) { if (!down) main.post { HomeKeyService.instance?.toggleMulti(bottom = false) }; return true }
         if (st.cornerKey != 0 && code == st.cornerKey) { if (!down) main.post { HomeKeyService.instance?.toggleCorner() }; return true }
         val shuffle = app.settings.shuffleKey

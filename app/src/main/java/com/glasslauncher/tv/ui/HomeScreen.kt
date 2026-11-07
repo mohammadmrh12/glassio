@@ -197,6 +197,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     var dialog by remember { mutableStateOf<DialogState?>(null) }
     var settingsCat by remember { mutableIntStateOf(0) }
     val firstTile = remember { FocusRequester() }
+    val homeHasFocus = remember { booleanArrayOf(false) }
     val heroFocus = remember { FocusRequester() }
     val folderFocus = remember { FocusRequester() }
     var pickerFor by remember { mutableStateOf<AppEntry?>(null) }
@@ -345,7 +346,49 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             c >= 0 -> { settingsCat = c; onScreen(Screen.Settings); app.requestSettings.intValue = -1 }
         }
     }
-    LaunchedEffect(app.requestFolder.value) { if (app.requestFolder.value) { folderOpen = true; app.requestFolder.value = false } }
+    // The Apps folder from a remote button or another screen: the menu, a pop-up or another screen (Settings, the
+    // Library) are closed first. Left open under it, the menu kept the remote (the next OK picked a theme there),
+    // and from Settings the folder opened where it couldn't be seen (nothing was selected any more).
+    fun openFolder() {
+        menuOpen = false; pop = null; dialog = null; expanded = false; pickerFor = null; movingPkg = null
+        if (screen != Screen.Home) onScreen(Screen.Home)
+        folderOpen = true
+    }
+    // Opened by a remote button (not from its tile): Back goes to the first app, the tile may be out of sight.
+    var folderByKey by remember { mutableStateOf(false) }
+    LaunchedEffect(app.requestFolder.value) { if (app.requestFolder.value) { openFolder(); folderByKey = true; app.requestFolder.value = false } }
+    // Nothing selected on the home screen (back from the screensaver, or the Apps folder closed by its remote
+    // button): the remote did nothing until Home. The Play button (or the first app) is selected again.
+    val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val lifeNow by life.currentStateFlow.collectAsState()
+    val isResumed = lifeNow.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    LaunchedEffect(isResumed, folderOpen, screen, menuOpen) {
+        if (!isResumed || folderOpen || screen != Screen.Home || menuOpen) return@LaunchedEffect
+        repeat(3) {
+            delay(250)
+            if (homeHasFocus[0] || pop != null || dialog != null || pickerFor != null) return@LaunchedEffect
+            // (With your own background the hidden spot above the dock opens the menu: the first app then.)
+            val first = if (settings.bgMode != "carousel") firstTile else heroFocus
+            if (runCatching { first.requestFocus() }.isFailure) runCatching { firstTile.requestFocus() }
+        }
+    }
+    val folderToggleSeen = remember { intArrayOf(app.folderToggle.intValue) }
+    LaunchedEffect(app.folderToggle.intValue) {
+        if (app.folderToggle.intValue == folderToggleSeen[0]) return@LaunchedEffect
+        folderToggleSeen[0] = app.folderToggle.intValue
+        if (folderOpen) {
+            // Back to the first app, not the Apps tile: that one sits in the dock's lower row, hidden while the dock
+            // is folded, and the selection went there out of sight.
+            folderMoving = null; folderOpen = false; folderByKey = false; delay(150)
+            runCatching { firstTile.requestFocus() }
+            // The folder fades out for 280 ms and can hold on to the selection until it's gone: tried again after.
+            repeat(4) {
+                delay(150)
+                if (!homeHasFocus[0] && !folderOpen) runCatching { firstTile.requestFocus() }
+            }
+        }
+        else { openFolder(); folderByKey = true }
+    }
 
     LaunchedEffect(screen) {
         if (screen == Screen.Home) { delay(400); runCatching { firstTile.requestFocus() } }
@@ -391,11 +434,18 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         }
     }
 
+    // A locked app's menu (move, hide, icon, unlock…) asks for the code first, like opening it.
+    lateinit var openMenu: (AppEntry, Boolean, Boolean) -> Unit
     val showMenu: (AppEntry, Boolean) -> Unit = { e, inFolder ->
+        if (AppLock.locked(app, e.pkg)) AppLock.ask.value = AppLock.Ask(e.label) { openMenu(e, inFolder, true) }
+        else openMenu(e, inFolder, false)
+    }
+    openMenu = { e, inFolder, verified ->
         val m = appMenu(
             app, e, ctx,
             startMove = if (inFolder) ({ folderMoving = e.pkg }) else ({ movingPkg = e.pkg }),
             pickIcon = { pickerFor = e },
+            verified = verified,
         ) as MenuDialog
         // The glass menu right above the app (in the Apps folder: in the middle of the screen).
         popReturn = if (inFolder) null else tileFocus[e.pkg]
@@ -445,7 +495,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         if (shownBackdrop === b) Depth.fg.value = fg
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).onFocusChanged { homeHasFocus[0] = it.hasFocus }) {
         val density = LocalDensity.current
         val rootW = with(density) { maxWidth.roundToPx() }
         val rootH = with(density) { maxHeight.roundToPx() }
@@ -512,12 +562,16 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // The scrims are baked into the picture (bakeBackdrop): a slide change draws two flat pictures and
             // nothing else, which keeps the crossfade smooth on TV graphics chips.
             // Under the fully open veil (an opaque picture) the backdrop isn't drawn at all.
-            val veilCovers = backImgs?.third != null
+            // Music mode: the open dock (Down from the dock) showed the carousel's title picture behind it, the music
+            // page fades out with the rest of the page then. The song's picture is behind it instead.
+            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted }
+            val veilCovers = (stageBack?.let { it.glass ?: it.back } ?: backImgs?.third) != null
             // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
             // painted every pixel four times there and the Library's scrolling lost frames.
             val libCovers = remember { mutableStateOf(false) }
             if (!folderOpen && DebugHide.intValue and 1 == 0 && !VideoFrames.showing.value) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if ((veilCovers && blur.value > 0.995f) || libCovers.value || SettingsCovers.value) 0f else 1f }) {
-                if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
+                if (stageBack != null) Image(stageBack.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                else if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
                     if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH)
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
             }
@@ -589,7 +643,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // whole extra screen every frame of the opening).
                 // Dimming first (a flat colour, cheap), then the darkened blurred picture over it once the dock is open;
                 // fully blurred, the dimming and the backdrop under it aren't drawn at all.
-                val img = if (!VideoFrames.showing.value && DebugHide.intValue and 32768 == 0) backImgs?.third else null
+                val img = if (!VideoFrames.showing.value && DebugHide.intValue and 32768 == 0) (stageBack?.let { it.glass ?: it.back } ?: backImgs?.third) else null
                 if (img == null) Box(Modifier.fillMaxSize().graphicsLayer { alpha = veil.value; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }.background(Color.Black.copy(alpha = VEIL_DIM)))
                 // Not drawn where the open dock covers it (its glass is opaque): on the TV GPU every pixel drawn twice counts.
                 if (img != null) {
@@ -716,7 +770,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     onClose = {
                         folderMoving = null
                         folderOpen = false
-                        scope.launch { delay(150); runCatching { folderFocus.requestFocus() } }
+                        val byKey = folderByKey; folderByKey = false
+                        scope.launch { delay(150); runCatching { (if (byKey) firstTile else folderFocus).requestFocus() } }
                     },
                 )
             }
@@ -800,7 +855,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
 
 private fun appMenu(
     app: GlassApp, e: AppEntry, ctx: android.content.Context,
-    startMove: (() -> Unit)?, pickIcon: () -> Unit,
+    startMove: (() -> Unit)?, pickIcon: () -> Unit, verified: Boolean = false,
 ): DialogState {
     val hidden = e.pkg in app.settings.hiddenApps
     val opts = mutableListOf<Pair<String, () -> Unit>>()
@@ -817,7 +872,7 @@ private fun appMenu(
     opts += "Change icon" to pickIcon
     opts += (if (hidden) "Show in dock" else "Hide") to { app.apps.toggleHidden(e.pkg) }
     // Asks for the 4-digit code when opened from Glassio (Settings → System sets the code).
-    opts += (if (AppLock.locked(app, e.pkg)) "Unlock" else "Lock") to { AppLock.toggle(app, ctx, e) }
+    opts += (if (AppLock.locked(app, e.pkg)) "Unlock" else "Lock") to { AppLock.toggle(app, ctx, e, verified) }
     return MenuDialog(e.label, opts)
 }
 

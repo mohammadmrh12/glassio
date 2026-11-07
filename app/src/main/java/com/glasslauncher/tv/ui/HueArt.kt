@@ -132,6 +132,32 @@ object HueArt {
         p.color = Color.rgb(150, 150, 160); drawRoundRect(RectF(88f, 64f, 104f, 76f), 3f, 3f, p)
     }
 
+    /** The Apps folder: a grid of app tiles. */
+    fun folder(): ImageBitmap = draw("folder") { p ->
+        p.color = Color.argb(60, 255, 255, 255); drawRoundRect(RectF(50f, 16f, 142f, 92f), 12f, 12f, p)
+        for (r in 0 until 2) for (c in 0 until 3) {
+            p.color = Color.argb(200, 255, 255, 255)
+            val x = 58f + c * 28f; val y = 26f + r * 32f
+            drawRoundRect(RectF(x, y, x + 20f, y + 22f), 5f, 5f, p)
+        }
+    }
+
+    /** The recent apps: cards side by side. */
+    fun recents(): ImageBitmap = draw("recents") { p ->
+        p.color = Color.argb(90, 255, 255, 255); drawRoundRect(RectF(20f, 30f, 62f, 78f), 7f, 7f, p); drawRoundRect(RectF(130f, 30f, 172f, 78f), 7f, 7f, p)
+        p.color = Color.argb(230, 255, 255, 255); drawRoundRect(RectF(70f, 22f, 122f, 86f), 8f, 8f, p)
+        p.color = Color.rgb(28, 28, 32); drawRoundRect(RectF(80f, 70f, 112f, 76f), 3f, 3f, p)
+    }
+
+    /** A TV input (HDMI). */
+    fun input(label: String): ImageBitmap = draw("in:$label") { p ->
+        p.style = Paint.Style.STROKE; p.strokeWidth = 4f; p.color = Color.WHITE
+        val path = android.graphics.Path().apply { moveTo(66f, 34f); lineTo(126f, 34f); lineTo(126f, 52f); lineTo(116f, 62f); lineTo(76f, 62f); lineTo(66f, 52f); close() }
+        drawPath(path, p)
+        p.style = Paint.Style.FILL; p.textSize = 13f; p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true
+        drawText(label.take(18), 96f, 86f, p)
+    }
+
     /** A colour swatch (the Settings switch colours). */
     fun swatch(argb: Int): ImageBitmap = draw("sw:$argb") { p ->
         p.color = argb; drawRoundRect(RectF(66f, 36f, 126f, 72f), 18f, 18f, p)

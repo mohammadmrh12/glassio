@@ -482,6 +482,8 @@ class Settings(private val ctx: Context) {
     /** Remote buttons (any app): multi-view and the corner camera. 0 = none. */
     var multiKey: Int get() = i("multiKey", 0); set(v) = putI("multiKey", v)
     var cornerKey: Int get() = i("cornerKey", 0); set(v) = putI("cornerKey", v)
+    /** Remote buttons that open an app, the Apps folder, the recent apps or an input ([RemoteMap]). */
+    var keyMaps: List<String> get() = list("keyMaps"); set(v) = putList("keyMaps", v)
     var doorbellChime: Boolean get() = b("doorbellChime", true); set(v) = putB("doorbellChime", v)
     /** Doorbell straight from Home Assistant (no automation): its link, a long-lived token, and the sensor to watch. */
     var haUrl: String get() = s("haUrl", ""); set(v) = putS("haUrl", v.trim().trimEnd('/'))
