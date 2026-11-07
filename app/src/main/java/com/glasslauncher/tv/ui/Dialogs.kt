@@ -305,7 +305,9 @@ private fun ThumbDialogView(d: ThumbDialog, onDismiss: () -> Unit) {
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
                         androidx.compose.foundation.layout.Box(Modifier.width(96.dp).height(54.dp).clip(RoundedCornerShape(7.dp)).background(Color.White.copy(alpha = 0.08f))) {
-                            if (it.thumb != null) coil3.compose.AsyncImage(model = it.thumb, contentDescription = null,
+                            if (it.thumb is androidx.compose.ui.graphics.ImageBitmap) androidx.compose.foundation.Image(it.thumb, null,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(54.dp))
+                            else if (it.thumb != null) coil3.compose.AsyncImage(model = it.thumb, contentDescription = null,
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(54.dp))
                         }
                         Spacer(Modifier.width(12.dp))

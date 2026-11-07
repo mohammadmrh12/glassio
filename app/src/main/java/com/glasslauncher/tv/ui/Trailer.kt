@@ -273,7 +273,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         // started (the first one after opening the home screen stayed invisible).
         Box(Modifier.offset { pos }.size(size.first, size.second).graphicsLayer { alpha = maxOf(a, 0.004f) }
             .clip(shape).background(Color.Black).border((1 * s).dp, Color.White.copy(alpha = 0.35f), shape)) {
-            AndroidView(factory = { c -> android.view.TextureView(c).also { tv = it; player.setVideoTextureView(it) } },
+            AndroidView(factory = { c -> android.view.TextureView(c).also { tv = it; it.keepScreenOn = true; player.setVideoTextureView(it) } },
                 modifier = Modifier.align(androidx.compose.ui.Alignment.Center).requiredSize(size.first, size.first / aspect))
             if (cues.isNotBlank()) androidx.compose.material3.Text(cues, style = subStyle,
                 modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(horizontal = (8 * s).dp, vertical = (6 * s).dp))
@@ -328,7 +328,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         else FrameRegion(null, android.graphics.RectF(((sw - vw) / 2 / sw).coerceAtLeast(0f), ((sh - vh) / 2 / sh).coerceAtLeast(0f),
             ((sw + vw) / 2 / sw).coerceAtMost(1f), ((sh + vh) / 2 / sh).coerceAtMost(1f)))
         if (!cinema && rendered) Box(Modifier.fillMaxSize().background(Color.Black))
-        AndroidView(factory = { c -> android.view.SurfaceView(c).also { view = it; player.setVideoSurfaceView(it) } },
+        AndroidView(factory = { c -> android.view.SurfaceView(c).also { view = it; it.keepScreenOn = true; player.setVideoSurfaceView(it) } },
             modifier = Modifier.align(androidx.compose.ui.Alignment.Center).requiredSize(vw, vh))
         if (!req.overlay && pic != null && cover > 0.002f) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
             val sc = maxOf(size.width / pic.width, size.height / pic.height)

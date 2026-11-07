@@ -5,6 +5,7 @@ import android.content.Intent
 import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.clickable
@@ -129,14 +130,18 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     val nuvioShort = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
     LaunchedEffect(nuvioUrl) { nuvioShort.value = nuvioUrl?.let { "" } }
     val tvRev = remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    var tmdbOk by remember { mutableStateOf<Boolean?>(null) }
+    // The token is checked once per token while Glassio runs (checked on every opening, Settings was built
+    // again twice more as the answer came).
+    var tmdbOk by remember { mutableStateOf(SettingsCache.tmdb[st.tmdbToken]) }
     var tmdbChecking by remember { mutableStateOf(false) }
     LaunchedEffect(st.tmdbToken) {
-        tmdbOk = null
         val t = st.tmdbToken
+        if (SettingsCache.tmdb.containsKey(t)) { tmdbOk = SettingsCache.tmdb[t]; return@LaunchedEffect }
+        tmdbOk = null
         if (t.isBlank() || com.glasslauncher.tv.data.Tmdb.looksLikeApiKey(t)) return@LaunchedEffect
         tmdbChecking = true
         tmdbOk = kotlinx.coroutines.withContext(Dispatchers.IO) { com.glasslauncher.tv.data.Tmdb.verify(t) }
+        if (tmdbOk != null) SettingsCache.tmdb[t] = tmdbOk
         tmdbChecking = false
     }
     var homeKeyOn by remember { mutableStateOf(isHomeKeyOn(ctx)) }
@@ -152,13 +157,15 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     var cat by remember { mutableIntStateOf(initialCat) }
     var shownCat by remember { mutableIntStateOf(initialCat) }
     LaunchedEffect(cat) { if (cat != shownCat) { kotlinx.coroutines.delay(120); shownCat = cat } }
-    val packList = remember { listOf("") + app.packs.installed().map { it.pkg } }
-    val packLabels = remember { app.packs.installed().associate { it.pkg to it.label } }
-    var rightFocused by remember { mutableStateOf(false) }
+    // Icon packs are looked up off the main thread (two package queries on opening made Settings catch).
+    LaunchedEffect(Unit) {
+        if (SettingsCache.packs.value == null) SettingsCache.packs.value = kotlinx.coroutines.withContext(Dispatchers.IO) { runCatching { app.packs.installed() }.getOrDefault(emptyList()) }
+    }
+    val rightFocusedA = remember { booleanArrayOf(false) }
     val firstCat = remember { FocusRequester() }
     // One requester per category: leaving the right pane goes back to the category it belongs to,
     // instead of whichever category happens to sit next to the row (that switched the page).
-    val catFocus = remember { List(16) { FocusRequester() } }
+    val catFocus = remember { List(24) { FocusRequester() } }
 
     fun io(block: suspend () -> String) = scope.launch(Dispatchers.IO) {
         toast(ctx, runCatching { block() }.getOrElse { it.message ?: "Failed" })
@@ -248,7 +255,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     } else Act("Nuvio account", "Signed in" + app.library.nuvio.email.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty() + ": Library, add-ons and saving use it", "Sign out") { app.library.nuvio.signOut(); app.library.nuvioList.value = emptyList(); st.libraryNuvio = st.libraryNuvio; toast(ctx, "Signed out of Nuvio") }
 
 
-    val categories = listOf(
+    // Made once: the pages read what they show when they are drawn (rebuilt with every change, the whole of
+    // Settings was composed again on each one).
+    val categories = remember { listOf(
         Category("Performance") {
             fun custom() { st.perfMode = "custom" }
             listOf(
@@ -466,8 +475,8 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             @Suppress("UNUSED_VARIABLE") val unused = imported + allApps.size
             buildList {
                 add(Adjust("Icon pack", "Projectivy / Blueprint / Nova packs installed on this TV",
-                    { if (st.iconPack.isEmpty()) "None (original icons)" else (packLabels[st.iconPack] ?: st.iconPack) },
-                    { st.iconPack = cycle(packList, st.iconPack, it) }))
+                    { if (st.iconPack.isEmpty()) "None (original icons)" else (SettingsCache.packs.value.orEmpty().firstOrNull { it.pkg == st.iconPack }?.label ?: st.iconPack) },
+                    { st.iconPack = cycle(listOf("") + SettingsCache.packs.value.orEmpty().map { p -> p.pkg }, st.iconPack, it) }))
                 add(Toggle("Show Apps folder", "The folder with all your apps, in the dock. Hidden apps stay listed below", { st.showFolder }, { st.showFolder = it }))
                 add(Adjust("Dock size", "Smaller makes the dock and its icons narrower", { pct(st.dockScale) }, { st.dockScale = ((st.dockScale * 20).roundToInt() + it) / 20f }))
                 add(Toggle("Dock fits its apps", "With fewer apps than a full row, the dock shrinks around them", { st.dockFit }, { st.dockFit = it }))
@@ -528,6 +537,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
         Category("Menu & themes") {
             val themes = listOf("bow", "amoled", "liquid", "clear", "water_still", "water")
             listOf(
+                Act("Switch colour", "The colour of the switches in Settings", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
+                    dialog = ThumbDialog("Switch colour", SETTINGS_ACCENTS.map { (k, v) -> ThumbItem(v.first, if (k == "burgundy") "Default" else "", HueArt.swatch(v.second), checked = k == st.settingsAccent) { st.settingsAccent = k } })
+                },
                 Adjust("Theme", "One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)",
                     { if (st.theme.isBlank()) "Custom" else themeName(st.theme) }, { st.applyTheme(cycle(themes, st.theme.ifBlank { "liquid" }, it)) }),
                 Adjust("Menu", "The Apple TV-style menu at the settings button",
@@ -652,6 +664,30 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             buildList {
                 add(Note("Nuvio"))
                 add(nuvioAccountRow())
+                val nv = app.library.nuvio
+                tvRev.intValue
+                if (!nv.connected) add(Act("Sign in with email", "With the account's email and password (for a server without a TV sign-in page)", "") {
+                    dialog = TextEntry("Nuvio email", "", "you@example.com") { mail ->
+                        dialog = TextEntry("Nuvio password", "", "Password") { pw ->
+                            io {
+                                if (nv.signInWithPassword(mail, pw)) { st.libraryNuvio = true; app.library.refreshNuvio(); app.cw.pollNow(); tvRev.intValue++; "Nuvio account connected" }
+                                else "Nuvio: ${nv.lastError}"
+                            }
+                        }
+                    }
+                })
+                // A self-hosted Nuvio backend (its own Supabase project): address, anon key, TV sign-in page.
+                add(Act("Nuvio server", "Your own Nuvio backend, if you host one. Easier to type on the phone page", if (nv.custom) hostOf(nv.server) else "Official") {
+                    dialog = TextEntry("Nuvio server address (empty: the official one)", nv.server, "https://your-project.supabase.co") { url ->
+                        val u = url.trim()
+                        if (u.isBlank()) { io { nv.setServer("", "", ""); app.library.nuvioList.value = emptyList(); tvRev.intValue++; "Back on the official Nuvio server" } }
+                        else dialog = TextEntry("Its anon (public) key", "", "Supabase → Project Settings → API → anon key") { k ->
+                            dialog = TextEntry("Its TV sign-in page (optional)", nv.loginPage, "https://…/tv-login · empty: sign in with email") { page ->
+                                io { nv.setServer(u, k, page); app.library.nuvioList.value = emptyList(); tvRev.intValue++; "Nuvio server set: sign in again" }
+                            }
+                        }
+                    }
+                })
                 if (app.library.nuvio.connected) {
                     add(Toggle("Continue Watching from the Nuvio account", "What you watch in Nuvio Legacy, the official app and forks" + (cwStatus["Nuvio"]?.let { " · $it" } ?: ""),
                         { st.cwNuvioAccount }, { st.cwNuvioAccount = it; app.cw.pollNow() }))
@@ -729,6 +765,9 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     dialog = TextEntry("Home Assistant webhook", st.haWebhook, "http://homeassistant.local:8123/api/webhook/…") { st.haWebhook = it }
                 })
                 add(Toggle("Tell Home Assistant when a title opens", "Sends title, type and id as JSON", { st.haOnLaunch }, { st.haOnLaunch = it }))
+                add(Toggle("Send Nuvio playback to Home Assistant", if (st.haUrl.isBlank() || st.haToken.isBlank()) "Needs the Home Assistant link and token (Cameras → Doorbell from Home Assistant)"
+                    else "Nuvio Legacy's title, play / pause and position, as it happens (event glassio_nuvio): Home Assistant no longer needs to ask the TV over ADB",
+                    { st.nuvioPush }, { on -> st.nuvioPush = on; com.glasslauncher.tv.HomeKeyService.instance?.watchAllWindows(on); if (on) com.glasslauncher.tv.data.NuvioWatch.start(ctx) else com.glasslauncher.tv.data.NuvioWatch.stop() }))
                 add(Act("Send a test event", "") { io { NuvioLaunch.testWebhook(st, app.http) } })
 
                 add(link("Cameras", "Find, add and remove cameras, the menu camera and the corner camera"))
@@ -1125,6 +1164,131 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 }
             }
         },
+        Category("Hue lights") {
+            val hue = com.glasslauncher.tv.data.Hue
+            val sync = com.glasslauncher.tv.data.HueSync
+            val hueRev = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+            // The bridge's rooms, zones and lights (read when this page opens, and after connecting).
+            val found by androidx.compose.runtime.produceState<Pair<List<com.glasslauncher.tv.data.Hue.Group>, List<com.glasslauncher.tv.data.Hue.Light>>?>(null, st.hueUser, st.hueIp, hueRev.intValue) {
+                value = if (st.hueUser.isBlank() || st.hueIp.isBlank()) null
+                    else kotlinx.coroutines.withContext(Dispatchers.IO) { hue.groups(st.hueIp, st.hueUser) to hue.lights(st.hueIp, st.hueUser) }
+            }
+            buildList {
+                add(Toggle("Hue Sync", "Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork",
+                    { st.hueOn }, { on -> st.hueOn = on; if (!on) sync.leave(st, "restore") }))
+                if (st.hueOn) {
+                    val paired = st.hueUser.isNotBlank()
+                    add(Note("Bridge"))
+                    if (!paired) {
+                        add(Act("Find the bridge", if (st.hueIp.isBlank()) "Looks for the Hue bridge on this network" else "Found: ${st.hueIp}", "Find") {
+                            io { val f = hue.discover(ctx); if (f.isEmpty()) "No bridge found: enter its address below" else { st.hueIp = f[0]; "Found ${f[0]}: press the round button on the bridge, then Connect" } }
+                        })
+                        add(Act("Bridge address", st.hueIp.ifBlank { "Not set (the Hue app shows it: Settings → Bridges)" }, "Change") {
+                            dialog = TextEntry("Hue bridge address", st.hueIp, "The address the Hue app shows") { v -> st.hueIp = v.trim() }
+                        })
+                        if (st.hueIp.isNotBlank()) add(Act("Connect", "Press the round button on top of the bridge, then this (within 30 seconds)", "Connect") {
+                            io {
+                                repeat(30) {
+                                    val r = hue.pair(st.hueIp)
+                                    if (r.user != null) { st.hueUser = r.user; sync.refreshGroups(); hueRev.intValue++; return@io "Connected to the Hue bridge: now choose the lights" }
+                                    if (!r.waiting) return@io "Hue: ${r.error}"
+                                    kotlinx.coroutines.delay(1000)
+                                }
+                                "The bridge's button wasn't pressed: press it, then Connect again"
+                            }
+                        })
+                    } else {
+                        add(Act("Bridge", "Connected · ${st.hueIp}", "", ok = true) { hueRev.intValue++ })
+                        val f = found
+                        add(Note("Lights that follow the screen"))
+                        if (f == null) add(Note("Reading the bridge…"))
+                        else {
+                            fun plural(n: Int) = "$n light${if (n == 1) "" else "s"}"
+                            val areas = f.first.filter { it.type == "Entertainment" }
+                            // Entertainment areas first: the Hue app knows where each of their lights stands, and
+                            // each light then takes the colour of the part of the screen in front of it.
+                            if (areas.isEmpty()) add(Note("No entertainment area on the bridge. Make one in the Hue app (Settings → Entertainment areas) and place the lights around the TV: each then takes the colour of its side of the screen by itself"))
+                            areas.forEach { g ->
+                                add(Toggle("Entertainment area · ${g.name}", plural(g.lights.size) + if (g.places.isNotEmpty()) " · placed around the TV" else "",
+                                    { g.id in st.hueGroups }, { on -> st.hueGroups = if (on) st.hueGroups + g.id else st.hueGroups - g.id; sync.refreshGroups() }))
+                            }
+                            f.first.filter { it.type != "Entertainment" }.forEach { g ->
+                                add(Toggle("${if (g.type == "Zone") "Zone" else "Room"} · ${g.name}", plural(g.lights.size),
+                                    { g.id in st.hueGroups }, { on -> st.hueGroups = if (on) st.hueGroups + g.id else st.hueGroups - g.id; sync.refreshGroups() }))
+                            }
+                            f.second.forEach { l ->
+                                add(Toggle("  · ${l.name}", if (l.color) "" else "White only (it follows the brightness)",
+                                    { l.id in st.hueLights }, { on -> st.hueLights = if (on) st.hueLights + l.id else st.hueLights - l.id }))
+                            }
+                            // Each chosen light: which part of the screen it follows (a list to choose from), and
+                            // (other makes) how it takes its colour.
+                            val chosen = sync.targets(st, f.first)
+                            val details = remember(st.hueIp, st.hueUser, hueRev.intValue, f) { f.second.associateBy { it.id } }
+                            val placed = f.first.filter { it.id in st.hueGroups }.flatMap { it.places.keys }.toSet()
+                            if (chosen.isNotEmpty()) add(Note("Each light · the part of the screen it follows"))
+                            chosen.forEach { id ->
+                                val l = details[id] ?: return@forEach
+                                val zone = sync.zones(st)[id] ?: "auto"
+                                val zones = if (l.gradient) hue.ZONES else hue.ZONES - "gradient"
+                                val shown = if (zone == "auto" && id in placed) "Its place in the area" else hue.zoneName(zone)
+                                add(Act(l.name, (if (l.kind == "ct") "White shades only: the nearest warm or cold white · " else if (l.kind == "dim") "Brightness only · " else "") +
+                                    (l.maker.takeIf { !l.philips && it.isNotBlank() }?.let { "$it · " } ?: "") + "OK: choose", shown) {
+                                    dialog = ThumbDialog(l.name, listOf(ThumbItem("Blink it", "To see which light this is", HueArt.blink()) { io { hue.identify(st.hueIp, st.hueUser, id); "${l.name} blinks" } }) +
+                                        zones.map { z -> ThumbItem(hue.zoneName(z), hue.zoneHint(z), HueArt.zone(z), checked = z == zone) { sync.setZone(st, id, z) } })
+                                })
+                                if (l.kind == "color" && !l.philips) {
+                                    val m = sync.methods(st)[id] ?: "auto"
+                                    add(Act("  · Colour method", "Hue and saturation usually match other makes better than xy", if (m == "xy") "xy" else "Hue and saturation") {
+                                        dialog = ThumbDialog("${l.name}: colour method", listOf(
+                                            ThumbItem("Hue and saturation", "Recommended for this make", HueArt.method("hs"), checked = m != "xy") { sync.setMethod(st, id, "auto") },
+                                            ThumbItem("xy", "Like Philips lights", HueArt.method("xy"), checked = m == "xy") { sync.setMethod(st, id, "xy") }))
+                                    })
+                                }
+                            }
+                        }
+                        add(Note("Colours"))
+                        // A list to choose from (OK), with what each choice means.
+                        fun pick(title: String, desc: String, cur: String, opts: List<Triple<String, String, String>>, art: ((String) -> Any?)? = null, set: (String) -> Unit) =
+                            add(Act(title, desc, opts.firstOrNull { it.first == cur }?.second ?: opts[0].second) {
+                                dialog = ThumbDialog(title, opts.map { (k, name, hint) -> ThumbItem(name, hint, art?.invoke(k), checked = k == cur) { set(k) } })
+                            })
+                        pick("Colours from", "What the lights take their colours from", st.hueSource, listOf(
+                            Triple("backdrop", "Backdrop", "What fills the screen: the title's picture, your photo, the music page"),
+                            Triple("poster", "Poster", "The title's poster"), Triple("logo", "Logo", "The title's logo")), { HueArt.source(it) }) { st.hueSource = it }
+                        add(Toggle("Follow videos", "Your video background and trailers, live", { st.hueVideo }, { st.hueVideo = it }))
+                        if (st.hueVideo || st.hueSaver) add(Adjust("  · Every", "How often the lights follow a video", { if (st.hueVideoSec <= 0) "0.5 s" else "${st.hueVideoSec} s" }, { st.hueVideoSec = st.hueVideoSec + it }))
+                        add(Adjust("Lights", "Each light a different colour of the picture, or all of them its main colour", {
+                            if (st.hueSpread) "A colour each" else "One colour"
+                        }, { st.hueSpread = !st.hueSpread }))
+                        add(Adjust("Intensity", "How colourful the lights are", {
+                            listOf("Subtle", "Natural", "Vivid", "Maximum")[st.hueIntensity]
+                        }, { st.hueIntensity = (st.hueIntensity + it).coerceIn(0, 3) }))
+                        add(Adjust("Brightness", "", { "${st.hueBri} %" }, { st.hueBri = st.hueBri + it * 5 }))
+                        add(Toggle("Follow the picture's brightness", "Darker scenes, dimmer lights", { st.hueFollowBri }, { st.hueFollowBri = it }))
+                        pick("Change speed", "How long the lights take to follow a video (a new title's colours come at once)", st.hueSpeedMs.toString(), listOf(
+                            Triple("0", "Instant", ""), Triple("400", "Quick", "0.4 s"), Triple("1000", "Smooth", "1 s"),
+                            Triple("2000", "Slow", "2 s"), Triple("4000", "Very slow", "4 s"))) { st.hueSpeedMs = it.toInt() }
+                        add(Toggle("On the screensaver", "The lights follow its videos", { st.hueSaver }, { st.hueSaver = it }))
+                        add(Note("Selection"))
+                        add(Toggle("The selected app", "All the lights take the colour of the app selected in the dock (its glow's colour)", { st.hueApps }, { st.hueApps = it }))
+                        if (st.hueApps) add(Adjust("  · Brightness", "How bright the lights are with the app's colour", { "${st.hueAppsBri} %" }, { st.hueAppsBri = st.hueAppsBri + it * 5 }))
+                        add(Toggle("The selected poster in the Library", "All the lights take the colour of the poster you're on", { st.huePosters }, { st.huePosters = it }))
+                        if (st.huePosters) add(Adjust("  · Brightness", "How bright the lights are with the poster's colour", { "${st.huePostersBri} %" }, { st.huePostersBri = st.huePostersBri + it * 5 }))
+                        add(Note("Afterwards"))
+                        pick("When you open an app or a film", "", st.hueLeave, listOf(
+                            Triple("restore", "Back as they were", "As before Hue Sync"), Triple("dim", "Dim them", "Their own colour, at 20 %"),
+                            Triple("off", "Turn them off", ""), Triple("keep", "Leave them", "In the last colours"))) { st.hueLeave = it }
+                        pick("When the TV turns off", "", st.hueOff, listOf(
+                            Triple("restore", "Back as they were", "As before Hue Sync"), Triple("off", "Turn them off", ""),
+                            Triple("keep", "Leave them", "In the last colours"))) { st.hueOff = it }
+                        add(Act("Put the lights back now", "As they were before Hue Sync (they follow the screen again on the home screen)", "Restore") {
+                            sync.leave(st, "restore"); sync.resume(); toast(ctx, "Lights back as they were")
+                        })
+                        add(Act("Forget the bridge", "", "Forget") { sync.leave(st, "restore"); st.hueUser = ""; st.hueGroups = emptyList(); st.hueLights = emptyList() })
+                    }
+                }
+            }
+        },
         Category("Manage from phone", Kind.Phone),
         Category("System") {
             val devOn = runCatching { AndroidSettings.Global.getInt(ctx.contentResolver, AndroidSettings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1 }.getOrDefault(false)
@@ -1196,14 +1360,17 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
             )
         },
         Category("About", Kind.About),
-    ).sortedBy { CATEGORY_ORDER.indexOf(it.title).let { i -> if (i < 0) 99 else i } }
+    ).sortedBy { CATEGORY_ORDER.indexOf(it.title).let { i -> if (i < 0) 99 else i } } }
     catTitles[0] = categories.map { it.title }
 
     // Catalog choices made here are applied when the screen closes; only when one of them changed (every visit to
     // Settings reloaded every catalog, and the home screen was rebuilt with them just as you came back).
     val catalogSig = remember { app.catalogs.signature() }
     DisposableEffect(Unit) { onDispose { if (app.catalogs.signature() != catalogSig) app.scope.launch(Dispatchers.IO) { runCatching { app.catalogs.refresh() } } } }
-    BackHandler { if (rightFocused) runCatching { catFocus[cat].requestFocus() } else onClose() }
+    var searching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val searchFocus = remember { FocusRequester() }
+    BackHandler { if (rightFocusedA[0]) runCatching { (if (searching) searchFocus else catFocus[cat]).requestFocus() } else onClose() }
     LaunchedEffect(Unit) { delay150(); runCatching { firstCat.requestFocus() } }
 
     // Each page keeps its scroll and the row you were on, outside the glass panel: changing "Settings background"
@@ -1226,67 +1393,104 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
         }.isSuccess
         if (!ok || !anyFocus) runCatching { catFocus[cat].requestFocus() }
     }
-    Box(Modifier.fillMaxSize().onFocusChanged { anyFocus = it.hasFocus }.background(Color.Black.copy(alpha = 0.55f)).padding((28 * s).dp)) {
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy((16 * s).dp)) {
-            GlassPanel(Modifier.width((230 * s).dp).fillMaxHeight(), (30 * s).dp, style = st.panelStyle, darken = 0.42f) {
+    // Search: a query typed on Glassio's own keyboard; a result opens its page at that row.
+    var jump by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    val onAppMenu: (AppEntry) -> Unit = remember { { e -> appMenu(app, e, ctx, scope) { dialog = it } } }
+    LaunchedEffect(jump) {
+        val (c, r) = jump ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(200)
+        runCatching { listStates[c]?.scrollToItem(r) }
+        kotlinx.coroutines.delay(60)
+        runCatching { rowReq(c, r).requestFocus() }
+        jump = null
+    }
+    // One still picture behind Settings (the home screen's blurred backdrop, darkened) instead of the live home
+    // screen under a black veil and two refracting glass panels: those cost the TV's GPU ~28 ms a frame (every
+    // move in Settings dropped frames) and made opening it heavy. The panels are plain frosted cards on it.
+    val env = LocalGlassEnv.current
+    val still = env.heavy ?: env.bmp
+    if (still != null) DisposableEffect(Unit) { SettingsCovers.value = true; onDispose { SettingsCovers.value = false } }
+    val flat = st.panelStyle == "amoled" || st.panelStyle == "bow"
+    @Composable fun Pane(modifier: Modifier, content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) =
+        if (flat) GlassPanel(modifier, (26 * s).dp, style = st.panelStyle, darken = 0.42f, content = content)
+        else Box(modifier.clip(RoundedCornerShape((26 * s).dp)).background(Color.White.copy(alpha = 0.07f))
+            .border(0.6.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape((26 * s).dp)), content = content)
+    Box(Modifier.fillMaxSize().onFocusChanged { anyFocus = it.hasFocus }) {
+        if (still != null) {
+            Image(still, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.Black.copy(alpha = 0.62f), androidx.compose.ui.graphics.BlendMode.SrcAtop))
+        } else Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)))
+        Row(Modifier.fillMaxSize().padding((28 * s).dp), horizontalArrangement = Arrangement.spacedBy((16 * s).dp)) {
+            Pane(Modifier.width((230 * s).dp).fillMaxHeight()) {
                 // Scrolls when the list is taller than the screen (the last entry, About, was cut off).
                 Column(Modifier.padding(horizontal = (14 * s).dp, vertical = (12 * s).dp).verticalScroll(rememberScrollState())) {
-                    Text("Settings", color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (8 * s).dp, bottom = (6 * s).dp))
-                    // A thin line under the title, minimal.
-                    Box(Modifier.padding(start = (8 * s).dp, end = (8 * s).dp, bottom = (6 * s).dp).fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.16f)))
+                    Text("Settings", color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = (8 * s).dp, bottom = (8 * s).dp))
+                    // Search, at the top like on an iPhone.
+                    var sf by remember { mutableStateOf(false) }
+                    Row(Modifier.fillMaxWidth().padding(bottom = (8 * s).dp).clip(RoundedCornerShape((12 * s).dp))
+                        .background(if (sf) Color.White.copy(alpha = 0.92f) else if (searching) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.08f))
+                        .focusRequester(searchFocus)
+                        .onFocusChanged { sf = it.isFocused; if (it.isFocused) searching = true }
+                        .clickable { searching = true }
+                        .padding(horizontal = (12 * s).dp, vertical = (7 * s).dp), verticalAlignment = Alignment.CenterVertically) {
+                        val ink = if (sf) Color(0xFF111114) else Color.White
+                        Text("⌕", color = ink.copy(alpha = 0.7f), fontSize = (14 * s).sp)
+                        Spacer(Modifier.width((8 * s).dp))
+                        Text(query.ifBlank { com.glasslauncher.tv.data.I18n.tr("Search") }, color = ink.copy(alpha = if (query.isBlank()) 0.6f else 1f), fontSize = (13.5f * s).sp, maxLines = 1)
+                    }
                     categories.forEachIndexed { i, c ->
                         var f by remember { mutableStateOf(false) }
+                        // A thin line between the groups of sections (accounts · the look · the rest).
+                        if (c.title in CATEGORY_BREAKS) Box(Modifier.padding(horizontal = (10 * s).dp, vertical = (6 * s).dp).fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.14f)))
                         Text(
-                            com.glasslauncher.tv.data.I18n.tr(c.title), color = Color.White, fontSize = (13.5f * s).sp,
-                            fontWeight = if (cat == i) FontWeight.SemiBold else FontWeight.Normal,
-                            // Every section fits without scrolling: the list used to jump a little at a time as you went
-                            // down past Dock & icons.
+                            com.glasslauncher.tv.data.I18n.tr(c.title), color = if (f) Color(0xFF111114) else Color.White, fontSize = (13.5f * s).sp,
+                            fontWeight = if (cat == i && !searching) FontWeight.SemiBold else FontWeight.Normal,
                             modifier = Modifier.fillMaxWidth().padding(vertical = (1 * s).dp)
-                                .clip(RoundedCornerShape((14 * s).dp))
-                                .background(if (f) Color.White.copy(alpha = 0.30f) else if (cat == i) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                .clip(RoundedCornerShape((12 * s).dp))
+                                .background(if (f) Color.White.copy(alpha = 0.92f) else if (cat == i && !searching) Color.White.copy(alpha = 0.12f) else Color.Transparent)
                                 .focusRequester(catFocus[i])
                                 .then(if (i == initialCat) Modifier.focusRequester(firstCat) else Modifier)
-                                .onFocusChanged { f = it.isFocused; if (it.isFocused) cat = i }
-                                .clickable { cat = i }
+                                .onFocusChanged { f = it.isFocused; if (it.isFocused) { cat = i; searching = false } }
+                                .clickable { cat = i; searching = false }
                                 .padding(horizontal = (12 * s).dp, vertical = (5.5f * s).dp),
                         )
                     }
                 }
             }
-            GlassPanel(
-                Modifier.weight(1f).fillMaxHeight().onFocusChanged { rightFocused = it.hasFocus }
+            Pane(
+                Modifier.weight(1f).fillMaxHeight().onFocusChanged { rightFocusedA[0] = it.hasFocus }
                     // Left goes back to this page's own category; Up/Down at the ends stay in the page.
                     .focusProperties {
                         exit = { dir ->
                             when (dir) {
-                                androidx.compose.ui.focus.FocusDirection.Left -> catFocus[cat]
+                                androidx.compose.ui.focus.FocusDirection.Left -> if (searching) searchFocus else catFocus[cat]
                                 androidx.compose.ui.focus.FocusDirection.Up, androidx.compose.ui.focus.FocusDirection.Down -> FocusRequester.Cancel
                                 else -> FocusRequester.Default
                             }
                         }
                     }
                     .focusGroup(),
-                (30 * s).dp, style = st.panelStyle, darken = 0.42f,
             ) {
-                val c = categories[shownCat]
-                Column(Modifier.padding((18 * s).dp)) {
-                    Text(com.glasslauncher.tv.data.I18n.tr(c.title), color = Color.White, fontSize = (20 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = (6 * s).dp, bottom = (8 * s).dp))
-                    if (c.kind == Kind.Phone) PhonePane(app, s)
-                    else if (c.kind == Kind.About) AboutPane(app, s, onApp = { e -> appMenu(app, e, ctx, scope) { dialog = it } })
-                    else {
-                        val rows = c.rows()
-                        val sc = shownCat
-                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides SettingsPivot) {
-                        LazyColumn(Modifier.fillMaxSize(), state = listStates.getOrPut(sc) { androidx.compose.foundation.lazy.LazyListState() },
-                            verticalArrangement = Arrangement.spacedBy((4 * s).dp)) {
-                            items(rows.size) { i ->
-                                Box(Modifier.focusRequester(rowReq(sc, i)).onFocusChanged { if (it.hasFocus) lastRow[sc] = i }) {
-                                    RowView(rows[i], s, app, onApp = { e -> appMenu(app, e, ctx, scope) { dialog = it } })
-                                }
-                            }
-                        }
-                        }
+                if (searching) {
+                    // Every page's rows, worked out only while searching.
+                    val q = query.trim().lowercase()
+                    val found = if (q.isEmpty()) emptyList() else categories.mapIndexed { ci, c -> ci to (if (c.kind == Kind.Rows) c.rows() else emptyList()) }
+                        .flatMap { (ci, rows) -> rows.mapIndexedNotNull { ri, r ->
+                            val (t, d) = when (r) { is Toggle -> r.title to r.desc; is Adjust -> r.title to r.desc; is Act -> r.title to r.desc; is AppItem -> r.entry.label to r.entry.pkg; else -> return@mapIndexedNotNull null }
+                            val tt = com.glasslauncher.tv.data.I18n.tr(t)
+                            val inTitle = t.lowercase().contains(q) || tt.lowercase().contains(q)
+                            if (inTitle || d.lowercase().contains(q)) Pair(inTitle, Triple(ci, ri, tt.removePrefix("→ ").trim().trimStart('·', ' ') to com.glasslauncher.tv.data.I18n.tr(categories[ci].title))) else null
+                        } }.sortedByDescending { it.first }.map { it.second }.take(60)
+                    SearchPane(s, query, { query = it }, found.map { it.third }) { k ->
+                        val (ci, ri, _) = found[k]
+                        // The selection waits on the page's name on the left while the page is built (with the
+                        // results gone it fell back to the search field, which opened the search again).
+                        runCatching { catFocus[ci].requestFocus() }
+                        searching = false; cat = ci; shownCat = ci; lastRow[ci] = ri; jump = ci to ri
                     }
+                } else {
+                SettingsPage(s, categories[shownCat], shownCat, app, listStates.getOrPut(shownCat) { androidx.compose.foundation.lazy.LazyListState() },
+                    rowFocus, lastRow, onAppMenu)
                 }
             }
         }
@@ -1320,20 +1524,52 @@ private fun appMenu(app: GlassApp, e: AppEntry, ctx: Context, scope: kotlinx.cor
     show(MenuDialog(e.label, opts))
 }
 
+/** What Settings looked up once while Glassio runs: the icon packs, and whether each TMDB token works. */
+private object SettingsCache {
+    val packs = mutableStateOf<List<com.glasslauncher.tv.data.IconPackInfo>?>(null)
+    val tmdb = HashMap<String, Boolean?>()
+}
+
+/** Settings covers the whole screen with its own still picture: the home screen's backdrop isn't drawn under it. */
+val SettingsCovers = mutableStateOf(false)
+
+/** Settings → Menu & themes → Switch colour. */
+val SETTINGS_ACCENTS = linkedMapOf("burgundy" to ("Burgundy" to 0xFFA3243F.toInt()), "green" to ("Green" to 0xFF34C759.toInt()), "purple" to ("Purple" to 0xFF7B61FF.toInt()))
+fun accentOf(key: String): Color = Color(SETTINGS_ACCENTS[key]?.second ?: SETTINGS_ACCENTS.getValue("burgundy").second)
+
+/** The text colour on a row: white, or near-black on the selected (white) row, like tvOS. */
+private val LocalInk = androidx.compose.runtime.compositionLocalOf { Color.White }
+
+/** Where a row sits in its group: 0 alone, 1 first, 2 in the middle, 3 last. Headings ([Note]) start a new group. */
+private fun groupPositions(rows: List<SRow>): IntArray = IntArray(rows.size) { i ->
+    if (rows[i] is Note) return@IntArray 0
+    val prev = rows.getOrNull(i - 1).let { it != null && it !is Note }
+    val next = rows.getOrNull(i + 1).let { it != null && it !is Note }
+    when { prev && next -> 2; prev -> 3; next -> 1; else -> 0 }
+}
+
 @Composable
-private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Unit) {
+private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Unit, pos: Int = 0, first: Boolean = true) {
     when (row) {
-        is Note -> Text(row.text, color = Color.White.copy(alpha = 0.55f), fontSize = (11.5f * s).sp, modifier = Modifier.padding(horizontal = (8 * s).dp, vertical = (6 * s).dp))
-        is Toggle -> Frame(s, onClick = { row.set(!row.get()) }) { f ->
+        // A short note is a group's heading; a longer one a small explanation under the heading.
+        is Note -> {
+            val head = row.text.length <= 44 && !row.text.endsWith(".")
+            Text(com.glasslauncher.tv.data.I18n.tr(row.text), color = Color.White.copy(alpha = if (head) 0.62f else 0.45f), fontSize = ((if (head) 12f else 11f) * s).sp,
+                fontWeight = if (head) FontWeight.SemiBold else null,
+                modifier = Modifier.padding(start = (14 * s).dp, end = (14 * s).dp, top = ((if (first) 0f else if (head) 18f else 6f) * s).dp, bottom = (6 * s).dp))
+        }
+        is Toggle -> Frame(s, pos = pos, onClick = { row.set(!row.get()) }) { f ->
             Label(row.title, row.desc, s, Modifier.weight(1f))
             val on = row.get()
-            Box(Modifier.width((38 * s).dp).height((22 * s).dp).clip(RoundedCornerShape(50)).background(if (on) Color(0xFF7B61FF) else Color.White.copy(alpha = 0.22f)).padding((3 * s).dp)) {
-                Box(Modifier.size((16 * s).dp).clip(RoundedCornerShape(50)).background(Color.White).align(if (on) Alignment.CenterEnd else Alignment.CenterStart))
+            // An iOS switch: green when on.
+            Box(Modifier.width((40 * s).dp).height((24 * s).dp).clip(RoundedCornerShape(50))
+                .background(if (on) accentOf(app.settings.settingsAccent) else LocalInk.current.copy(alpha = 0.22f)).padding((2.5f * s).dp)) {
+                Box(Modifier.size((19 * s).dp).clip(RoundedCornerShape(50)).background(Color.White).align(if (on) Alignment.CenterEnd else Alignment.CenterStart))
             }
         }
         is Adjust -> {
             var editing by remember { mutableStateOf(false) }
-            Frame(s, editing = editing, onKey = { ev ->
+            Frame(s, pos = pos, editing = editing, onKey = { ev ->
                 when {
                     !editing -> false
                     ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight -> {
@@ -1346,22 +1582,24 @@ private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Uni
                 }
             }, onFocus = { if (!it) editing = false }, onClick = { editing = !editing }) { f ->
                 Label(row.title, if (editing) "◀ ▶ to change · OK when done" else row.desc, s, Modifier.weight(1f))
-                if (editing) Text("‹  ${row.value()}  ›", color = Color(0xFFB9ABFF), fontSize = (13.5f * s).sp, fontWeight = FontWeight.SemiBold)
-                else Text(row.value(), color = Color.White.copy(alpha = if (f) 1f else 0.75f), fontSize = (13 * s).sp)
+                val ink = LocalInk.current
+                if (editing) Text("‹  ${row.value()}  ›", color = Color.White, fontSize = (13.5f * s).sp, fontWeight = FontWeight.SemiBold)
+                else Text(row.value() + "  ›", color = ink.copy(alpha = 0.55f), fontSize = (13 * s).sp)
             }
         }
-        is Act -> Frame(s, onClick = row.onClick) { f ->
+        is Act -> Frame(s, pos = pos, onClick = row.onClick) { f ->
             Label(row.title, row.desc, s, Modifier.weight(1f))
+            val ink = LocalInk.current
             if (row.value.isNotEmpty()) Text(if (row.ok == true) "✓  " + row.value else row.value,
-                color = when (row.ok) { true -> Color(0xFF34C759); false -> Color(0xFFFF6961); else -> Color.White.copy(alpha = 0.7f) },
-                fontSize = (12.5f * s).sp, fontWeight = if (row.ok != null) FontWeight.SemiBold else null)
+                color = when (row.ok) { true -> accentOf(app.settings.settingsAccent).let { a -> if (ink == Color.White) androidx.compose.ui.graphics.lerp(a, Color.White, 0.35f) else a }; false -> Color(0xFFFF5A52); else -> ink.copy(alpha = 0.55f) },
+                fontSize = (12.5f * s).sp, fontWeight = if (row.ok != null) FontWeight.SemiBold else null, maxLines = 1)
         }
         is AppItem -> {
             val e = row.entry
             val hidden = e.pkg in app.settings.hiddenApps
             val art by produceState<ImageBitmap?>(null, e.pkg) { value = app.apps.artwork(e)?.bmp }
             var moving by remember { mutableStateOf(false) }
-            Frame(s, editing = moving, onKey = { ev ->
+            Frame(s, pos = pos, editing = moving, onKey = { ev ->
                 when {
                     ev.key == Key.Menu -> { if (ev.type == KeyEventType.KeyDown) onApp(e); true }
                     !moving -> false
@@ -1379,8 +1617,8 @@ private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Uni
                 Spacer(Modifier.width((10 * s).dp))
                 Label(e.label, e.pkg, s, Modifier.weight(1f))
                 val flags = listOfNotNull(if (hidden) "Hidden" else null, if (app.icons.has(e.pkg)) "Custom icon" else null).joinToString(" · ")
-                if (flags.isNotEmpty()) Text(flags, color = Color(0xFFB9ABFF), fontSize = (11.5f * s).sp)
-                Text(if (moving) "  ◀ ▶ · OK" else "", color = Color(0xFFB9ABFF), fontSize = (12 * s).sp)
+                if (flags.isNotEmpty()) Text(flags, color = LocalInk.current.copy(alpha = 0.55f), fontSize = (11.5f * s).sp)
+                Text(if (moving) "  ◀ ▶ · OK" else "", color = Color.White, fontSize = (12 * s).sp)
             }
         }
     }
@@ -1388,9 +1626,10 @@ private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Uni
 
 @Composable
 private fun Label(title: String, desc: String, s: Float, modifier: Modifier) {
-    Column(modifier) {
-        Text(com.glasslauncher.tv.data.I18n.tr(title), color = Color.White, fontSize = (14 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (desc.isNotBlank()) Text(desc, color = Color.White.copy(alpha = 0.5f), fontSize = (10.5f * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val ink = LocalInk.current
+    Column(modifier.padding(end = (10 * s).dp)) {
+        Text(com.glasslauncher.tv.data.I18n.tr(title), color = ink, fontSize = (14 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (desc.isNotBlank()) Text(desc, color = ink.copy(alpha = 0.5f), fontSize = (10.5f * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1402,22 +1641,116 @@ private fun Frame(
     onLong: (() -> Unit)? = null,
     onFocus: (Boolean) -> Unit = {},
     editing: Boolean = false,
+    pos: Int = 0,
     content: @Composable androidx.compose.foundation.layout.RowScope.(Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    Row(
-        Modifier.fillMaxWidth()
-            .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
-            .clip(RoundedCornerShape((14 * s).dp))
-            .background(when {
-                editing -> Color(0xFF7B61FF).copy(alpha = 0.34f)
-                focused -> Color.White.copy(alpha = 0.26f)
-                else -> Color.White.copy(alpha = 0.06f)
-            })
-            .tvPress(onLong = onLong, onKey = onKey, onClick = onClick)
-            .padding(horizontal = (14 * s).dp, vertical = (9 * s).dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) { content(focused) }
+    val r = (14 * s).dp
+    val top = if (pos == 0 || pos == 1) r else 0.dp
+    val bottom = if (pos == 0 || pos == 3) r else 0.dp
+    // The group's card (rounded at its ends); the selected row lifts out of it in white, its own corners rounded.
+    val shape = RoundedCornerShape(top, top, bottom, bottom)
+    Box(Modifier.fillMaxWidth().clip(shape).background(Color.White.copy(alpha = 0.08f))) {
+        Row(
+            Modifier.fillMaxWidth()
+                .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
+                .clip(if (focused || editing) RoundedCornerShape(r) else shape)
+                .background(when {
+                    editing -> Color(0xFF7B61FF).copy(alpha = 0.55f)
+                    focused -> Color.White.copy(alpha = 0.94f)
+                    else -> Color.Transparent
+                })
+                .tvPress(onLong = onLong, onKey = onKey, onClick = onClick)
+                .padding(horizontal = (14 * s).dp, vertical = (10 * s).dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalInk provides if (focused && !editing) Color(0xFF111114) else Color.White) { content(focused) }
+        }
+        // A hairline between the rows of a group (not over the selected row).
+        if ((pos == 2 || pos == 3) && !focused) Box(Modifier.align(Alignment.TopStart).padding(start = (14 * s).dp).fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.12f)))
+    }
+}
+
+/** One page of Settings (its own part of the screen: moving in the list on the left doesn't build it again). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun SettingsPage(s: Float, c: Category, sc: Int, app: GlassApp, listState: androidx.compose.foundation.lazy.LazyListState,
+                         rowFocus: HashMap<Long, FocusRequester>, lastRow: IntArray, onAppMenu: (AppEntry) -> Unit) {
+    Column(Modifier.padding((18 * s).dp)) {
+        Text(com.glasslauncher.tv.data.I18n.tr(c.title), color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = (6 * s).dp, bottom = (10 * s).dp))
+        if (c.kind == Kind.Phone) PhonePane(app, s)
+        else if (c.kind == Kind.About) AboutPane(app, s, onApp = onAppMenu)
+        else {
+            val rows = c.rows()
+            // Rows between two headings sit together in one rounded group, with thin lines between them.
+            val pos = groupPositions(rows)
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides SettingsPivot) {
+                LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                    items(rows.size, contentType = { rows[it]::class }) { i ->
+                        Box(Modifier.focusRequester(rowFocus.getOrPut(sc * 10_000L + i) { FocusRequester() }).onFocusChanged { if (it.hasFocus) lastRow[sc] = i }) {
+                            RowView(rows[i], s, app, onApp = onAppMenu, pos = pos[i], first = i == 0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Search: the query on Glassio's own keyboard (letters, numbers, space, delete), the matching rows beside it. */
+@Composable
+private fun SearchPane(s: Float, query: String, onQuery: (String) -> Unit, results: List<Pair<String, String>>, onPick: (Int) -> Unit) {
+    val keys = remember { ("abcdefghijklmnopqrstuvwxyz1234567890").map { it.toString() } }
+    // Right from the keyboard's last column goes to the results from any row (they start at the top: from the
+    // lower rows the remote found nothing to the right).
+    val resFocus = remember { FocusRequester() }
+    val toResults = Modifier.focusProperties { right = if (results.isNotEmpty()) resFocus else FocusRequester.Default }
+    Row(Modifier.fillMaxSize().padding((18 * s).dp), horizontalArrangement = Arrangement.spacedBy((18 * s).dp)) {
+        Column(Modifier.width((300 * s).dp)) {
+            Text(com.glasslauncher.tv.data.I18n.tr("Search"), color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = (6 * s).dp, bottom = (10 * s).dp))
+            // The query, like a text field.
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape((12 * s).dp)).background(Color.White.copy(alpha = 0.10f)).padding(horizontal = (14 * s).dp, vertical = (10 * s).dp)) {
+                Text(if (query.isEmpty()) com.glasslauncher.tv.data.I18n.tr("Type with the keys below") else "$query|", color = Color.White.copy(alpha = if (query.isEmpty()) 0.45f else 1f), fontSize = (15 * s).sp, maxLines = 1)
+            }
+            Spacer(Modifier.height((12 * s).dp))
+            @Composable fun Key(label: String, w: Float, edge: Boolean = false, onClick: () -> Unit) {
+                var f by remember { mutableStateOf(false) }
+                Box((if (edge) toResults else Modifier).width((w * s).dp).height((34 * s).dp).clip(RoundedCornerShape((9 * s).dp))
+                    .background(if (f) Color.White.copy(alpha = 0.94f) else Color.White.copy(alpha = 0.08f))
+                    .onFocusChanged { f = it.isFocused }.tvPress(onClick = onClick), contentAlignment = Alignment.Center) {
+                    Text(label, color = if (f) Color(0xFF111114) else Color.White, fontSize = (14 * s).sp, fontWeight = FontWeight.Medium)
+                }
+            }
+            keys.chunked(6).forEach { line ->
+                Row(Modifier.padding(bottom = (5 * s).dp), horizontalArrangement = Arrangement.spacedBy((5 * s).dp)) {
+                    line.forEachIndexed { i, k -> Key(k, 45.8f, edge = i == line.lastIndex) { onQuery(query + k) } }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy((5 * s).dp)) {
+                Key(com.glasslauncher.tv.data.I18n.tr("Space"), 147.4f) { onQuery("$query ") }
+                Key("⌫", 71f) { onQuery(query.dropLast(1)) }
+                Key(com.glasslauncher.tv.data.I18n.tr("Clear"), 71f, edge = true) { onQuery("") }
+            }
+        }
+        Column(Modifier.weight(1f)) {
+            Spacer(Modifier.height((44 * s).dp))
+            when {
+                query.isBlank() -> Text(com.glasslauncher.tv.data.I18n.tr("Find any setting by its name"), color = Color.White.copy(alpha = 0.5f), fontSize = (13 * s).sp, modifier = Modifier.padding(start = (6 * s).dp))
+                results.isEmpty() -> Text(com.glasslauncher.tv.data.I18n.tr("No results"), color = Color.White.copy(alpha = 0.5f), fontSize = (13 * s).sp, modifier = Modifier.padding(start = (6 * s).dp))
+                else -> LazyColumn(Modifier.fillMaxSize()) {
+                    items(results.size) { i ->
+                        val (title, page) = results[i]
+                        Box(if (i == 0) Modifier.focusRequester(resFocus) else Modifier) {
+                        Frame(s, pos = if (results.size == 1) 0 else if (i == 0) 1 else if (i == results.lastIndex) 3 else 2, onClick = { onPick(i) }) {
+                            Label(title, page, s, Modifier.weight(1f))
+                            Text("›", color = LocalInk.current.copy(alpha = 0.5f), fontSize = (15 * s).sp)
+                        }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1503,8 +1836,11 @@ private fun videoName(u: String): String = runCatching {
 }.getOrNull().orEmpty().ifBlank { "Video link" }
 
 /** The settings sections in order: accounts and what they feed, then the look, then the screensaver and the TV. */
+/** Sections that start a new group in the list on the left (a thin line above them). */
+private val CATEGORY_BREAKS = setOf("Library", "Cameras", "Performance")
+
 val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
-    "Cameras", "Background & glass", "Screensaver", "Music", "Performance", "Manage from phone", "System", "About")
+    "Cameras", "Background & glass", "Screensaver", "Music", "Hue lights", "Performance", "Manage from phone", "System", "About")
 
 /**
  * Settings pages scroll like a TV list: the selected row settles at the same height (a third of the way down)

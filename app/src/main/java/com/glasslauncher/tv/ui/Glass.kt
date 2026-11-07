@@ -367,7 +367,12 @@ fun LiquidSurface(
     // Shaders for the two pictures during a slide (Android 13+), made again only when a picture changes.
     val shaders = remember { PageShaders() }
     // The open-dock veil layer: only there while the veil shows (its own cached layer).
-    val veilOn by remember(ref) { androidx.compose.runtime.derivedStateOf { (ref.value.veil?.value ?: 0f) > 0.005f } }
+    // Music mode's pause dim stays composed (at no opacity while playing): made only when the dim began, its
+    // first frames showed the artwork bright through the glass (a flash in the dock on Pause / Play).
+    val veilOn by remember(ref) { androidx.compose.runtime.derivedStateOf {
+        val v = ref.value.veil
+        (v?.value ?: 0f) > 0.005f || (v != null && v === MusicUi.pauseDim.asState())
+    } }
     Box(
         modifier
             .then(if (DebugHide.intValue and 262144 != 0) Modifier else Modifier.clip(RoundedCornerShape(radius)))

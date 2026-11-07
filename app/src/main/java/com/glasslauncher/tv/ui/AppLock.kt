@@ -58,7 +58,7 @@ object AppLock {
     /** Opens [e]: straight away, or after the code when it is locked. */
     fun open(app: GlassApp, ctx: android.content.Context, e: AppEntry) {
         val go = {
-            if (e.pkg == MusicUi.DOCK_PKG) { MusicUi.openInMenu.value = true; app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
+            if (e.pkg == MusicUi.DOCK_PKG) MusicUi.openFromDock(app)
             else if (com.glasslauncher.tv.data.Inputs.isInput(e.pkg)) com.glasslauncher.tv.data.Inputs.open(ctx, e.pkg)
             else app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } }
             Unit

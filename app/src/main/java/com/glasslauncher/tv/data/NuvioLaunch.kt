@@ -74,6 +74,7 @@ object NuvioLaunch {
     }.isSuccess
 
     private fun intentFor(target: String, type: String, id: String): Intent {
+        if (target == "legacy") NuvioWatch.opened(type, id.trim())
         // No CLEAR_TASK: a running Nuvio is brought forward and opens the title at once, without
         // restarting (no splash). If Nuvio is not running it starts normally.
         // Stremio is the exception: a running Stremio takes the link as a new intent and ignores it (it just came to

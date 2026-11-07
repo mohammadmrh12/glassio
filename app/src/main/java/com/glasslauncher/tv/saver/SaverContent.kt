@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
@@ -193,8 +194,57 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = black.value }.background(Color.Black))
             // The large clock in a glass look shows this video through its digits, like the dock's glass: live
             // copies of the video (PixelCopy, scaled on the GPU), ~15 a second, only while the clock is up.
+            // Multi-view cameras over the screensaver: its video blurs behind them (a small live copy of it, blurred
+            // and stretched over it: the TV can't blur behind a window, nor a video surface directly).
+            val multiOpen = com.glasslauncher.tv.MultiCamOverlay.open.value
+            val multiVeil by androidx.compose.animation.core.animateFloatAsState(if (multiOpen) 1f else 0f, androidx.compose.animation.core.tween(if (multiOpen) 180 else 150), label = "multiVeil")
+            if (multiVeil > 0.01f && android.os.Build.VERSION.SDK_INT >= 26) {
+                // Android 12+: a small copy blurred by the GPU; older TVs: a tiny copy stretched over the screen
+                // (stretching it that much is itself a soft blur).
+                val gpuBlur = android.os.Build.VERSION.SDK_INT >= 31
+                val frame = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+                LaunchedEffect(Unit) {
+                    val bufs = Array(2) { if (gpuBlur) android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888)
+                        else android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888) }
+                    var k = 0
+                    val h = android.os.Handler(android.os.Looper.getMainLooper())
+                    while (true) {
+                        val v = view[0]
+                        if (v != null && v.holder.surface.isValid) {
+                            val b = bufs[k++ % 2]
+                            val ok = kotlinx.coroutines.suspendCancellableCoroutine<Boolean> { c ->
+                                runCatching { android.view.PixelCopy.request(v, b, { r -> if (c.isActive) c.resumeWith(Result.success(r == android.view.PixelCopy.SUCCESS)) }, h) }
+                                    .onFailure { if (c.isActive) c.resumeWith(Result.success(false)) }
+                            }
+                            if (ok && !gpuBlur) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { softBlur(b) }
+                            if (ok) frame.value = b.asImageBitmap()
+                        }
+                        delay(70)
+                    }
+                }
+                frame.value?.let { f ->
+                    androidx.compose.foundation.Image(f, null, Modifier.fillMaxSize().graphicsLayer { alpha = multiVeil }.then(if (gpuBlur) Modifier.blur(28.dp) else Modifier),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop, filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
+                }
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = multiVeil }.background(Color.Black.copy(alpha = 0.2f)))
+            }
             val glassClock = st.saverBigClock && com.glasslauncher.tv.ui.clockLook(st) != "white" && st.dockStyle != "bow" && st.dockStyle != "amoled"
             LaunchedEffect(Unit) { snapshotFlow { black.value }.collect { SaverFrames.dim.floatValue = it; com.glasslauncher.tv.ui.VideoFrames.dim.floatValue = it } }
+            // Hue Sync on the screensaver: a small copy of its video every few seconds.
+            if (com.glasslauncher.tv.data.HueSync.ready(st) && st.hueSaver && android.os.Build.VERSION.SDK_INT >= 26) LaunchedEffect(Unit) {
+                val buf = android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888)
+                val h = android.os.Handler(android.os.Looper.getMainLooper())
+                while (true) {
+                    delay(if (st.hueVideoSec <= 0) 500L else st.hueVideoSec * 1000L)
+                    val v = view[0] ?: continue
+                    if (!v.holder.surface.isValid || black.value > 0.5f) continue
+                    val ok = kotlinx.coroutines.suspendCancellableCoroutine<Boolean> { k ->
+                        runCatching { android.view.PixelCopy.request(v, buf, { r -> if (k.isActive) k.resumeWith(Result.success(r == android.view.PixelCopy.SUCCESS)) }, h) }
+                            .onFailure { if (k.isActive) k.resumeWith(Result.success(false)) }
+                    }
+                    if (ok) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { com.glasslauncher.tv.data.HueSync.showPicture(st, buf) }
+                }
+            }
             // The music island in a glass look: live copies of this video for its glass (see MusicIsland).
             val islandGlass = st.musicOn && st.musicIsland && st.islandStyle != "none" &&
                 (if (st.islandStyle == "theme") st.dockStyle !in setOf("amoled", "bow") else st.islandStyle == "glass")
@@ -495,4 +545,26 @@ object SaverFrames {
     val sharp = androidx.compose.runtime.mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
     /** The fade through black between two videos (the digits darken with it). */
     val dim = androidx.compose.runtime.mutableFloatStateOf(0f)
+}
+
+/** A soft blur of a small picture, in place (three box passes each way): for TVs without the GPU's blur. */
+private fun softBlur(b: android.graphics.Bitmap, r: Int = 4) {
+    val w = b.width; val h = b.height
+    val px = IntArray(w * h); b.getPixels(px, 0, w, 0, 0, w, h)
+    val tmp = IntArray(w * h)
+    fun pass(src: IntArray, dst: IntArray, horizontal: Boolean) {
+        val n = if (horizontal) w else h; val lines = if (horizontal) h else w
+        for (l in 0 until lines) for (i in 0 until n) {
+            var rs = 0; var gs = 0; var bs = 0; var c = 0
+            for (k in -r..r) {
+                val j = (i + k).coerceIn(0, n - 1)
+                val p = if (horizontal) src[l * w + j] else src[j * w + l]
+                rs += (p shr 16) and 0xFF; gs += (p shr 8) and 0xFF; bs += p and 0xFF; c++
+            }
+            val o = if (horizontal) l * w + i else i * w + l
+            dst[o] = (0xFF shl 24) or ((rs / c) shl 16) or ((gs / c) shl 8) or (bs / c)
+        }
+    }
+    repeat(3) { pass(px, tmp, true); pass(tmp, px, false) }
+    b.setPixels(px, 0, w, 0, 0, w, h)
 }

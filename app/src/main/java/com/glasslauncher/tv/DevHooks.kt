@@ -47,6 +47,23 @@ object DevHooks {
             val r = com.glasslauncher.tv.data.LocalShell.install(app, f)
             com.glasslauncher.tv.data.Glog.i("Self install: ${r.exceptionOrNull()?.let { "${it.javaClass.simpleName} ${it.message}" } ?: "ok"}")
         }.start()
+        // Hue: find the bridge (--ez hue_find true), then pair after its button (--ez hue_pair true); log only.
+        if (i.getBooleanExtra("hue_find", false)) Thread {
+            val f = com.glasslauncher.tv.data.Hue.discover(app)
+            com.glasslauncher.tv.data.Glog.i("Hue found: $f"); f.firstOrNull()?.let { app.settings.hueIp = it }
+        }.start()
+        if (i.getBooleanExtra("hue_pair", false)) Thread {
+            repeat(40) {
+                val r = com.glasslauncher.tv.data.Hue.pair(app.settings.hueIp)
+                if (r.user != null) { app.settings.hueUser = r.user; com.glasslauncher.tv.data.Glog.i("Hue paired"); return@Thread }
+                if (!r.waiting) { com.glasslauncher.tv.data.Glog.w("Hue pair: ${r.error}"); return@Thread }
+                Thread.sleep(1000)
+            }
+            com.glasslauncher.tv.data.Glog.w("Hue pair: button not pressed")
+        }.start()
+        // Opens a title in Nuvio Legacy as the carousel does: --es open_legacy movie:tt0111161.
+        i.getStringExtra("open_legacy")?.let { v -> com.glasslauncher.tv.data.NuvioLaunch.openIn(app, "legacy",
+            com.glasslauncher.tv.data.HeroItem(v.substringAfter(':'), v.substringAfter(':'), v.substringBefore(':'), "", "", "", "", "", "", "", emptyList(), "")) }
         if (i.getBooleanExtra("show_tour", false)) com.glasslauncher.tv.ui.WhatsNew.show()
         if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
@@ -100,6 +117,22 @@ object DevHooks {
         if (i.hasExtra("timing")) com.glasslauncher.tv.data.Glog.timing = i.getBooleanExtra("timing", false)
         if (i.hasExtra("video_ms")) com.glasslauncher.tv.ui.VideoFrames.interval = i.getLongExtra("video_ms", 66L)
         if (i.hasExtra("dbg_hide")) com.glasslauncher.tv.ui.DebugHide.intValue = i.getIntExtra("dbg_hide", 0)
+        // A key held down, with the repeats the TV sends (adb can only send single presses):
+        // --ei hold_key 20 --ei hold_ms 2500 --ei hold_every 50
+        if (i.hasExtra("hold_key")) {
+            val code = i.getIntExtra("hold_key", android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+            val ms = i.getIntExtra("hold_ms", 2000).toLong(); val every = i.getIntExtra("hold_every", 50).toLong()
+            val h = android.os.Handler(android.os.Looper.getMainLooper())
+            val down = android.os.SystemClock.uptimeMillis() + 300
+            var n = 0
+            fun send() {
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - down >= ms) { a.dispatchKeyEvent(android.view.KeyEvent(down, now, android.view.KeyEvent.ACTION_UP, code, 0)); return }
+                a.dispatchKeyEvent(android.view.KeyEvent(down, now, android.view.KeyEvent.ACTION_DOWN, code, n))
+                h.postDelayed({ send() }, if (n++ == 0) 400 else every)
+            }
+            h.postDelayed({ send() }, 300)
+        }
         if (i.hasExtra("page_glass")) com.glasslauncher.tv.ui.PageGlass.on.value = i.getBooleanExtra("page_glass", true)
         if (i.getBooleanExtra("dump_prefs", false)) st.dumpAll().toSortedMap().forEach { (k, v) ->
             android.util.Log.i("GlassPrefs", "$k=${v.toString().take(120)}")

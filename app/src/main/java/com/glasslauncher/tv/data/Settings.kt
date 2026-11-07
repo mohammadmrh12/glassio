@@ -24,7 +24,9 @@ class Settings(private val ctx: Context) {
     private fun b(k: String, d: Boolean): Boolean { rev.intValue; return sp.getBoolean(k, d) }
     private fun i(k: String, d: Int): Int { rev.intValue; return sp.getInt(k, d) }
     private fun f(k: String, d: Float): Float { rev.intValue; return sp.getFloat(k, d) }
-    private fun s(k: String, d: String): String { rev.intValue; return sp.getString(k, d) ?: d }
+    // A value saved as another type (a list of one number set from a computer was stored as a number) is read as
+    // text instead of crashing.
+    private fun s(k: String, d: String): String { rev.intValue; return runCatching { sp.getString(k, d) ?: d }.getOrElse { sp.all[k]?.toString() ?: d } }
     private fun putB(k: String, v: Boolean) { sp.edit().putBoolean(k, v).apply(); touch() }
     private fun putI(k: String, v: Int) { sp.edit().putInt(k, v).apply(); touch() }
     private fun putF(k: String, v: Float) { sp.edit().putFloat(k, v).apply(); touch() }
@@ -157,6 +159,46 @@ class Settings(private val ctx: Context) {
     // ---- Music (Settings → Music)
     /** Music on: Glassio follows what any music app plays (needs its notification listener, switched on over ADB). */
     var musicOn: Boolean get() = b("musicOn", false); set(v) = putB("musicOn", v)
+
+    // ---- Hue Sync (Philips Hue lights in the colours of what's on screen)
+    var hueOn: Boolean get() = b("hueOn", false); set(v) = putB("hueOn", v)
+    var hueIp: String get() = s("hueIp", ""); set(v) = putS("hueIp", v)
+    var hueUser: String get() = s("hueUser", ""); set(v) = putS("hueUser", v)
+    /** Rooms and zones (group ids) whose lights follow the screen. */
+    var hueGroups: List<String> get() = list("hueGroups"); set(v) = putList("hueGroups", v)
+    /** Single lights (light ids) that follow the screen. */
+    var hueLights: List<String> get() = list("hueLights"); set(v) = putList("hueLights", v)
+    /** Where the colours come from: "backdrop" (what fills the screen), "poster", "logo". */
+    var hueSource: String get() = s("hueSource", "backdrop"); set(v) = putS("hueSource", v)
+    /** Videos (your video background, trailers) followed live. */
+    var hueVideo: Boolean get() = b("hueVideo", true); set(v) = putB("hueVideo", v)
+    var hueVideoSec: Int get() = i("hueVideoSec", 1); set(v) = putI("hueVideoSec", v.coerceIn(0, 10))
+    /** A different colour of the picture for each light (true) or the main colour on all. */
+    var hueSpread: Boolean get() = b("hueSpread", true); set(v) = putB("hueSpread", v)
+    /** 0 Subtle, 1 Natural, 2 Vivid, 3 Maximum. */
+    var hueIntensity: Int get() = i("hueIntensity", 1); set(v) = putI("hueIntensity", v.coerceIn(0, 3))
+    /** Brightness, % of full. */
+    var hueBri: Int get() = i("hueBri", 70); set(v) = putI("hueBri", v.coerceIn(5, 100))
+    /** Darker pictures make the lights dimmer. */
+    var hueFollowBri: Boolean get() = b("hueFollowBri", false); set(v) = putB("hueFollowBri", v)
+    /** How long a change of colour takes. */
+    var hueSpeedMs: Int get() = i("hueSpeedMs", 400); set(v) = putI("hueSpeedMs", v.coerceIn(0, 10_000))
+    /** Each light's part of the screen ("id:zone,…"; not listed = automatic). */
+    var hueZones: String get() = s("hueZones", ""); set(v) = putS("hueZones", v)
+    /** How lights of other makes take their colour ("id:hs|xy,…"; not listed = hue and saturation). */
+    var hueMethods: String get() = s("hueMethods", ""); set(v) = putS("hueMethods", v)
+    /** On the screensaver too (its videos). */
+    var hueSaver: Boolean get() = b("hueSaver", true); set(v) = putB("hueSaver", v)
+    /** The lights take the glow's colour of the selected app in the dock / poster in the Library. */
+    var hueApps: Boolean get() = b("hueApps", false); set(v) = putB("hueApps", v)
+    var huePosters: Boolean get() = b("huePosters", false); set(v) = putB("huePosters", v)
+    /** How bright the lights are with a selected app's / poster's colour (their own setting, not the screen's). */
+    var hueAppsBri: Int get() = i("hueAppsBri", 70); set(v) = putI("hueAppsBri", v.coerceIn(5, 100))
+    var huePostersBri: Int get() = i("huePostersBri", 70); set(v) = putI("huePostersBri", v.coerceIn(5, 100))
+    /** Opening an app or a film: "restore" (as they were), "dim", "off", "keep". */
+    var hueLeave: String get() = s("hueLeave", "restore"); set(v) = putS("hueLeave", v)
+    /** The TV turning off: "restore", "off", "keep". */
+    var hueOff: String get() = s("hueOff", "restore"); set(v) = putS("hueOff", v)
     /** ▶ in the menu turns it into the player. */
     var musicMenu: Boolean get() = b("musicMenu", true); set(v) = putB("musicMenu", v)
     /** A Music icon in the dock (opens the menu's player). */
@@ -328,6 +370,8 @@ class Settings(private val ctx: Context) {
     var showDate: Boolean get() = b("showDate", false); set(v) = putB("showDate", v)
     /** tvOS look: icons are white until selected, then show their colours on a light plate. */
     var focusColor: Boolean get() = b("focusColor", true); set(v) = putB("focusColor", v)
+    /** The colour of the switches (and of a setting that's set and working) in Settings: burgundy, green, purple. */
+    var settingsAccent: String get() = s("settingsAccent", "burgundy"); set(v) = putS("settingsAccent", v)
     /** Plate behind the selected icon in "Colour on focus": light | dark | glass | amoled (pure black) */
     var focusPlate: String get() = s("focusPlate", "glass"); set(v) = putS("focusPlate", v)
     /** Clock: left (Apple TV) | right (next to the settings button, weather under it) */
@@ -442,6 +486,10 @@ class Settings(private val ctx: Context) {
     /** Doorbell straight from Home Assistant (no automation): its link, a long-lived token, and the sensor to watch. */
     var haUrl: String get() = s("haUrl", ""); set(v) = putS("haUrl", v.trim().trimEnd('/'))
     var haToken: String get() = s("haToken", ""); set(v) = putS("haToken", v.trim())
+    /** Nuvio Legacy's playback sent to Home Assistant as it happens (event "glassio_nuvio"). */
+    var nuvioPush: Boolean get() = b("nuvioPush", false); set(v) = putB("nuvioPush", v)
+    /** The key Home Assistant sends with Nuvio's controls (X-Relay-Token), port 9091. */
+    var nuvioToken: String get() = s("nuvioToken", ""); set(v) = putS("nuvioToken", v.trim())
     var haDoorbellEntity: String get() = s("haDoorbellEntity", ""); set(v) = putS("haDoorbellEntity", v.trim())
     var doorbellSec: Int get() = i("doorbellSec", 20); set(v) = putI("doorbellSec", v.coerceIn(5, 300))
     var cameraCornerSec: Int get() = i("cameraCornerSec", 30); set(v) = putI("cameraCornerSec", v.coerceIn(0, 600))

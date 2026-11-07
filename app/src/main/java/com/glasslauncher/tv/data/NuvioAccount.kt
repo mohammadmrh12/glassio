@@ -13,11 +13,36 @@ import java.net.URL
  *
  * Sign-in: an anonymous session asks for a TV code, the person approves it on nuvio.tv with the phone, and the
  * code is exchanged for the account's tokens. Tokens stay on the TV, in their own preferences file.
+ *
+ * A self-hosted Nuvio backend (its own Supabase project) works too: its address, its anon key and, if it has one,
+ * its TV sign-in page are set in Settings → Connections or on the phone page; without that page, the account
+ * signs in with its email and password.
  */
 class NuvioAccount(ctx: Context) {
     private val sp = ctx.getSharedPreferences("glass_nuvio", Context.MODE_PRIVATE)
-    private val key = BuildConfig.NUVIO_ANON_KEY
-    private val base = "https://api.nuvio.tv"
+    /** The backend: the official one unless a self-hosted one is set. */
+    val server: String get() = sp.getString("server", "").orEmpty()
+    private val customKey: String get() = sp.getString("serverKey", "").orEmpty()
+    /** The page where a TV code is approved (the official nuvio.tv one by default). */
+    val loginPage: String get() = sp.getString("loginPage", "").orEmpty().ifBlank { if (custom) "" else OFFICIAL_LOGIN }
+    val custom: Boolean get() = server.isNotBlank()
+    private val key: String get() = if (custom) customKey else BuildConfig.NUVIO_ANON_KEY
+    private val base: String get() = if (custom) server else OFFICIAL
+
+    /**
+     * Uses a self-hosted backend ([url] blank: the official one again). Signs out first: an account's tokens
+     * belong to the server that gave them.
+     */
+    fun setServer(url: String, anonKey: String, login: String) {
+        val u = url.trim().trimEnd('/')
+        require(u.isBlank() || u.startsWith("https://") || u.startsWith("http://")) { "The address starts with https://" }
+        require(u.isBlank() || anonKey.isNotBlank() || u == server && customKey.isNotBlank()) { "Add the server's anon key (Supabase → Project Settings → API)" }
+        signOut()
+        sp.edit().putString("server", u).apply {
+            if (u.isBlank()) { remove("serverKey"); remove("loginPage") }
+            else { if (anonKey.isNotBlank()) putString("serverKey", anonKey.trim()); putString("loginPage", login.trim()) }
+        }.apply()
+    }
 
     val available: Boolean get() = key.isNotBlank()
     val connected: Boolean get() = sp.getString("refresh", "").orEmpty().isNotBlank()
@@ -48,14 +73,16 @@ class NuvioAccount(ctx: Context) {
         check(anon.isNotBlank()) { "Nuvio answered HTTP $sc" }
         val nonce = java.util.UUID.randomUUID().toString()
         fun start(withName: Boolean) = call("/rest/v1/rpc/start_tv_login_session", JSONObject()
-            .put("p_device_nonce", nonce).put("p_redirect_base_url", "https://nuvio.tv/tv-login")
+            .put("p_device_nonce", nonce).apply { if (loginPage.isNotBlank()) put("p_redirect_base_url", loginPage) }
             .apply { if (withName) put("p_device_name", "Glassio") }, anon)
         var (code, text) = start(true)
         if (code !in 200..299) { val r = start(false); code = r.first; text = r.second }
         check(code in 200..299) { "Nuvio answered HTTP $code" }
         val o = text.trim().let { if (it.startsWith("[")) JSONArray(it).getJSONObject(0) else JSONObject(it) }
         val c = o.getString("code")
-        return Code(c, o.optString("web_url").ifBlank { "https://nuvio.tv/tv-login?code=$c" }, nonce, anon, o.optInt("poll_interval_seconds", 3).coerceIn(1, 30))
+        val page = o.optString("web_url").ifBlank { loginPage.takeIf { it.isNotBlank() }?.let { "$it?code=$c" }.orEmpty() }
+        check(page.isNotBlank()) { "This server has no TV sign-in page: sign in with email instead" }
+        return Code(c, page, nonce, anon, o.optInt("poll_interval_seconds", 3).coerceIn(1, 30))
     }
 
     /** Step 2: waits until the code is approved, then keeps the account's tokens. */
@@ -105,7 +132,26 @@ class NuvioAccount(ctx: Context) {
         return null
     }
 
-    fun signOut() { sp.edit().clear().apply() }
+    /** Signs in with the account's email and password (any Nuvio backend, self-hosted ones included). Blocking. */
+    fun signInWithPassword(email: String, password: String): Boolean {
+        lastError = ""
+        val (c, t) = runCatching { call("/auth/v1/token?grant_type=password", JSONObject().put("email", email.trim()).put("password", password), null) }
+            .getOrElse { lastError = it.message ?: "No answer"; return false }
+        if (c in 200..299 && keep(t)) {
+            if (email.isNotBlank() && this.email.isBlank()) sp.edit().putString("email", email.trim()).apply()
+            return true
+        }
+        lastError = runCatching { JSONObject(t).let { it.optString("error_description").ifBlank { it.optString("msg") } } }.getOrNull()?.ifBlank { null } ?: "HTTP $c"
+        return false
+    }
+
+    /** Signs out (the server chosen stays). */
+    fun signOut() { sp.edit().remove("access").remove("refresh").remove("exp").remove("email").apply() }
+
+    companion object {
+        const val OFFICIAL = "https://api.nuvio.tv"
+        const val OFFICIAL_LOGIN = "https://nuvio.tv/tv-login"
+    }
 
     private fun rawPage(profile: Int, offset: Int, tok0: String): Pair<JSONArray, String> {
         var tok = tok0

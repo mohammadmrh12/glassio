@@ -26,6 +26,11 @@ object NowPlaying {
     }
 
     val track = MutableStateFlow<Track?>(null)
+    /**
+     * While YouTube is the session followed (a video playing), the music app under it (Spotify paused by it):
+     * the music page shows that one until YouTube has really played on as music, rather than going and coming back.
+     */
+    val alt = MutableStateFlow<Track?>(null)
     /** Shuffle in the playing app: one state for every player (menu, music mode, island). */
     val shuffled = androidx.compose.runtime.mutableStateOf(false)
     /** What the app last said, and what was set here (kept while the app doesn't report it: many never do). */
@@ -110,6 +115,9 @@ object NowPlaying {
             reported = null; userShuffle = null
             best?.registerCallback(callback, android.os.Handler(android.os.Looper.getMainLooper()))
         }
+        alt.value = if (best != null && best.packageName in SOMETIMES_MUSIC)
+            list.filter { it.packageName !in SOMETIMES_MUSIC && it.sessionToken != best.sessionToken }.firstNotNullOfOrNull { trackOf(it) }
+        else null
         publish()
     }
 
@@ -121,19 +129,28 @@ object NowPlaying {
             val v = userShuffle ?: r
             if (shuffled.value != v) shuffled.value = v
         }
-        val c = controller
-        if (c == null) { track.value = null; return }
-        val md = c.metadata ?: run { track.value = null; return }
+        val t = controller?.let { trackOf(it) }
+        // Play / Pause pressed here: an update still saying the old state (it often comes first) doesn't undo it.
+        val want = pendingPlaying
+        track.value = if (t != null && want != null && android.os.SystemClock.uptimeMillis() < pendingUntil && t.playing != want) t.copy(playing = want)
+            else { if (t?.playing == want) pendingPlaying = null; t }
+    }
+    @Volatile private var pendingPlaying: Boolean? = null
+    @Volatile private var pendingUntil = 0L
+
+    /** The song of one session, or nothing (no title, stopped, or stopped from Glassio). */
+    private fun trackOf(c: MediaController): Track? {
+        val md = c.metadata ?: return null
         val ps = c.playbackState
         val title = md.getString(MediaMetadata.METADATA_KEY_TITLE) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
-        if (title.isNullOrBlank()) { track.value = null; return }
+        if (title.isNullOrBlank()) return null
         val art = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART) ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
         val state = ps?.state ?: PlaybackState.STATE_NONE
         if (stoppedToken != null && c.sessionToken == stoppedToken) {
-            if (state == PlaybackState.STATE_PLAYING) stoppedToken = null else { track.value = null; return }
+            if (state == PlaybackState.STATE_PLAYING) stoppedToken = null else return null
         }
-        if (state == PlaybackState.STATE_STOPPED || state == PlaybackState.STATE_NONE || state == PlaybackState.STATE_ERROR) { track.value = null; return }
-        track.value = Track(
+        if (state == PlaybackState.STATE_STOPPED || state == PlaybackState.STATE_NONE || state == PlaybackState.STATE_ERROR) return null
+        return Track(
             c.packageName, title, md.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE) ?: "",
             md.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: "", art, md.getLong(MediaMetadata.METADATA_KEY_DURATION),
             ps?.position ?: 0L, ps?.lastPositionUpdateTime ?: android.os.SystemClock.elapsedRealtime(), ps?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
@@ -141,7 +158,16 @@ object NowPlaying {
         )
     }
 
-    fun playPause() { val c = controller ?: return; if (c.playbackState?.state == PlaybackState.STATE_PLAYING) c.transportControls.pause() else c.transportControls.play() }
+    fun playPause() {
+        val c = controller ?: return
+        val playing = c.playbackState?.state == PlaybackState.STATE_PLAYING
+        // Shown at once (the button, the page's dim, the dock's glass): the app's own report came a moment later.
+        pendingPlaying = !playing; pendingUntil = android.os.SystemClock.uptimeMillis() + 1500
+        track.value?.let { t -> track.value = t.copy(playing = !playing, position = t.positionNow(), at = android.os.SystemClock.elapsedRealtime()) }
+        // Sent off the main thread: Play waits on the system (it lets the app start in the background first) and
+        // held the screen still for a moment on every resume.
+        Thread({ runCatching { if (playing) c.transportControls.pause() else c.transportControls.play() } }, "glass-play").start()
+    }
     fun next() { controller?.transportControls?.skipToNext() }
     fun previous() { controller?.transportControls?.skipToPrevious() }
     /** Stops the music (and the player view goes away). */
@@ -173,6 +199,8 @@ object NowPlaying {
         android.support.v4.media.session.MediaControllerCompat(ctx, android.support.v4.media.session.MediaSessionCompat.Token.fromToken(c.sessionToken)).shuffleMode ==
             android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_ALL
     }.getOrDefault(false)
+    /** Apps that play video as well as music (YouTube): their playing counts as music only once it goes on. */
+    fun sometimesMusic(pkg: String) = pkg in SOMETIMES_MUSIC
     fun appLabel(pkg: String): String = MUSIC_APPS[pkg] ?: if (pkg in SOMETIMES_MUSIC) "YouTube" else pkg.substringAfterLast('.')
 }
 

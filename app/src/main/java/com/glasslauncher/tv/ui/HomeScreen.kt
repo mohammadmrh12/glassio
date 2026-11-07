@@ -458,7 +458,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         var folderLeft by remember { mutableStateOf(0L) }
         LaunchedEffect(folderOpen) { if (!folderOpen && folderLeft != 0L) { delay(500); folderLeft = 0L } }
         if (folderOpen) folderLeft = 1L
-        val veilIn = expanded || folderOpen || folderLeft != 0L
+        // (Multi-view cameras over the home screen: the page behind them blurs too.)
+        // (Multi-view over a video background: the blurred copy covers the video, which the screen's blur can't reach.)
+        val veilIn = expanded || folderOpen || folderLeft != 0L || (com.glasslauncher.tv.MultiCamOverlay.open.value && (VideoFrames.showing.value || android.os.Build.VERSION.SDK_INT < 31))
         // Comes in just after the dock has grown (both at once made the opening stutter on the TV); straight away
         // when it's already up (the folder).
         val veil = animateFloatAsState(if (veilIn) 1f else 0f, if (veilIn) tween(150, delayMillis = 110) else tween(100), label = "veil")
@@ -479,7 +481,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // Music mode: the glass (dock, menus, pop-ups) shows the music page (its blurred artwork), not the carousel
         // picture under it, and changes with each song.
         val songNow = MusicUi.heldTrack()
-        val stageWanted = settings.musicOn && settings.musicMode && MusicUi.stageAllowed(settings) && songNow != null
+        val stageWanted = MusicUi.stageOn(settings, songNow)
         val stageArt = songNow?.art?.takeIf { stageWanted }
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
         // (Keyed by how the artwork looks: the app sends a new picture object with every update.) A song whose
@@ -488,7 +490,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         LaunchedEffect(stageArtKey, stageWanted) { if (!stageWanted) MusicUi.stageTo(null) else if (stageArt != null) MusicUi.stageTo(stageArt) }
         // Paused: the page and its glass dim.
         val songPlaying = songNow?.playing == true
-        LaunchedEffect(songPlaying, stageWanted) { MusicUi.pauseDim.animateTo(if (stageWanted && !songPlaying) 0.6f else 0f, tween(700)) }
+        LaunchedEffect(songPlaying, stageWanted) { MusicUi.pauseDim.animateTo(if (stageWanted && !songPlaying) 0.6f else 0f, tween(if (songPlaying) 140 else 180, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
         val stagePic = MusicUi.stageCur.value?.glass?.takeIf { stageWanted }
         val stagePrevPic = MusicUi.stagePrev.value?.glass?.takeIf { stagePic != null }
         // (Counted as the page itself: the carousel page's dark shades aren't drawn over it, the music page has none.)
@@ -514,7 +516,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
             // painted every pixel four times there and the Library's scrolling lost frames.
             val libCovers = remember { mutableStateOf(false) }
-            if (!folderOpen && DebugHide.intValue and 1 == 0 && !VideoFrames.showing.value) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if ((veilCovers && blur.value > 0.995f) || libCovers.value) 0f else 1f }) {
+            if (!folderOpen && DebugHide.intValue and 1 == 0 && !VideoFrames.showing.value) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if ((veilCovers && blur.value > 0.995f) || libCovers.value || SettingsCovers.value) 0f else 1f }) {
                 if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
                     if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH)
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
@@ -701,7 +703,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // A trailer in its own window: over the dock and the dots too (only the pop-up menu is above it).
                 if (settings.trailerSize == "popup") TrailerLayer(app, s)
                 // The music island at the top of the home screen (Settings → Music), when Music mode isn't showing.
-                if (settings.musicOn && settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings))) MusicIsland(app, s)
+                if (settings.musicOn && settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)) && !MusicUi.forced.value) MusicIsland(app, s)
             }
             // The folder fades out over the home screen instead of vanishing: the dock's glass is drawn again under it
             // first (it showed black for a couple of frames as the folder closed).
@@ -1125,7 +1127,7 @@ private fun HeroSection(
     val shotMs = (settings.heroIntervalSec * 1000L).coerceAtLeast(4000L)
     // Your own background: the titles aren't shown, so none of their pictures are prepared or kept in memory.
     val ownBg = settings.bgMode != "carousel"
-    val stageNow = settings.musicOn && settings.musicMode && com.glasslauncher.tv.data.NowPlaying.track.collectAsState().value != null
+    val stageNow = (settings.musicOn && settings.musicMode || MusicUi.forced.value) && com.glasslauncher.tv.data.NowPlaying.track.collectAsState().value != null
     LaunchedEffect(item?.key, gallery.size, hidden, paused, resumed, ownBg, Trailers.playing.value != null, stageNow) {
         if (ownBg || gallery.size < 2 || hidden || paused || !resumed || stageNow || Trailers.playing.value != null) return@LaunchedEffect
         val loader = SingletonImageLoader.get(ctx)
@@ -1247,7 +1249,7 @@ private fun HeroSection(
     val trailerOn = Trailers.playing.value != null
     // Music mode on screen: the carousel stands still under it (it went on moving, unseen).
     val songOn = MusicUi.heldTrack()
-    val stageOn = settings.musicOn && settings.musicMode && MusicUi.stageAllowed(settings) && songOn != null
+    val stageOn = MusicUi.stageOn(settings, songOn)
     LaunchedEffect(stageOn) { if (stageOn && Trailers.playing.value?.overlay != true) Trailers.stop() }
     LaunchedEffect(index, items.size, settings.heroAutoplay, settings.heroIntervalSec, hidden, paused, resumed, trailerOn, stageOn) {
         if (settings.heroAutoplay && !hidden && !paused && resumed && !trailerOn && !stageOn && items.size > 1) {
@@ -1278,17 +1280,21 @@ private fun HeroSection(
     val seenAsk = remember { intArrayOf(asked) }
     LaunchedEffect(asked) { if (asked != seenAsk[0]) { seenAsk[0] = asked; item?.let { startTrailer(it) } } }
     // The trailer of the title on screen is found ahead (a second after it shows), so it starts without a wait.
-    LaunchedEffect(item?.key, hidden, resumed) {
+    // Only while the carousel is selected (a trailer can only start then): with the selection in the dock the
+    // carousel goes by on its own, and working each title's trailer out took a busy TV's processor (3 s each on the
+    // TCL, every slide).
+    LaunchedEffect(item?.key, hidden, resumed, focused) {
         val it = item ?: return@LaunchedEffect
-        if (hidden || !resumed || settings.bgMode != "carousel") return@LaunchedEffect
+        if (hidden || !resumed || !focused || settings.bgMode != "carousel") return@LaunchedEffect
         // Only for a title you stay on (not each one passed while browsing), and never in the first seconds after
         // the home screen comes up; on its own low-priority thread.
         val auto = settings.trailerAutoSec > 0
         delay(if (auto) 600 else 2500)
         if (android.os.SystemClock.uptimeMillis() - appStartedAt < 8_000) delay(8_000 - (android.os.SystemClock.uptimeMillis() - appStartedAt))
         withContext(Trailers.background) { runCatching { Trailers.prepare(app, it.type, it.id) } }
-        // And the next one in the carousel (trailers starting by themselves), so it is ready before it comes.
-        if (auto && items.size > 1) {
+        // And the next one in the carousel (trailers starting by themselves), so it is ready before it comes
+        // (not on small TVs: one at a time there).
+        if (auto && items.size > 1 && settings.memTier > 0) {
             val next = items[(index + 1).mod(items.size)]
             delay(2000)
             withContext(Trailers.background) { runCatching { Trailers.prepare(app, next.type, next.id) } }
@@ -1296,6 +1302,8 @@ private fun HeroSection(
     }
     // A new title, or leaving the home screen: the trailer stops.
     LaunchedEffect(item?.key, hidden, resumed) { if (Trailers.playing.value?.overlay != true && (Trailers.playing.value?.key != item?.key || hidden || !resumed)) Trailers.stop() }
+    // Hue Sync: the lights follow the screen while the home screen shows.
+    HueDriver(app, item, on = !hidden && resumed)
     // When a trailer ends, the next title comes (like the Apple TV app).
     val endedRev = Trailers.endedRev.intValue
     val seenEnded = remember { intArrayOf(endedRev) }
@@ -1324,19 +1332,33 @@ private fun HeroSection(
     // Your own picture / video / the screensaver behind: the page is just that, no title, details or buttons.
     val customBg = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial", "photos" -> true; else -> false }
     // ModulateAlpha: no full-screen off-screen pass while it fades (the dock opening); the pieces barely overlap.
-    Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }) {
+    // When the selection last left this page (the music player and the carousel come and go under it).
+    val pageFocus = remember { booleanArrayOf(false) }
+    val pageLostAt = remember { longArrayOf(0L) }
+    Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }
+        .onFocusChanged { if (it.hasFocus) pageFocus[0] = true else if (pageFocus[0]) { pageFocus[0] = false; pageLostAt[0] = android.os.SystemClock.uptimeMillis() } }) {
         val shown = textItem
         // Music mode: while a song plays, the player is the background (whatever was chosen).
         val song = MusicUi.heldTrack()
-        val musicStage = settings.musicOn && settings.musicMode && MusicUi.stageAllowed(settings) && song != null
+        val musicStage = MusicUi.stageOn(settings, song)
+        // Opened from the dock's Music icon: it stays until Back or the music stops.
+        LaunchedEffect(song == null) { if (song == null) MusicUi.forced.value = false }
+        BackHandler(enabled = MusicUi.forced.value && musicStage) { MusicUi.forced.value = false }
+        val focusDone = remember { intArrayOf(MusicUi.focusRev.intValue) }
+        LaunchedEffect(MusicUi.focusRev.intValue, musicStage) {
+            val rev = MusicUi.focusRev.intValue
+            if (rev != focusDone[0] && musicStage) { focusDone[0] = rev; delay(150); runCatching { heroFocus.requestFocus() } }
+        }
         // The player went (the app stopped, e.g. YouTube when you leave it) with the selection in it: the selection
         // comes back to the carousel (or the dock), not left nowhere.
+        // The same when the player comes (the carousel's button it had goes): the selection goes to the player.
         LaunchedEffect(musicStage) {
-            if (!musicStage && MusicUi.stageFocused) {
-                MusicUi.stageFocused = false
-                delay(120)
-                if (runCatching { heroFocus.requestFocus() }.isFailure) runCatching { firstTile.requestFocus() }
-            }
+            val changedAt = android.os.SystemClock.uptimeMillis()
+            val fromStage = !musicStage && MusicUi.stageFocused
+            if (fromStage) MusicUi.stageFocused = false
+            delay(120)
+            val lostWithIt = !pageFocus[0] && pageLostAt[0] >= changedAt - 100
+            if (fromStage || lostWithIt) if (runCatching { heroFocus.requestFocus() }.isFailure) runCatching { firstTile.requestFocus() }
         }
         // The trailer in place of the picture (under the text), or in its window.
         // The subtitles sit above the dock while it shows.
@@ -2338,9 +2360,12 @@ private fun DockTile(
     val colorOnFocus = app.settings.focusColor
     val zoom = app.settings.tileZoom
     val glow = app.settings.glow
-    val glowColor = if (glow == "color") art?.let { a -> remember(a) { Glow.colorOf("app:" + entry.pkg + rev, a.bmp.asAndroidBitmap()) } } else null
+    val hueApps = app.settings.hueApps && com.glasslauncher.tv.data.HueSync.ready(app.settings)
+    val artColor = if (glow == "color" || hueApps) art?.let { a -> remember(a) { Glow.colorOf("app:" + entry.pkg + rev, a.bmp.asAndroidBitmap()) } } else null
+    val glowColor = if (glow == "color") artColor else null
     TileFrame(s, radius, moving, label, alwaysLabel, modifier, onFocus, onMoveKey, onClick, onLong, solid, app.settings.tileLift, app.settings.edgeBounce, edges,
         zoom = zoom, glow = glow, glowColor = glowColor) { focused, r ->
+        HueFocus(app, hueApps, focused, artColor)
         // "Inside the glass": the tile stays put and only the icon grows in it.
         val iz by animateFloatAsState(if (focused && zoom == "icon") 1.12f else 1f, spring(0.72f, 520f), label = "iconZoom")
         if (colorOnFocus) {

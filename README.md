@@ -25,6 +25,29 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.1.0** — Hue Sync, a new Settings with search, a self-hosted Nuvio
+- **Hue Sync** (Settings → **Hue lights**): Philips Hue lights in the colours of what's on screen — the backdrop, the
+  poster or the logo, your video background, trailers, the screensaver's videos and the music's artwork.
+  - Each light follows its own part of the screen (left, right, top, corners, a gradient strip along the edges…, with
+    pictures of each choice), or its place in a Hue **entertainment area**. *Blink it* shows which light is which.
+  - Philips lights get colours inside their own range; other makes (Lidl Livarno, Tuya…) get hue and saturation.
+  - Optional: the lights take the colour of the **app selected in the dock** or the **poster in the Library**, each with
+    its own brightness.
+  - Intensity, brightness, follow the picture's brightness, change speed; a new title's colours come at once.
+  - When you open an app or a film, or the TV turns off: back as they were, dimmed, off or left.
+- **Settings**: grouped like iPhone Settings (rounded cards, thin lines, a white selection), **search** with Glassio's
+  own keyboard, quicker to open and to move through, and a **switch colour** (burgundy, green or purple).
+- **Manage from phone**: redesigned like iPhone Settings, light and dark, with a search.
+- **Nuvio**: a **self-hosted Nuvio backend** (server address, anon key, optional TV sign-in page) and sign-in with
+  email (#11).
+- **Home Assistant**: Glassio can send Nuvio's playback to Home Assistant and take pause / play / seek from it, without
+  Home Assistant polling the TV.
+- **Music**: the dock's Music icon opens the music page (even with Music mode off); Pause / Play show at once; names
+  cross-fade in place; leaving a YouTube video keeps the music page and the selection.
+- **Library**: holding Down glides at a steady pace (also with fast key repeat).
+- **Cameras**: multi-view blurs everything behind it, on the home screen and the screensaver. The screensaver never
+  starts during a trailer.
+
 **New in 3.0.0** (and 2.0.8 – 2.0.10) — music, trailers, inputs and a new screensaver
 - **What's new tour**: after an update, Glassio shows a short tour of what's new and where to switch each thing off or
   change it (Settings → About → *What's new* opens it again).
@@ -182,8 +205,13 @@ Tested on the Google TV Streamer (4K).
   Center: clock, weather, TV info, Library, settings, Wi-Fi, themes, camera, inputs, recent apps, screensaver, trailer and
   background — each optional — and a music player (press ▶).
 
+**Hue Sync**
+- Philips Hue lights follow the screen: per-light screen zones or entertainment-area places, colours per make, the
+  selected app or Library poster, and back as they were afterwards (Settings → Hue lights).
+
 **Home Assistant**
 - Webhook when a title opens (title, type, id, app). See [Home Assistant](#home-assistant).
+- Nuvio playback pushed to Home Assistant, and pause / play / seek from it.
 
 **Updates**
 - Checks GitHub Releases, shows a pill next to the clock; it downloads and installs right there (silently through the TV's

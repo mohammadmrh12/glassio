@@ -231,6 +231,20 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             Thread { Thread.sleep(1500); com.glasslauncher.tv.data.Backup.restart(app) }.start()
             "Restored ($n parts). Glassio restarts, open this page again from the TV"
         }
+        "/api/nuvio/server" -> {
+            val nv = app.library.nuvio
+            nv.setServer(j.optString("url"), j.optString("key"), j.optString("login"))
+            app.library.nuvioList.value = emptyList()
+            if (nv.custom) "Nuvio server set to ${runCatching { java.net.URI(nv.server).host }.getOrNull() ?: nv.server}. Now sign in" else "Back on the official Nuvio server"
+        }
+        "/api/nuvio/login" -> {
+            val nv = app.library.nuvio
+            if (nv.signInWithPassword(j.optString("email"), j.optString("password"))) {
+                app.settings.libraryNuvio = true
+                Thread { runCatching { app.library.refreshNuvio(); app.cw.pollNow() } }.start()
+                "Nuvio account connected" + (nv.email.takeIf { it.isNotBlank() }?.let { " as $it" } ?: "")
+            } else error("Nuvio: ${nv.lastError}")
+        }
         "/api/stremio/login" -> {
             val ok = app.cw.stremio.login(j.optString("email").trim(), j.optString("password"))
             if (ok) { Thread { runCatching { app.cw.syncStremio() } }.start(); "Stremio connected as ${app.cw.stremio.email}" } else error("Stremio didn't accept that email and password")
@@ -272,7 +286,10 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         st.cameras.forEach { l -> cams.put(JSONObject().put("name", l.substringBefore('|')).put("host", runCatching { java.net.URI(l.substringAfter('|')).host }.getOrNull() ?: "")) }
         val acc = JSONObject().put("nuvio", app.cw.nuvio?.connected == true).put("stremio", app.cw.stremio.connected)
             .put("trakt", app.cw.trakt.connected).put("simkl", app.cw.simkl.connected)
-        return JSONObject().put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc)
+        val nv = app.library.nuvio
+        val nuvioServer = JSONObject().put("custom", nv.custom).put("host", if (nv.custom) runCatching { java.net.URI(nv.server).host }.getOrNull() ?: nv.server else "")
+            .put("login", if (nv.custom) nv.loginPage else "")
+        return JSONObject().put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc).put("nuvioServer", nuvioServer)
             .put("tmdb", app.settings.tmdbToken.isNotBlank()).put("ha", app.settings.haWebhook.isNotBlank())
     }
 
@@ -288,79 +305,148 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
     }
 
     private companion object {
-        const val PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Glassio</title><style>
-body{margin:0;background:#0b0d16;color:#eef1fb;font:16px/1.5 -apple-system,Roboto,Segoe UI,sans-serif}
-main{max-width:620px;margin:0 auto;padding:22px 16px 60px}h1{font-size:26px;margin:6px 0 0}h2{font-size:13px;letter-spacing:.12em;color:#9d8cff;margin:30px 0 8px;text-transform:uppercase}
-p{color:#98a2bd;margin:4px 0 12px}input[type=text],input[type=password],textarea{width:100%;box-sizing:border-box;background:#141827;color:#eef1fb;border:1px solid #232a40;border-radius:12px;padding:12px;font:15px monospace}
-button{background:#7b61ff;color:#fff;border:0;border-radius:12px;padding:11px 16px;font-size:15px;font-weight:600;margin-top:8px}
-button.s{background:#232a40;color:#eef1fb;padding:8px 12px;font-size:13px;margin:0 4px 0 0}button.d{background:#3a1f2b;color:#ff8f9b}
-#msg{position:sticky;top:0;padding:10px 0;min-height:1.4em;font-weight:600}.ok{color:#6ee7b7}.bad{color:#ff8f9b}
-.card{background:#141827;border-radius:14px;padding:12px 14px;margin-bottom:8px}.card b{display:block}.card small{color:#6b7794;word-break:break-all}
-.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.tag{font-size:11px;background:#2a2150;color:#c8bdff;border-radius:6px;padding:1px 6px;margin-left:6px}
+        const val PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark"><title>Glassio</title><style>
+:root{--bg:#f2f2f7;--card:#fff;--ink:#000;--sub:#8a8a8e;--line:rgba(60,60,67,.18);--field:#f2f2f7;--blue:#007aff;--red:#ff3b30;--green:#34c759}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--ink:#fff;--sub:#8d8d93;--line:rgba(84,84,88,.6);--field:#2c2c2e;--blue:#0a84ff;--red:#ff453a;--green:#30d158}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:640px;margin:0 auto;padding:max(18px,env(safe-area-inset-top)) 16px 90px}
+h1{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:18px 4px 2px}.lead{color:var(--sub);font-size:15px;margin:0 4px 14px}
+#q{width:100%;border:0;border-radius:10px;background:rgba(118,118,128,.12);color:var(--ink);font-size:17px;padding:9px 12px;outline:none;margin-bottom:6px}
+section{margin-top:26px}h2{font-size:13px;font-weight:400;text-transform:uppercase;color:var(--sub);margin:0 16px 7px;letter-spacing:.01em}
+.list{background:var(--card);border-radius:12px;overflow:hidden}
+.it{padding:11px 16px;position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.list>*,.list>div>*{position:relative}.list>*+*:before,.list>div>*+*:before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--line)}.act{display:block}.hide:before{display:none}
+.it .t{flex:1;min-width:0}.it .t b{font-weight:400;display:block;overflow:hidden;text-overflow:ellipsis}.it .t small{display:block;color:var(--sub);font-size:13px;word-break:break-all}
+.foot{color:var(--sub);font-size:13px;margin:7px 16px 0}
+input[type=text],input[type=password]{width:100%;border:0;background:transparent;color:var(--ink);font-size:17px;padding:2px 0;outline:none}
+.it.f{padding:12px 16px}
+a.b,button{appearance:none;border:0;background:none;color:var(--blue);font-size:17px;padding:0;cursor:pointer}
+button.x{color:var(--red)}button.p{background:var(--blue);color:#fff;border-radius:10px;padding:8px 14px;font-weight:600;font-size:15px}
+.act{color:var(--blue);text-align:left;width:100%;padding:12px 16px;font-size:17px}
+.seg{display:flex;background:rgba(118,118,128,.12);border-radius:9px;padding:2px;gap:2px;width:100%}.seg button{flex:1;color:var(--ink);font-size:13px;padding:6px 4px;border-radius:7px}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.15);font-weight:600}
+.tag{font-size:12px;color:var(--sub);margin-left:6px}.ok{color:var(--green)}.dim{color:var(--sub)}
+.btns{display:flex;gap:16px}
+#msg{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(140%);background:rgba(30,30,32,.92);color:#fff;font-size:15px;padding:11px 18px;border-radius:22px;transition:transform .25s;max-width:90%;text-align:center;z-index:9}
+#msg.show{transform:translateX(-50%) translateY(0)}#msg.bad{background:rgba(180,30,30,.95)}
+.hide{display:none}
 </style></head><body><main>
-<h1>Glassio</h1><p>Manage your TV from here &middot; &#1573;&#1583;&#1575;&#1585;&#1577; &#1575;&#1604;&#1578;&#1604;&#1601;&#1586;&#1610;&#1608;&#1606; &#1605;&#1606; &#1607;&#1606;&#1575;</p>
+<h1>Glassio</h1><p class="lead">Manage your TV from here &middot; &#1573;&#1583;&#1575;&#1585;&#1577; &#1575;&#1604;&#1578;&#1604;&#1601;&#1586;&#1610;&#1608;&#1606; &#1605;&#1606; &#1607;&#1606;&#1575;</p>
+<input id="q" type="search" placeholder="Search" oninput="filt()">
 <div id="msg"></div>
-<h2>Add-ons</h2><div id="addons"></div>
-<input type="text" id="au" placeholder="https://.../manifest.json  or  stremio://..."><button onclick="addAddon()">Add add-on</button>
-<h2>Background</h2><p>What's behind the home screen. Your pictures and videos live in Glassio's backgrounds folder on the TV.</p>
-<div class="row" id="bgm"></div><p id="bgnow"></p>
-<input type="text" id="bi" placeholder="Picture link: https://.../photo.jpg"><div class="row"><button onclick="bgLink('image','bi')">Use picture link</button><button class="s" onclick="bgSave('bi')">Save to the TV</button></div>
-<input type="text" id="bv" placeholder="Video link: https://.../video.mp4" style="margin-top:12px"><div class="row"><button onclick="bgLink('video','bv')">Use video link</button><button class="s" onclick="bgSave('bv')">Save to the TV</button></div>
-<div class="row" style="margin-top:12px"><input type="file" id="bf" accept="image/*,video/*" style="display:none" onchange="bgUp()"><button onclick="document.getElementById('bf').click()">Upload a picture or video from this phone</button></div>
-<p id="bgp"></p><div id="bgfiles"></div>
-<h2>App icons</h2><p>Pick an app, then paste an image link or upload an image from this phone.</p><div id="apps"></div>
-<h2>TMDB token (logos, synopsis, ratings)</h2><p>Paste the <b>API Read Access Token</b> (the long one, starting eyJ...), not the short API Key. themoviedb.org &rarr; Settings &rarr; API.</p><p id="tks"></p><input type="text" id="tk" placeholder="TMDB API Read Access Token"><button onclick="send('/api/tmdb',{token:v('tk')},'tk')">Save token</button>
-<h2>Home Assistant webhook</h2><input type="text" id="ha" placeholder="http://homeassistant.local:8123/api/webhook/your_id"><button onclick="send('/api/ha',{url:v('ha')},'ha')">Save webhook</button>
-<h2>Unsplash photos (background)</h2><p>Free: unsplash.com/developers &rarr; New application &rarr; copy the <b>Access Key</b>.</p><input type="text" id="uk" placeholder="Unsplash Access Key"><button onclick="send('/api/unsplash',{key:v('uk')},'uk')">Save key</button>
-<h2>Home Assistant doorbell</h2><p>Glassio watches the doorbell itself, no automation needed. Token: Home Assistant &rarr; your profile &rarr; Security &rarr; Long-lived access tokens.</p><input type="text" id="hu" placeholder="http://homeassistant.local:8123"><input type="password" id="ht" placeholder="Long-lived access token" style="margin-top:8px"><button onclick="send('/api/ha/doorbell',{url:v('hu'),token:v('ht')},'ht')">Save</button>
-<h2>Screensaver video links</h2><div id="aerial"></div>
-<input type="text" id="av" placeholder="https://.../video.mp4"><button onclick="send('/api/aerial/add',{url:v('av')},'av')">Add video</button>
-<h2>Accounts</h2><p id="acc"></p>
-<input type="text" id="se" placeholder="Stremio email"><input type="password" id="sp" placeholder="Stremio password" style="margin-top:8px"><button onclick="send('/api/stremio/login',{email:v('se'),password:v('sp')},'sp')">Sign in to Stremio</button>
-<input type="text" id="sk" placeholder="Simkl client ID (simkl.com/settings/developer)" style="margin-top:14px"><button onclick="send('/api/simkl/client',{id:v('sk')},'sk')">Save Simkl client ID</button>
-<p>Nuvio, Trakt and Simkl sign in with a code on the TV: Settings &rarr; Connections.</p>
-<h2>Cameras (RTSP)</h2><div id="cams"></div><input type="text" id="cn" placeholder="Name, e.g. Garden"><input type="text" id="cu" placeholder="rtsp://user:pass@camera:554/stream" style="margin-top:8px"><button onclick="send('/api/camera/add',{name:v('cn'),url:v('cu')},'cu')">Add camera</button>
-<h2>Backup</h2><p>Every setting, catalog, Library and account, tokens included. Keep the file private.</p>
-<div class="row"><button onclick="location.href='/api/backup?t='+encodeURIComponent(T)">Download backup</button><input type="file" id="rf" accept=".json,application/json" style="display:none" onchange="restore()"><button class="s" onclick="document.getElementById('rf').click()">Restore from a file</button></div>
+
+<section data-k="accounts stremio simkl nuvio trakt sign in"><h2>Accounts</h2><div class="list">
+<div class="it"><div class="t"><b id="acc" style="font-size:15px"></b></div></div>
+<div class="it f"><input type="text" id="se" placeholder="Stremio email" autocomplete="username"></div>
+<div class="it f"><input type="password" id="sp" placeholder="Stremio password" autocomplete="current-password"></div>
+<button class="act" onclick="send('/api/stremio/login',{email:v('se'),password:v('sp')},'sp')">Sign in to Stremio</button>
+<div class="it f"><input type="text" id="sk" placeholder="Simkl client ID"></div>
+<button class="act" onclick="send('/api/simkl/client',{id:v('sk')},'sk')">Save Simkl client ID</button>
+</div><p class="foot">Nuvio, Trakt and Simkl sign in with a code on the TV: Settings &rarr; Connections.</p></section>
+
+<section data-k="nuvio server self-hosted supabase backend email sign in"><h2>Nuvio server</h2><div class="list">
+<div class="it"><div class="t"><b>Server</b></div><span id="nvs" class="dim"></span></div>
+<div class="it f"><input type="text" id="nu" placeholder="https://your-project.supabase.co (empty: official)"></div>
+<div class="it f"><input type="text" id="nk" placeholder="Anon (public) key"></div>
+<div class="it f"><input type="text" id="nl" placeholder="TV sign-in page (optional)"></div>
+<button class="act" onclick="send('/api/nuvio/server',{url:v('nu'),key:v('nk'),login:v('nl')},'nk')">Save server</button>
+<div class="it f"><input type="text" id="ne" placeholder="Nuvio email" autocomplete="username"></div>
+<div class="it f"><input type="password" id="np" placeholder="Nuvio password" autocomplete="current-password"></div>
+<button class="act" onclick="send('/api/nuvio/login',{email:v('ne'),password:v('np')},'np')">Sign in to Nuvio</button>
+</div><p class="foot">Only for a self-hosted Nuvio backend. The anon key: Supabase &rarr; Project Settings &rarr; API. Without a TV sign-in page, sign in here with email and password. Changing the server signs out.</p></section>
+
+<section data-k="add-ons addons catalogs manifest stremio"><h2>Add-ons</h2><div class="list"><div id="addons"></div>
+<div class="it f"><input type="text" id="au" placeholder="https://&hellip;/manifest.json or stremio://&hellip;"></div>
+<button class="act" onclick="addAddon()">Add add-on</button></div></section>
+
+<section data-k="background picture video wallpaper upload"><h2>Background</h2><div class="list">
+<div class="it"><div class="seg" id="bgm"></div></div>
+<div class="it" id="bgnowr"><div class="t"><small id="bgnow"></small></div></div>
+<div class="it f"><input type="text" id="bi" placeholder="Picture link"></div>
+<div class="it"><div class="btns"><button onclick="bgLink('image','bi')">Use link</button><button onclick="bgSave('bi')">Save to the TV</button></div></div>
+<div class="it f"><input type="text" id="bv" placeholder="Video link"></div>
+<div class="it"><div class="btns"><button onclick="bgLink('video','bv')">Use link</button><button onclick="bgSave('bv')">Save to the TV</button></div></div>
+<input type="file" id="bf" accept="image/*,video/*" class="hide" onchange="bgUp()"><button class="act" onclick="document.getElementById('bf').click()">Upload from this phone&hellip;</button>
+</div><p class="foot" id="bgp"></p>
+<div class="list" id="bgfiles" style="margin-top:10px"></div></section>
+
+<section data-k="app icons dock"><h2>App icons</h2><div class="list">
+<div class="it f"><input type="text" id="af" placeholder="Find an app" oninput="drawApps()"></div><div id="apps"></div></div>
+<p class="foot">Use an image link, or upload an image from this phone.</p></section>
+
+<section data-k="screensaver video links aerial"><h2>Screensaver videos</h2><div class="list"><div id="aerial"></div>
+<div class="it f"><input type="text" id="av" placeholder="https://&hellip;/video.mp4"></div>
+<button class="act" onclick="send('/api/aerial/add',{url:v('av')},'av')">Add video</button></div></section>
+
+<section data-k="cameras rtsp multi view"><h2>Cameras</h2><div class="list"><div id="cams"></div>
+<div class="it f"><input type="text" id="cn" placeholder="Name, e.g. Garden"></div>
+<div class="it f"><input type="text" id="cu" placeholder="rtsp://user:pass@camera:554/stream"></div>
+<button class="act" onclick="send('/api/camera/add',{name:v('cn'),url:v('cu')},'cu')">Add camera</button></div></section>
+
+<section data-k="tmdb token unsplash key logos ratings"><h2>Keys</h2><div class="list">
+<div class="it"><div class="t"><b>TMDB</b><small>Logos, synopsis, ratings</small></div><span id="tks" class="dim"></span></div>
+<div class="it f"><input type="text" id="tk" placeholder="API Read Access Token (starts eyJ&hellip;)"></div>
+<button class="act" onclick="send('/api/tmdb',{token:v('tk')},'tk')">Save TMDB token</button>
+<div class="it"><div class="t"><b>Unsplash</b><small>Photos as the background</small></div></div>
+<div class="it f"><input type="text" id="uk" placeholder="Access Key"></div>
+<button class="act" onclick="send('/api/unsplash',{key:v('uk')},'uk')">Save Unsplash key</button>
+</div><p class="foot">TMDB: themoviedb.org &rarr; Settings &rarr; API, the long Read Access Token (not the short API Key). Unsplash: unsplash.com/developers &rarr; New application.</p></section>
+
+<section data-k="home assistant doorbell webhook"><h2>Home Assistant</h2><div class="list">
+<div class="it"><div class="t"><b>Webhook</b><small>Called when you open an app</small></div><span id="has" class="dim"></span></div>
+<div class="it f"><input type="text" id="ha" placeholder="http://homeassistant.local:8123/api/webhook/&hellip;"></div>
+<button class="act" onclick="send('/api/ha',{url:v('ha')},'ha')">Save webhook</button>
+<div class="it"><div class="t"><b>Doorbell</b><small>Glassio watches it itself</small></div></div>
+<div class="it f"><input type="text" id="hu" placeholder="http://homeassistant.local:8123"></div>
+<div class="it f"><input type="password" id="ht" placeholder="Long-lived access token"></div>
+<button class="act" onclick="send('/api/ha/doorbell',{url:v('hu'),token:v('ht')},'ht')">Save</button>
+</div><p class="foot">Token: Home Assistant &rarr; your profile &rarr; Security &rarr; Long-lived access tokens.</p></section>
+
+<section data-k="backup restore settings"><h2>Backup</h2><div class="list">
+<button class="act" onclick="location.href='/api/backup?t='+encodeURIComponent(T)">Download backup</button>
+<input type="file" id="rf" accept=".json,application/json" class="hide" onchange="restore()"><button class="act" onclick="document.getElementById('rf').click()">Restore from a file&hellip;</button>
+</div><p class="foot">Every setting, catalog, Library and account, tokens included. Keep the file private.</p></section>
 </main><script>
-var T=new URLSearchParams(location.search).get('t')||'';
+var T=new URLSearchParams(location.search).get('t')||'',D=null,mt=0;
 function v(i){return document.getElementById(i).value.trim()}
-function say(t,ok){var m=document.getElementById('msg');m.textContent=t;m.className=ok?'ok':'bad'}
+function say(t,ok){var m=document.getElementById('msg');m.textContent=t;m.className=(ok?'':'bad')+' show';clearTimeout(mt);mt=setTimeout(function(){m.className=ok?'':'bad'},3200)}
 function api(p,b){return fetch(p+'?t='+encodeURIComponent(T),b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(function(r){return r.json()})}
-function send(p,b,clear){say('...',true);api(p,b).then(function(r){say(r.ok?r.message:r.error,r.ok);if(r.ok){if(clear)document.getElementById(clear).value='';load()}}).catch(function(){say('Cannot reach the TV',false)})}
+function send(p,b,clear){api(p,b).then(function(r){say(r.ok?r.message:r.error,r.ok);if(r.ok){if(clear)document.getElementById(clear).value='';load()}}).catch(function(){say('Cannot reach the TV',false)})}
 function addAddon(){var u=v('au');if(u)send('/api/addon/add',{url:u},'au')}
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
-function up(pkg,f){say('Uploading...',true);fetch('/api/icon/upload?pkg='+encodeURIComponent(pkg)+'&t='+encodeURIComponent(T),{method:'POST',body:f}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok);load()}).catch(function(){say('Upload failed',false)})}
+function item(title,sub,tags){var c=el('div','it'),t=el('div','t'),b=el('b','',title);(tags||[]).forEach(function(g){b.appendChild(el('span','tag',g))});t.appendChild(b);if(sub)t.appendChild(el('small','',sub));c.appendChild(t);return c}
+function btn(label,cls,fn){var b=el('button',cls||'',label);b.onclick=fn;return b}
+function filt(){var q=v('q').toLowerCase();document.querySelectorAll('section').forEach(function(s){s.classList.toggle('hide',q&&(s.dataset.k+' '+s.textContent).toLowerCase().indexOf(q)<0)})}
+function up(pkg,f){say('Uploading…',true);fetch('/api/icon/upload?pkg='+encodeURIComponent(pkg)+'&t='+encodeURIComponent(T),{method:'POST',body:f}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok);load()}).catch(function(){say('Upload failed',false)})}
 function bgLink(k,i){var u=v(i);if(u)send('/api/bg/link',{kind:k,url:u},i)}
 function bgSave(i){var u=v(i);if(u)send('/api/bg/download',{url:u,use:true},i)}
 function bgUp(){var f=document.getElementById('bf').files[0];if(!f)return;var x=new XMLHttpRequest(),p=document.getElementById('bgp');
 x.open('POST','/api/bg/upload?use=1&name='+encodeURIComponent(f.name)+'&t='+encodeURIComponent(T));
 x.upload.onprogress=function(e){if(e.lengthComputable)p.textContent='Uploading '+Math.round(e.loaded*100/e.total)+'%'};
 x.onload=function(){p.textContent='';try{var r=JSON.parse(x.responseText);say(r.ok?r.message:r.error,r.ok)}catch(e){say('Upload failed',false)}document.getElementById('bf').value='';load()};
-x.onerror=function(){p.textContent='';say('Upload failed',false)};say('Uploading...',true);x.send(f)}
-function restore(){var f=document.getElementById('rf').files[0];if(!f)return;if(!confirm('Replace every setting on the TV with this backup?'))return;f.text().then(function(t){say('Restoring...',true);return fetch('/api/restore?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:t})}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok)}).catch(function(){say('Restore failed',false)})}
-var BGM=[['carousel','Title backdrops'],['image','My picture'],['video','My video'],['aerial','Screensaver']],poll=0;
-function load(){api('/api/state').then(function(d){
-var a=document.getElementById('addons');a.textContent='';d.addons.forEach(function(x){var c=el('div','card');var t=el('b','',x.name);if(x.account)t.appendChild(el('span','tag','Nuvio account'));c.appendChild(t);c.appendChild(el('small','',x.host));if(!x.account){var r=el('div','row');var b=el('button','s d','Remove');b.onclick=function(){send('/api/addon/remove',{url:x.url})};r.appendChild(b);c.appendChild(r)}a.appendChild(c)});
-var g=d.bg,m=document.getElementById('bgm');m.textContent='';BGM.forEach(function(o){var b=el('button',g.mode==o[0]?'':'s',o[1]);b.onclick=function(){send('/api/bg/mode',{mode:o[0]})};m.appendChild(b)});
-document.getElementById('bgnow').textContent=(g.image?'Picture: '+g.image+'  ':'')+(g.video?'Video: '+g.video:'');
-var bp=document.getElementById('bgp');if(g.downloading){bp.textContent='Downloading '+g.downloading+'...';clearTimeout(poll);poll=setTimeout(load,2000)}else if(g.last&&bp.textContent.indexOf('Downloading')==0){bp.textContent=g.last}
-var bl=document.getElementById('bgfiles');bl.textContent='';g.files.forEach(function(f){var c=el('div','card');var t=el('b','',f.name);t.appendChild(el('span','tag',f.video?'video':'picture'));if(f.used)t.appendChild(el('span','tag','in use'));c.appendChild(t);c.appendChild(el('small','',f.mb+' MB'));var r=el('div','row');
-var bu=el('button','s','Use');bu.onclick=function(){send('/api/bg/use',{name:f.name})};var bd=el('button','s d','Delete');bd.onclick=function(){if(confirm('Delete '+f.name+'?'))send('/api/bg/delete',{name:f.name})};r.appendChild(bu);r.appendChild(bd);c.appendChild(r);bl.appendChild(c)});
-var p=document.getElementById('apps');p.textContent='';d.apps.forEach(function(x){var c=el('div','card');var t=el('b','',x.label);if(x.custom)t.appendChild(el('span','tag','custom'));c.appendChild(t);c.appendChild(el('small','',x.pkg));var r=el('div','row');
-var bu=el('button','s','Link');bu.onclick=function(){var u=prompt('Image link');if(u)send('/api/icon/url',{pkg:x.pkg,url:u})};
-var fi=el('input');fi.type='file';fi.accept='image/*';fi.style.display='none';fi.onchange=function(){if(fi.files[0])up(x.pkg,fi.files[0])};
-var bf=el('button','s','Upload');bf.onclick=function(){fi.click()};
-var br=el('button','s d','Reset');br.onclick=function(){send('/api/icon/reset',{pkg:x.pkg})};
-r.appendChild(bu);r.appendChild(bf);r.appendChild(fi);if(x.custom)r.appendChild(br);c.appendChild(r);p.appendChild(c)});
-var ks=document.getElementById('tks');ks.textContent=d.tmdb?'\u2713 Set':'Not set';ks.className=d.tmdb?'ok':'';
-document.getElementById('tk').placeholder=d.tmdb?'Token saved (type a new one to replace, empty to remove)':'TMDB read access token';
-var hs=document.getElementById('ha');hs.previousElementSibling.innerHTML='Home Assistant webhook'+(d.ha?' <span class="ok">&#10003; Set</span>':'');
-document.getElementById('ha').placeholder=d.ha?'Webhook saved (type a new one to replace)':'http://homeassistant.local:8123/api/webhook/your_id';
-var z=document.getElementById('aerial');z.textContent='';d.aerial.forEach(function(u){var c=el('div','card');c.appendChild(el('small','',u.replace(/^(https?:\/\/[^\/]+).*$/,'$1')));var r=el('div','row');var b=el('button','s d','Remove');b.onclick=function(){send('/api/aerial/remove',{url:u})};r.appendChild(b);c.appendChild(r);z.appendChild(c)})
-var A=d.accounts||{};document.getElementById('acc').innerHTML=['nuvio','stremio','trakt','simkl'].map(function(k){return k.charAt(0).toUpperCase()+k.slice(1)+(A[k]?' <span class="ok">&#10003; connected</span>':' <span style="color:#6b7794">not connected</span>')}).join(' &middot; ');
-var cm=document.getElementById('cams');cm.textContent='';(d.cams||[]).forEach(function(x,i){var c=el('div','card');c.appendChild(el('b','',x.name));c.appendChild(el('small','',x.host));var r=el('div','row');var bn=el('button','s','Rename');bn.onclick=function(){var n=prompt('Camera name',x.name);if(n)send('/api/camera/rename',{i:i,name:n})};var b=el('button','s d','Remove');b.onclick=function(){if(confirm('Remove '+x.name+'?'))send('/api/camera/remove',{i:i})};r.appendChild(bn);r.appendChild(b);c.appendChild(r);cm.appendChild(c)});
+x.onerror=function(){p.textContent='';say('Upload failed',false)};say('Uploading…',true);x.send(f)}
+function restore(){var f=document.getElementById('rf').files[0];if(!f)return;if(!confirm('Replace every setting on the TV with this backup?'))return;f.text().then(function(t){say('Restoring…',true);return fetch('/api/restore?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:t})}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok)}).catch(function(){say('Restore failed',false)})}
+function drawApps(){if(!D)return;var q=v('af').toLowerCase(),p=document.getElementById('apps');p.textContent='';D.apps.filter(function(x){return !q||x.label.toLowerCase().indexOf(q)>=0}).forEach(function(x){var c=item(x.label,'',x.custom?['custom']:[]);var r=el('div','btns');
+r.appendChild(btn('Link','',function(){var u=prompt('Image link for '+x.label);if(u)send('/api/icon/url',{pkg:x.pkg,url:u})}));
+var fi=el('input');fi.type='file';fi.accept='image/*';fi.className='hide';fi.onchange=function(){if(fi.files[0])up(x.pkg,fi.files[0])};
+r.appendChild(btn('Upload','',function(){fi.click()}));r.appendChild(fi);if(x.custom)r.appendChild(btn('Reset','x',function(){send('/api/icon/reset',{pkg:x.pkg})}));c.appendChild(r);p.appendChild(c)})}
+var BGM=[['carousel','Titles'],['image','Picture'],['video','Video'],['aerial','Screensaver']],poll=0;
+function load(){api('/api/state').then(function(d){D=d;
+var a=document.getElementById('addons');a.textContent='';d.addons.forEach(function(x){var c=item(x.name,x.host,x.account?['Nuvio account']:[]);if(!x.account)c.appendChild(btn('Remove','x',function(){if(confirm('Remove '+x.name+'?'))send('/api/addon/remove',{url:x.url})}));a.appendChild(c)});
+var g=d.bg,m=document.getElementById('bgm');m.textContent='';BGM.forEach(function(o){m.appendChild(btn(o[1],g.mode==o[0]?'on':'',function(){send('/api/bg/mode',{mode:o[0]})}))});
+var now=(g.image?'Picture: '+g.image+'  ':'')+(g.video?'Video: '+g.video:'');document.getElementById('bgnow').textContent=now;document.getElementById('bgnowr').classList.toggle('hide',!now);
+var bp=document.getElementById('bgp');if(g.downloading){bp.textContent='Downloading '+g.downloading+'…';clearTimeout(poll);poll=setTimeout(load,2000)}else if(g.last&&bp.textContent.indexOf('Downloading')==0){bp.textContent=g.last}
+var bl=document.getElementById('bgfiles');bl.textContent='';bl.classList.toggle('hide',!g.files.length);g.files.forEach(function(f){var c=item(f.name,f.mb+' MB',[f.video?'video':'picture'].concat(f.used?['in use']:[]));var r=el('div','btns');
+r.appendChild(btn('Use','',function(){send('/api/bg/use',{name:f.name})}));r.appendChild(btn('Delete','x',function(){if(confirm('Delete '+f.name+'?'))send('/api/bg/delete',{name:f.name})}));c.appendChild(r);bl.appendChild(c)});
+drawApps();
+var ks=document.getElementById('tks');ks.textContent=d.tmdb?'✓ Set':'Not set';ks.className=d.tmdb?'ok':'dim';
+document.getElementById('tk').placeholder=d.tmdb?'Saved · type a new one to replace, empty to remove':'API Read Access Token (starts eyJ…)';
+var hs=document.getElementById('has');hs.textContent=d.ha?'✓ Set':'';hs.className=d.ha?'ok':'dim';
+var z=document.getElementById('aerial');z.textContent='';d.aerial.forEach(function(u){var c=item(u.replace(/^(https?:\/\/[^\/]+).*/,'$1'),'');c.appendChild(btn('Remove','x',function(){send('/api/aerial/remove',{url:u})}));z.appendChild(c)});
+var N=d.nuvioServer||{};var ns=document.getElementById('nvs');ns.textContent=N.custom?N.host:'Official';ns.className=N.custom?'ok':'dim';
+var A=d.accounts||{};document.getElementById('acc').innerHTML=['nuvio','stremio','trakt','simkl'].map(function(k){return k.charAt(0).toUpperCase()+k.slice(1)+(A[k]?' <span class="ok">✓</span>':' <span class="dim">–</span>')}).join(' &nbsp;&middot;&nbsp; ');
+var cm=document.getElementById('cams');cm.textContent='';(d.cams||[]).forEach(function(x,i){var c=item(x.name,x.host);var r=el('div','btns');r.appendChild(btn('Rename','',function(){var n=prompt('Camera name',x.name);if(n)send('/api/camera/rename',{i:i,name:n})}));r.appendChild(btn('Remove','x',function(){if(confirm('Remove '+x.name+'?'))send('/api/camera/remove',{i:i})}));c.appendChild(r);cm.appendChild(c)});
 }).catch(function(){say('Cannot reach the TV',false)})}
 load();
 </script></body></html>"""

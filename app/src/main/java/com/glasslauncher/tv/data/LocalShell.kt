@@ -24,6 +24,29 @@ object LocalShell {
      * Copies an APK to the TV and installs it from the shell, detached, so the install survives this app
      * being stopped for the update; Glass is opened again afterwards.
      */
+    /**
+     * Runs [command] on its own connection and hands each line of its output to [onLine] as it comes, until the
+     * command ends or the connection drops. Blocking (its own thread).
+     */
+    fun stream(ctx: Context, command: String, port: Int = 5555, onLine: (String) -> Unit) {
+        Dadb.create("127.0.0.1", port, keyPair(ctx)).use { d ->
+            d.openShell(command).use { sh ->
+                val buf = StringBuilder()
+                while (true) {
+                    when (val p = sh.read()) {
+                        is dadb.AdbShellPacket.StdOut -> {
+                            buf.append(String(p.payload))
+                            var i = buf.indexOf("\n")
+                            while (i >= 0) { onLine(buf.substring(0, i).trimEnd('\r')); buf.delete(0, i + 1); i = buf.indexOf("\n") }
+                        }
+                        is dadb.AdbShellPacket.Exit -> return
+                        else -> {}
+                    }
+                }
+            }
+        }
+    }
+
     /** The TV's installer said no (the reason as pm gives it, e.g. INSTALL_FAILED_UPDATE_INCOMPATIBLE). */
     class InstallRefused(val reason: String) : Exception(reason)
 
@@ -102,6 +125,16 @@ object LocalShell {
     }
 
     /** Runs [command] on the quick connection, on its own thread (nothing waits for it). */
+    /** [quick], waiting for the command to finish (call off the main thread). */
+    fun quickNow(ctx: Context, command: String, port: Int = 5555): Boolean = synchronized(quickLock) {
+        repeat(2) {
+            val r = runCatching { (quick ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { quick = it }).shell(command) }
+            if (r.isSuccess) return@synchronized true
+            runCatching { quick?.close() }; quick = null
+        }
+        false
+    }
+
     fun quick(ctx: Context, command: String, port: Int = 5555) {
         Thread {
             synchronized(quickLock) {

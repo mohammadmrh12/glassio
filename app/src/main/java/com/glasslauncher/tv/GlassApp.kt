@@ -48,6 +48,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
      */
     /** Activities of Glassio on screen; when 0 another app is in front. */
     @Volatile private var shown = 0
+    /** When the TV last turned its screen off (the lights then follow "When the TV turns off", not "When you leave"). */
+    @Volatile private var screenOffAt = -60_000L
     @Volatile private var hiddenAt = 0L
     private val smallTv by lazy {
         val mi = android.app.ActivityManager.MemoryInfo().also { (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(it) }
@@ -136,8 +138,12 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         }
         settings = Settings(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
-            override fun onActivityStarted(a: android.app.Activity) { shown++ }
-            override fun onActivityStopped(a: android.app.Activity) { shown = (shown - 1).coerceAtLeast(0) }
+            override fun onActivityStarted(a: android.app.Activity) { if (shown++ == 0) com.glasslauncher.tv.data.HueSync.resume() }
+            override fun onActivityStopped(a: android.app.Activity) {
+                shown = (shown - 1).coerceAtLeast(0)
+                // Glassio left for an app or a film: the Hue lights go back as they were (or as chosen).
+                if (shown == 0 && android.os.SystemClock.uptimeMillis() - screenOffAt > 5000) com.glasslauncher.tv.data.HueSync.leave(settings, settings.hueLeave)
+            }
             override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
             override fun onActivityResumed(a: android.app.Activity) {}
             override fun onActivityPaused(a: android.app.Activity) {}
@@ -146,6 +152,23 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         })
         com.glasslauncher.tv.data.I18n.lang = settings.lang
         settings.firstRun()
+        com.glasslauncher.tv.data.NuvioWatch.episodeOf = { id ->
+            if (this::cw.isInitialized) cw.entries.value.firstOrNull { it.imdb == id }?.let { it.season to it.episode } ?: (0 to 0) else (0 to 0)
+        }
+        com.glasslauncher.tv.data.NuvioWatch.start(this)
+        com.glasslauncher.tv.net.NuvioControl.start(this)
+        // The TV turning off: the Hue lights go back as they were (or as chosen).
+        runCatching {
+            val f = android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF)
+            val r = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    screenOffAt = android.os.SystemClock.uptimeMillis()
+                    com.glasslauncher.tv.data.HueSync.leave(settings, settings.hueOff)
+                }
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, android.content.Context.RECEIVER_EXPORTED)
+            else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(r, f)
+        }
         Thread { runCatching { DevHooks.key(this) } }.apply { isDaemon = true }.start()
         com.glasslauncher.tv.ui.Glow.amount = settings.glowSize
         // The menu's TV numbers are ready before it first opens.

@@ -41,58 +41,44 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 52
+    const val ID = 54
 
     class Page(val title: String, val points: List<String>, val where: String)
 
     val PAGES = listOf(
-        Page("What's new in Glassio", listOf(
-            "Music, trailers, the screensaver, inputs and much more since 2.0.3.",
+        Page("What's new in Glassio 3.1", listOf(
+            "Philips Hue lights in the colours of the screen, a new Settings with search, and much more.",
             "Each page says what's new and where to switch it off or change it.",
             "◀ ▶ to look through · OK for the next page · Back to close.",
         ), "You can open this again in Settings → About → What's new."),
+        Page("Hue Sync", listOf(
+            "Your Philips Hue lights take the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork.",
+            "Each light follows its own part of the screen (pictures show which), or its place in a Hue entertainment area.",
+            "Philips and other makes (Lidl Livarno, Tuya…) each get their colours the way they show them best.",
+            "Optional: the lights take the colour of the app selected in the dock or the poster in the Library, with their own brightness.",
+            "Back as they were when you open a film or turn the TV off (or dimmed, or off).",
+        ), "Settings → Hue lights: press the bridge's button, then Connect."),
+        Page("A new Settings", listOf(
+            "Grouped like on an iPhone: rows together in rounded cards with thin lines between them.",
+            "Search at the top, with Glassio's own keyboard: a result opens its page at that setting.",
+            "Lighter and quicker to open and to move through.",
+            "Switch colour: burgundy, green or purple.",
+        ), "Settings → Menu & themes → Switch colour."),
         Page("Music", listOf(
-            "Now Playing from any music app: Spotify, YouTube Music, Apple Music, Anghami, YouTube…",
-            "Music mode: the home screen becomes a full-screen player; songs cross-fade, and the page dims while paused.",
-            "In the menu press ▶ for a small player, or add the Music tile to the dock.",
-            "The dynamic island on the screensaver: Up opens it with its controls, Down closes it. Its look follows your theme.",
-            "Play, skip, shuffle and stop from anywhere; shuffle stays the same in every player.",
-        ), "Settings → Music (music mode, island, its look and size)."),
-        Page("Trailers", listOf(
-            "A title's trailer plays in place of its picture, in Glassio's own player: no YouTube buttons, it starts in about a second.",
-            "Cinematic (fills the screen, no black bars), Original, or a small Window.",
-            "Subtitles in your language, translated when YouTube has none.",
-            "Starts by itself after a few seconds on a title, only while the carousel is selected (never from the dock).",
-            "Menu → Trailer to play or stop it and change it quickly. In the Library, hold OK on a poster → Trailer.",
-        ), "Settings → Carousel (the Trailer rows), or Menu → Trailer. Set “Starts by itself” to Off to stop auto-play."),
-        Page("Screensaver", listOf(
-            "A large clock in your theme's glass: Up shows or hides it.",
-            "Hold OK to lock a video you like; “Locked only” plays just those.",
-            "Down shows your cameras, up to 4 side by side.",
-            "It closes smoothly through black.",
-        ), "Settings → Screensaver, or Menu → Screensaver."),
-        Page("Backgrounds and clock", listOf(
-            "Photos (Bing, Wikimedia, Unsplash or yours), your own video, or the screensaver's videos as the background.",
-            "A large clock on the background that follows your theme: black, white, frosted, clear or still glass.",
-            "Depth effect: a mountain or a tower in the photo stands in front of the clock.",
-            "Sharp corners for the menus, dock and icons.",
-        ), "Settings → Background & glass."),
-        Page("Inputs, cameras and apps", listOf(
-            "TV inputs and HDMI devices (PlayStation, receiver…) in the menu and as dock icons.",
-            "Camera multi-view, Home Assistant cameras and doorbell pop-ups over any app.",
-            "Lock any app with a 4-digit code (hold OK on the app).",
-            "Recent apps in the menu.",
-        ), "Settings → Menu & themes (inputs), Settings → Cameras, hold OK on an app (lock)."),
-        Page("Library and accounts", listOf(
-            "Hold OK on Play: add to the Library, Like, or change the artwork.",
-            "Sync your Library, likes and Continue Watching across Nuvio, Trakt and Simkl.",
-            "Continue Watching exactly as in Nuvio, with the next episode of series you finished.",
-            "Open a title in the app you choose. A shuffle button for the carousel.",
-        ), "Settings → Connections (sync), Settings → Library, Settings → Continue Watching."),
-        Page("Smoother", listOf(
-            "Frosted glass slides as smoothly as clear glass.",
-            "Faster start, smoother carousel and less memory on small TVs.",
-        ), "Settings → Performance."),
+            "The dock's Music icon opens the music page, even with Music mode off.",
+            "Pause and Play show at once, the song's name cross-fades in place, no flash in the dock.",
+            "Leaving a YouTube video no longer takes the music page or the selection away.",
+        ), "Settings → Music."),
+        Page("Library and cameras", listOf(
+            "Holding Down in the Library glides at a steady pace, even with fast key repeat.",
+            "Multi-view cameras blur everything behind them, on the home screen and the screensaver.",
+            "The screensaver never starts while a trailer plays.",
+        ), "Settings → Library, Settings → Cameras."),
+        Page("Nuvio and your phone", listOf(
+            "A self-hosted Nuvio server can be used (address, key, sign in with email).",
+            "Home Assistant can get Nuvio's playback from Glassio itself and control it (pause, play, seek), quick and light.",
+            "The phone page looks like iPhone Settings, with a search.",
+        ), "Settings → Connections (Nuvio server, Home Assistant), Settings → Manage from phone."),
     )
 
     val open = mutableStateOf(false)

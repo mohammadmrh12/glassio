@@ -147,7 +147,10 @@ class HomeKeyService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || !enabled()) return
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        // The window on screen, for Nuvio's playback sent to Home Assistant.
+        event.packageName?.toString()?.let { com.glasslauncher.tv.data.NuvioWatch.onWindow(it, event.className?.toString().orEmpty()) }
+        if (!enabled()) return
         val pkg = event.packageName?.toString() ?: return
         if (pkg != "com.google.android.apps.tv.launcherx" && pkg != "com.google.android.tvlauncher") return
         val launcherHome = event.className?.toString().orEmpty().let { it.contains("HomeActivity") || it.contains("MainActivity") || it.contains("LauncherActivity") }
@@ -174,6 +177,19 @@ class HomeKeyService : AccessibilityService() {
         // Ask for key events explicitly; some TV builds ignore the flag from the XML alone.
         serviceInfo = serviceInfo.apply {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        }
+        watchAllWindows((application as? GlassApp)?.settings?.nuvioPush == true)
+    }
+
+    /**
+     * Window changes of every app (not only the Google TV launcher's): needed to know when Nuvio is on screen for
+     * its playback sent to Home Assistant. Only while that is on (a window change is a rare, small event).
+     */
+    fun watchAllWindows(all: Boolean) {
+        runCatching {
+            serviceInfo = serviceInfo.apply {
+                packageNames = if (all) null else arrayOf("com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher")
+            }
         }
     }
 

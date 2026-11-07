@@ -85,19 +85,60 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
                 CamPlayer.play(ctx, this, if (main) c.url else CamPlayer.subStream(c.url))
             }
         }
-        val box = FrameLayout(ctx).apply { addView(line, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) }
-        val lp = WindowManager.LayoutParams(-1, cardH + (if (bottom) (dm.heightPixels * 0.06f).toInt() else 0), WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        // The whole screen: everything behind the cameras (the screensaver's video, the home screen, any app) is
+        // blurred and dimmed a little, so the cameras stand out. The TV blurs it itself (Android 12+, where the TV
+        // allows window blur); elsewhere it is only dimmed.
+        // (Not "bottom" inside apply {}: that would be the layout's own bottom edge.)
+        val atBottom = bottom
+        val box = FrameLayout(ctx).apply {
+            addView(line, FrameLayout.LayoutParams(-2, -2, if (atBottom) Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL else Gravity.CENTER).apply {
+                if (atBottom) bottomMargin = (dm.heightPixels * 0.06f).toInt()
+            })
+        }
+        val blurOk = android.os.Build.VERSION.SDK_INT >= 31 && wm.isCrossWindowBlurEnabled
+        val lp = WindowManager.LayoutParams(-1, -1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_DIM_BEHIND or (if (blurOk) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0),
             PixelFormat.TRANSLUCENT).apply {
-            gravity = if (bottom) Gravity.BOTTOM else Gravity.CENTER
+            gravity = Gravity.FILL
+            dimAmount = 0f
+            if (blurOk) blurBehindRadius = 0
         }
         runCatching { wm.addView(box, lp) }.onFailure { players.forEach { it.release() }; players.clear(); return }
-        root = box; row = line
+        root = box; row = line; params = lp; this.blurOk = blurOk
+        open.value = true
+        veil(1f, 180)
         // Comes up from below (or fades in, in the middle).
-        if (bottom) { line.translationY = cardH * 1.4f; line.animate().translationY(0f).setDuration(420).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start() }
-        else { line.alpha = 0f; line.scaleX = 0.94f; line.scaleY = 0.94f; line.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(300).start() }
+        if (bottom) { line.translationY = cardH * 0.5f; line.alpha = 0f; line.animate().translationY(0f).alpha(1f).setDuration(220).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start() }
+        else { line.alpha = 0f; line.scaleX = 0.94f; line.scaleY = 0.94f; line.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start() }
         handler.removeCallbacks(autoClose)
         if (seconds > 0) handler.postDelayed(autoClose, seconds * 1000L)
+    }
+
+    private var params: WindowManager.LayoutParams? = null
+    private var blurOk = false
+    private var veilAnim: android.animation.ValueAnimator? = null
+
+    /** The blur and dim behind, eased to [to] (0..1) over [ms]. */
+    private fun veil(to: Float, ms: Long, then: (() -> Unit)? = null) {
+        val box = root ?: run { then?.invoke(); return }
+        val lp = params ?: return
+        val from = lp.dimAmount / 0.45f
+        veilAnim?.cancel()
+        veilAnim = android.animation.ValueAnimator.ofFloat(from, to).apply {
+            duration = ms
+            interpolator = android.view.animation.DecelerateInterpolator(1.5f)
+            addUpdateListener { a ->
+                val v = a.animatedValue as Float
+                lp.dimAmount = 0.45f * v
+                if (blurOk && android.os.Build.VERSION.SDK_INT >= 31) lp.blurBehindRadius = (60 * ctx.resources.displayMetrics.density / 2 * v).toInt()
+                runCatching { wm.updateViewLayout(box, lp) }
+            }
+            if (then != null) addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) { then() }
+            })
+            start()
+        }
     }
 
     fun close() {
@@ -105,16 +146,39 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         val box = root ?: return
         val line = row
         root = null; row = null
+        open.value = false
+        // The blur goes with the cameras (the window stays until both are done).
+        val lp = params
+        if (lp != null) {
+            veilAnim?.cancel()
+            veilAnim = android.animation.ValueAnimator.ofFloat(lp.dimAmount / 0.45f, 0f).apply {
+                duration = 160
+                addUpdateListener { a ->
+                    val v = a.animatedValue as Float
+                    lp.dimAmount = 0.45f * v
+                    if (blurOk && android.os.Build.VERSION.SDK_INT >= 31) lp.blurBehindRadius = (60 * ctx.resources.displayMetrics.density / 2 * v).toInt()
+                    runCatching { wm.updateViewLayout(box, lp) }
+                }
+                start()
+            }
+        }
         val done = Runnable {
+            veilAnim?.cancel(); params = null
             players.forEach { runCatching { it.release() } }; players.clear()
             runCatching { wm.removeView(box) }
         }
-        if (line != null && bottom) line.animate().translationY(line.height * 1.4f).setDuration(320).withEndAction(done).start()
-        else if (line != null) line.animate().alpha(0f).setDuration(220).withEndAction(done).start()
+        if (line != null && bottom) line.animate().translationY(line.height * 0.5f).alpha(0f).setDuration(180).withEndAction(done).start()
+        else if (line != null) line.animate().alpha(0f).setDuration(150).withEndAction(done).start()
         else done.run()
     }
 
     companion object {
+        /**
+         * Multi-view is up: Glassio blurs what's behind it itself (the home screen's page, the screensaver's
+         * video), since this TV doesn't blur behind windows (the overlay only dims other apps).
+         */
+        val open = androidx.compose.runtime.mutableStateOf(false)
+
         /** The cameras for multi-view: the ones chosen in Settings (in order), else the first four. */
         fun cams(app: GlassApp): List<Cam> {
             val all = app.settings.cameras.mapNotNull { Cam.parse(it) }

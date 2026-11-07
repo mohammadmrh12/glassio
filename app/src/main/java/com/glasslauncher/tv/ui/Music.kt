@@ -89,6 +89,8 @@ object MusicUi {
     val stagePrev = mutableStateOf<StagePics?>(null)
     val stageMix = androidx.compose.animation.core.Animatable(1f)
     private var stageKey: String? = null
+    /** Bumped each time Glassio comes back on screen (YouTube's playing counts again only after 3 s from then). */
+    val resumedRev = androidx.compose.runtime.mutableIntStateOf(0)
     /** Paused: the music page (and the glass over it) dims; 0..0.6, the same scale as the open-dock veil. */
     val pauseDim = androidx.compose.animation.core.Animatable(0f)
     /** Whether the selection was in the music player (it goes back to the carousel or the dock when the player goes). */
@@ -119,12 +121,24 @@ object MusicUi {
     fun heldTrack(): NowPlaying.Track? {
         val t by NowPlaying.track.collectAsState()
         var last by remember { androidx.compose.runtime.mutableStateOf<NowPlaying.Track?>(null) }
-        LaunchedEffect(t) {
-            if (t != null) last = t
-            else if (android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt < 3000) last = null
+        // YouTube plays videos too: leaving it with a video on, its session stayed "playing" for a second or two
+        // before it stopped, and the music page flashed up and went (taking the selection with it). It counts as
+        // music only once it has played on for 3 seconds.
+        val yt = t?.pkg?.let { NowPlaying.sometimesMusic(it) } == true
+        var ytOk by remember { androidx.compose.runtime.mutableStateOf(false) }
+        LaunchedEffect(t?.key, t?.playing, yt, resumedRev.intValue) {
+            ytOk = false
+            if (yt && t?.playing == true) { delay(3000); ytOk = true }
+        }
+        // Until then the music app under it (Spotify, paused by the video) stays the page.
+        val alt by NowPlaying.alt.collectAsState()
+        val usable = if (yt && !ytOk) alt else t
+        LaunchedEffect(usable) {
+            if (usable != null) last = usable
+            else if (android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt < 3000 || yt) last = null
             else { delay(1500); last = null }
         }
-        return t ?: last?.takeIf { android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt > 3000 }
+        return usable ?: last?.takeIf { android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt > 3000 }
     }
 
     suspend fun stageTo(art: android.graphics.Bitmap?) {
@@ -145,6 +159,18 @@ object MusicUi {
 
     val openInMenu = mutableStateOf(false)
     const val DOCK_PKG = "music:player"
+    /** The dock's Music icon: the music page shows (even with Music mode off) until Back or the music stops. */
+    val forced = mutableStateOf(false)
+    /** Bumped to put the selection on the music page's Play button. */
+    val focusRev = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Whether the music page takes the home screen now. */
+    fun stageOn(st: com.glasslauncher.tv.data.Settings, song: NowPlaying.Track?): Boolean =
+        song != null && ((st.musicOn && st.musicMode && stageAllowed(st)) || forced.value)
+    /** The dock's Music icon: the music page if something plays, else the menu's music page (the apps). */
+    fun openFromDock(app: com.glasslauncher.tv.GlassApp) {
+        if (NowPlaying.track.value != null) { forced.value = true; focusRev.intValue++ }
+        else { openInMenu.value = true; app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
+    }
 
     /** The island opened up (▲ on the screensaver) with its buttons; [islandSel] is the button selected. */
     val islandOpen = mutableStateOf(false)
@@ -491,7 +517,9 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
                 }
             }
           androidx.compose.animation.Crossfade(tr.title to tr.artist, animationSpec = tween(600), label = "song") { (title, artist) ->
-           Column(horizontalAlignment = Alignment.CenterHorizontally) {
+           // One fixed width for both names while they cross-fade (each was laid out from the left: the new name
+           // jumped to the left of the old one, then back to the middle).
+           Column(Modifier.width((560 * k).dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height((16 * k).dp))
             Text(title, color = Color.White, fontSize = (19 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = (520 * k).dp))

@@ -41,6 +41,9 @@ class MainActivity : ComponentActivity() {
                 while (true) {
                     delay(2_000)
                     val secs = app.settings.idleSeconds
+                    // A trailer playing counts as watching: the screensaver waits until it ends (and the full idle
+                    // time after that).
+                    if (com.glasslauncher.tv.ui.Trailers.playing.value != null) lastInput = System.currentTimeMillis()
                     val idle = System.currentTimeMillis() - lastInput
                     if (secs > 0 && idle > secs * 1000L && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !systemSaverFirst(secs)) {
                         lastInput = System.currentTimeMillis()
@@ -67,7 +70,19 @@ class MainActivity : ComponentActivity() {
                     // The home screen is left out while the setup shows, so it can't take the remote's focus.
                     // A new install has nothing to catch up on (the setup explains it): the tour is for updates.
                     if (setup) com.glasslauncher.tv.ui.SetupScreen(app) { setup = false; app.settings.setupDone = true; app.settings.tourSeen = com.glasslauncher.tv.ui.WhatsNew.ID }
-                    else HomeScreen(app, screen) { screen = it }
+                    else {
+                        // Multi-view cameras up: the whole home screen behind them blurs and darkens (logo, details,
+                        // buttons and dock too), quickly.
+                        val multi = com.glasslauncher.tv.MultiCamOverlay.open.value
+                        val mv by androidx.compose.animation.core.animateFloatAsState(if (multi) 1f else 0f,
+                            androidx.compose.animation.core.tween(if (multi) 180 else 150), label = "multiBlur")
+                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().graphicsLayer {
+                            renderEffect = if (mv > 0.01f && android.os.Build.VERSION.SDK_INT >= 31)
+                                androidx.compose.ui.graphics.BlurEffect(36f * mv, 36f * mv, androidx.compose.ui.graphics.TileMode.Clamp) else null
+                        }) { HomeScreen(app, screen) { screen = it } }
+                        if (mv > 0.01f) androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
+                            .graphicsLayer { alpha = mv }.background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.2f)))
+                    }
                     // Back from the screensaver: out of black (it closes faded to black, so nothing snaps).
                     if (com.glasslauncher.tv.ui.SaverGate.cover.floatValue > 0f) {
                         // Runs once the home screen draws again (a stopped activity doesn't compose).
@@ -124,6 +139,8 @@ class MainActivity : ComponentActivity() {
         lastInput = System.currentTimeMillis()
         hideBars()
         (application as GlassApp).cw.pollNow()
+        com.glasslauncher.tv.data.NuvioWatch.start(this)
+        com.glasslauncher.tv.ui.MusicUi.resumedRev.intValue++
         resumed = true
         com.glasslauncher.tv.ui.SaverGate.opening.value = false
     }

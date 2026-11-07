@@ -79,6 +79,8 @@ import kotlinx.coroutines.withContext
 /** Asks before a title is removed (Settings: "Ask before removing"). */
 private val LocalAsk = androidx.compose.runtime.staticCompositionLocalOf<(String, () -> Unit) -> Unit> { { _, f -> f() } }
 private val LocalGlow = androidx.compose.runtime.staticCompositionLocalOf { "off" }
+/** The app, when the Hue lights follow the selected poster (else null). */
+private val LocalHuePosters = androidx.compose.runtime.staticCompositionLocalOf<com.glasslauncher.tv.GlassApp?> { null }
 /** Hold OK on a title: its menu (open it in one of your apps, or remove it). */
 private val LocalItemMenu = androidx.compose.runtime.staticCompositionLocalOf<(HeroItem, () -> Unit) -> Unit> { { _, remove -> remove() } }
 
@@ -111,7 +113,8 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
         ask = MenuDialog(item.name, opts)
     }
     val overlay = Trailers.playing.value?.overlay == true
-    androidx.compose.runtime.CompositionLocalProvider(LocalAsk provides askFn, LocalGlow provides app.settings.glow, LocalItemMenu provides menuFn) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalAsk provides askFn, LocalGlow provides app.settings.glow, LocalItemMenu provides menuFn,
+        LocalHuePosters provides (if (app.settings.huePosters && com.glasslauncher.tv.data.HueSync.ready(app.settings)) app else null)) {
         // While a trailer plays over the Library, the remote is its own: Back stops it, nothing else moves below.
         Box(Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
             if (!overlay) false
@@ -189,8 +192,11 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     // the next visit failed and the remote did nothing (the cards looked stuck).
     val cwRow = androidx.compose.foundation.lazy.rememberLazyListState()
     var libFocused by remember { mutableStateOf(false) }
+    val lastMove = remember { longArrayOf(0L) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(active) { if (!active) runCatching { grid.scrollToItem(0); cwRow.scrollToItem(0) } }
+    // Back at the top once it has slid away (done at once, building the first rows again took ~100 ms right as the
+    // home screen came back, and the slide caught).
+    LaunchedEffect(active) { if (!active) { delay(900); runCatching { grid.scrollToItem(0); cwRow.scrollToItem(0) } } }
     LaunchedEffect(hasAny, active) { if (hasAny && active) { runCatching { grid.scrollToItem(0); cwRow.scrollToItem(0) }; delay(30); runCatching { first.requestFocus() } } }
     // Open with nothing selected (the list had just changed, e.g. Continue Watching switched off, so the first
     // title wasn't there yet when it was asked for): the remote did nothing. Its first title is selected then.
@@ -219,6 +225,18 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         // landed on its invisible cards, and nothing on screen was selected any more.
         .focusProperties { enter = { if (active) androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Cancel } }
         .focusGroup()
+        // Holding Down / Up (faster still with the TV's quick key repeat): one row at a time at a steady pace the
+        // page can glide at. Every repeat moved a row, and two new rows of posters were built in the same frame
+        // (55-75 ms frames, the glide stuttered); at this pace the rows ahead are ready before they come in.
+        .onPreviewKeyEvent { ev ->
+            val vertical = ev.key == Key.DirectionDown || ev.key == Key.DirectionUp
+            if (!vertical || ev.type != KeyEventType.KeyDown || ev.nativeKeyEvent.repeatCount == 0) {
+                if (vertical && ev.type == KeyEventType.KeyDown) lastMove[0] = android.os.SystemClock.uptimeMillis()
+                return@onPreviewKeyEvent false
+            }
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - lastMove[0] < 150) true else { lastMove[0] = now; false }
+        }
         .onFocusChanged { libFocused = it.hasFocus }) {
         // (No flat colour under it: the grey picture covers the whole page, and on the TV GPU every full-screen
         // layer counts.)
@@ -386,6 +404,8 @@ private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier
     var focused by remember { mutableStateOf(false) }
     val glow = LocalGlow.current
     var gc by remember(item.key) { mutableStateOf(Glow.cached("p:" + item.key)) }
+    val hueApp = LocalHuePosters.current
+    if (hueApp != null) HueFocus(hueApp, true, focused, gc, poster = true)
     var loaded by remember(item.key) { mutableStateOf(false) }
     val glowA by animateFloatAsState(if (focused && glow != "off") 1f else 0f, androidx.compose.animation.core.tween(220), label = "glow")
     // No overshoot: a bouncy grow made the posters wobble while you moved along a row.
@@ -447,7 +467,7 @@ private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier
                 modifier = Modifier.padding((8 * s).dp))
             AsyncImage(req, item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
                 loaded = true
-                if (glow == "color" && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("p:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
+                if ((glow == "color" || hueApp != null) && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("p:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
             })
         }
         if (titles) Text(item.name, color = Color.White.copy(alpha = if (focused) 0.95f else 0.6f), fontSize = (9.5f * s).sp,
@@ -474,6 +494,8 @@ private fun CwCard(item: HeroItem, source: String, s: Float, wide: Boolean, show
     var focused by remember { mutableStateOf(false) }
     val glow = LocalGlow.current
     var gc by remember(item.key) { mutableStateOf(Glow.cached("c:" + item.key)) }
+    val hueApp = LocalHuePosters.current
+    if (hueApp != null) HueFocus(hueApp, true, focused, gc, poster = true)
     val glowA by animateFloatAsState(if (focused && glow != "off") 1f else 0f, androidx.compose.animation.core.tween(220), label = "glow")
     val k by animateFloatAsState(if (focused) 1.06f else 1f, androidx.compose.animation.core.tween(160, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "cw")
     val shape = RoundedCornerShape((12 * s).dp)
@@ -490,7 +512,7 @@ private fun CwCard(item: HeroItem, source: String, s: Float, wide: Boolean, show
             .border(if (focused) 1.5.dp else 0.dp, Color.White.copy(alpha = if (focused) 0.85f else 0f), shape),
     ) {
         AsyncImage(req, item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
-            if (glow == "color" && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("c:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
+            if ((glow == "color" || hueApp != null) && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("c:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
         })
         // Soft shade at the bottom for the text (a small picture, painted once).
         androidx.compose.foundation.Image(CwShade.get(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
