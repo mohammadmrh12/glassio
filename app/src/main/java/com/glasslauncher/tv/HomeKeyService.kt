@@ -149,7 +149,11 @@ class HomeKeyService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         // The window on screen, for Nuvio's playback sent to Home Assistant.
-        event.packageName?.toString()?.let { com.glasslauncher.tv.data.NuvioWatch.onWindow(it, event.className?.toString().orEmpty()) }
+        event.packageName?.toString()?.let { p ->
+            com.glasslauncher.tv.data.NuvioWatch.onWindow(p, event.className?.toString().orEmpty())
+            // Recent apps without ADB: the app now on screen.
+            (application as? GlassApp)?.let { a -> com.glasslauncher.tv.data.AppHistory.onFront(this, p) { k -> a.apps.apps.value.any { it.pkg == k } } }
+        }
         if (!enabled()) return
         val pkg = event.packageName?.toString() ?: return
         if (pkg != "com.google.android.apps.tv.launcherx" && pkg != "com.google.android.tvlauncher") return
@@ -178,14 +182,16 @@ class HomeKeyService : AccessibilityService() {
         serviceInfo = serviceInfo.apply {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         }
-        watchAllWindows((application as? GlassApp)?.settings?.nuvioPush == true)
+        watchAllWindows(true)
     }
 
     /**
      * Window changes of every app (not only the Google TV launcher's): needed to know when Nuvio is on screen for
      * its playback sent to Home Assistant. Only while that is on (a window change is a rare, small event).
      */
-    fun watchAllWindows(all: Boolean) {
+    fun watchAllWindows(@Suppress("UNUSED_PARAMETER") wanted: Boolean) {
+        // Always every app now: Recent apps uses the same window changes (no ADB needed).
+        val all = true
         runCatching {
             serviceInfo = serviceInfo.apply {
                 packageNames = if (all) null else arrayOf("com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher")

@@ -1215,6 +1215,14 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         "camera" to ("Corner camera" to "A live camera in the corner, over any app"), "library" to ("The Library" to ""),
                         "menu" to ("The menu" to ""), "off" to ("Nothing" to "")).map { (k, v) -> ThumbItem(v.first, v.second, null, checked = st.homeLong == k) { st.homeLong = k; tvRev.intValue++ } })
                 })
+                add(Toggle("Recent apps use TV access (ADB)", "On: the exact open apps, while USB debugging is on. Off, or with USB debugging off: the apps used lately, no ADB needed",
+                    { st.recentsAdb }, { st.recentsAdb = it }))
+                add(Act("Usage access for Recent apps", "Optional: also lists apps opened before Glassio started",
+                    if (com.glasslauncher.tv.data.AppHistory.usageAccess(ctx)) "On" else "Off", ok = if (com.glasslauncher.tv.data.AppHistory.usageAccess(ctx)) true else null) {
+                    val i = android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (runCatching { ctx.startActivity(i) }.isFailure)
+                        android.widget.Toast.makeText(ctx, "This TV has no Usage access screen: Recent apps still works without it", android.widget.Toast.LENGTH_LONG).show()
+                })
                 add(Toggle("Back on the home screen starts the screensaver", "Like Apple TV", { st.backSaver }, { st.backSaver = it }))
             }
         },

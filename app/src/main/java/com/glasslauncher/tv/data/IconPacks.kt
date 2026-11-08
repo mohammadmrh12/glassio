@@ -111,16 +111,44 @@ class IconPacks(private val ctx: Context) {
                 stream?.close()
             }
         }
-        // Some packs (Blueprint templates) list sample names in drawable.xml: also take every icon the
-        // appfilter maps, then keep only names that really exist as a drawable in the pack.
-        ensure(pack)?.let { names += it.byComponent.values }
+        // Some packs (Blueprint templates, like Projectivy's) list sample names in drawable.xml: also take every icon
+        // the appfilter maps, then keep only names that really exist as a drawable in the pack.
+        ensure(pack)?.let { names += it.byComponent.values; names += it.byPackage.values }
         val res = ensure(pack)?.res ?: runCatching { ctx.packageManager.getResourcesForApplication(pack) }.getOrNull()
+        // …and every other picture in the pack: alternates and generic icons that no app is mapped to (Projectivy's
+        // pack has about 400 of them, which never showed).
+        if (res != null) names += pictureDrawables(res, pack, names.firstOrNull { res.getIdentifier(it, "drawable", pack) != 0 })
         val list = names.asSequence()
             .filterNot { it.startsWith("cb_back") || it == "cb_mask" || it == "cb_upon" || it.startsWith("iconback") }
             .filter { n -> res != null && (res.getIdentifier(n, "drawable", pack) != 0 || res.getIdentifier(n, "mipmap", pack) != 0) }
             .toList()
         namesCache[pack] = list
         return list
+    }
+
+    // The pack app's own interface and its libraries (AndroidX, Material, Google sign-in…), not icons.
+    private val notIcons = Regex("^(\\$|abc_.*(_mtrl|_holo)|mtrl_|m3_|material_|design_|common_|googleg_|notification_|tooltip_|btn_|test_|avd_|exo_|radio_|preference_|ic_|adaptive_|bottom_|drawer_|fetch_|app_splash|indeterminate_|select_|navigation_|cb_|iconback|iconmask|iconupon)")
+
+    /** Every bitmap (png / webp / jpg) drawable in the pack, walked by resource id from one known drawable. */
+    private fun pictureDrawables(res: Resources, pack: String, known: String?): List<String> {
+        val first = known?.let { res.getIdentifier(it, "drawable", pack) } ?: return emptyList()
+        if (first == 0) return emptyList()
+        val base = first and 0xFFFF0000.toInt()
+        val out = ArrayList<String>()
+        val tv = android.util.TypedValue()
+        var misses = 0
+        var i = 0
+        while (i < 0x10000 && misses < 64) {
+            val id = base or i
+            i++
+            val name = runCatching { res.getResourceEntryName(id) }.getOrNull()
+            if (name == null) { misses++; continue }
+            misses = 0
+            if (notIcons.containsMatchIn(name)) continue
+            val file = runCatching { res.getValue(id, tv, true); tv.string?.toString() }.getOrNull() ?: continue
+            if (file.endsWith(".png", true) || file.endsWith(".webp", true) || file.endsWith(".jpg", true)) out += name
+        }
+        return out
     }
 
     /** Icons in [pack] that fit this app: its mapped icon first, then icons whose name contains the app's name. */

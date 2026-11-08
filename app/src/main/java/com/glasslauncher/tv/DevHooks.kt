@@ -117,6 +117,10 @@ object DevHooks {
         i.getStringExtra("icon_pack")?.let { p ->
             if (p == "none") st.iconPack = "" else if (app.packs.installed().any { it.pkg == p }) st.iconPack = p
         }
+        // How many icons each installed pack offers in the icon picker (logged as GlassPacks).
+        if (i.getBooleanExtra("pack_counts", false)) Thread {
+            app.packs.installed().forEach { p -> android.util.Log.i("GlassPacks", "${p.pkg}: ${app.packs.drawableNames(p.pkg).size}") }
+        }.start()
         // A remote mapping action, run 1.5 s later as if its button was pressed: --es run_map folder|recents|app:<pkg>
         i.getStringExtra("run_map")?.let { act ->
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({

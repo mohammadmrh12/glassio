@@ -156,6 +156,8 @@ class Settings(private val ctx: Context) {
     var menuWifi: Boolean get() = b("menuWifi", false); set(v) = putB("menuWifi", v)
     /** "Recent apps" in the menu: the app switcher (like holding Home). */
     var menuRecents: Boolean get() = b("menuRecents", true); set(v) = putB("menuRecents", v)
+    /** Recent apps through ADB when the TV allows it (exact list); off: the apps Glassio saw on screen, no ADB. */
+    var recentsAdb: Boolean get() = b("recentsAdb", true); set(v) = putB("recentsAdb", v)
     // ---- Music (Settings → Music)
     /** Music on: Glassio follows what any music app plays (needs its notification listener, switched on over ADB). */
     var musicOn: Boolean get() = b("musicOn", false); set(v) = putB("musicOn", v)

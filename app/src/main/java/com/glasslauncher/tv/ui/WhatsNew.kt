@@ -41,11 +41,17 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 55
+    const val ID = 56
 
     class Page(val title: String, val points: List<String>, val where: String)
 
     val PAGES = listOf(
+        Page("What's new in Glassio 3.2.1", listOf(
+            "Icon packs show every icon they have, also the ones not tied to an app (Projectivy and Blueprint packs gave only some).",
+            "Search icons: type part of a name and every installed pack is searched at once.",
+            "Recent apps work without USB debugging: Glassio lists the apps you used lately. With USB debugging on, the list is exact as before.",
+            "◀ ▶ to look through · OK for the next page · Back to close.",
+        ), "Change an icon: hold OK on an app → Change icon → Search icons. Recent apps: Settings → Remote mapping → Home and Back."),
         Page("What's new in Glassio 3.2", listOf(
             "Remote mapping: any button on your remote opens what you choose, in any app.",
             "Then everything that came with 3.1: Hue Sync, the new Settings and more.",

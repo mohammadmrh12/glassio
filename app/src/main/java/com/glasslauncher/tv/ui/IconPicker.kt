@@ -73,6 +73,8 @@ import kotlinx.coroutines.withContext
 private sealed interface IconSource {
     val title: String
     object Suggested : IconSource { override val title = "Suggested" }
+    /** Icons from every pack whose name has the words typed (e.g. "netflix", "music"). */
+    object Search : IconSource { override val title = "Search icons…" }
     class Pack(val pkg: String, override val title: String) : IconSource
     object Photos : IconSource { override val title = "Photos on this TV" }
     /** Apple TV home-screen icons copied to the TV (tools/appletv_icons.py): default, dark, white, clear. */
@@ -112,13 +114,16 @@ fun IconPicker(app: GlassApp, entry: AppEntry, onPhone: () -> Unit, onClose: () 
     val sources = remember {
         buildList {
             add(IconSource.Suggested)
+            if (packs.isNotEmpty()) add(IconSource.Search)
             ATV_VARIANTS.forEach { (v, title) -> if (atvFiles(ctx, v).isNotEmpty()) add(IconSource.AppleTv(v, title)) }
             packs.forEach { add(IconSource.Pack(it.pkg, it.label)) }
             add(IconSource.Photos); add(IconSource.Link); add(IconSource.Phone); add(IconSource.Original)
         }
     }
     var sel by remember { mutableIntStateOf(0) }
+    var query by remember { mutableStateOf("") }
     var dialog by remember { mutableStateOf<DialogState?>(null) }
+    fun askSearch(i: Int) { dialog = TextEntry("Search icons · all packs", query, "e.g. netflix, music, tv") { q -> query = q.trim(); sel = i } }
     val first = remember { FocusRequester() }
     var rightFocused by remember { mutableStateOf(false) }
     BackHandler { if (rightFocused) runCatching { first.requestFocus() } else onClose() }
@@ -171,6 +176,7 @@ fun IconPicker(app: GlassApp, entry: AppEntry, onPhone: () -> Unit, onClose: () 
                                             }
                                             IconSource.Phone -> { onClose(); onPhone() }
                                             IconSource.Original -> { app.icons.reset(entry.pkg); done("Back to the original icon") }
+                                            IconSource.Search -> askSearch(i)
                                             else -> sel = i
                                         }
                                     }
@@ -192,6 +198,9 @@ fun IconPicker(app: GlassApp, entry: AppEntry, onPhone: () -> Unit, onClose: () 
                     }
                     is IconSource.AppleTv -> FileGrid(s, remember(src.variant) { atvFiles(ctx, src.variant) }, labelled = false) { applyUri(Uri.fromFile(it)) }
                     is IconSource.Pack -> PackGrid(app, s, allOf(app, src.pkg), "This pack has no icons.") { applyPack(it) }
+                    IconSource.Search ->
+                        if (query.isBlank()) Hint("Press OK on «Search icons…» and type part of a name (netflix, music, tv…). Every installed pack is searched.", s)
+                        else PackGrid(app, s, searched(app, packs.map { it.pkg }, query), "No icon named like «$query». Try a shorter word.") { applyPack(it) }
                     IconSource.Photos -> PhotoGrid(app, s) { applyUri(it) }
                     else -> {}
                 }
@@ -201,7 +210,7 @@ fun IconPicker(app: GlassApp, entry: AppEntry, onPhone: () -> Unit, onClose: () 
     DialogHost(dialog) { dialog = null }
 }
 
-private fun IconSource.isBrowsable() = this is IconSource.Suggested || this is IconSource.Pack || this is IconSource.Photos || this is IconSource.AppleTv
+private fun IconSource.isBrowsable() = this is IconSource.Suggested || this is IconSource.Search || this is IconSource.Pack || this is IconSource.Photos || this is IconSource.AppleTv
 
 @Composable
 private fun FileGrid(s: Float, files: List<java.io.File>, labelled: Boolean, onPick: (java.io.File) -> Unit) {
@@ -228,6 +237,21 @@ private fun suggested(app: GlassApp, e: AppEntry): List<PackIcon>? {
     val v by produceState<List<PackIcon>?>(null, e.pkg) {
         value = withContext(Dispatchers.IO) {
             app.packs.installed().flatMap { p -> app.packs.suggestions(p.pkg, e.component, e.label).map { PackIcon(p.pkg, it) } }
+        }
+    }
+    return v
+}
+
+/** Icons in [packs] whose name contains every typed word ("_" counts as a space; "netflix alt" finds netflix_alt). */
+@Composable
+private fun searched(app: GlassApp, packs: List<String>, query: String): List<PackIcon>? {
+    val v by produceState<List<PackIcon>?>(null, packs, query) {
+        value = withContext(Dispatchers.IO) {
+            val words = query.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }
+            packs.flatMap { pack ->
+                app.packs.drawableNames(pack).filter { n -> val k = n.lowercase().replace('_', ' '); words.all { k.contains(it) } }
+                    .map { PackIcon(pack, it) }
+            }.sortedBy { if (it.name.lowercase().startsWith(words.firstOrNull() ?: "")) 0 else 1 }.take(300)
         }
     }
     return v

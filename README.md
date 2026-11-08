@@ -25,6 +25,15 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.2.1** — Every icon in a pack, icon search, Recent apps without USB debugging
+- Icon packs now show **every icon** they include, also the ones not linked to an app — Projectivy / Blueprint style
+  packs showed only part of theirs.
+- **Search icons** in the icon picker (hold OK on an app → Change icon): type part of a name and every installed
+  pack is searched at once.
+- **Recent apps without USB debugging**: Glassio lists the apps you used lately from what its Home button service
+  sees, so ADB no longer has to stay on. With USB debugging on the list is exact as before (switch: Settings →
+  Remote mapping → *Recent apps use TV access*). Optional *Usage access* adds apps opened before Glassio started.
+
 **New in 3.2.0** — Remote mapping
 - **Remote mapping** (Settings → **Remote mapping**, #12): give any remote button an app, the **Apps folder**, the
   **recent apps** or a **TV input**; it works in any app (with the Home button service). Pressed again, the Apps folder

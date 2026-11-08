@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.glasslauncher.tv.data.AppEntry
+import com.glasslauncher.tv.data.AppHistory
 import com.glasslauncher.tv.data.LocalShell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -44,7 +45,9 @@ import kotlinx.coroutines.withContext
  * Hold Home: the apps open in the background, like the Apple TV app switcher — big cards side by side,
  * the app's icon and name above each one. OK opens it, Up throws it away (the app is closed for real,
  * force-stopped, so it isn't there next time), Back returns. Only apps with a running process are listed
- * (no PiPup, launchers or system screens). Reading and closing them uses the TV's ADB access.
+ * (no PiPup, launchers or system screens). With the TV's ADB access the list is exact (apps with a running process)
+ * and closing force-stops; without it (USB debugging off) the apps Glassio saw on screen lately are listed
+ * ([AppHistory]) and closing ends their background process.
  */
 class RecentsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,8 +73,35 @@ class RecentsActivity : ComponentActivity() {
             "com.google.android.katniss", "com.google.android.tvrecommendations", "com.android.vending", "com.google.android.permissioncontroller",
         )
 
-        /** Apps with a task and a running process, newest first. */
-        fun open(app: GlassApp): List<AppEntry>? {
+        /** True when the list came from ADB (closing force-stops then). */
+        @Volatile var viaAdb = false
+
+        /** Newest first: through ADB when the TV allows it, otherwise the apps used lately (no ADB needed). */
+        fun open(app: GlassApp): List<AppEntry> {
+            val adb = if (app.settings.recentsAdb) openAdb(app) else null
+            viaAdb = adb != null
+            if (adb != null) return adb
+            return AppHistory.recent(app).filter { it !in SKIP && !it.startsWith("com.google.android.apps.tv.launcher") }
+                .mapNotNull { entry(app, it) }.take(12)
+        }
+
+        private fun entry(app: GlassApp, p: String): AppEntry? {
+            val pm = app.packageManager
+            return app.apps.apps.value.firstOrNull { it.pkg == p } ?: runCatching {
+                val i = pm.getLeanbackLaunchIntentForPackage(p) ?: pm.getLaunchIntentForPackage(p) ?: return@runCatching null
+                AppEntry(p, pm.getApplicationLabel(pm.getApplicationInfo(p, 0)).toString(), i.component ?: return@runCatching null, pm.getLeanbackLaunchIntentForPackage(p) != null)
+            }.getOrNull()
+        }
+
+        /** Without ADB the card goes from the list; the app's background process ends where Android allows it (up to Android 13; newer TVs free its memory themselves). */
+        fun closeApp(ctx: android.content.Context, pkg: String) {
+            AppHistory.forget(ctx, pkg)
+            if (viaAdb) LocalShell.run(ctx, "am force-stop $pkg; true")
+            else runCatching { ctx.getSystemService(android.app.ActivityManager::class.java).killBackgroundProcesses(pkg) }
+        }
+
+        /** Apps with a task and a running process, newest first (needs ADB). */
+        private fun openAdb(app: GlassApp): List<AppEntry>? {
             val out = LocalShell.run(app, "dumpsys activity recents | grep -E 'Recent #|realActivity='; echo '=====PS'; ps -A -o NAME; true").getOrNull() ?: return null
             val recents = out.substringBefore("=====PS"); val ps = out.substringAfter("=====PS")
             val running = ps.lineSequence().map { it.trim().substringBefore(':') }.filter { it.isNotBlank() }.toHashSet()
@@ -104,13 +134,10 @@ class RecentsActivity : ComponentActivity() {
 private fun Recents(app: GlassApp, close: () -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var list by remember { mutableStateOf<List<AppEntry>?>(null) }
-    var failed by remember { mutableStateOf(false) }
     val gone = remember { mutableStateListOf<String>() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
-        val l = withContext(Dispatchers.IO) { RecentsActivity.open(app) }
-        if (l == null) failed = true
-        list = l.orEmpty()
+        list = withContext(Dispatchers.IO) { RecentsActivity.open(app) }
     }
     val first = remember { FocusRequester() }
     val shown = list.orEmpty().filter { it.pkg !in gone }
@@ -126,7 +153,7 @@ private fun Recents(app: GlassApp, close: () -> Unit) {
         val state = rememberLazyListState()
         Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
             if (shown.isEmpty()) {
-                Text(when { failed -> "Needs TV access (ADB): Glassio settings → System"; list == null -> " "; else -> "No apps are open" },
+                Text(if (list == null) " " else "No apps used lately",
                     color = Color.White.copy(alpha = 0.65f), fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides CenterSpec) {
@@ -137,7 +164,7 @@ private fun Recents(app: GlassApp, close: () -> Unit) {
                             onClose = {
                                 gone.add(e.pkg)
                                 // Closed for real (it stayed in the list and came back otherwise).
-                                scope.launch(Dispatchers.IO) { LocalShell.run(ctx, "am force-stop ${e.pkg}; true") }
+                                scope.launch(Dispatchers.IO) { RecentsActivity.closeApp(ctx, e.pkg) }
                                 if (shown.size <= 1) scope.launch { delay(400); close() }
                             })
                     }
