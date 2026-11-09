@@ -66,7 +66,10 @@ object RemoteMap {
     }
 
     private fun glass(app: GlassApp, extra: (Intent) -> Unit) {
-        val i = Intent(app, com.glasslauncher.tv.MainActivity::class.java)
+        // As the Home button does (MAIN + HOME): the same Glassio comes to the front. Without the category Android
+        // opened a second Glassio beside the home one, and both then played the trailer (double sound; the hidden
+        // one never showed a picture and stopped the trailer after 12 s).
+        val i = Intent(app, com.glasslauncher.tv.MainActivity::class.java).setAction(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         extra(i)
         app.startActivity(i)

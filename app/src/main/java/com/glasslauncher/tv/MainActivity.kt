@@ -30,6 +30,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Only one Glassio: Android keeps the one opened as the home screen and one opened as an app (from another
+        // launcher's list, or a test from a computer) apart, and both then ran the home screen at once (two
+        // trailers playing, one of them unseen). The older one goes.
+        val old = live?.get()
+        live = java.lang.ref.WeakReference(this)
+        if (old != null && old !== this && !old.isFinishing && !old.isDestroyed) runCatching { old.finishAndRemoveTask() }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideBars()
         val app = application as GlassApp
@@ -155,6 +161,16 @@ class MainActivity : ComponentActivity() {
         KeyHub.homeInFront = false
     }
 
+    override fun onDestroy() {
+        if (live?.get() === this) live = null
+        super.onDestroy()
+    }
+
+    companion object {
+        /** The Glassio on screen (there is only ever one: see onCreate). */
+        @Volatile private var live: java.lang.ref.WeakReference<MainActivity>? = null
+    }
+
     /** Testing from a computer: see [DevHooks]. */
     private fun handleExtras(i: Intent?) = DevHooks.handle(application as GlassApp, this, i)
 
@@ -162,7 +178,9 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         handleExtras(intent)
         // Home pressed while we are already in front: go back to the plain home view.
-        if (intent.hasCategory(Intent.CATEGORY_HOME)) {
+        // (Not when a remote button or Hold Home asked for something: the Library, the menu, the Apps folder, an app.)
+        val asked = listOf("open_library", "open_menu", "open_folder", "open_app").any { intent.hasExtra(it) }
+        if (intent.hasCategory(Intent.CATEGORY_HOME) && !asked) {
             screen = Screen.Home
             (application as GlassApp).homeRev.intValue++
         }

@@ -47,7 +47,8 @@ class HomeKeyService : AccessibilityService() {
     }
 
     private fun openGlass(extra: String) = runCatching {
-        startActivity(Intent(this, MainActivity::class.java).putExtra(extra, true)
+        // MAIN + HOME, as the Home button: the same Glassio, never a second one beside it.
+        startActivity(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).putExtra(extra, true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP))
     }
 

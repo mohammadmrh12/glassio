@@ -25,6 +25,10 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.2.2** — Trailer fixes
+- Trailers no longer stop by themselves after a few seconds, and their sound no longer plays twice: a remote
+  button or Hold Home could open a second Glassio beside the home one, and both played the trailer.
+
 **New in 3.2.1** — Every icon in a pack, icon search, Recent apps without USB debugging
 - Icon packs now show **every icon** they include, also the ones not linked to an app — Projectivy / Blueprint style
   packs showed only part of theirs.

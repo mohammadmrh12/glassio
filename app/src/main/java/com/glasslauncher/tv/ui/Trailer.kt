@@ -137,10 +137,24 @@ object Trailers {
 fun TrailerLayer(app: GlassApp, s: Float, dockInset: Float = 0f) {
     val req = Trailers.playing.value ?: return
     if (req.overlay) return
+    if (!onScreen()) return
     val st = app.settings
     val mode = st.trailerSize
     val streams = req.streams ?: return
     androidx.compose.runtime.key(req.rev) { NativeTrailer(app, s, req, streams, mode, dockInset) }
+}
+
+/** This home screen is the one on screen: a Glassio left behind another never plays the trailer too (double sound). */
+@Composable
+private fun onScreen(): Boolean {
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var on by remember(owner) { mutableStateOf(owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) }
+    DisposableEffect(owner) {
+        val o = androidx.lifecycle.LifecycleEventObserver { _, _ -> on = owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) }
+        owner.lifecycle.addObserver(o)
+        onDispose { owner.lifecycle.removeObserver(o) }
+    }
+    return on
 }
 
 /**
@@ -355,6 +369,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
 @Composable
 fun LibraryTrailer(app: GlassApp, s: Float) {
     val req = Trailers.playing.value?.takeIf { it.overlay } ?: return
+    if (!onScreen()) return
     val streams = req.streams ?: return
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         androidx.compose.runtime.key(req.rev) { NativeTrailer(app, s, req, streams, "original", 0f) }

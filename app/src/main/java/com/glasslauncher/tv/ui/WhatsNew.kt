@@ -41,11 +41,16 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 56
+    const val ID = 57
 
     class Page(val title: String, val points: List<String>, val where: String)
 
     val PAGES = listOf(
+        Page("What's new in Glassio 3.2.2", listOf(
+            "Trailers no longer stop by themselves after a few seconds.",
+            "Trailer sound fixed: it played twice, slightly apart.",
+            "◀ ▶ to look through · OK for the next page · Back to close.",
+        ), "Trailers: Settings → Trailers."),
         Page("What's new in Glassio 3.2.1", listOf(
             "Icon packs show every icon they have, also the ones not tied to an app (Projectivy and Blueprint packs gave only some).",
             "Search icons: type part of a name and every installed pack is searched at once.",
