@@ -183,21 +183,9 @@ class HomeKeyService : AccessibilityService() {
         serviceInfo = serviceInfo.apply {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         }
-        watchAllWindows(true)
-    }
-
-    /**
-     * Window changes of every app (not only the Google TV launcher's): needed to know when Nuvio is on screen for
-     * its playback sent to Home Assistant. Only while that is on (a window change is a rare, small event).
-     */
-    fun watchAllWindows(@Suppress("UNUSED_PARAMETER") wanted: Boolean) {
-        // Always every app now: Recent apps uses the same window changes (no ADB needed).
-        val all = true
-        runCatching {
-            serviceInfo = serviceInfo.apply {
-                packageNames = if (all) null else arrayOf("com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher")
-            }
-        }
+        // Window changes of every app (not only the Google TV launcher's): Recent apps without ADB and Nuvio's
+        // playback for Home Assistant both read which app is on screen (a window change is a rare, small event).
+        runCatching { serviceInfo = serviceInfo.apply { packageNames = null } }
     }
 
     override fun onInterrupt() {}

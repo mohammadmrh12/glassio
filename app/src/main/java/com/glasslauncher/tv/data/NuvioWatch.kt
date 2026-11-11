@@ -92,7 +92,6 @@ object NuvioWatch {
         val st = (app as com.glasslauncher.tv.GlassApp).settings
         if (running || !st.nuvioPush || st.haUrl.isBlank() || st.haToken.isBlank()) return
         running = true
-        com.glasslauncher.tv.HomeKeyService.instance?.watchAllWindows(true)
         store = java.io.File(app.filesDir, "nuvio-watch.txt")
         // What was known before Glassio restarted (the title's start line is gone from the TV's log after a while).
         runCatching {

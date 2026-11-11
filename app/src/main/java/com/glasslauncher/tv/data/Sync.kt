@@ -86,7 +86,7 @@ class Sync(
                     add = { i -> trakt.setWatchlist(true, i.type, i.id) },
                     remove = { i -> trakt.setWatchlist(false, i.type, i.id) })
             } else notes += "Trakt isn't signed in"
-            if (simkl?.connected == true) {
+            if (simkl.connected == true) {
                 val l = if (simkl.limited) null else simkl.planToWatch()
                 if (l == null) notes += "Simkl: " + (if (simkl.limited) "its daily request limit is used up, tries again tomorrow" else simkl.lastError.ifBlank { "couldn't read" })
                 l?.forEach { s -> val k = keyOf(s.type, s.imdb); known.putIfAbsent(k, HeroItem(k, s.imdb, s.type, s.name, s.poster, s.poster, "", "", "", "", emptyList(), "")) }
@@ -107,7 +107,7 @@ class Sync(
             gone += removedNow
             var added = 0; var removed = 0; var failed = 0
             for (k in removedNow) for (a in read) if (k in a.keys!!) {
-                if (a.name == "Simkl" && simkl?.limited == true) continue
+                if (a.name == "Simkl" && simkl.limited == true) continue
                 if (runCatching { a.remove(item(k)) }.getOrDefault(false)) { a.keys.remove(k); removed++ } else failed++
             }
             // Everything saved anywhere goes to every account that was read.
@@ -118,7 +118,7 @@ class Sync(
                     // Glassio's own "Saved" isn't filled with every account's titles: the Library already shows
                     // each account's list in its own row.
                     if (a.name == "Glassio") continue
-                    if (a.name == "Simkl" && simkl?.limited == true) continue
+                    if (a.name == "Simkl" && simkl.limited == true) continue
                     if (runCatching { a.add(item(k)) }.getOrDefault(false)) { a.keys.add(k); added++ } else failed++
                 }
             }
@@ -138,7 +138,7 @@ class Sync(
                 if (trakt.connected && !settings.likeSent("trakt", key)) {
                     if (trakt.setFavorite(true, type, imdb)) { likes++; settings.setLikeSent("trakt", key, true) } else failed++
                 }
-                if (simkl?.connected == true && !simkl.limited && !settings.likeSent("simkl", key)) {
+                if (simkl.connected == true && !simkl.limited && !settings.likeSent("simkl", key)) {
                     if (simkl.setLiked(true, imdb, type)) { likes++; settings.setLikeSent("simkl", key, true) } else failed++
                 }
             }
@@ -151,7 +151,7 @@ class Sync(
                 if (trakt.connected && e.app != "Trakt" && !cwSent("trakt|$what")) {
                     if (trakt.pausedAt(e.imdb, e.season, e.episode, e.percent)) { paused++; markCw("trakt|$what") } else failed++
                 }
-                if (simkl?.connected == true && !simkl.limited && e.app != "Simkl" && !cwSent("simkl|$what")) {
+                if (simkl.connected == true && !simkl.limited && e.app != "Simkl" && !cwSent("simkl|$what")) {
                     if (simkl.pausedAt(e.imdb, e.season, e.episode, e.percent)) { paused++; markCw("simkl|$what") } else failed++
                 }
             }

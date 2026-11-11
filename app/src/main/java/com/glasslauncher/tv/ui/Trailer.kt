@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.glasslauncher.tv.GlassApp
@@ -538,7 +539,9 @@ fun SaverTrailers(app: GlassApp) {
             if (got != null && sts != null) { found = i to (it to (got.first to sts)); break }
             i += dir
         }
-        val f = found ?: run { none = cur == null; return@LaunchedEffect }
+        // Nothing playable (the internet gone, or no trailers): the last trailer isn't left frozen on screen.
+        val f = found ?: run { none = true; cur = null; return@LaunchedEffect }
+        none = false
         at = f.first
         val (it, yt) = f.second
         cur = it to Trailers.Req("saver:" + it.key, yt.first, ++rev, yt.second, overlay = true)
@@ -555,6 +558,11 @@ fun SaverTrailers(app: GlassApp) {
             if (k != 0) { com.glasslauncher.tv.saver.SaverControl.step = 0; go(k) }
         }
     }
+    // Online or not, looked at every few seconds: without the internet the screensaver says so (not "no trailers"),
+    // and starts again by itself when it is back.
+    var online by remember { mutableStateOf(isOnline(ctx)) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(3000); online = isOnline(ctx) } }
+    LaunchedEffect(online) { if (online && cur == null && pool.isNotEmpty()) { want = at; tick++ } }
     fun openIt(it: com.glasslauncher.tv.data.HeroItem) {
         com.glasslauncher.tv.data.NuvioLaunch.open(ctx, st, app.http, it)
         com.glasslauncher.tv.saver.SaverControl.afterOpen?.invoke()
@@ -605,9 +613,15 @@ fun SaverTrailers(app: GlassApp) {
             if (streams != null) NativeTrailer(app, s, c.second, streams, if (st.saverTrailerSize == "original") "original" else "cinema", subsUp,
                 muteOverride = muted, glass = false, onEnded = { go(1) }, onFailed = { go(dir) })
         }
-        if (c == null && (none || pool.isEmpty())) androidx.compose.material3.Text(
-            if (pool.isEmpty()) "No titles in the carousel yet" else "No trailers found",
-            color = Color.White.copy(alpha = 0.6f), fontSize = (14 * s).sp, modifier = Modifier.align(androidx.compose.ui.Alignment.Center))
+        // The first trailer is still being found (a few seconds the first time): the title's picture meanwhile,
+        // instead of a black screen.
+        if (c == null && !none && pool.isNotEmpty()) {
+            val bg = item(want).background
+            if (bg.isNotBlank()) coil3.compose.AsyncImage(bg, null, Modifier.fillMaxSize().graphicsLayer { alpha = 0.85f },
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        }
+        if (c == null && (none || pool.isEmpty() || !online)) DriftingNote(
+            when { !online -> "No internet connection\nThe trailers come back when it's back"; pool.isEmpty() -> "No titles in the carousel yet"; else -> "No trailers found" }, s)
         // The title's logo and details, like the carousel, for a few seconds after each trailer starts.
         if (c != null && infoOn) {
             val a by androidx.compose.animation.core.animateFloatAsState(if (shown) 1f else 0f, tween(if (shown) 500 else 900), label = "saverInfo")
@@ -650,5 +664,41 @@ fun SaverTrailers(app: GlassApp) {
         androidx.compose.runtime.CompositionLocalProvider(LocalGlassEnv provides env, LocalGlassEnvRef provides envRef) {
             PopMenuHost(pop, s, st.menuStyle) { pop = null }
         }
+    }
+}
+
+
+/** Connected to the internet (checked, not only a network). */
+private fun isOnline(ctx: android.content.Context): Boolean = runCatching {
+    val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
+    val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return@runCatching false
+    caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}.getOrDefault(true)
+
+/**
+ * A note on the screensaver that never stays still (on OLED screens still text burns in): every few seconds it fades
+ * out and comes back somewhere else.
+ */
+@Composable
+private fun DriftingNote(text: String, s: Float) {
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val w = constraints.maxWidth.toFloat(); val h = constraints.maxHeight.toFloat()
+        var spot by remember { mutableStateOf(0.5f to 0.5f) }
+        val a = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                spot = (0.18f + kotlin.random.Random.nextFloat() * 0.64f) to (0.15f + kotlin.random.Random.nextFloat() * 0.7f)
+                a.animateTo(1f, tween(900))
+                kotlinx.coroutines.delay(8000)
+                a.animateTo(0f, tween(900))
+            }
+        }
+        var size by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+        androidx.compose.material3.Text(text, color = Color.White.copy(alpha = 0.6f), fontSize = (14 * s).sp, lineHeight = (20 * s).sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.onSizeChanged { size = it }
+                .offset { IntOffset((spot.first * w - size.width / 2f).toInt().coerceIn(0, (w - size.width).toInt().coerceAtLeast(0)),
+                    (spot.second * h - size.height / 2f).toInt().coerceIn(0, (h - size.height).toInt().coerceAtLeast(0))) }
+                .graphicsLayer { alpha = a.value })
     }
 }

@@ -26,6 +26,15 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.3.1** — HDMI inputs on plain-Android TVs, screensaver fixes
+- **HDMI inputs** open on TVs running plain Android with their own UI (no Live TV app, e.g. Chinese boards with
+  Wisdom UI): Glassio shows the input itself, full screen; Back comes home. Settings → Menu & themes → *Inputs open in*:
+  Automatic, the TV's app or Glassio.
+- **Trailers screensaver**: the title's picture shows while the first trailer loads (no black screen); without the
+  internet it says so instead of "No trailers found", the note keeps moving (no burn-in on OLED), and the trailers come
+  back by themselves when the connection does.
+- Cleaner code: unused settings and icons removed, compiler warnings fixed.
+
 **New in 3.3.0** — Trailers screensaver, glass colour, bold text and many fixes
 - **Trailers screensaver** (Settings → Screensaver → *Type*, also in the menu's Screensaver page): the carousel's
   trailers one after another, with the title's logo and details like the carousel and subtitles above them. **OK**

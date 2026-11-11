@@ -92,10 +92,21 @@ object Inputs {
     fun open(ctx: Context, id: String): Boolean {
         val raw = id.removePrefix(PREFIX)
         awayAt = System.currentTimeMillis()
-        return if (raw.startsWith("tv:")) runCatching {
-            val uri = android.media.tv.TvContract.buildChannelUriForPassthroughInput(raw.removePrefix("tv:"))
-            ctx.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }.onFailure { Glog.w("Input $raw", it) }.isSuccess
+        return if (raw.startsWith("tv:")) {
+            val inputId = raw.removePrefix("tv:")
+            val uri = android.media.tv.TvContract.buildChannelUriForPassthroughInput(inputId)
+            val view = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val mode = (ctx.applicationContext as? com.glasslauncher.tv.GlassApp)?.settings?.inputPlayer ?: "auto"
+            // The TV's own app shows the input (Android TV / Google TV). TVs on plain Android (AOSP boards with their
+            // own UI, no Live TV app) have nothing that takes it, and the input didn't open: Glassio shows it itself.
+            val tvApp = mode != "glassio" && runCatching { ctx.packageManager.resolveActivity(view, 0) != null }.getOrDefault(false)
+            if (tvApp && runCatching { ctx.startActivity(view) }.onFailure { Glog.w("Input $raw", it) }.isSuccess) return true
+            if (mode == "tv") { Glog.w("Input $raw: no TV app opens inputs"); return false }
+            runCatching {
+                ctx.startActivity(Intent(ctx, com.glasslauncher.tv.InputActivity::class.java)
+                    .putExtra(com.glasslauncher.tv.InputActivity.EXTRA_INPUT, inputId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }.onFailure { Glog.w("Input $raw: own player", it) }.isSuccess
+        }
         else {
             val la = raw.removePrefix("cec:").substringBefore(':')
             // At once on screen, while the TV switches (the device itself takes a moment to answer).

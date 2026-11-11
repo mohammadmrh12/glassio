@@ -42,7 +42,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 58
+    const val ID = 59
 
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null)
 
@@ -55,6 +55,12 @@ object WhatsNew {
     ), "Thank you for using Glassio ♥", qr = GITHUB)
 
     val PAGES = listOf(
+        Page("What's new in Glassio 3.3.1", listOf(
+            "HDMI inputs open on TVs with plain Android too (no Live TV app): Glassio shows the input itself, Back comes home.",
+            "Trailers screensaver: the title's picture while the first trailer loads (no black screen).",
+            "Without the internet it says so, the note moves around the screen (no burn-in on OLED), and the trailers come back by themselves.",
+            "◀ ▶ to look through · OK for the next page · Back to close.",
+        ), "Inputs: Settings → Menu & themes → Inputs open in (Automatic, the TV's app or Glassio)."),
         Page("What's new in Glassio 3.3", listOf(
             "A new screensaver: Trailers. The carousel's trailers one after another, with their logo and details; OK opens the title in Nuvio, hold OK for more.",
             "Posters screensaver: OK opens the title in Nuvio, ◀ ▶ the next or the one before.",

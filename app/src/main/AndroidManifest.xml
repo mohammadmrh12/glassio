@@ -63,6 +63,13 @@
         </activity>
 
         <activity
+            android:name=".InputActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Glass.Saver"
+            android:excludeFromRecents="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|screenSize|orientation|uiMode"/>
+
+        <activity
             android:name=".saver.ScreensaverActivity"
             android:exported="false"
             android:theme="@style/Theme.Glass.Saver"

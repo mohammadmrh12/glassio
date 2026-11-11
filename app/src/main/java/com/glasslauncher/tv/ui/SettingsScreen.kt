@@ -565,6 +565,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     { st.menuInputs }, { st.menuInputs = it; if (it) scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }),
                 Toggle("Inputs in the dock", "Each input as an icon: move, hide and change its icon like an app",
                     { st.inputsDock }, { st.inputsDock = it; scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx); app.apps.reload() } }),
+                Adjust("Inputs open in", "Glassio: shows the input itself (for TVs on plain Android, where the TV's app doesn't open it)",
+                    { when (st.inputPlayer) { "tv" -> "The TV's app"; "glassio" -> "Glassio"; else -> "Automatic" } },
+                    { st.inputPlayer = cycle(listOf("auto", "tv", "glassio"), st.inputPlayer, it) }),
                 Toggle("Themes in the menu", "", { st.menuThemes }, { st.menuThemes = it }),
                 Toggle("Background in the menu", "Switch between title backdrops, your picture, your video and the screensaver", { st.menuBackground }, { st.menuBackground = it }),
                 Adjust("Menu size", "", { pct(st.menuScale) }, { st.menuScale = ((st.menuScale * 20).roundToInt() + it) / 20f }),
@@ -773,7 +776,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Toggle("Tell Home Assistant when a title opens", "Sends title, type and id as JSON", { st.haOnLaunch }, { st.haOnLaunch = it }))
                 add(Toggle("Send Nuvio playback to Home Assistant", if (st.haUrl.isBlank() || st.haToken.isBlank()) "Needs the Home Assistant link and token (Cameras → Doorbell from Home Assistant)"
                     else "Nuvio Legacy's title, play / pause and position, as it happens (event glassio_nuvio): Home Assistant no longer needs to ask the TV over ADB",
-                    { st.nuvioPush }, { on -> st.nuvioPush = on; com.glasslauncher.tv.HomeKeyService.instance?.watchAllWindows(on); if (on) com.glasslauncher.tv.data.NuvioWatch.start(ctx) else com.glasslauncher.tv.data.NuvioWatch.stop() }))
+                    { st.nuvioPush }, { on -> st.nuvioPush = on; if (on) com.glasslauncher.tv.data.NuvioWatch.start(ctx) else com.glasslauncher.tv.data.NuvioWatch.stop() }))
                 add(Act("Send a test event", "") { io { NuvioLaunch.testWebhook(st, app.http) } })
 
                 add(link("Cameras", "Find, add and remove cameras, the menu camera and the corner camera"))

@@ -288,7 +288,7 @@ fun MusicBars(playing: Boolean, color: Color, modifier: Modifier) {
         val gap = size.width / (n * 2f - 1f)
         for (i in 0 until n) {
             val ph = t + i * 1.7f
-            val hgt = size.height * (0.25f + on * 0.75f * (0.5f + 0.5f * kotlin.math.sin(ph * (1f + i * 0.35f)).toFloat()))
+            val hgt = size.height * (0.25f + on * 0.75f * (0.5f + 0.5f * kotlin.math.sin(ph * (1f + i * 0.35f))))
             drawRoundRect(color, Offset(i * gap * 2f, (size.height - hgt) / 2f), Size(gap, hgt), CornerRadius(gap / 2f))
         }
     }

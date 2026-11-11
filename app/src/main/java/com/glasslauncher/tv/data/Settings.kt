@@ -280,7 +280,6 @@ class Settings(private val ctx: Context) {
     /** While a trailer fills the page, the dock and the page dots step aside (never with the trailer in its window). */
     var trailerHideDock: Boolean get() = b("trailerHideDock", true); set(v) = putB("trailerHideDock", v)
     /** "auto": H.264 up to 1080p (720p on small TVs); "full": the best this TV plays, up to its screen (4K: VP9 / AV1). */
-    var trailerQuality: String get() = s("trailerQuality", "full"); set(v) = putS("trailerQuality", v)
     var trailerSubLang: String get() = s("trailerSubLang", "ar"); set(v) = putS("trailerSubLang", v)
     /** Seconds on a title before its trailer starts by itself (0 = only when asked). */
     var trailerAutoSec: Int get() = i("trailerAutoSec", 0); set(v) = putI("trailerAutoSec", v.coerceIn(0, 60))
@@ -421,12 +420,13 @@ class Settings(private val ctx: Context) {
     /** Where Settings was left: its page and row (it opens there again). */
     var settingsLastCat: Int get() = i("settingsLastCat", 0); set(v) = putI("settingsLastCat", v)
     var settingsLastRow: Int get() = i("settingsLastRow", -1); set(v) = putI("settingsLastRow", v)
+    /** How an HDMI input opens: auto (the TV's app, else Glassio's own) | tv | glassio. */
+    var inputPlayer: String get() = s("inputPlayer", "auto"); set(v) = putS("inputPlayer", v)
     var boldText: Boolean get() = b("boldText", false); set(v) = putB("boldText", v)
     var saverMode: String get() = s("saverMode", "slideshow"); set(v) = putS("saverMode", v)
     // Screensaver "Trailers": the carousel's titles' trailers, one after another.
     var saverTrailerMute: Boolean get() = b("saverTrailerMute", false); set(v) = putB("saverTrailerMute", v)
     var saverTrailerSize: String get() = s("saverTrailerSize", "cinema"); set(v) = putS("saverTrailerSize", v)
-    var saverTrailerQuality: String get() = s("saverTrailerQuality", "full"); set(v) = putS("saverTrailerQuality", v)
     var saverTrailerLogo: Boolean get() = b("saverTrailerLogo", true); set(v) = putB("saverTrailerLogo", v)
     var saverTrailerMeta: Boolean get() = b("saverTrailerMeta", true); set(v) = putB("saverTrailerMeta", v)
     var saverTrailerSynopsis: Boolean get() = b("saverTrailerSynopsis", false); set(v) = putB("saverTrailerSynopsis", v)

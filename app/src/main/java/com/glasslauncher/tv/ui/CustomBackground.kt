@@ -449,13 +449,13 @@ suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean
             val reg = region()
             val whole = reg == null || (reg.dst.left <= 0f && reg.dst.top <= 0f && reg.dst.right >= 1f && reg.dst.bottom >= 1f)
             // Only part of the screen (bars around it): copied small, then placed where it is, black around.
-            val into = if (whole) dst else tmpFor(dst, reg!!.dst)
+            val into = if (whole) dst else tmpFor(dst, reg.dst)
             val done = { r: Int ->
                 try {
                     if (r == android.view.PixelCopy.SUCCESS && myGen == VideoFrames.gen) {
                         if (!whole) android.graphics.Canvas(dst).apply {
                             drawColor(android.graphics.Color.BLACK)
-                            drawBitmap(into, null, android.graphics.RectF(reg!!.dst.left * dst.width, reg.dst.top * dst.height, reg.dst.right * dst.width, reg.dst.bottom * dst.height), placePaint)
+                            drawBitmap(into, null, android.graphics.RectF(reg.dst.left * dst.width, reg.dst.top * dst.height, reg.dst.right * dst.width, reg.dst.bottom * dst.height), placePaint)
                         }
                         val soft = if (wantSoft || !wantSharp) softBufs[i].also { soften.make(dst, it, fromLarge = wantSharp) } else null
                         VideoFrames.publish(myGen, if (wantSharp) dst.asImageBitmap() else null, soft?.asImageBitmap())

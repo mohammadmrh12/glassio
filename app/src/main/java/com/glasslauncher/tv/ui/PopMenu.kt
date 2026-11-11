@@ -135,7 +135,10 @@ private fun PopMenu(state: PopState, s: Float, style: String, onDismiss: () -> U
                 }
                 // The remote stays in the menu until it closes: past its last row Down did nothing in the menu and went
                 // on to the dock. The menu is a focus group that never lets the focus out.
-                .focusProperties { @Suppress("DEPRECATION") exit = { FocusRequester.Cancel } }
+                .focusProperties {
+                    @Suppress("DEPRECATION")
+                    run { exit = { FocusRequester.Cancel } }
+                }
                 .focusGroup()
                 .onPreviewKeyEvent { ev ->
                     if (ev.key == androidx.compose.ui.input.key.Key.Back || ev.key == androidx.compose.ui.input.key.Key.Escape) {
