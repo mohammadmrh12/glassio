@@ -103,7 +103,7 @@ object DevHooks {
         val st = app.settings
         // ---- Settings
         i.getStringArrayExtra("prefs")?.forEach { st.debugSet(it) }
-        i.getStringExtra("pref")?.let { st.debugSet(it) }
+        i.getStringExtra("pref")?.let { st.debugSet(it); com.glasslauncher.tv.ui.GlassTint.apply(st); com.glasslauncher.tv.ui.TextLook.bold.value = st.boldText }
         i.getStringExtra("cameras")?.let { st.cameras = it.split(';').filter { l -> l.contains("://") } }
         i.getStringExtra("theme")?.let { st.applyTheme(it) }
         i.getStringExtra("perf_mode")?.let { if (it in setOf("auto", "performance", "balanced", "quality")) st.applyMode(it) }

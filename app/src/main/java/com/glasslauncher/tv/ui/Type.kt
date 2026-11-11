@@ -22,14 +22,27 @@ val Inter = FontFamily(
     Font(R.font.inter_bold, FontWeight.Bold),
 )
 
+/** Bold text (Settings → Menu & themes): every weight one step heavier, everywhere in Glassio. */
+val BoldInter = FontFamily(
+    Font(R.font.inter_medium, FontWeight.Light),
+    Font(R.font.inter_semibold, FontWeight.Normal),
+    Font(R.font.inter_semibold, FontWeight.Medium),
+    Font(R.font.inter_bold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+)
+
+object TextLook { val bold = androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
+
 /** Apple TV's secondary text (synopsis, metadata): soft grey rather than white. */
 val AppleSecondary = androidx.compose.ui.graphics.Color(0xFFB3B3B8)
 
 @Composable
 fun GlassType(content: @Composable () -> Unit) {
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as? com.glasslauncher.tv.GlassApp
+    val bold = TextLook.bold.value ?: (app?.settings?.boldText == true).also { TextLook.bold.value = it }
     CompositionLocalProvider(
         LocalTextStyle provides LocalTextStyle.current.copy(
-            fontFamily = Inter,
+            fontFamily = if (bold) BoldInter else Inter,
             // The TV draws apps at 1080p and scales them up to 4K: Regular strokes go soft, Medium stays crisp.
             fontWeight = FontWeight.Medium,
             platformStyle = PlatformTextStyle(includeFontPadding = false),

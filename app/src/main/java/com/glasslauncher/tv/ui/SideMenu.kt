@@ -328,6 +328,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         }
                         add(Triple("My videos", if (st.saverMode == "aerial" && st.saverMine) "✓" else "") { st.saverMode = "aerial"; st.saverMine = !st.saverMine; st.saverPick = "" })
                         add(Triple("Posters", if (st.saverMode == "slideshow") "✓" else "") { st.saverMode = if (st.saverMode == "slideshow") "aerial" else "slideshow" })
+                        add(Triple("Trailers", if (st.saverMode == "trailer") "✓" else "") { st.saverMode = if (st.saverMode == "trailer") "aerial" else "trailer" })
                         add(Triple("Shuffle", if (st.saverShuffle) "On" else "Off") { st.saverShuffle = !st.saverShuffle })
                         if (st.saverLock) add(Triple("Locked only", if (st.saverLockedOnly) "On" else "Off · ${st.saverLocked.size}") { st.saverLockedOnly = !st.saverLockedOnly })
                         add(Triple("Large clock", if (st.saverBigClock) "On" else "Off") { st.saverBigClock = !st.saverBigClock })
@@ -383,15 +384,21 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     Box(Modifier.fillMaxWidth().padding(horizontal = (6 * s).dp).height(0.6.dp).background(ink.copy(alpha = 0.14f)))
                     Spacer(Modifier.height((6 * s).dp))
                     val n = THEMES.size
-                    MenuRow(s, light, "Colour on focus", if (st.focusColor) "On" else "Off",
+                    // The glass's colour (none, black, petrol): OK goes to the next one.
+                    MenuRow(s, light, "Glass colour", GlassTint.NAMES[st.glassColor]?.substringBefore(" (") ?: "None",
                         modifier = Modifier.focusRequester(reqs[n]), onFocused = { current = n },
-                        first = false, last = !st.focusColor, onLeft = back,
-                        glyph = { c -> glyph(if (st.focusColor) "dotOn" else "dotOff", c) }, onClick = { target = n; st.focusColor = !st.focusColor })
-                    if (st.focusColor) MenuRow(s, light, "Focus plate", PLATE_NAMES[st.focusPlate] ?: "Dark",
+                        first = false, last = false, onLeft = back,
+                        glyph = { c -> drawCircle(if (st.glassColor == "petrol") Color(0xFF1E7A86) else if (st.glassColor == "black") Color.Black else c.copy(alpha = 0.25f), radius = size.minDimension * 0.32f) },
+                        onClick = { target = n; val k = GlassTint.NAMES.keys.toList(); st.glassColor = k[(k.indexOf(st.glassColor) + 1).mod(k.size)]; GlassTint.apply(st) })
+                    MenuRow(s, light, "Colour on focus", if (st.focusColor) "On" else "Off",
                         modifier = Modifier.focusRequester(reqs[n + 1]), onFocused = { current = n + 1 },
+                        first = false, last = !st.focusColor, onLeft = back,
+                        glyph = { c -> glyph(if (st.focusColor) "dotOn" else "dotOff", c) }, onClick = { target = n + 1; st.focusColor = !st.focusColor })
+                    if (st.focusColor) MenuRow(s, light, "Focus plate", PLATE_NAMES[st.focusPlate] ?: "Dark",
+                        modifier = Modifier.focusRequester(reqs[n + 2]), onFocused = { current = n + 2 },
                         first = false, last = true, onLeft = back,
                         glyph = { c -> plateGlyph(st.focusPlate, c) },
-                        onClick = { target = n + 1; st.focusPlate = PLATES[(PLATES.indexOf(st.focusPlate) + 1).mod(PLATES.size)] })
+                        onClick = { target = n + 2; st.focusPlate = PLATES[(PLATES.indexOf(st.focusPlate) + 1).mod(PLATES.size)] })
                 }
             }
         }

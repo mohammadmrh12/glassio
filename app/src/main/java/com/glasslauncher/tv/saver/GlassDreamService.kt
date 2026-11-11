@@ -46,6 +46,8 @@ class GlassDreamService : DreamService(), LifecycleOwner, SavedStateRegistryOwne
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val k = event.keyCode
+        if (SaverControl.popOpen.value) return super.dispatchKeyEvent(event)
+        SaverControl.afterOpen = { runCatching { wakeUp() } }
         if (SaverControl.onKey(event, (application as com.glasslauncher.tv.GlassApp).settings)) return true
         if (event.action == android.view.KeyEvent.ACTION_DOWN) wakeUp()
         return true

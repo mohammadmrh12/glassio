@@ -36,9 +36,16 @@ object SystemSetup {
         return homeKeyOn(ctx)
     }
 
-    fun isHomeApp(ctx: Context): Boolean = runCatching {
-        ctx.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName == pkg(ctx)
-    }.getOrDefault(false)
+    fun isHomeApp(ctx: Context): Boolean {
+        // Google TV keeps answering a Home intent with its own launcher even when Glassio holds the home role (set
+        // here): the role is what counts (the check showed "not set" while it was).
+        if (android.os.Build.VERSION.SDK_INT >= 29) runCatching {
+            if (ctx.getSystemService(android.app.role.RoleManager::class.java)?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME) == true) return true
+        }
+        return runCatching {
+            ctx.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName == pkg(ctx)
+        }.getOrDefault(false)
+    }
 
     /** Glassio as the TV's home app (the Home button then lands here too). Blocking. */
     fun makeHomeApp(ctx: Context): Boolean {

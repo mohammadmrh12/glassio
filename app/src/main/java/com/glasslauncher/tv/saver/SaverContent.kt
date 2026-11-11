@@ -53,6 +53,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Remote keys while the screensaver plays: ◀ ▶ change the video, OK shows / hides the info. */
+/** The trailer screensaver: bumped with every new trailer (the clock and date move to another corner then). */
+object TrailerSaver { val rev = androidx.compose.runtime.mutableIntStateOf(0) }
+
 object SaverControl {
     /** +1 next video, -1 previous one (read and cleared by the player loop). */
     @Volatile var step = 0
@@ -70,6 +73,13 @@ object SaverControl {
     val lockRev = androidx.compose.runtime.mutableIntStateOf(0)
     /** Closing: everything fades to black before the screen goes. */
     val out = androidx.compose.runtime.mutableStateOf(false)
+    /** Posters and Trailers: OK opens the title on screen; held OK opens its menu (Trailers). */
+    @Volatile var onOk: (() -> Unit)? = null
+    @Volatile var onLong: (() -> Unit)? = null
+    /** A menu is open on the screensaver: the keys go to it. */
+    val popOpen = androidx.compose.runtime.mutableStateOf(false)
+    /** A title was opened from it: the TV's own screensaver (dream) ends then (the activity ends by itself). */
+    @Volatile var afterOpen: (() -> Unit)? = null
 
     private var okDown = false
     private var okLong = false
@@ -112,9 +122,10 @@ object SaverControl {
         if (code == android.view.KeyEvent.KEYCODE_DPAD_CENTER || code == android.view.KeyEvent.KEYCODE_ENTER) {
             if (e.action == android.view.KeyEvent.ACTION_DOWN) {
                 if (e.repeatCount == 0) { okDown = true; okLong = false }
-                else if (okDown && !okLong && st.saverLock) { okLong = true; toggleLock(st) }
+                else if (okDown && !okLong && onLong != null) { okLong = true; onLong?.invoke() }
+                else if (okDown && !okLong && st.saverLock && onOk == null) { okLong = true; toggleLock(st) }
             } else if (e.action == android.view.KeyEvent.ACTION_UP) {
-                if (okDown && !okLong) key(code)
+                if (okDown && !okLong) { val ok = onOk; if (ok != null) ok() else key(code) }
                 okDown = false
             }
             return true
@@ -161,7 +172,8 @@ object SaverControl {
 internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
     val ctx = LocalContext.current
     val st = app.settings
-    val slideshow = forceSlideshow || st.saverMode == "slideshow"
+    val trailers = !forceSlideshow && st.saverMode == "trailer"
+    val slideshow = forceSlideshow || st.saverMode == "slideshow" || trailers
     // null while the list loads: black meanwhile (the posters showed a title's logo for a moment).
     val items by produceState<List<Pair<String, String>>?>(if (slideshow) emptyList() else null) {
         if (!slideshow) value = withContext(Dispatchers.IO) { AerialSource.playlistItems(app) }
@@ -230,6 +242,11 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             }
             val glassClock = st.saverBigClock && com.glasslauncher.tv.ui.clockLook(st) != "white" && st.dockStyle != "bow" && st.dockStyle != "amoled"
             LaunchedEffect(Unit) { snapshotFlow { black.value }.collect { SaverFrames.dim.floatValue = it; com.glasslauncher.tv.ui.VideoFrames.dim.floatValue = it } }
+            // Left before its video faded in (in and out quickly): the darkness it set stayed, and the home screen's
+            // glass was drawn black until the screensaver had run once more. It goes with the screensaver.
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                onDispose { SaverFrames.dim.floatValue = 0f; com.glasslauncher.tv.ui.VideoFrames.dim.floatValue = 0f }
+            }
             // Hue Sync on the screensaver: a small copy of its video every few seconds.
             if (com.glasslauncher.tv.data.HueSync.ready(st) && st.hueSaver && android.os.Build.VERSION.SDK_INT >= 26) LaunchedEffect(Unit) {
                 val buf = android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888)
@@ -343,10 +360,13 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                     if (fade) black.animateTo(0f, tween(if (quick) 380 else 1000)) else black.snapTo(0f)
                 }
             }
+        } else if (trailers) {
+            com.glasslauncher.tv.ui.SaverTrailers(app)
         } else {
             Slideshow(app)
         }
-        if (list != null) SaverInfo(app, if (slideshow || list.isEmpty() || failed) "" else title, change)
+        if (list != null) SaverInfo(app, if (slideshow || list.isEmpty() || failed) "" else title, change + TrailerSaver.rev.intValue,
+            avoid = if (trailers) "bl" else null)
         LockBadge()
         // Music playing: the island at the top.
         if (st.musicOn && st.musicIsland) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -451,7 +471,9 @@ data class InfoLook(
 /** Clock, date, weather, place and the TV's numbers over the screensaver (and, with [look], over the home background). */
 @Composable
 fun SaverInfo(app: GlassApp, place: String, change: Int, look: InfoLook = InfoLook.saver(app.settings), credit: String = "",
-              padTop: Float = 0f, padBottom: Float = 0f) {
+              padTop: Float = 0f, padBottom: Float = 0f,
+              /** A corner something else uses (the trailer's logo and details, bottom left): never there. */
+              avoid: String? = null) {
     val st = app.settings
     val k = look.size
     val time by produceState(clockText(st.clock24h)) { while (true) { value = clockText(st.clock24h); delay(5_000) } }
@@ -462,8 +484,9 @@ fun SaverInfo(app: GlassApp, place: String, change: Int, look: InfoLook = InfoLo
         while (true) { value = withContext(Dispatchers.IO) { SystemInfo.read(app) }; delay(5_000) }
     }
     // Where it shows: a fixed corner, or another one with every video (so nothing burns in).
-    val corner = remember(change, look.pos) {
-        if (look.pos == "move") listOf("bl", "br", "tl", "tr").random() else look.pos
+    val corner = remember(change, look.pos, avoid) {
+        if (look.pos == "move") (listOf("bl", "br", "tl", "tr") - setOfNotNull(avoid)).random()
+        else if (look.pos == avoid) "tr" else look.pos
     }
     // Shown for a while after each video change, or always.
     val shown = remember { Animatable(0f) }

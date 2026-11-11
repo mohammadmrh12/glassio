@@ -139,6 +139,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             previous?.uncaughtException(t, e)
         }
         settings = Settings(this)
+        com.glasslauncher.tv.ui.GlassTint.apply(settings)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(a: android.app.Activity) { if (shown++ == 0) com.glasslauncher.tv.data.HueSync.resume() }
             override fun onActivityStopped(a: android.app.Activity) {

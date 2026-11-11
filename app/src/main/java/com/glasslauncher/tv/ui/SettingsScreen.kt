@@ -118,7 +118,11 @@ private fun openSystem(ctx: Context, action: String) {
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
+fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
+    // Opened plainly (the menu, the settings button): back where you were last time, the same page and row.
+    // Opened for a particular page (a link, Manage from phone): that page.
+    val resume = askedCat == 0 && (app.settings.settingsLastCat > 0 || app.settings.settingsLastRow >= 0)
+    val initialCat = if (resume) app.settings.settingsLastCat else askedCat
     val s = LocalScale.current
     val ctx = LocalContext.current
     val st = app.settings
@@ -328,13 +332,11 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 Adjust("Trailer window size", "", { pct(st.trailerPopupScale) }, { st.trailerPopupScale = ((st.trailerPopupScale * 10).roundToInt() + it) / 10f }),
                 Toggle("Hide the dock during trailers", "The dock and the dots step aside while a trailer fills the page, and come back when it stops or ends (never with the window)",
                     { st.trailerHideDock }, { st.trailerHideDock = it }),
-                Adjust("Trailer quality", "Automatic: H.264 up to 1080p (720p on small TVs). Full: the best this TV can play, up to 4K", {
-                    if (st.trailerQuality == "full") "Full" else "Automatic"
-                }, { st.trailerQuality = cycle(listOf("auto", "full"), st.trailerQuality, it) }),
                 Toggle("Trailer sound", "", { !st.trailerMute }, { st.trailerMute = !it }),
                 Toggle("Trailer subtitles", "", { st.trailerSubs }, { st.trailerSubs = it }),
                 Adjust("Subtitle language", "", { java.util.Locale(st.trailerSubLang).getDisplayLanguage(java.util.Locale.ENGLISH) },
                     { st.trailerSubLang = cycle(listOf("en", "ar", "fr", "de", "es", "it", "tr", "fa", "ru", "pt", "hi", "ja", "ko", "zh"), st.trailerSubLang, it) }),
+                Adjust("Subtitle size", "", { pct(st.trailerSubScale) }, { st.trailerSubScale = ((st.trailerSubScale * 10).roundToInt() + it) / 10f }),
                 Adjust("Play trailers by themselves", "After this long on a title its trailer starts; when it ends (or ◀ ▶) the next title comes", {
                     if (st.trailerAutoSec == 0) "Off" else "After ${st.trailerAutoSec} s"
                 }, { st.trailerAutoSec = cycle(listOf(0, 3, 5, 8, 10, 15, 20, 30), st.trailerAutoSec, it) }),
@@ -449,22 +451,6 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     dialog = TextEntry("Weather city", st.weatherCity, "Baghdad") { st.weatherCity = it; app.weather.reload() }
                 },
                 Toggle("Fahrenheit", "", { st.weatherF }, { st.weatherF = it }),
-                Toggle("Auto-hide clock and settings button", "Hidden while you browse; they appear when you go up to the settings button", { st.topAutoHide }, { st.topAutoHide = it }),
-                Adjust("Shown at start for", "Then hidden until you go up to them", { "${st.topHideSec} s" }, { st.topHideSec += it }),
-                Adjust("Corner radius", "Dock and app tiles (0 = square)", { "${st.cornerRadius}" }, { st.cornerRadius += it * 2 }),
-                Adjust("Glass blur", "0 turns blur off", { "${st.blurRadius}" }, { st.blurRadius += it * 4 }),
-                Adjust("Glass refraction", "How much the rim bends what is behind it (0 = flat)", { "${st.refraction}" }, { st.refraction += it * 2 }),
-                Adjust("Glass brightness", "", { "${st.glassTint}" }, { st.glassTint += it * 2 }),
-                Toggle("Colour on focus", "Like tvOS: icons stay white, the selected one shows its colours on a light plate", { st.focusColor }, { st.focusColor = it }),
-                Adjust("Selected icon plate", "With Colour on focus", { PLATE_NAMES[st.focusPlate] ?: "Dark" },
-                    { st.focusPlate = cycle(PLATES, st.focusPlate, it) }),
-                Toggle("Bounce at the edges", "Pressing past the first or last icon nudges it, like tvOS", { st.edgeBounce }, { st.edgeBounce = it }),
-                Toggle("Lift selected icon", "The selected icon rises a little, glass and all", { st.tileLift }, { st.tileLift = it }),
-                Adjust("Icon zoom on focus", "", { when (st.tileZoom) { "icon" -> "Inside the glass (the icon grows)"; "off" -> "None"; else -> "Whole tile grows" } },
-                    { st.tileZoom = cycle(listOf("tile", "icon", "off"), st.tileZoom, it) }),
-                Adjust("Glow", "A very soft light around the selected app or poster (also in the Library)", { when (st.glow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
-                    { st.glow = cycle(listOf("off", "color", "white"), st.glow, it) }),
-                Adjust("  · Glow size", "How far and how strong it is", { pct(st.glowSize) }, { st.glowSize = ((st.glowSize * 10).roundToInt() + it) / 10f }),
                 Toggle("Show phone apps too", "Apps without a TV launcher entry", { st.showMobileApps }, { st.showMobileApps = it; app.apps.reload() }),
             )
         },
@@ -492,6 +478,23 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                 add(Adjust("Icon style", "How the plate behind every icon looks", {
                     styleName(st.tileStyle)
                 }, { st.tileStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.tileStyle, it); st.theme = "" }))
+                add(Note("Dock look"))
+                add(Toggle("Auto-hide clock and settings button", "Hidden while you browse; they appear when you go up to the settings button", { st.topAutoHide }, { st.topAutoHide = it }))
+                add(Adjust("Shown at start for", "Then hidden until you go up to them", { "${st.topHideSec} s" }, { st.topHideSec += it }))
+                add(Adjust("Corner radius", "Dock and app tiles (0 = square)", { "${st.cornerRadius}" }, { st.cornerRadius += it * 2 }))
+                add(Adjust("Glass blur", "0 turns blur off", { "${st.blurRadius}" }, { st.blurRadius += it * 4 }))
+                add(Adjust("Glass refraction", "How much the rim bends what is behind it (0 = flat)", { "${st.refraction}" }, { st.refraction += it * 2 }))
+                add(Adjust("Glass brightness", "", { "${st.glassTint}" }, { st.glassTint += it * 2 }))
+                add(Toggle("Colour on focus", "Like tvOS: icons stay white, the selected one shows its colours on a light plate", { st.focusColor }, { st.focusColor = it }))
+                add(Adjust("Selected icon plate", "With Colour on focus", { PLATE_NAMES[st.focusPlate] ?: "Dark" },
+                    { st.focusPlate = cycle(PLATES, st.focusPlate, it) }))
+                add(Toggle("Bounce at the edges", "Pressing past the first or last icon nudges it, like tvOS", { st.edgeBounce }, { st.edgeBounce = it }))
+                add(Toggle("Lift selected icon", "The selected icon rises a little, glass and all", { st.tileLift }, { st.tileLift = it }))
+                add(Adjust("Icon zoom on focus", "", { when (st.tileZoom) { "icon" -> "Inside the glass (the icon grows)"; "off" -> "None"; else -> "Whole tile grows" } },
+                    { st.tileZoom = cycle(listOf("tile", "icon", "off"), st.tileZoom, it) }))
+                add(Adjust("Glow", "A very soft light around the selected app or poster (also in the Library)", { when (st.glow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
+                    { st.glow = cycle(listOf("off", "color", "white"), st.glow, it) }))
+                add(Adjust("  · Glow size", "How far and how strong it is", { pct(st.glowSize) }, { st.glowSize = ((st.glowSize * 10).roundToInt() + it) / 10f }))
                 add(Note("Change one icon: on the home screen hold OK on the app → Change icon. Pick from an icon pack, the Apple TV icons, a photo on the TV, a link to a PNG, or send one from your phone (Manage from phone)."))
                 add(Note("Icon packs: install any Android TV / Projectivy icon pack from Google Play, then choose it above. Every app takes the pack's icon; you can still change single apps."))
                 add(Act("Find icon packs on Google Play", "Projectivy / Android TV icon packs", "") { openPlay(ctx, null, "projectivy icon pack") })
@@ -535,6 +538,11 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
         Category("Menu & themes") {
             val themes = listOf("bow", "amoled", "liquid", "clear", "water_still", "water")
             listOf(
+                Adjust("Glass colour", "A tint through all the glass (dock, icons, menus, panels), still see-through, like a tinted window",
+                    { GlassTint.NAMES[st.glassColor] ?: "None (clear)" }, { st.glassColor = cycle(GlassTint.NAMES.keys.toList(), st.glassColor, it); GlassTint.apply(st) }),
+                Adjust("  · Strength", "How deep the glass colour is", { pct(st.glassColorAmount) },
+                    { st.glassColorAmount = ((st.glassColorAmount * 20).roundToInt() + it) / 20f; GlassTint.apply(st) }),
+                Toggle("Bold text", "All of Glassio's writing a step bolder", { st.boldText }, { st.boldText = it; TextLook.bold.value = it }),
                 Act("Switch colour", "The colour of the switches in Settings, and of a row while you change it", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
                     dialog = ThumbDialog("Switch colour", SETTINGS_ACCENTS.map { (k, v) -> ThumbItem(v.first, if (k == "burgundy") "Default" else "", HueArt.swatch(v.second), checked = k == st.settingsAccent) { st.settingsAccent = k } })
                 },
@@ -977,9 +985,24 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     when (st.saverMode) {
                         "aerial" -> "Aerial videos"
                         "system" -> "The TV's screensaver app (" + (comp.substringBefore('/').substringAfterLast('.').ifBlank { "none" }) + ")"
+                        "trailer" -> "Trailers"
                         else -> "Posters with logos"
                     }
-                }, { st.saverMode = cycle(listOf("aerial", "slideshow", "system"), st.saverMode, it) }))
+                }, { st.saverMode = cycle(listOf("aerial", "slideshow", "trailer", "system"), st.saverMode, it) }))
+                if (st.saverMode == "slideshow") add(Note("OK on a poster opens the title in Nuvio · ◀ ▶ the next or the one before"))
+                if (st.saverMode == "trailer") {
+                    add(Note("Trailers (the carousel's titles, one after another) · OK opens the title in Nuvio · hold OK for more · ◀ ▶ skip"))
+                    add(Toggle("  · Sound", "Off: the trailers play muted", { !st.saverTrailerMute }, { st.saverTrailerMute = !it }))
+                    add(Adjust("  · Size", "", { if (st.saverTrailerSize == "original") "Original (whole picture)" else "Cinematic (fills the screen)" },
+                        { st.saverTrailerSize = cycle(listOf("cinema", "original"), st.saverTrailerSize, it) }))
+                    add(Toggle("  · Logo", "The title's logo (or its name)", { st.saverTrailerLogo }, { st.saverTrailerLogo = it }))
+                    add(Toggle("  · Details", "Rating, year, where it streams and genres, as on the carousel", { st.saverTrailerMeta }, { st.saverTrailerMeta = it }))
+                    add(Toggle("  · Synopsis", "", { st.saverTrailerSynopsis }, { st.saverTrailerSynopsis = it }))
+                    add(Toggle("  · Subtitles", "As set for trailers (Carousel → Trailers)", { st.trailerSubs }, { st.trailerSubs = it }))
+                    add(Adjust("  · Subtitle size", "", { pct(st.trailerSubScale) }, { st.trailerSubScale = ((st.trailerSubScale * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("  · Details shown for", "After each new trailer", { if (st.saverTrailerInfoSec == 0) "Always" else "${st.saverTrailerInfoSec} s" },
+                        { st.saverTrailerInfoSec = cycle(listOf(0, 6, 10, 20, 30), st.saverTrailerInfoSec, it) }))
+                }
                 add(Note("Videos (aerial-videos.netlify.app)"))
                 AerialSource.SOURCES.forEach { src ->
                     add(Toggle(src.name, "", { src.key in st.saverSources }, { on -> st.saverSources = if (on) st.saverSources + src.key else st.saverSources - src.key; st.saverPick = "" }))
@@ -1013,6 +1036,15 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                     add(Adjust("  · Bar", "The line before each one", { when (st.saverBar) { "white" -> "White"; "black" -> "Black"; "off" -> "None"; else -> "Red" } },
                         { st.saverBar = cycle(listOf("red", "white", "black", "off"), st.saverBar, it) }))
                 }
+                add(Toggle("Clock", "", { st.saverClock }, { st.saverClock = it }))
+                add(Toggle("Date", "", { st.saverDate }, { st.saverDate = it }))
+                add(Toggle("Weather", "", { st.saverWeather }, { st.saverWeather = it; app.weather.reload() }))
+                add(Toggle("Place", "Where the video was filmed", { st.saverPlace }, { st.saverPlace = it }))
+                add(Toggle("TV info", "RAM, CPU, GPU, storage, IP (the ones on in Menu, Library & themes)", { st.saverSys }, { st.saverSys = it }))
+                add(Adjust("Position", "Apple style", { when (st.saverPos) { "tl" -> "Top left"; "tr" -> "Top right"; "br" -> "Bottom right"; "bl" -> "Bottom left"; else -> "Moves with every video" } },
+                    { st.saverPos = cycle(listOf("move", "bl", "br", "tl", "tr"), st.saverPos, it) }))
+                add(Adjust("Size", "", { pct(st.saverSize) }, { st.saverSize = ((st.saverSize * 10).roundToInt() + it) / 10f }))
+                add(Adjust("Shows for", "After each new video", { if (st.saverShowSec == 0) "Always" else "${st.saverShowSec} s" }, { st.saverShowSec = cycle(listOf(0, 10, 20, 30, 60), st.saverShowSec, it) }))
                 add(Note("While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it."))
                 add(Toggle("Large clock", "The large glass clock in the middle of the screensaver", { st.saverBigClock }, { st.saverBigClock = it }))
                 add(Toggle("Lock & release", "Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it", { st.saverLock }, { st.saverLock = it }))
@@ -1074,15 +1106,6 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
                         add(Adjust("  · Bars colour", "", { if (st.islandBars == "white") "White" else "From the artwork" }, { st.islandBars = cycle(listOf("art", "white"), st.islandBars, it) }))
                     }
                 }
-                add(Toggle("Clock", "", { st.saverClock }, { st.saverClock = it }))
-                add(Toggle("Date", "", { st.saverDate }, { st.saverDate = it }))
-                add(Toggle("Weather", "", { st.saverWeather }, { st.saverWeather = it; app.weather.reload() }))
-                add(Toggle("Place", "Where the video was filmed", { st.saverPlace }, { st.saverPlace = it }))
-                add(Toggle("TV info", "RAM, CPU, GPU, storage, IP (the ones on in Menu, Library & themes)", { st.saverSys }, { st.saverSys = it }))
-                add(Adjust("Position", "Apple style", { when (st.saverPos) { "tl" -> "Top left"; "tr" -> "Top right"; "br" -> "Bottom right"; "bl" -> "Bottom left"; else -> "Moves with every video" } },
-                    { st.saverPos = cycle(listOf("move", "bl", "br", "tl", "tr"), st.saverPos, it) }))
-                add(Adjust("Size", "", { pct(st.saverSize) }, { st.saverSize = ((st.saverSize * 10).roundToInt() + it) / 10f }))
-                add(Adjust("Shows for", "After each new video", { if (st.saverShowSec == 0) "Always" else "${st.saverShowSec} s" }, { st.saverShowSec = cycle(listOf(0, 10, 20, 30, 60), st.saverShowSec, it) }))
                 add(Note("More"))
                 add(link("Remote mapping", "Back on the home screen starts it, and the other buttons"))
                 add(Act("Add video link", "A direct .mp4 / .mov link (Manage from phone can also save it to the TV)", "") {
@@ -1455,6 +1478,13 @@ fun SettingsScreen(app: GlassApp, initialCat: Int, onClose: () -> Unit) {
     }
     // Search: a query typed on Glassio's own keyboard; a result opens its page at that row.
     var jump by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    // The row you were on last time (Settings opened plainly).
+    LaunchedEffect(Unit) {
+        val r = app.settings.settingsLastRow
+        if (resume && r >= 0) { delay150(); lastRow[initialCat] = r; jump = initialCat to r }
+    }
+    // Remembered when Settings closes (also after Glassio starts again).
+    DisposableEffect(Unit) { onDispose { app.settings.settingsLastCat = shownCat; app.settings.settingsLastRow = lastRow.getOrElse(shownCat) { -1 } } }
     val onAppMenu: (AppEntry) -> Unit = remember { { e -> appMenu(app, e, ctx, scope) { dialog = it } } }
     LaunchedEffect(jump) {
         val (c, r) = jump ?: return@LaunchedEffect
@@ -1614,14 +1644,16 @@ private fun groupPositions(rows: List<SRow>): IntArray = IntArray(rows.size) { i
 }
 
 @Composable
-private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Unit, pos: Int = 0, first: Boolean = true) {
+private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Unit, pos: Int = 0, first: Boolean = true, afterNote: Boolean = false) {
     when (row) {
         // A short note is a group's heading; a longer one a small explanation under the heading.
         is Note -> {
             val head = row.text.length <= 44 && !row.text.endsWith(".")
             Text(com.glasslauncher.tv.data.I18n.tr(row.text), color = Color.White.copy(alpha = if (head) 0.62f else 0.45f), fontSize = ((if (head) 12f else 11f) * s).sp,
                 fontWeight = if (head) FontWeight.SemiBold else null,
-                modifier = Modifier.padding(start = (14 * s).dp, end = (14 * s).dp, top = ((if (first) 0f else if (head) 18f else 6f) * s).dp, bottom = (6 * s).dp))
+                // A clear gap between groups: a note that starts a new group (the one before it was a card, not its heading)
+                // gets the same room as a heading; one right under its heading stays close to it.
+                modifier = Modifier.padding(start = (14 * s).dp, end = (14 * s).dp, top = ((if (first) 0f else if (head || !afterNote) 30f else 6f) * s).dp, bottom = (8 * s).dp))
         }
         is Toggle -> Frame(s, pos = pos, onClick = { row.set(!row.get()) }) { f ->
             Label(row.title, row.desc, s, Modifier.weight(1f))
@@ -1753,7 +1785,7 @@ private fun SettingsPage(s: Float, c: Category, sc: Int, app: GlassApp, listStat
                 LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     items(rows.size, contentType = { rows[it]::class }) { i ->
                         Box(Modifier.focusRequester(rowFocus.getOrPut(sc * 10_000L + i) { FocusRequester() }).onFocusChanged { if (it.hasFocus) lastRow[sc] = i }) {
-                            RowView(rows[i], s, app, onApp = onAppMenu, pos = pos[i], first = i == 0)
+                            RowView(rows[i], s, app, onApp = onAppMenu, pos = pos[i], first = i == 0, afterNote = rows.getOrNull(i - 1) is Note)
                         }
                     }
                 }

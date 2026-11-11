@@ -164,8 +164,17 @@ object MusicUi {
     /** Bumped to put the selection on the music page's Play button. */
     val focusRev = androidx.compose.runtime.mutableIntStateOf(0)
     /** Whether the music page takes the home screen now. */
-    fun stageOn(st: com.glasslauncher.tv.data.Settings, song: NowPlaying.Track?): Boolean =
-        song != null && ((st.musicOn && st.musicMode && stageAllowed(st)) || forced.value)
+    fun stageOn(st: com.glasslauncher.tv.data.Settings, song: NowPlaying.Track?): Boolean {
+        if (song == null) return false
+        if (forced.value) return true
+        // Only a song that played while Glassio runs: a music app left paused from before (Spotify keeps its paused
+        // session) put the music page up the moment Glassio started, after an update or a restart.
+        val key = song.pkg + "|" + song.title + "|" + song.artist
+        if (song.playing) playedHere.add(key)
+        return st.musicOn && st.musicMode && stageAllowed(st) && key in playedHere
+    }
+    /** Songs that played since Glassio started (paused afterwards they keep the music page, as before). */
+    private val playedHere = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
     /** The dock's Music icon: the music page if something plays, else the menu's music page (the apps). */
     fun openFromDock(app: com.glasslauncher.tv.GlassApp) {
         if (NowPlaying.track.value != null) { forced.value = true; focusRev.intValue++ }

@@ -104,7 +104,7 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
         // Its trailer, over the whole screen (Back stops it).
         if (item.id.startsWith("tt")) opts += "Trailer" to {
             scope.launch {
-                val got = withContext(Trailers.background) { runCatching { Trailers.prepare(app, item.type, item.id) }.getOrNull() }
+                val got = withContext(Trailers.background) { runCatching { Trailers.prepare(app, item.type, item.id, item.name, item.year) }.getOrNull() }
                 if (got?.second == null) toast(ctx, "No trailer for ${item.name}")
                 else Trailers.play("lib:" + item.key, got.first, got.second, overlay = true)
             }
@@ -228,14 +228,17 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         // Holding Down / Up (faster still with the TV's quick key repeat): one row at a time at a steady pace the
         // page can glide at. Every repeat moved a row, and two new rows of posters were built in the same frame
         // (55-75 ms frames, the glide stuttered); at this pace the rows ahead are ready before they come in.
+        // Held: a quicker pace (it was 150 ms a row, slow through a long Library) and a faster glide to match.
         .onPreviewKeyEvent { ev ->
             val vertical = ev.key == Key.DirectionDown || ev.key == Key.DirectionUp
+            val dpad = vertical || ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight
+            if (dpad) LibPace.held = ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount > 0
             if (!vertical || ev.type != KeyEventType.KeyDown || ev.nativeKeyEvent.repeatCount == 0) {
                 if (vertical && ev.type == KeyEventType.KeyDown) lastMove[0] = android.os.SystemClock.uptimeMillis()
                 return@onPreviewKeyEvent false
             }
             val now = android.os.SystemClock.uptimeMillis()
-            if (now - lastMove[0] < 150) true else { lastMove[0] = now; false }
+            if (now - lastMove[0] < 85) true else { lastMove[0] = now; false }
         }
         .onFocusChanged { libFocused = it.hasFocus }) {
         // (No flat colour under it: the grey picture covers the whole page, and on the TV GPU every full-screen
@@ -356,9 +359,11 @@ private class PivotScroll(private val grid: androidx.compose.foundation.lazy.gri
     // Apple TV motion: one long, soft glide with no bounce. A new press while it's still moving keeps its speed,
     // so holding Down is one smooth run instead of a stop-start for every row (the default spring is short and
     // stops hard).
+    private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 240f, visibilityThreshold = 0.5f)
+    private val quick = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 650f, visibilityThreshold = 0.5f)
     @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
-    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> =
-        androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 240f, visibilityThreshold = 0.5f)
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float>
+        get() = if (LibPace.held) quick else soft
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
         // On the first screen the page stays at its very top, so the "Library" title is never cut (it was when the
         // first row was lifted to the pivot like the others).
@@ -376,12 +381,17 @@ private class PivotScroll(private val grid: androidx.compose.foundation.lazy.gri
     }
 }
 
+/** A remote key held down in the Library (the page moves faster then). */
+private object LibPace { @Volatile var held = false }
+
 /** The Continue Watching row: it moves only when the next card would go past the page's margin, by just enough. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private class RowScroll(private val margin: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 300f, visibilityThreshold = 0.5f)
+    private val quick = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 700f, visibilityThreshold = 0.5f)
     @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
-    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> =
-        androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 300f, visibilityThreshold = 0.5f)
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float>
+        get() = if (LibPace.held) quick else soft
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = when {
         offset < margin -> offset - margin
         offset + size > containerSize - margin -> offset + size - (containerSize - margin)

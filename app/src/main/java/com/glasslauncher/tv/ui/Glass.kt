@@ -380,7 +380,10 @@ fun LiquidSurface(
     ) {
         // Everything the layers below need, worked out from the environment as it is now (only while drawing).
         fun now() = GlassNow(ref.value, clearPic, videoBehind, slideInside)
-        fun androidx.compose.ui.graphics.drawscope.DrawScope.tintIn(t: Color) { if (t.alpha > 0f && DebugHide.intValue and 256 == 0) drawRect(t) }
+        fun androidx.compose.ui.graphics.drawscope.DrawScope.tintIn(t: Color) {
+            if (DebugHide.intValue and 256 != 0) return
+            if (t.alpha > 0f) drawRect(t)
+        }
         // Page pictures carry their shades (with Slide all but the side shade); small copies carry none.
         fun androidx.compose.ui.graphics.drawscope.DrawScope.shade(n: GlassNow, b: ImageBitmap) {
             if (!n.isPage(b)) drawScrims(n.env.rootW, n.env.rootH, pos.value, true)
@@ -553,6 +556,19 @@ fun LiquidSurface(
             if (n.bmp == null || n.sliding) return@Canvas
             drawBackdropRegion(vp, n.env.rootW, n.env.rootH, pos.value, scrims = false, colorFilter = VeilFilter)
             tintIn(tint)
+        }
+        // The glass colour (black or petrol) on top of every layer and outside their effects: drawn inside them it
+        // came out lighter while the glass was still (its bending / frost changed the colour too) than during a
+        // slide, so the colour jumped for a moment with every slide.
+        // While the page slides, glass that bends nothing (an icon that isn't selected) draws nothing of its own
+        // and shows the dock's glass under it, already coloured: coloured again here, the icons went darker for
+        // the length of every slide.
+        val gTint = GlassTint.color.value
+        if (gTint.alpha > 0f && DebugHide.intValue and 256 == 0) Canvas(Modifier.matchParentSize()) {
+            val n = now()
+            val b = if (frosted && blurPx >= 0.5f) n.env.bmp ?: n.bmp else n.bmp
+            val seeThrough = Build.VERSION.SDK_INT >= 33 && n.sliding && b != null && n.isPage(b) && fPx < 0.5f && clearPic
+            if (!seeThrough) drawRect(gTint)
         }
         content()
     }
@@ -893,4 +909,20 @@ object GlassMotion {
         if (frozen == this.frozen && shift == shiftY) return
         this.frozen = frozen; shiftY = shift; rev.intValue++
     }
+}
+
+
+/**
+ * A colour through all of Glassio's glass, like a tinted window film: none, black or petrol, at a strength.
+ * Read while drawing, so changing it repaints the glass at once.
+ */
+object GlassTint {
+    val color = androidx.compose.runtime.mutableStateOf(Color.Transparent)
+    val NAMES = linkedMapOf("none" to "None (clear)", "black" to "Black", "petrol" to "Petrol")
+    fun of(kind: String, amount: Float): Color = when (kind) {
+        "black" -> Color.Black.copy(alpha = amount.coerceIn(0f, 0.8f))
+        "petrol" -> Color(0xFF0B4650).copy(alpha = amount.coerceIn(0f, 0.8f))
+        else -> Color.Transparent
+    }
+    fun apply(st: com.glasslauncher.tv.data.Settings) { color.value = of(st.glassColor, st.glassColorAmount) }
 }

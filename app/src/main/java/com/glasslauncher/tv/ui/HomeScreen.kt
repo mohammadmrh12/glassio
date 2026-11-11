@@ -161,6 +161,16 @@ private fun imgReq(ctx: android.content.Context, data: Any?, w: Int = 1920, h: I
         .apply { if (w == 1920) allowHardware(false) }
         .build()
 
+/**
+ * Getting the slides around the one on screen ready (decoding, baking): one low-priority thread. On the default
+ * threads every slide change took two or three cores at once for a second (CPU jumping up and down while the
+ * carousel plays by itself); here the same work is spread out and never competes with the slide's animation.
+ */
+private val prepDispatcher: kotlinx.coroutines.CoroutineDispatcher = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+    Thread({ android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "glass-prep").apply { isDaemon = true }
+}.asCoroutineDispatcher()
+private fun ImageRequest.prep(): ImageRequest = newBuilder().decoderCoroutineContext(prepDispatcher).build()
+
 private fun Modifier.clipR(r: Dp): Modifier = this.clip(RoundedCornerShape(r))
 
 /** The depth effect works on its own low-priority thread (the model's threads inherit it): the home screen first. */
@@ -198,6 +208,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     var settingsCat by remember { mutableIntStateOf(0) }
     val firstTile = remember { FocusRequester() }
     val homeHasFocus = remember { booleanArrayOf(false) }
+    // The carousel, the top buttons or the dock hold the selection (not something hidden: the Library kept ready
+    // under the page, a folder fading out).
+    val homeGroupHas = remember { booleanArrayOf(false) }
     val heroFocus = remember { FocusRequester() }
     val folderFocus = remember { FocusRequester() }
     var pickerFor by remember { mutableStateOf<AppEntry?>(null) }
@@ -372,6 +385,36 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             if (runCatching { first.requestFocus() }.isFailure) runCatching { firstTile.requestFocus() }
         }
     }
+    // A watch for the selection, everywhere: whenever Glassio is on screen with the remote and nothing at all is
+    // selected for a moment (the Apps folder closed by Home, back from an app opened from the folder, a page or a
+    // pop-up that went away with the selection in it), something is selected again. The fixes for each case missed
+    // others; this catches them all.
+    val winInfo = androidx.compose.ui.platform.LocalWindowInfo.current
+    LaunchedEffect(isResumed) {
+        if (!isResumed) return@LaunchedEffect
+        var lost = 0; var tries = 0
+        while (true) {
+            delay(250)
+            // On the plain home screen the selection must be on the page itself: held by something hidden counts as lost.
+            val plainHome = screen == Screen.Home && !folderOpen && !menuOpen && pop == null && dialog == null && pickerFor == null
+            // Only on the plain home screen: the Library and Settings keep their own selection (moving "down" for them
+            // here made those pages scroll down by themselves).
+            if (!plainHome) { lost = 0; tries = 0; continue }
+            // It must be on the carousel, the top buttons or the dock. Back from an app (opened from the Apps folder)
+            // Android gave it to the page's own group, which shows nothing; a tile in the dock's lower rows while the
+            // dock is folded is out of sight too.
+            val ok = if (plainHome) homeGroupHas[0] && (DockFocus.hero || DockFocus.top || DockFocus.dock) && !(DockFocus.lowerRow && !expanded)
+                else homeHasFocus[0]
+            if (ok || !winInfo.isWindowFocused || movingPkg != null) { lost = 0; tries = 0; continue }
+            if (++lost < 2) continue
+            lost = 0
+            if (tries == 0) com.glasslauncher.tv.data.Glog.i("Nothing selected ($screen, folder $folderOpen, menu $menuOpen): selecting again")
+            // Each try something else, in case one of them can't take it (the Play button hidden, the dock away…).
+            if (tries % 2 == 0) runCatching { (if (settings.bgMode != "carousel") firstTile else heroFocus).requestFocus() }
+            else runCatching { firstTile.requestFocus() }
+            tries++
+        }
+    }
     val folderToggleSeen = remember { intArrayOf(app.folderToggle.intValue) }
     LaunchedEffect(app.folderToggle.intValue) {
         if (app.folderToggle.intValue == folderToggleSeen[0]) return@LaunchedEffect
@@ -510,7 +553,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         if (folderOpen) folderLeft = 1L
         // (Multi-view cameras over the home screen: the page behind them blurs too.)
         // (Multi-view over a video background: the blurred copy covers the video, which the screen's blur can't reach.)
-        val veilIn = expanded || folderOpen || folderLeft != 0L || (com.glasslauncher.tv.MultiCamOverlay.open.value && (VideoFrames.showing.value || android.os.Build.VERSION.SDK_INT < 31))
+        // Music mode: the music page stays as it is when you go down into the dock (it faded and blurred away, and
+        // its artwork showed for a moment as a see-through blurred square).
+        val stageKeeps = MusicUi.stageOn(settings, MusicUi.heldTrack())
+        val dockVeils = expanded && !stageKeeps
+        val veilIn = dockVeils || folderOpen || folderLeft != 0L || (com.glasslauncher.tv.MultiCamOverlay.open.value && (VideoFrames.showing.value || android.os.Build.VERSION.SDK_INT < 31))
         // Comes in just after the dock has grown (both at once made the opening stutter on the TV); straight away
         // when it's already up (the folder).
         val veil = animateFloatAsState(if (veilIn) 1f else 0f, if (veilIn) tween(150, delayMillis = 110) else tween(100), label = "veil")
@@ -702,6 +749,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         canFocus = homeTakesFocus
                         enter = { if (homeTakesFocus) androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Cancel }
                     }
+                    .onFocusChanged { homeGroupHas[0] = it.hasFocus }
                     // ▼ while a trailer has the dock hidden: the dock comes back first (with the dock already selected,
                     // that press only shows it; it used to go on down to the Library).
                     .onPreviewKeyEvent { ev ->
@@ -710,8 +758,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     }
                     .focusGroup()
             ) {
-                Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (DebugHide.intValue and 2 != 0) 0f else 1f }) {
-                    HeroSection(app, s, hidden = expanded || folderOpen, paused = screen != Screen.Home || pop != null, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (DebugHide.intValue and 2 != 0) 0f else 1f }.onFocusChanged { DockFocus.hero = it.hasFocus }) {
+                    HeroSection(app, s, hidden = dockVeils || folderOpen, paused = screen != Screen.Home || pop != null, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
@@ -746,7 +794,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         ), PopAnchors.tiles[FOLDER])
                     },
                     modifier = Modifier.align(when (customPos) { "center" -> Alignment.Center; "left" -> Alignment.CenterStart; else -> Alignment.BottomCenter })
-                        .onFocusChanged { dockHasFocus = it.hasFocus }
+                        .onFocusChanged { dockHasFocus = it.hasFocus; DockFocus.dock = it.hasFocus }
                         .graphicsLayer {
                             alpha = if (DebugHide.intValue and 8 != 0) 0f else 1f
                             translationY = (1f - dockShown.value) * (metrics.collapsedH + metrics.bottomMargin + 6 * s) * this.density
@@ -1009,6 +1057,19 @@ private fun immutable(b: android.graphics.Bitmap): android.graphics.Bitmap {
     return r
 }
 
+/** Which tile of the (bottom) dock is selected: one in a lower row is out of sight while the dock is folded. */
+private object DockFocus {
+    @Volatile var idx = -1
+    /** The carousel (or what stands in for it) holds the selection. */
+    @Volatile var hero = false
+    /** The settings button at the top holds it. */
+    @Volatile var top = false
+    /** Something in the dock holds it. */
+    @Volatile var dock = false
+    fun on(i: Int, f: Boolean) { if (f) idx = i else if (idx == i) idx = -1 }
+    val lowerRow get() = idx >= DOCK_COLUMNS
+}
+
 /** Which way the next slide moves (set by the remote / auto-play just before the index changes). */
 object SlideDir { @Volatile var dir = 1 }
 
@@ -1182,7 +1243,9 @@ private fun HeroSection(
     val shotMs = (settings.heroIntervalSec * 1000L).coerceAtLeast(4000L)
     // Your own background: the titles aren't shown, so none of their pictures are prepared or kept in memory.
     val ownBg = settings.bgMode != "carousel"
-    val stageNow = (settings.musicOn && settings.musicMode || MusicUi.forced.value) && com.glasslauncher.tv.data.NowPlaying.track.collectAsState().value != null
+    // The music page really showing (as the slides' own timer sees it): a song left paused in a music app no longer
+    // stops the title's pictures from changing, while the carousel still waited for them (it looked stuck).
+    val stageNow = MusicUi.stageOn(settings, com.glasslauncher.tv.data.NowPlaying.track.collectAsState().value)
     LaunchedEffect(item?.key, gallery.size, hidden, paused, resumed, ownBg, Trailers.playing.value != null, stageNow) {
         if (ownBg || gallery.size < 2 || hidden || paused || !resumed || stageNow || Trailers.playing.value != null) return@LaunchedEffect
         val loader = SingletonImageLoader.get(ctx)
@@ -1219,7 +1282,8 @@ private fun HeroSection(
         // Wait until you stop on a slide: while you hold Right, preparing the slides around each one passed only
         // filled the download queue, and the picture you landed on waited behind them. Everything below runs in
         // this effect, so moving on cancels it and frees the downloads for the slide on screen.
-        delay(if (app.browsing()) 350 else 60)
+        // Playing by itself: after the slide's animation (the work around it made the animation and the CPU jump).
+        delay(if (app.browsing()) 350 else (settings.transitionMs + 300L).coerceAtLeast(60L))
         // Both directions, a few slides deep, glass copies included.
         val depth = settings.prefetchDepth
         val ahead = (1..depth).flatMap { if (it <= (depth + 1) / 2) listOf(it, -it) else listOf(it) }
@@ -1228,7 +1292,7 @@ private fun HeroSection(
         for (k in listOf(0) + ahead) {
             val n = items[(index + k).mod(items.size)].let { withArtwork(enriched[it.key] ?: it, settings.artChoice, settings.artPick(it.key)) }
             if (n.logo.isNotBlank() && GlassCache.logos.get(n.logo) == null && GlassCache.pinnedLogo[n.logo] == null) launch {
-                (loader.execute(imgReq(ctx, n.logo, 1000, 400)) as? SuccessResult)?.image?.toBitmap()?.asImageBitmap()?.let { GlassCache.logos.put(n.logo, it) }
+                (loader.execute(imgReq(ctx, n.logo, 1000, 400).prep()) as? SuccessResult)?.image?.toBitmap()?.asImageBitmap()?.let { GlassCache.logos.put(n.logo, it) }
             }
         }
         // Downloads only (no decoding kept in memory), further ahead: fast browsing finds the pictures on disk.
@@ -1236,25 +1300,27 @@ private fun HeroSection(
             delay(400)
             for (k in depth + 1..depth + 2) {
                 val n = items[(index + k).mod(items.size)].let { withArtwork(enriched[it.key] ?: it, settings.artChoice, settings.artPick(it.key)) }
-                if (n.background.isNotBlank()) loader.execute(imgReq(ctx, sized(n.background, if (pageCopy(settings)) "w1280" else "original"))
-                    .newBuilder().memoryCachePolicy(coil3.request.CachePolicy.DISABLED).build())
+                // Only the download matters (it lands in the disk cache): decoded tiny, not as a full 4K picture
+                // that was thrown away again (two of them on every slide change).
+                if (n.background.isNotBlank()) loader.execute(imgReq(ctx, sized(n.background, if (pageCopy(settings)) "w1280" else "original"), 240, 135)
+                    .newBuilder().memoryCachePolicy(coil3.request.CachePolicy.DISABLED).decoderCoroutineContext(prepDispatcher).build())
             }
         }
         for (k in ahead) {
             val n = items[(index + k).mod(items.size)].let { withArtwork(enriched[it.key] ?: it, settings.artChoice, settings.artPick(it.key)) }
             if (n.background.isNotBlank()) {
-                launch { loader.execute(imgReq(ctx, sized(n.background, "w1280"))) }
+                launch { loader.execute(imgReq(ctx, sized(n.background, "w1280")).prep()) }
                 if (kotlin.math.abs(k) <= 1 && settings.memTier > 0) launch {
                     val u = n.background
-                    val r = loader.execute(imgReq(ctx, if (pageCopy(settings)) sized(u, "w1280") else u))
+                    val r = loader.execute(imgReq(ctx, if (pageCopy(settings)) sized(u, "w1280") else u).prep())
                     val b = (r as? SuccessResult)?.image?.toBitmap()?.asImageBitmap() ?: return@launch
                     val slide = settings.slideAnim != "fade"
                     val bk = (if (slide) "$u|slide" else u) + "|" + settings.pageScale + "|" + settings.memTier
                     if (BakeCache.get(bk, b) == null) {
                         val dm = ctx.resources.displayMetrics
-                        val baked = withContext(Dispatchers.Default) { bakeBackdrop(b, (dm.widthPixels * settings.pageScale).toInt(), (dm.heightPixels * settings.pageScale).toInt(), !slide) }
+                        val baked = withContext(prepDispatcher) { bakeBackdrop(b, (dm.widthPixels * settings.pageScale).toInt(), (dm.heightPixels * settings.pageScale).toInt(), !slide) }
                         BakeCache.put(bk, b, baked)
-                        withContext(Dispatchers.Default) { GlassHalf.of(baked) }
+                        withContext(prepDispatcher) { GlassHalf.of(baked) }
                     }
                 }
                 launch { GlassCache.get(ctx, n.background, settings.blurRadius) }
@@ -1324,7 +1390,7 @@ private fun HeroSection(
         autoKey[0] = if (quiet) it.key else null
         trailerScope.launch {
             // Usually ready already (prepared while the title was on screen): starts at once.
-            val got = withContext(Dispatchers.IO) { Trailers.prepare(app, it.type, it.id) }
+            val got = withContext(Dispatchers.IO) { Trailers.prepare(app, it.type, it.id, it.name, it.year) }
             if (got == null) { if (!quiet) toast(ctx, "No trailer for ${it.name}") }
             // Only for the title on screen (the carousel may have moved on meanwhile).
             else if (item?.key == it.key) Trailers.play(it.key, got.first, got.second)
@@ -1344,15 +1410,16 @@ private fun HeroSection(
         // Only for a title you stay on (not each one passed while browsing), and never in the first seconds after
         // the home screen comes up; on its own low-priority thread.
         val auto = settings.trailerAutoSec > 0
-        delay(if (auto) 600 else 2500)
+        // (Sooner than before, 2.5 s: pressed in the meantime, the trailer had to be worked out from scratch.)
+        delay(if (auto) 600 else 900)
         if (android.os.SystemClock.uptimeMillis() - appStartedAt < 8_000) delay(8_000 - (android.os.SystemClock.uptimeMillis() - appStartedAt))
-        withContext(Trailers.background) { runCatching { Trailers.prepare(app, it.type, it.id) } }
+        withContext(Trailers.background) { runCatching { Trailers.prepare(app, it.type, it.id, it.name, it.year) } }
         // And the next one in the carousel (trailers starting by themselves), so it is ready before it comes
         // (not on small TVs: one at a time there).
         if (auto && items.size > 1 && settings.memTier > 0) {
             val next = items[(index + 1).mod(items.size)]
             delay(2000)
-            withContext(Trailers.background) { runCatching { Trailers.prepare(app, next.type, next.id) } }
+            withContext(Trailers.background) { runCatching { Trailers.prepare(app, next.type, next.id, next.name, next.year) } }
         }
     }
     // A new title, or leaving the home screen: the trailer stops.
@@ -1683,7 +1750,7 @@ private fun HeroInfo(
  * then is capped in width and height.
  */
 @Composable
-private fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
+internal fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
     if (mode == "hidden") return
     @Composable fun asText() = Text(
         item.name, color = Color.White, fontSize = (30 * s * scale).sp, fontWeight = FontWeight.Light,
@@ -1748,7 +1815,7 @@ private val WhiteLogo = ColorFilter.tint(Color.White, BlendMode.SrcIn)
 @Composable private fun logoTint(): ColorFilter? = if ((LocalContext.current.applicationContext as GlassApp).settings.logoWhite) WhiteLogo else null
 
 @Composable
-private fun Chip(text: String, s: Float) {
+internal fun Chip(text: String, s: Float) {
     Text(
         text, color = Color.White.copy(alpha = 0.92f), fontSize = (10.5f * s).sp,
         modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape((3 * s).dp))
@@ -1805,6 +1872,7 @@ private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: B
         while (true) { value = clockText(settings.clock24h); delay(10_000) }
     }
     var barFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(barFocused) { DockFocus.top = barFocused }
     // Auto-hide: the clock and the settings button stay hidden while you move around the home screen
     // and only appear when focus goes up to the settings button. (A few seconds at first, so you see where it is.)
     var intro by remember { mutableStateOf(true) }
@@ -2096,7 +2164,7 @@ private fun Dock(
                                 FolderTile(
                                     app, s, radius, moving = movingPkg == FOLDER,
                                     modifier = base.focusRequester(folderFocus).onGloballyPositioned { PopAnchors.tiles[FOLDER] = it.boundsInRoot() },
-                                    onFocus = { f -> if (f) { onExpanded(r > 0); onMove() } },
+                                    onFocus = { f -> DockFocus.on(idx, f); if (f) { onExpanded(r > 0); onMove() } },
                                     onMoveKey = onMoveKey, onClick = onFolder, onLong = onFolderMenu, edges = edges,
                                 )
                             }
@@ -2105,7 +2173,7 @@ private fun Dock(
                                 entry = e, app = app, s = s, radius = radius, moving = movingPkg == e.pkg,
                                 modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() })
                                     .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
-                                onFocus = { f -> if (f) { onExpanded(r > 0); onMove() } },
+                                onFocus = { f -> DockFocus.on(idx, f); if (f) { onExpanded(r > 0); onMove() } },
                                 onMoveKey = onMoveKey,
                                 onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
                                 onLong = { onMenu(e) }, edges = edges,

@@ -108,13 +108,21 @@ class ScreensaverActivity : ComponentActivity() {
             else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(dreamReceiver, f)
         }
     }
-    override fun onStop() { runCatching { unregisterReceiver(dreamReceiver) }; super.onStop() }
+    override fun onStop() {
+        runCatching { unregisterReceiver(dreamReceiver) }
+        super.onStop()
+        // Out of sight (Home pressed, another app opened over it): it ends. Left behind the home screen it kept
+        // loading and decoding its pictures, a burst of work every few seconds while you were on the home screen.
+        if (!isChangingConfigurations && !isFinishing) finish()
+    }
 
     @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // ◀ ▶ change the video, OK shows / hides the info; any other key ends it.
         val k = event.keyCode
         val st = app().settings
+        // A menu open on it (hold OK on a trailer): the keys are the menu's.
+        if (SaverControl.popOpen.value) return super.dispatchKeyEvent(event)
         if (st.saverMode != "system" && SaverControl.onKey(event, st)) return true
         if (event.action == KeyEvent.ACTION_DOWN) exit()
         return true
@@ -145,8 +153,24 @@ internal fun Slideshow(app: GlassApp) {
     val enriched by app.catalogs.enrichedItems.collectAsState()
     val items = remember(raw) { raw.filter { it.background.isNotBlank() } }
     var index by remember { mutableIntStateOf(0) }
-    LaunchedEffect(items.size) { while (items.size > 1) { delay(12_000); index++ } }
+    var skip by remember { mutableIntStateOf(0) }
+    LaunchedEffect(items.size, skip) { while (items.size > 1) { delay(12_000); index++ } }
+    // ◀ ▶: the one before or the next (the 12 s start again).
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(100)
+            val k = SaverControl.step
+            if (k != 0) { SaverControl.step = 0; index += k; skip++ }
+        }
+    }
     val item = items.takeIf { it.isNotEmpty() }?.let { val r = it[index.mod(it.size)]; enriched[r.key] ?: r }
+    // OK opens the title on screen in Nuvio.
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val itemNow = androidx.compose.runtime.rememberUpdatedState(item)
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        SaverControl.onOk = { itemNow.value?.let { com.glasslauncher.tv.data.NuvioLaunch.open(ctx, app.settings, app.http, it); SaverControl.afterOpen?.invoke() } }
+        onDispose { SaverControl.onOk = null }
+    }
     val url = item?.background
     val t = rememberInfiniteTransition(label = "kb")
     val scale by t.animateFloat(1.0f, 1.14f, infiniteRepeatable(tween(12_000, easing = LinearEasing), RepeatMode.Reverse), label = "s")

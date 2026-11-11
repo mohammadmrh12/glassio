@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,11 +42,39 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 57
+    const val ID = 58
 
-    class Page(val title: String, val points: List<String>, val where: String)
+    class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null)
+
+    const val GITHUB = "https://github.com/mohammadmrh12/glassio"
+
+    /** Always the last page of the tour, whatever the version: where Glassio lives, and how to support it. */
+    private val GITHUB_PAGE = Page("Glassio on GitHub", listOf(
+        "Glassio is free and open source. Scan the code to see every version, report a problem or ask for a feature.",
+        "Support Glassio: a ⭐ on GitHub and sharing it with friends keeps it going. Thank you!",
+    ), "Thank you for using Glassio ♥", qr = GITHUB)
 
     val PAGES = listOf(
+        Page("What's new in Glassio 3.3", listOf(
+            "A new screensaver: Trailers. The carousel's trailers one after another, with their logo and details; OK opens the title in Nuvio, hold OK for more.",
+            "Posters screensaver: OK opens the title in Nuvio, ◀ ▶ the next or the one before.",
+            "A colour for all the glass: black or petrol, still see-through, like a tinted window. And Bold text everywhere.",
+            "◀ ▶ to look through · OK for the next page · Back to close.",
+        ), "Screensaver: Settings → Screensaver → Type (also in the menu). Glass colour, Bold text: Settings → Menu & themes (and the menu's Themes)."),
+        Page("Trailers", listOf(
+            "When a title has no trailer listed, Glassio finds one on TMDB, then with a YouTube search.",
+            "Subtitles one line at a time, each replacing the last (they no longer roll up), with a size of their own.",
+            "The trailer's window always stays inside the screen, and it shows with the first frame (it waited before).",
+            "Trailers play in the best quality the source has.",
+        ), "Settings → Carousel → Trailers (Subtitle size)."),
+        Page("Also in 3.3", listOf(
+            "Settings opens where you left it, on the same page and row.",
+            "Something is always selected: after the Apps folder, Home, or an app opened from the folder.",
+            "Music mode: the music page stays when you go down into the dock.",
+            "Music mode no longer opens by itself when Glassio starts with a song left paused.",
+            "Holding a button in the Library moves faster. The carousel's work between slides is spread out (less CPU).",
+            "Settings: more room between groups; the dock's look is in Dock & icons; the screensaver's info is under On screen.",
+        ), "Settings → Dock & icons → Dock look."),
         Page("What's new in Glassio 3.2.2", listOf(
             "Trailers no longer stop by themselves after a few seconds.",
             "Trailer sound fixed: it played twice, slightly apart.",
@@ -106,6 +135,7 @@ object WhatsNew {
             "Home Assistant can get Nuvio's playback from Glassio itself and control it (pause, play, seek), quick and light.",
             "The phone page looks like iPhone Settings, with a search.",
         ), "Settings → Connections (Nuvio server, Home Assistant), Settings → Manage from phone."),
+        GITHUB_PAGE,
     )
 
     val open = mutableStateOf(false)
@@ -153,6 +183,19 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
                             Row(Modifier.padding(bottom = (7 * s).dp)) {
                                 Box(Modifier.padding(top = (6 * s).dp, end = (10 * s).dp).size((5 * s).dp).clip(CircleShape).background(ink.copy(alpha = 0.7f)))
                                 Text(line, color = ink.copy(alpha = 0.88f), fontSize = (11.5f * s).sp, lineHeight = (16 * s).sp)
+                            }
+                        }
+                        p.qr?.let { url ->
+                            val qr = androidx.compose.runtime.remember(url) { com.glasslauncher.tv.net.Net.qr(url, 360) }
+                            Spacer(Modifier.height((4 * s).dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.foundation.Image(qr.asImageBitmap(), null,
+                                    Modifier.size((120 * s).dp).clip(RoundedCornerShape((12 * s).dp)).background(Color.White).padding((6 * s).dp))
+                                Spacer(Modifier.width((16 * s).dp))
+                                Column {
+                                    Text("Scan with your phone", color = ink.copy(alpha = 0.6f), fontSize = (10 * s).sp)
+                                    Text(url.removePrefix("https://"), color = ink, fontSize = (13 * s).sp, fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
                         Spacer(Modifier.height((8 * s).dp))

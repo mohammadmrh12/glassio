@@ -13,6 +13,7 @@ Tested on the Google TV Streamer (4K).
 
 | | |
 |---|---|
+| ![Trailers screensaver](docs/screenshots/72-screensaver-trailers.jpg) | ![Petrol glass](docs/screenshots/71-dock-petrol-glass.jpg) |
 | ![Dock with glow](docs/screenshots/51-dock-glow.jpg) | ![Library](docs/screenshots/52-library-continue-watching.jpg) |
 | ![Menu with TV info](docs/screenshots/53-menu-tv-info.jpg) | ![Screensaver, Netflix style](docs/screenshots/54-screensaver-netflix.jpg) |
 | ![Setup: Hello](docs/screenshots/55-setup-hello.jpg) | ![Setup: Connect](docs/screenshots/57-setup-connect.jpg) |
@@ -24,6 +25,42 @@ Tested on the Google TV Streamer (4K).
 ---
 
 ## Features
+
+**New in 3.3.0** — Trailers screensaver, glass colour, bold text and many fixes
+- **Trailers screensaver** (Settings → Screensaver → *Type*, also in the menu's Screensaver page): the carousel's
+  trailers one after another, with the title's logo and details like the carousel and subtitles above them. **OK**
+  opens the title in Nuvio, **hold OK** opens a menu (Open in Nuvio, Next trailer, Library, Like, Sound), **◀ ▶** skip.
+  Sound, Cinematic / Original size, logo, details, synopsis, subtitle size and how long the details show are all
+  settings. The clock moves out of the logo's corner.
+- **Posters screensaver**: OK opens the title on screen in Nuvio, ◀ ▶ go to the next or the one before.
+- **Glass colour** (Settings → Menu & themes, and the menu's Themes): a tint through all the glass — dock, icons, menus,
+  panels — **black** or **petrol**, still see-through like a tinted window, with its own strength. It stays the same
+  while slides change.
+- **Bold text** for all of Glassio's writing (Settings → Menu & themes).
+- **Trailers**: when Cinemeta lists none, Glassio finds one on **TMDB**, then with a **YouTube search**; always the best
+  quality the source has (up to the screen's own, 4K on a 4K TV); subtitles **one line at a time** (no more rolling up)
+  with their own **size**; the window always stays on screen and shows with the first frame; they start sooner.
+- **Settings remembers where you were**: it opens on the page and row you left.
+- **Nothing selected, never**: after the Apps folder and Home, or an app opened from the folder, the selection always
+  comes back.
+- **Music mode**: the music page stays when you go down into the dock, and it no longer opens by itself when Glassio
+  starts with a song left paused.
+- **Carousel**: it plays on by itself while it is selected (a paused song stopped it), its work between slides is
+  spread out (lower, steadier CPU), and the screensaver no longer stays running hidden behind it.
+- **Library**: holding a button moves faster.
+- **Settings**: more room between groups; the dock's look (blur, refraction, brightness, glow, icon zoom, corner
+  radius, auto-hide) moved to **Dock & icons**; the screensaver's info is under *On screen*.
+- The What's new tour shows everything new and always ends with a QR code to Glassio on GitHub.
+- New defaults for new installs (trailers in full quality and a window, Music mode, the dock at the bottom…).
+
+| | |
+|---|---|
+| ![Petrol glass](docs/screenshots/70-home-petrol-glass.jpg) | ![Dock, petrol glass](docs/screenshots/71-dock-petrol-glass.jpg) |
+| ![Trailers screensaver](docs/screenshots/72-screensaver-trailers.jpg) | ![Trailer screensaver menu](docs/screenshots/73-screensaver-trailer-menu.jpg) |
+| ![Glass colour and bold text](docs/screenshots/74-settings-glass-colour-bold.jpg) | ![Dock look](docs/screenshots/75-settings-dock-look.jpg) |
+| ![Screensaver: Trailers](docs/screenshots/76-settings-screensaver-trailers.jpg) | ![What's new in 3.3](docs/screenshots/77-tour-whats-new-3-3.jpg) |
+| ![Glassio on GitHub](docs/screenshots/78-tour-github.jpg) | ![Carousel](docs/screenshots/81-carousel.jpg) |
+| ![Carousel settings](docs/screenshots/79-settings-carousel.jpg) | ![Background & glass](docs/screenshots/80-settings-background-glass.jpg) |
 
 **New in 3.2.2** — Trailer fixes
 - Trailers no longer stop by themselves after a few seconds, and their sound no longer plays twice: a remote
@@ -331,7 +368,8 @@ Settings → Clock & glass → **Weather** (everything / temperature + sky / tem
 
 ### Screensaver
 Settings → **Screensaver**:
-1. *Type*: **Aerial videos** (default), posters with logos, or the TV's own screensaver app.
+1. *Type*: **Aerial videos**, posters with logos (OK opens the title in Nuvio), **Trailers** (the carousel's
+   trailers with their logo and details; OK opens the title, hold OK for a menu), or the TV's own screensaver app.
 2. Turn on the collections you like (Apple tvOS, Amazon Fire TV, Jetson Creative, Robin Fourcade) and/or **My videos**
    (your links and the videos in the backgrounds folder; upload them from your phone). *Quality*: 1080p H.264, 1080p HEVC,
    4K, 1080p HDR, 4K HDR / Dolby Vision — videos without that quality play the nearest one.

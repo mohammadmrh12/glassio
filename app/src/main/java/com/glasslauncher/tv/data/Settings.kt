@@ -93,7 +93,7 @@ class Settings(private val ctx: Context) {
         putList("likes", if (on) (rest + key).takeLast(2000) else rest)
     }
     /** max = original pictures (4K source, sharpest) | high = 1280 px pictures (faster, lighter) */
-    var imageQuality: String get() = s("imageQuality", "hd"); set(v) = putS("imageQuality", v)
+    var imageQuality: String get() = s("imageQuality", "max"); set(v) = putS("imageQuality", v)
     /** How many slides ahead are prepared (pictures, logos, glass). */
     var prefetchDepth: Int get() = i("prefetchDepth", 8); set(v) = putI("prefetchDepth", v.coerceIn(1, 8))
 
@@ -130,7 +130,7 @@ class Settings(private val ctx: Context) {
     var synopsisScale: Float get() = f("synopsisScale", 1.0f); set(v) = putF("synopsisScale", v.coerceIn(0.6f, 2.0f))
     var synopsisLines: Int get() = i("synopsisLines", 5); set(v) = putI("synopsisLines", v.coerceIn(1, 8))
     /** window (dots on a pill) | liquid (liquid-glass drops, no pill) | progress | hidden */
-    var dotsMode: String get() = s("dotsMode", "liquid"); set(v) = putS("dotsMode", v)
+    var dotsMode: String get() = s("dotsMode", "window"); set(v) = putS("dotsMode", v)
     /** apple (Apple TV: the new picture opens up from the side with parallax) | slide (push) | fade */
     var slideAnim: String get() = s("slideAnim", "apple"); set(v) = putS("slideAnim", v)
     // ---- Your own background
@@ -155,12 +155,12 @@ class Settings(private val ctx: Context) {
     var menuAndroid: Boolean get() = b("menuAndroid", true); set(v) = putB("menuAndroid", v)
     var menuWifi: Boolean get() = b("menuWifi", false); set(v) = putB("menuWifi", v)
     /** "Recent apps" in the menu: the app switcher (like holding Home). */
-    var menuRecents: Boolean get() = b("menuRecents", true); set(v) = putB("menuRecents", v)
+    var menuRecents: Boolean get() = b("menuRecents", false); set(v) = putB("menuRecents", v)
     /** Recent apps through ADB when the TV allows it (exact list); off: the apps Glassio saw on screen, no ADB. */
     var recentsAdb: Boolean get() = b("recentsAdb", true); set(v) = putB("recentsAdb", v)
     // ---- Music (Settings → Music)
     /** Music on: Glassio follows what any music app plays (needs its notification listener, switched on over ADB). */
-    var musicOn: Boolean get() = b("musicOn", false); set(v) = putB("musicOn", v)
+    var musicOn: Boolean get() = b("musicOn", true); set(v) = putB("musicOn", v)
 
     // ---- Hue Sync (Philips Hue lights in the colours of what's on screen)
     var hueOn: Boolean get() = b("hueOn", false); set(v) = putB("hueOn", v)
@@ -206,22 +206,22 @@ class Settings(private val ctx: Context) {
     /** A Music icon in the dock (opens the menu's player). */
     var musicDock: Boolean get() = b("musicDock", true); set(v) = putB("musicDock", v)
     /** Music mode: while a song plays, the home screen's background becomes the player (whatever background you chose). */
-    var musicMode: Boolean get() = b("musicMode", false); set(v) = putB("musicMode", v)
+    var musicMode: Boolean get() = b("musicMode", true); set(v) = putB("musicMode", v)
     var musicStageScale: Float get() = f("musicStageScale", 0.9f); set(v) = putF("musicStageScale", v.coerceIn(0.7f, 1.4f))
     /** theme | white | black: the player's buttons (the other way round when selected). */
-    var musicButtons: String get() = s("musicButtons", "white"); set(v) = putS("musicButtons", v)
+    var musicButtons: String get() = s("musicButtons", "theme"); set(v) = putS("musicButtons", v)
     /** The island on the screensaver while music plays. */
     var musicIsland: Boolean get() = b("musicIsland", true); set(v) = putB("musicIsland", v)
-    var islandStyle: String get() = s("islandStyle", "theme"); set(v) = putS("islandStyle", v)
+    var islandStyle: String get() = s("islandStyle", "none"); set(v) = putS("islandStyle", v)
     /** Joined to the top of the screen (like a MacBook's notch) instead of floating below it. */
     var islandAttached: Boolean get() = b("islandAttached", false); set(v) = putB("islandAttached", v)
-    var islandScale: Float get() = f("islandScale", 0.6f); set(v) = putF("islandScale", v.coerceIn(0.3f, 1.8f))
+    var islandScale: Float get() = f("islandScale", 0.8f); set(v) = putF("islandScale", v.coerceIn(0.3f, 1.8f))
     var islandOffset: Float get() = f("islandOffset", 0f); set(v) = putF("islandOffset", v.coerceIn(0f, 120f))
     var islandArt: Boolean get() = b("islandArt", true); set(v) = putB("islandArt", v)
     var islandTitle: Boolean get() = b("islandTitle", true); set(v) = putB("islandTitle", v)
     var islandProgress: Boolean get() = b("islandProgress", true); set(v) = putB("islandProgress", v)
     /** art | white: the colour of the island's bars. */
-    var islandBars: String get() = s("islandBars", "white"); set(v) = putS("islandBars", v)
+    var islandBars: String get() = s("islandBars", "art"); set(v) = putS("islandBars", v)
     /** "Inputs" in the menu: the TV's HDMI inputs and what is plugged into them. */
     var menuInputs: Boolean get() = b("menuInputs", false); set(v) = putB("menuInputs", v)
     /** The inputs as icons in the dock too (moved, hidden and given icons like apps). */
@@ -233,8 +233,8 @@ class Settings(private val ctx: Context) {
     /** The TV's numbers under the weather in the menu. */
     var menuSys: Boolean get() = b("menuSys", true); set(v) = putB("menuSys", v)
     var sysIp: Boolean get() = b("sysIp", false); set(v) = putB("sysIp", v)
-    var sysCpu: Boolean get() = b("sysCpu", false); set(v) = putB("sysCpu", v)
-    var sysGpu: Boolean get() = b("sysGpu", false); set(v) = putB("sysGpu", v)
+    var sysCpu: Boolean get() = b("sysCpu", true); set(v) = putB("sysCpu", v)
+    var sysGpu: Boolean get() = b("sysGpu", true); set(v) = putB("sysGpu", v)
     var sysRam: Boolean get() = b("sysRam", true); set(v) = putB("sysRam", v)
     var sysStorage: Boolean get() = b("sysStorage", true); set(v) = putB("sysStorage", v)
     /** Cameras, one per line: "Name|rtsp://…" (RTSP, HLS or a plain video link). */
@@ -245,7 +245,7 @@ class Settings(private val ctx: Context) {
     /** Look of the menu: same choices as the dock (set by Themes). */
     var menuStyle: String get() = s("menuStyle", "water_still"); set(v) = putS("menuStyle", v)
     /** The + button next to Play (save to Library). */
-    var heroPlus: Boolean get() = b("heroPlus", true); set(v) = putB("heroPlus", v)
+    var heroPlus: Boolean get() = b("heroPlus", false); set(v) = putB("heroPlus", v)
     var libraryTrakt: Boolean get() = b("libraryTrakt", true); set(v) = putB("libraryTrakt", v)
     /** The Nuvio account's Library (Nuvio Legacy, official Nuvio and forks that sync with the account). */
     var libraryNuvio: Boolean get() = b("libraryNuvio", true); set(v) = putB("libraryNuvio", v)
@@ -269,7 +269,7 @@ class Settings(private val ctx: Context) {
     }
 
     /** Buttons under the title: apple (Play + round Next, like Apple TV) | play (Play only, when selected) | hidden */
-    var heroButtons: String get() = s("heroButtons", "play"); set(v) = putS("heroButtons", v)
+    var heroButtons: String get() = s("heroButtons", "apple"); set(v) = putS("heroButtons", v)
     var dotsMax: Int get() = i("dotsMax", 11); set(v) = putI("dotsMax", v.coerceIn(3, 20))
     /** Trailers: a Trailer button next to Play (Apple TV buttons). */
     var trailerButton: Boolean get() = b("trailerButton", true); set(v) = putB("trailerButton", v)
@@ -280,13 +280,15 @@ class Settings(private val ctx: Context) {
     /** While a trailer fills the page, the dock and the page dots step aside (never with the trailer in its window). */
     var trailerHideDock: Boolean get() = b("trailerHideDock", true); set(v) = putB("trailerHideDock", v)
     /** "auto": H.264 up to 1080p (720p on small TVs); "full": the best this TV plays, up to its screen (4K: VP9 / AV1). */
-    var trailerQuality: String get() = s("trailerQuality", "auto"); set(v) = putS("trailerQuality", v)
+    var trailerQuality: String get() = s("trailerQuality", "full"); set(v) = putS("trailerQuality", v)
     var trailerSubLang: String get() = s("trailerSubLang", "ar"); set(v) = putS("trailerSubLang", v)
     /** Seconds on a title before its trailer starts by itself (0 = only when asked). */
-    var trailerAutoSec: Int get() = i("trailerAutoSec", 5); set(v) = putI("trailerAutoSec", v.coerceIn(0, 60))
-    var trailerPopupScale: Float get() = f("trailerPopupScale", 1.4f); set(v) = putF("trailerPopupScale", v.coerceIn(0.6f, 2f))
+    var trailerAutoSec: Int get() = i("trailerAutoSec", 0); set(v) = putI("trailerAutoSec", v.coerceIn(0, 60))
+    /** Size of the trailer's subtitles (1 = as before). */
+    var trailerSubScale: Float get() = f("trailerSubScale", 1.5f); set(v) = putF("trailerSubScale", v.coerceIn(0.6f, 2.2f))
+    var trailerPopupScale: Float get() = f("trailerPopupScale", 2.0f); set(v) = putF("trailerPopupScale", v.coerceIn(0.6f, 2f))
     /** Size of the carousel's dots bar (1 = as designed). */
-    var dotsScale: Float get() = f("dotsScale", 0.6f); set(v) = putF("dotsScale", v.coerceIn(0.5f, 1.5f))
+    var dotsScale: Float get() = f("dotsScale", 1.1f); set(v) = putF("dotsScale", v.coerceIn(0.5f, 1.5f))
     var perCatalog: Int get() = i("perCatalog", 40); set(v) = putI("perCatalog", v.coerceIn(5, 500))
     /** 0 = unlimited */
     var maxItems: Int get() = i("maxItems", 0); set(v) = putI("maxItems", v.coerceAtLeast(0))
@@ -299,16 +301,16 @@ class Settings(private val ctx: Context) {
     /** Picture cache on the TV, in MB (applies after Glassio restarts). */
     var cacheMb: Int get() = i("cacheMb", 4096); set(v) = putI("cacheMb", v.coerceIn(256, 8192))
     /** Language of synopses and titles from TMDB: en | ar | … */
-    var descLang: String get() = s("descLang", "en"); set(v) = putS("descLang", v)
+    var descLang: String get() = s("descLang", "ar"); set(v) = putS("descLang", v)
     var tmdbToken: String get() = s("tmdbToken", ""); set(v) = putS("tmdbToken", v.trim())
 
-    var transitionMs: Int get() = i("transitionMs", 700); set(v) = putI("transitionMs", v.coerceIn(100, 2000))
+    var transitionMs: Int get() = i("transitionMs", 550); set(v) = putI("transitionMs", v.coerceIn(100, 2000))
     var dotsAutoHide: Boolean get() = b("dotsAutoHide", true); set(v) = putB("dotsAutoHide", v)
 
     // ---- Clock / dock look
     var topAutoHide: Boolean get() = b("topAutoHide", true); set(v) = putB("topAutoHide", v)
     var topHideSec: Int get() = i("topHideSec", 2); set(v) = putI("topHideSec", v.coerceIn(2, 30))
-    var cornerRadius: Int get() = i("cornerRadius", 18); set(v) = putI("cornerRadius", v.coerceIn(0, 40))
+    var cornerRadius: Int get() = i("cornerRadius", 16); set(v) = putI("cornerRadius", v.coerceIn(0, 40))
     /** Index of the Apps folder among the dock apps; -1 = after the last app. */
     var folderPos: Int get() = i("folderPos", -1); set(v) = putI("folderPos", v)
     /** Continue Watching: off | first (at the start of the carousel) | mixed (among the catalogs) */
@@ -316,7 +318,7 @@ class Settings(private val ctx: Context) {
     var shuffleKey: Int get() = i("shuffleKey", 0); set(v) = putI("shuffleKey", v)
     /** Titles a catalog has just added open the carousel for two days. */
     var newFirst: Boolean get() = b("newFirst", false); set(v) = putB("newFirst", v)
-    var continueMode: String get() = s("continueMode", "off"); set(v) = putS("continueMode", v)
+    var continueMode: String get() = s("continueMode", "first"); set(v) = putS("continueMode", v)
     /** Continue Watching is fetched while the carousel or the Library shows it (off in the carousel only = still in the Library). */
     val continueWanted: Boolean get() = continueMode != "off" || libraryCw
     /** Continue Watching also from the Trakt account (when one is connected). */
@@ -340,7 +342,7 @@ class Settings(private val ctx: Context) {
     var librarySimkl: Boolean get() = b("librarySimkl", true); set(v) = putB("librarySimkl", v)
     var libraryToSimkl: Boolean get() = b("libraryToSimkl", true); set(v) = putB("libraryToSimkl", v)
     /** How many titles in progress open the carousel (0 = all); the rest mix in with the catalogs. */
-    var cwLead: Int get() = i("cwLead", 3); set(v) = putI("cwLead", v)
+    var cwLead: Int get() = i("cwLead", 1); set(v) = putI("cwLead", v)
     /** After you leave the player, the carousel opens on what you just watched. */
     var continueJump: Boolean get() = b("continueJump", false); set(v) = putB("continueJump", v)
     /** Continue Watching is exactly Nuvio's (titles and progress), even with the other accounts syncing too. */
@@ -358,7 +360,7 @@ class Settings(private val ctx: Context) {
     /** liquid | clear | amoled | bow (black on white) */
     var tileStyle: String get() = s("tileStyle", "water_still"); set(v) = putS("tileStyle", v)
     /** How far the glass rim bends the background, dp. */
-    var refraction: Int get() = i("refraction", 8); set(v) = putI("refraction", v.coerceIn(0, 40))
+    var refraction: Int get() = i("refraction", 4); set(v) = putI("refraction", v.coerceIn(0, 40))
     var metaScale: Float get() = f("metaScale", 0.9f); set(v) = putF("metaScale", v.coerceIn(0.6f, 2.0f))
     var genresScale: Float get() = f("genresScale", 0.8f); set(v) = putF("genresScale", v.coerceIn(0.6f, 2.0f))
     /** Opaque dark plate behind every icon, so transparent pack icons don't show the poster through. */
@@ -371,7 +373,7 @@ class Settings(private val ctx: Context) {
     var weatherF: Boolean get() = b("weatherF", false); set(v) = putB("weatherF", v)
     var showDate: Boolean get() = b("showDate", false); set(v) = putB("showDate", v)
     /** tvOS look: icons are white until selected, then show their colours on a light plate. */
-    var focusColor: Boolean get() = b("focusColor", true); set(v) = putB("focusColor", v)
+    var focusColor: Boolean get() = b("focusColor", false); set(v) = putB("focusColor", v)
     /** The colour of the switches (and of a setting that's set and working) in Settings: burgundy, green, purple. */
     var settingsAccent: String get() = s("settingsAccent", "burgundy"); set(v) = putS("settingsAccent", v)
     /** Plate behind the selected icon in "Colour on focus": light | dark | glass | amoled (pure black) */
@@ -384,19 +386,19 @@ class Settings(private val ctx: Context) {
     var tileLift: Boolean get() = b("tileLift", false); set(v) = putB("tileLift", v)
     var showClock: Boolean get() = b("showClock", false); set(v) = putB("showClock", v)
     var clock24h: Boolean get() = b("clock24h", false); set(v) = putB("clock24h", v)
-    var blurRadius: Int get() = i("blurRadius", 32); set(v) = putI("blurRadius", v.coerceIn(0, 80))
+    var blurRadius: Int get() = i("blurRadius", 20); set(v) = putI("blurRadius", v.coerceIn(0, 80))
     var glassTint: Int get() = i("glassTint", 0); set(v) = putI("glassTint", v.coerceIn(0, 40))
     var showMobileApps: Boolean get() = b("showMobileApps", true); set(v) = putB("showMobileApps", v)
     var dockOrder: List<String> get() = list("dockOrder"); set(v) = putList("dockOrder", v)
     var hiddenApps: List<String> get() = list("hiddenApps"); set(v) = putList("hiddenApps", v)
     /** The Apps folder tile in the dock. */
-    var showFolder: Boolean get() = b("showFolder", true); set(v) = putB("showFolder", v)
+    var showFolder: Boolean get() = b("showFolder", false); set(v) = putB("showFolder", v)
     /** With fewer apps than a full row, the dock shrinks around them. */
     var dockFit: Boolean get() = b("dockFit", true); set(v) = putB("dockFit", v)
     /** The dock hides below the screen and comes up when you go down to it. */
     var dockHide: Boolean get() = b("dockHide", false); set(v) = putB("dockHide", v)
     /** With your own background (picture, video, screensaver): bottom | center | left (a column on the left). */
-    var dockPos: String get() = s("dockPos", "left"); set(v) = putS("dockPos", v)
+    var dockPos: String get() = s("dockPos", "bottom"); set(v) = putS("dockPos", v)
     /** Down from the dock's last row opens the Library. */
     var libraryDown: Boolean get() = b("libraryDown", true); set(v) = putB("libraryDown", v)
 
@@ -409,45 +411,62 @@ class Settings(private val ctx: Context) {
     // ---- Screensaver
     var idleMinutes: Int get() = i("idleMinutes", 0); set(v) = putI("idleMinutes", v.coerceAtLeast(0))
     /** Idle time before the screensaver, in seconds (0 = off). Older versions kept whole minutes in idleMinutes. */
-    var idleSeconds: Int get() = if (sp.contains("idleSeconds")) i("idleSeconds", 300) else if (sp.contains("idleMinutes")) i("idleMinutes", 0) * 60 else 300
+    var idleSeconds: Int get() = if (sp.contains("idleSeconds")) i("idleSeconds", 60) else if (sp.contains("idleMinutes")) i("idleMinutes", 0) * 60 else 60
         set(v) = putI("idleSeconds", v.coerceAtLeast(0))
     /** aerial (Apple videos) | slideshow (posters with logos) | system (the TV's own screensaver, e.g. Aerial Views) */
-    var saverMode: String get() = s("saverMode", "aerial"); set(v) = putS("saverMode", v)
+    /** Every text in Glassio bolder (Menu & themes → Bold text). */
+    /** A colour through every kind of glass: none | black | petrol (Menu & themes → Glass colour). */
+    var glassColor: String get() = s("glassColor", "none"); set(v) = putS("glassColor", v)
+    var glassColorAmount: Float get() = f("glassColorAmount", 0.35f); set(v) = putF("glassColorAmount", v.coerceIn(0.1f, 0.7f))
+    /** Where Settings was left: its page and row (it opens there again). */
+    var settingsLastCat: Int get() = i("settingsLastCat", 0); set(v) = putI("settingsLastCat", v)
+    var settingsLastRow: Int get() = i("settingsLastRow", -1); set(v) = putI("settingsLastRow", v)
+    var boldText: Boolean get() = b("boldText", false); set(v) = putB("boldText", v)
+    var saverMode: String get() = s("saverMode", "slideshow"); set(v) = putS("saverMode", v)
+    // Screensaver "Trailers": the carousel's titles' trailers, one after another.
+    var saverTrailerMute: Boolean get() = b("saverTrailerMute", false); set(v) = putB("saverTrailerMute", v)
+    var saverTrailerSize: String get() = s("saverTrailerSize", "cinema"); set(v) = putS("saverTrailerSize", v)
+    var saverTrailerQuality: String get() = s("saverTrailerQuality", "full"); set(v) = putS("saverTrailerQuality", v)
+    var saverTrailerLogo: Boolean get() = b("saverTrailerLogo", true); set(v) = putB("saverTrailerLogo", v)
+    var saverTrailerMeta: Boolean get() = b("saverTrailerMeta", true); set(v) = putB("saverTrailerMeta", v)
+    var saverTrailerSynopsis: Boolean get() = b("saverTrailerSynopsis", false); set(v) = putB("saverTrailerSynopsis", v)
+    /** Seconds the title's details stay after a trailer starts (0 = always). */
+    var saverTrailerInfoSec: Int get() = i("saverTrailerInfoSec", 10); set(v) = putI("saverTrailerInfoSec", v.coerceAtLeast(0))
     var useAppleAerials: Boolean get() = b("useAppleAerials", false); set(v) = putB("useAppleAerials", v)
     var aerialUrls: List<String> get() = list("aerialUrls"); set(v) = putList("aerialUrls", v)
-    var saverClock: Boolean get() = b("saverClock", false); set(v) = putB("saverClock", v)
+    var saverClock: Boolean get() = b("saverClock", true); set(v) = putB("saverClock", v)
     /** Collections of aerial videos that are on (apple, amazon, jetson, robin); see AerialSource. */
     var saverSources: List<String> get() = if (sp.contains("saverSources")) list("saverSources").filter { it.isNotBlank() } else if (sp.contains("useAppleAerials")) (if (useAppleAerials) listOf("apple") else emptyList()) else listOf("amazon")
         set(v) = putList("saverSources", v)
     /** Your own videos (links and the backgrounds folder) in the screensaver. */
-    var saverMine: Boolean get() = b("saverMine", true); set(v) = putB("saverMine", v)
+    var saverMine: Boolean get() = b("saverMine", false); set(v) = putB("saverMine", v)
     var saverQuality: String get() = s("saverQuality", "4K-SDR"); set(v) = putS("saverQuality", v)
     var saverShuffle: Boolean get() = b("saverShuffle", true); set(v) = putB("saverShuffle", v)
     /** One video only (its id), or "" for all of them. */
     var saverPick: String get() = s("saverPick", ""); set(v) = putS("saverPick", v)
     /** Videos are kept on the TV as they play (any link), up to [saverCacheGb]. */
     var saverCache: Boolean get() = b("saverCache", true); set(v) = putB("saverCache", v)
-    var saverCacheGb: Int get() = i("saverCacheGb", 8); set(v) = putI("saverCacheGb", v.coerceIn(1, 32))
+    var saverCacheGb: Int get() = i("saverCacheGb", 4); set(v) = putI("saverCacheGb", v.coerceIn(1, 32))
     /** Cross-fade from one video to the next. */
     var saverFade: Boolean get() = b("saverFade", true); set(v) = putB("saverFade", v)
-    var saverDate: Boolean get() = b("saverDate", false); set(v) = putB("saverDate", v)
+    var saverDate: Boolean get() = b("saverDate", true); set(v) = putB("saverDate", v)
     var saverWeather: Boolean get() = b("saverWeather", true); set(v) = putB("saverWeather", v)
     /** The place the video shows (Apple, Amazon and community videos have one). */
-    var saverPlace: Boolean get() = b("saverPlace", true); set(v) = putB("saverPlace", v)
+    var saverPlace: Boolean get() = b("saverPlace", false); set(v) = putB("saverPlace", v)
     var saverSys: Boolean get() = b("saverSys", false); set(v) = putB("saverSys", v)
     /** apple (clock in a corner, small text) | netflix (lines appear one by one at the top left, like the notes before a film) */
-    var saverStyle: String get() = s("saverStyle", "netflix"); set(v) = putS("saverStyle", v)
+    var saverStyle: String get() = s("saverStyle", "apple"); set(v) = putS("saverStyle", v)
     /** bl | br | tl | tr | move (another corner with every video) */
-    var saverPos: String get() = s("saverPos", "bl"); set(v) = putS("saverPos", v)
+    var saverPos: String get() = s("saverPos", "move"); set(v) = putS("saverPos", v)
     var saverSize: Float get() = f("saverSize", 1.0f); set(v) = putF("saverSize", v.coerceIn(0.6f, 1.8f))
     /** Seconds the info stays after each new video (0 = always). */
     var saverShowSec: Int get() = i("saverShowSec", 10); set(v) = putI("saverShowSec", v.coerceAtLeast(0))
     /** Netflix style: the lines go away a few seconds after the last one came in. */
     var saverNetflixHide: Boolean get() = b("saverNetflixHide", true); set(v) = putB("saverNetflixHide", v)
     /** Netflix style: the bar before each line — "red", "white", "black" or "off". */
-    var saverBar: String get() = s("saverBar", "black"); set(v) = putS("saverBar", v)
+    var saverBar: String get() = s("saverBar", "white"); set(v) = putS("saverBar", v)
     /** How far and how strong the glow is (0.4 … 1.6). */
-    var glowSize: Float get() = f("glowSize", 1.1f); set(v) { putF("glowSize", v.coerceIn(0.3f, 1.6f)); com.glasslauncher.tv.ui.Glow.amount = v.coerceIn(0.3f, 1.6f) }
+    var glowSize: Float get() = f("glowSize", 1.3f); set(v) { putF("glowSize", v.coerceIn(0.3f, 1.6f)); com.glasslauncher.tv.ui.Glow.amount = v.coerceIn(0.3f, 1.6f) }
     /** Dock: on focus the whole tile grows ("tile"), only the icon inside the glass ("icon"), or nothing ("off"). */
     var tileZoom: String get() = s("tileZoom", "tile"); set(v) = putS("tileZoom", v)
     /** A very soft glow around the selected icon / poster: "off", "color" (its own colour) or "white". */
@@ -477,7 +496,7 @@ class Settings(private val ctx: Context) {
     var multiScale: Float get() = f("multiScale", 1.4f); set(v) = putF("multiScale", v.coerceIn(0.6f, 1.4f))
     /** Seconds it stays (0 = until closed). */
     /** Multi-view picture: "auto" (the cameras' full streams where the TV decodes in hardware), "high", "light". */
-    var multiQuality: String get() = s("multiQuality", "auto"); set(v) = putS("multiQuality", v)
+    var multiQuality: String get() = s("multiQuality", "high"); set(v) = putS("multiQuality", v)
     var multiSec: Int get() = i("multiSec", 30); set(v) = putI("multiSec", v.coerceIn(0, 600))
     /** On the screensaver: ▲ brings the multi-view up from the bottom. */
     var saverMultiCam: Boolean get() = b("saverMultiCam", true); set(v) = putB("saverMultiCam", v)
@@ -501,7 +520,7 @@ class Settings(private val ctx: Context) {
     /** Ask before removing a title from the Library. */
     var libraryConfirm: Boolean get() = b("libraryConfirm", true); set(v) = putB("libraryConfirm", v)
     /** Background video: a new one when each ends (else the same one loops). */
-    var bgShuffle: Boolean get() = b("bgShuffle", true); set(v) = putB("bgShuffle", v)
+    var bgShuffle: Boolean get() = b("bgShuffle", false); set(v) = putB("bgShuffle", v)
     /** Screensaver as background: "1080" (light behind the glass) or "saver" (the screensaver's quality and its saved videos). */
     var bgAerialQuality: String get() = s("bgAerialQuality", "1080"); set(v) = putS("bgAerialQuality", v)
     /** Background "Photos": where they come from (mine = the backgrounds folder, bing, wallhaven, unsplash). */
@@ -522,7 +541,7 @@ class Settings(private val ctx: Context) {
     var bgInfoSec: Int get() = i("bgInfoSec", 10); set(v) = putI("bgInfoSec", v.coerceIn(0, 600))
     /** Your own background: a large clock in the middle, like a phone's lock screen. */
     var bgClock: Boolean get() = b("bgClock", true); set(v) = putB("bgClock", v)
-    var bgClockSize: Float get() = f("bgClockSize", 0.8f); set(v) = putF("bgClockSize", v.coerceIn(0.6f, 1.6f))
+    var bgClockSize: Float get() = f("bgClockSize", 0.7f); set(v) = putF("bgClockSize", v.coerceIn(0.6f, 1.6f))
     /** Depth effect: on a photo, what's in front (a mountain, a person) covers the large clock. */
     var bgDepth: Boolean get() = b("bgDepth", true); set(v) = putB("bgDepth", v)
     /** Large clock: "theme" (glass numerals in the glass themes, black on Black on white) or "white". */
@@ -532,19 +551,19 @@ class Settings(private val ctx: Context) {
     /** The large clock's date in white, whatever the time's look. */
     var bgClockDateWhite: Boolean get() = b("bgClockDateWhite", true); set(v) = putB("bgClockDateWhite", v)
     /** The large clock on the screensaver too (Down shows / hides it). */
-    var saverBigClock: Boolean get() = b("saverBigClock", true); set(v) = putB("saverBigClock", v)
+    var saverBigClock: Boolean get() = b("saverBigClock", false); set(v) = putB("saverBigClock", v)
     /** Lock & release on the screensaver: hold OK on a video to keep it (and again to let it go). */
     var saverLock: Boolean get() = b("saverLock", true); set(v) = putB("saverLock", v)
     /** The locked videos (their ids). */
     /** The screensaver's large clock was left shown (true) or hidden (▲ on the remote). */
     var saverClockShown: Boolean get() = b("saverClockShown", true); set(v) = putB("saverClockShown", v)
     /** The music island at the top of the home screen too (when Music mode is off). */
-    var islandHome: Boolean get() = b("islandHome", false); set(v) = putB("islandHome", v)
+    var islandHome: Boolean get() = b("islandHome", true); set(v) = putB("islandHome", v)
     var saverLocked: List<String> get() = list("saverLocked"); set(v) = putList("saverLocked", v)
     /** Only the locked videos play (when there are some). */
     var saverLockedOnly: Boolean get() = b("saverLockedOnly", false); set(v) = putB("saverLockedOnly", v)
     /** Large clock: moved up (negative) or down, as a part of the screen's height. */
-    var bgClockOffset: Float get() = f("bgClockOffset", -0.04f); set(v) = putF("bgClockOffset", v.coerceIn(-0.2f, 0.3f))
+    var bgClockOffset: Float get() = f("bgClockOffset", -0.06f); set(v) = putF("bgClockOffset", v.coerceIn(-0.2f, 0.3f))
     /** My video / My picture: go round the others in the folder (else the chosen one stays). */
     var bgVideoShuffle: Boolean get() = b("bgVideoShuffle", false); set(v) = putB("bgVideoShuffle", v)
     var bgImageShuffle: Boolean get() = b("bgImageShuffle", true); set(v) = putB("bgImageShuffle", v)
@@ -577,11 +596,11 @@ class Settings(private val ctx: Context) {
     }
 
     // ---- System
-    var interceptHome: Boolean get() = b("interceptHome", false); set(v) = putB("interceptHome", v)
+    var interceptHome: Boolean get() = b("interceptHome", true); set(v) = putB("interceptHome", v)
     /** Opens Glassio when the TV starts (needs the "display over other apps" right, given over ADB). */
-    var bootStart: Boolean get() = b("bootStart", false); set(v) = putB("bootStart", v)
+    var bootStart: Boolean get() = b("bootStart", true); set(v) = putB("bootStart", v)
     /** Manage from phone: minutes the page stays on after you leave that screen (0 = stops at once). */
-    var phoneMinutes: Int get() = i("phoneMinutes", 30); set(v) = putI("phoneMinutes", v.coerceIn(0, 720))
+    var phoneMinutes: Int get() = i("phoneMinutes", 180); set(v) = putI("phoneMinutes", v.coerceIn(0, 720))
     /** App language, a key of I18n.LANGS. */
     var lang: String get() = s("lang", "en"); set(v) { putS("lang", v); I18n.lang = v }
     /** The first-run setup was finished (or skipped with Later). */

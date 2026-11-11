@@ -55,7 +55,27 @@ object TrailerSubs {
     }.onFailure { Glog.w("Trailer subtitles: no translation (${it.message})") }.getOrNull()
 
     fun parse(body: String, mime: String): List<Line> =
-        if (mime.contains("vtt") || body.startsWith("WEBVTT")) vtt(body) else ttml(body)
+        tidy(if (mime.contains("vtt") || body.startsWith("WEBVTT")) vtt(body) else ttml(body))
+
+    /**
+     * One sentence at a time, each replacing the last (like film subtitles). YouTube's automatic captions "roll up":
+     * every cue repeats the line before it above the new one, with tiny in-between cues, so a line went up the
+     * screen as the next one came in under it. The repeated lines and the in-between cues are dropped here.
+     */
+    private fun tidy(lines: List<Line>): List<Line> {
+        val out = ArrayList<Line>()
+        var prev = emptySet<String>()
+        for (l in lines.sortedBy { it.start }) {
+            if (l.end - l.start < 150) continue
+            val rows = l.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+            val fresh = rows.filterNot { it in prev }
+            prev = rows.toSet()
+            if (fresh.isEmpty()) continue
+            out += l.copy(text = fresh.joinToString("\n"))
+        }
+        // Each stays until the next begins (no blink in between), never more than 1.5 s past its own end.
+        return out.mapIndexed { i, l -> val next = out.getOrNull(i + 1)?.start ?: l.end; l.copy(end = if (next > l.end) minOf(next, l.end + 1500) else next.coerceAtLeast(l.start + 150)) }
+    }
 
     private fun clock(t: String): Long? {
         val s = t.trim()
@@ -101,7 +121,7 @@ object TrailerSubs {
         return out
     }
 
-    /** What shows at [ms] (lines that overlap are shown together, without repeats). */
+    /** What shows at [ms]: the latest line that has begun (never two stacked). */
     fun at(lines: List<Line>, ms: Long): String =
-        lines.filter { ms in it.start until it.end }.map { it.text }.distinct().joinToString("\n")
+        lines.lastOrNull { ms >= it.start && ms < it.end }?.text.orEmpty()
 }
