@@ -333,6 +333,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 Toggle("Hide the dock during trailers", "The dock and the dots step aside while a trailer fills the page, and come back when it stops or ends (never with the window)",
                     { st.trailerHideDock }, { st.trailerHideDock = it }),
                 Toggle("Trailer sound", "", { !st.trailerMute }, { st.trailerMute = !it }),
+                Adjust("Trailer volume", "How loud the trailers play (the TV's own volume stays as it is)", { "${st.trailerVolume} %" }, { st.trailerVolume += it * 10 }),
                 Toggle("Trailer subtitles", "", { st.trailerSubs }, { st.trailerSubs = it }),
                 Adjust("Subtitle language", "", { java.util.Locale(st.trailerSubLang).getDisplayLanguage(java.util.Locale.ENGLISH) },
                     { st.trailerSubLang = cycle(listOf("en", "ar", "fr", "de", "es", "it", "tr", "fa", "ru", "pt", "hi", "ja", "ko", "zh"), st.trailerSubLang, it) }),
@@ -411,6 +412,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 Adjust("Large clock style", "With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)", {
                     when (st.bgClockStyle) { "white" -> "White"; "still" -> "Still Glass"; else -> "With the theme" }
                 }, { st.bgClockStyle = cycle(listOf("theme", "still", "white"), st.bgClockStyle, it) }),
+                Adjust("Large clock glass", "How much the glass digits show: lower is clearer glass (Still / Dynamic / Frosted / Clear looks)", { "${st.bgClockGlass} %" }, { st.bgClockGlass += it * 10 }),
                 Toggle("Large clock: white date", "The date above the time in white, whatever the clock's look", { st.bgClockDateWhite }, { st.bgClockDateWhite = it }),
                 Adjust("Large clock size", "", { pct(st.bgClockSize) }, { st.bgClockSize = ((st.bgClockSize * 10).roundToInt() + it) / 10f }),
                 Adjust("Large clock position", "◀ higher · lower ▶", {
@@ -996,6 +998,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 if (st.saverMode == "trailer") {
                     add(Note("Trailers (the carousel's titles, one after another) · OK opens the title in Nuvio · hold OK for more · ◀ ▶ skip"))
                     add(Toggle("  · Sound", "Off: the trailers play muted", { !st.saverTrailerMute }, { st.saverTrailerMute = !it }))
+                    add(Adjust("  · Volume", "Also in the menu (hold OK)", { "${st.saverTrailerVolume} %" }, { st.saverTrailerVolume += it * 10 }))
                     add(Adjust("  · Size", "", { if (st.saverTrailerSize == "original") "Original (whole picture)" else "Cinematic (fills the screen)" },
                         { st.saverTrailerSize = cycle(listOf("cinema", "original"), st.saverTrailerSize, it) }))
                     add(Toggle("  · Logo", "The title's logo (or its name)", { st.saverTrailerLogo }, { st.saverTrailerLogo = it }))
@@ -1060,6 +1063,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("Large clock style", "With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)", {
                     when (st.bgClockStyle) { "white" -> "White"; "still" -> "Still Glass"; else -> "With the theme" }
                 }, { st.bgClockStyle = cycle(listOf("theme", "still", "white"), st.bgClockStyle, it) }))
+                    add(Adjust("Large clock glass", "How much the glass digits show: lower is clearer glass", { "${st.bgClockGlass} %" }, { st.bgClockGlass += it * 10 }))
                     add(Toggle("Large clock: white date", "The date above the time in white, whatever the clock's look", { st.bgClockDateWhite }, { st.bgClockDateWhite = it }))
                     add(Adjust("Large clock size", "", { pct(st.bgClockSize) }, { st.bgClockSize = ((st.bgClockSize * 10).roundToInt() + it) / 10f }))
                     add(Adjust("Large clock position", "◀ higher · lower ▶", {
@@ -1196,7 +1200,18 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             // What a button should open: an app (with its picture), the Apps folder, the recent apps or a TV input.
             fun choose(code: Int) {
                 val opts = mutableListOf<ThumbItem>()
+                // Glassio itself (its home screen), for a remote whose Home button doesn't work (#13).
+                opts += ThumbItem("Glassio", "Glassio's home screen, from any app", HueArt.home()) { mapTo(code, "glassio", "Glassio") }
                 opts += ThumbItem("The Apps folder", "Every app · press again to close it", HueArt.folder()) { mapTo(code, "folder", "Apps folder") }
+                if (st.hueIp.isNotBlank() && st.hueUser.isNotBlank())
+                    opts += ThumbItem("Hue lights off", "A room or a group of lights · press again: on", HueArt.bulbOff()) {
+                        scope.launch(Dispatchers.IO) {
+                            val gs = com.glasslauncher.tv.data.Hue.groups(st.hueIp, st.hueUser).filter { it.type != "Entertainment" }
+                            val items = listOf(ThumbItem("All the lights", "Every Hue light", HueArt.bulbOff()) { mapTo(code, "hue:0", "All") }) +
+                                gs.map { g -> ThumbItem(g.name, (if (g.type == "Room") "Room" else "Zone") + " · ${g.lights.size} lights", HueArt.bulbOff()) { mapTo(code, "hue:" + g.id, g.name) } }
+                            kotlinx.coroutines.withContext(Dispatchers.Main) { dialog = ThumbDialog("${keyName(code)} turns off…", items) }
+                        }
+                    }
                 opts += ThumbItem("Recent apps", "The open apps, like holding Home", HueArt.recents()) { mapTo(code, "recents", "Recent apps") }
                 com.glasslauncher.tv.data.Inputs.list.value.forEach { inp ->
                     val pic = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == com.glasslauncher.tv.data.Inputs.PREFIX + inp.id }?.let { app.apps.cachedArtwork(it)?.bmp }
@@ -1227,7 +1242,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         ))
                     })
                 }
-                add(Act("Add a button", "Press a remote button (Netflix, YouTube, a colour button…), then choose an app, the Apps folder, the recent apps or an input", "Add") {
+                add(Act("Add a button", "Press a remote button (Netflix, YouTube, a colour button…), then choose Glassio, an app, the Apps folder, the recent apps, an input or Hue lights to turn off", "Add") {
                     dialog = KeyCaptureDialog("Press the button you want") { code -> choose(code) }
                 })
                 add(Note("Glassio's buttons"))

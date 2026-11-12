@@ -260,9 +260,9 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
             val blurOn = st.blurRadius > 0 && look == "liquid"
             // The date can be white on its own (Settings), whatever the time's look.
             if (look == "white" || st.bgClockDateWhite) Text(date, color = Color.White.copy(alpha = 0.9f), style = small.merge(shade))
-            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false, saver = inSaver, blurDp = st.blurRadius * 0.45f)
+            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false, saver = inSaver, blurDp = st.blurRadius * 0.45f, opacity = st.bgClockGlass / 100f)
             if (look == "white") Text(time, color = Color.White.copy(alpha = 0.94f), style = big.merge(shade))
-            else ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver, blurDp = st.blurRadius * 0.45f)
+            else ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver, blurDp = st.blurRadius * 0.45f, opacity = st.bgClockGlass / 100f)
         }
         // Depth: the subject drawn again over the clock, only where the clock is.
         val cut = if (inSaver) null else Depth.fg.value
@@ -293,7 +293,7 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
  * filled digits themselves, so no inner outlines show where the font's strokes overlap).
  */
 @Composable
-private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true, saver: Boolean = false, blurDp: Float = 0f) {
+private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true, saver: Boolean = false, blurDp: Float = 0f, opacity: Float = 1f) {
     val env = LocalGlassEnv.current
     // The screen's size (the screensaver has no home page around it to give it).
     val rootView = androidx.compose.ui.platform.LocalView.current.rootView
@@ -355,7 +355,8 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
     // magnified like the glass bends it, then cut to the digits; the theme's tint on top of it.
     Box(Modifier.size(size).onGloballyPositioned { posS.value = it.positionInRoot() }
         .graphicsLayer { if (glass) compositingStrategy = CompositingStrategy.Offscreen }) {
-        if (glass) Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = blur }) {
+        // Opacity (Settings): the picture in the digits fades, the rim stays: clearer glass.
+        if (glass) Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = blur; alpha = opacity }) {
             val pos = arrayOf(posS.value)
             val video = VideoFrames.showing.value
             // On the screensaver: live copies of its own video (com.glasslauncher.tv.saver.SaverFrames).

@@ -95,6 +95,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
@@ -1089,11 +1090,12 @@ private fun SlideBackdrop(prev: ImageBitmap?, cur: ImageBitmap?, mix: androidx.c
     Canvas(Modifier.fillMaxSize()) {
         val W = size.width; val H = size.height
         val dst = androidx.compose.ui.unit.IntSize(W.toInt(), H.toInt())
-        fun img(b: ImageBitmap, dx: Float, dim: Float = 0f) = drawImage(
-            b, dstOffset = androidx.compose.ui.unit.IntOffset(dx.roundToInt(), 0), dstSize = dst,
-            filterQuality = if (b.width < W - 8) androidx.compose.ui.graphics.FilterQuality.Low else androidx.compose.ui.graphics.FilterQuality.None,
+        // Moved by fractions of a pixel (filtered while moving): whole-pixel steps made the slow end of the slide judder.
+        fun img(b: ImageBitmap, dx: Float, dim: Float = 0f) = translate(left = dx) { drawImage(
+            b, dstSize = dst,
+            filterQuality = if (b.width < W - 8 || dx != 0f) androidx.compose.ui.graphics.FilterQuality.Low else androidx.compose.ui.graphics.FilterQuality.None,
             colorFilter = if (dim > 0.002f) androidx.compose.ui.graphics.ColorFilter.tint(Color.Black.copy(alpha = dim), androidx.compose.ui.graphics.BlendMode.SrcAtop) else null,
-        )
+        ) }
         if (prev == null || dir == 0 || cur == null) { (cur ?: prev)?.let { img(it, 0f) } }
         else {
             val f = slideFrame(kind, dir, mix.value, W)

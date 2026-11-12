@@ -307,6 +307,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             st.trailerSubLang = o[(o.indexOf(st.trailerSubLang).coerceAtLeast(0) + 1).mod(o.size)]
                         })
                         add(Triple("Sound", if (st.trailerMute) "Off" else "On") { st.trailerMute = !st.trailerMute })
+                        if (!st.trailerMute) add(Triple("Volume", "${st.trailerVolume} %") { st.trailerVolume = if (st.trailerVolume >= 100) 10 else st.trailerVolume + 10 })
                     }
                     opts.forEachIndexed { i, (label, value, act) ->
                         MenuRow(s, light, label, value, modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },

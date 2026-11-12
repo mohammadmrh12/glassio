@@ -131,6 +131,16 @@ object Hue {
         ids.mapNotNull { id -> o.optJSONObject(id)?.optJSONObject("state")?.let { id to it } }.toMap()
     }.getOrElse { Glog.w("Hue states", it); emptyMap() }
 
+    /** Any light of the group on (group "0" is every light); null when the bridge didn't answer. */
+    fun groupAnyOn(ip: String, user: String, group: String): Boolean? = runCatching {
+        JSONObject(call("GET", "http://$ip/api/$user/groups/$group")).getJSONObject("state").getBoolean("any_on")
+    }.getOrElse { Glog.w("Hue group $group", it); null }
+
+    fun groupOn(ip: String, user: String, group: String, on: Boolean) {
+        runCatching { call("PUT", "http://$ip/api/$user/groups/$group/action", JSONObject().put("on", on).put("transitiontime", 4).toString(), 3000) }
+            .onFailure { Glog.w("Hue group $group: ${it.message}") }
+    }
+
     fun set(ip: String, user: String, id: String, state: JSONObject) {
         runCatching { call("PUT", "http://$ip/api/$user/lights/$id/state", state.toString(), 2500) }
             .onFailure { Glog.w("Hue light $id: ${it.message}") }
@@ -340,17 +350,27 @@ object HueSync {
     private fun startSender(st: Settings) {
         if (senderOn) return
         senderOn = true
+        // Every light's new colour of one picture is sent at the same moment (one request each, side by side): sent
+        // one after another, the last lights (a Bloom after the Play bars) changed a few tenths of a second late.
+        val pool = Executors.newFixedThreadPool(4) { r -> Thread(r, "glass-hue-put").apply { isDaemon = true } }
         Thread({
             while (true) {
-                val next = pending.entries.firstOrNull() ?: run { Thread.sleep(25); null } ?: continue
-                pending.remove(next.key, next.value)
+                if (pending.isEmpty()) { Thread.sleep(20); continue }
+                // A moment for the rest of the same picture's lights to be worked out.
+                Thread.sleep(8)
+                val batch = pending.entries.map { it.key to it.value }
+                batch.forEach { (id, w) -> pending.remove(id, w) }
                 if (!active || !ready(st)) continue
-                val w = next.value
-                if (sentKey[next.key] == w.key) continue
-                if (w.gradient != null) Hue.setGradient(st.hueIp, st.hueUser, next.key, w.gradient, w.bri, st.hueSpeedMs)
-                else w.cmd?.let { Hue.set(st.hueIp, st.hueUser, next.key, it) }
-                sentKey[next.key] = w.key
-                Thread.sleep(95)
+                val jobs = batch.filter { (id, w) -> sentKey[id] != w.key }.map { (id, w) ->
+                    pool.submit {
+                        if (w.gradient != null) Hue.setGradient(st.hueIp, st.hueUser, id, w.gradient, w.bri, st.hueSpeedMs)
+                        else w.cmd?.let { Hue.set(st.hueIp, st.hueUser, id, it) }
+                        sentKey[id] = w.key
+                    }
+                }
+                jobs.forEach { runCatching { it.get(3, java.util.concurrent.TimeUnit.SECONDS) } }
+                // The bridge takes about ten light commands a second.
+                if (jobs.isNotEmpty()) Thread.sleep((60L * jobs.size).coerceIn(95, 400))
             }
         }, "glass-hue-send").apply { isDaemon = true }.start()
     }
@@ -384,6 +404,16 @@ object HueSync {
                 if (briPct != null) return (briPct / 100f * 254).toInt().coerceIn(1, 254)
                 return ((st.hueBri / 100f) * (if (st.hueFollowBri) (0.3f + 0.7f * lum) else 1f) * 254).toInt().coerceIn(1, 254)
             }
+            // A big change of colour is made quickly by every light together (one light decided it alone: the Play
+            // bars jumped to the new colour while a Bloom faded slowly into it).
+            val anyFar = ids.withIndex().any { (i, id) ->
+                val z = zones[id] ?: "auto"
+                if (z == "gradient") return@any false
+                val pl = if (z == "auto") places[id] else null
+                val rg = if (pl != null) Hue.crop(small, Hue.placeRect(pl)) else if (z == "auto" || z == "gradient") null else Hue.crop(small, Hue.zoneRect(z))
+                val xy = Hue.xy(intensify(if (rg != null) Hue.palette(rg, 1)[0] else palette[if (st.hueSpread) i % palette.size else 0], st.hueIntensity))
+                lastXy[id]?.let { (it.first - xy.first).pow(2) + (it.second - xy.second).pow(2) > 0.012 } ?: true
+            }
             ids.forEachIndexed { i, id ->
                 val l = lights[id] ?: Hue.Light(id, id, true)
                 val zone = zones[id] ?: "auto"
@@ -404,7 +434,7 @@ object HueSync {
                 // and white first (a wrong colour for a moment at each new title). A big change is made quickly;
                 // small ones (a video moving on) keep the chosen speed.
                 val xyNow = Hue.xy(c)
-                val far = lastXy[id]?.let { (it.first - xyNow.first).pow(2) + (it.second - xyNow.second).pow(2) > 0.012 } ?: true
+                val far = anyFar
                 lastXy[id] = xyNow
                 val cmd = JSONObject().put("on", true).put("bri", bri).put("transitiontime", if (far) minOf(tt, 1) else tt)
                 val key: String

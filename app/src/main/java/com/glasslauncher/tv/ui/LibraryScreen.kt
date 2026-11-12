@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.ui
 
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.focusGroup
@@ -175,19 +176,28 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     // row) landed on the second one.
     val posterFirst = when { saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; else -> "k" }
     val posterFirstSize = when (posterFirst) { "s" -> saved.size; "n" -> nuvio.size; "t" -> trakt.size; else -> simkl.size }
+    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState(
+        cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
     val topRow = remember { List(8) { FocusRequester() } }
+    val topUpScope = rememberCoroutineScope()
     fun topReq(list: String, i: Int): Modifier = if (list == posterFirst && i < minOf(st.libraryColumns, 8)) Modifier.focusRequester(topRow[i]) else Modifier
+    // Up held through the Library stops at its top row: the next press goes back to the dock. Carried straight on,
+    // the page started sliding home while the rows were still gliding up, and the Continue Watching row moved two
+    // ways at once (it shook and smeared on the way to the dock). A press while the rows still glide waits for them.
     fun up(list: String, i: Int): Modifier = if (onTopUp != null && list == firstList && (list == "c" || i < st.libraryColumns))
         Modifier.onPreviewKeyEvent { e ->
-            if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionUp) { onTopUp(); true } else false
+            if (e.key != androidx.compose.ui.input.key.Key.DirectionUp) return@onPreviewKeyEvent false
+            if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) topUpScope.launch {
+                runCatching { kotlinx.coroutines.withTimeoutOrNull(500) { androidx.compose.runtime.snapshotFlow { grid.isScrollInProgress }.first { !it } } }
+                onTopUp()
+            }
+            true
         } else Modifier
     // The page stays built between visits (ready for Down from the dock): each visit starts at the top again,
     // with the first title selected (selecting one that was scrolled away left the remote doing nothing).
     // Rows a screen ahead (and half a screen behind) are built before they scroll in: building a row of posters
     // in the middle of the glide stalled it for a few frames.
-    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState(
-        cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
     // The Continue Watching row too: scrolled sideways, its first card wasn't built any more, so selecting it on
     // the next visit failed and the remote did nothing (the cards looked stuck).
     val cwRow = androidx.compose.foundation.lazy.rememberLazyListState()

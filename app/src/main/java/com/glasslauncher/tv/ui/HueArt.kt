@@ -158,6 +158,23 @@ object HueArt {
         drawText(label.take(18), 96f, 86f, p)
     }
 
+    /** Glassio's home screen: a house. */
+    fun home(): ImageBitmap = draw("home") { p ->
+        p.color = Color.WHITE
+        val roof = android.graphics.Path().apply { moveTo(96f, 18f); lineTo(140f, 54f); lineTo(52f, 54f); close() }
+        drawPath(roof, p)
+        drawRoundRect(RectF(62f, 50f, 130f, 90f), 6f, 6f, p)
+        p.color = Color.rgb(28, 28, 32); drawRoundRect(RectF(88f, 64f, 104f, 90f), 3f, 3f, p)
+    }
+
+    /** A light turned off. */
+    fun bulbOff(): ImageBitmap = draw("bulbOff") { p ->
+        glow(p, 96f, 46f, Color.rgb(255, 200, 120), 14f)
+        p.color = Color.rgb(120, 120, 130); drawCircle(96f, 46f, 16f, p)
+        p.color = Color.rgb(150, 150, 160); drawRoundRect(RectF(88f, 64f, 104f, 76f), 3f, 3f, p)
+        p.color = Color.WHITE; p.strokeWidth = 4f; p.style = Paint.Style.STROKE; drawLine(70f, 24f, 122f, 80f, p); p.style = Paint.Style.FILL
+    }
+
     /** A colour swatch (the Settings switch colours). */
     fun swatch(argb: Int): ImageBitmap = draw("sw:$argb") { p ->
         p.color = argb; drawRoundRect(RectF(66f, 36f, 126f, 72f), 18f, 18f, p)

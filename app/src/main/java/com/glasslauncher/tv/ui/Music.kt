@@ -477,10 +477,24 @@ private fun DrawScope.listGlyph(c: Color) {
 }
 
 /** The music apps on the TV (the ones Glassio knows), as package → name. */
-fun installedMusicApps(ctx: android.content.Context): List<Pair<String, String>> =
-    (NowPlaying.MUSIC_APPS.entries.map { it.key to it.value } + listOf("com.google.android.youtube.tv" to "YouTube", "com.google.android.youtube.googletv" to "YouTube"))
-        .filter { (pkg, _) -> runCatching { ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess }
-        .distinctBy { it.second }
+private var musicAppsCache: Pair<Long, List<Pair<String, String>>>? = null
+fun installedMusicApps(ctx: android.content.Context): List<Pair<String, String>> {
+    musicAppsCache?.let { (at, l) -> if (android.os.SystemClock.uptimeMillis() - at < 30_000) return l }
+    return findMusicApps(ctx).also { musicAppsCache = android.os.SystemClock.uptimeMillis() to it }
+}
+private fun findMusicApps(ctx: android.content.Context): List<Pair<String, String>> {
+    val pm = ctx.packageManager
+    val known = (NowPlaying.MUSIC_APPS.entries.map { it.key to it.value } + listOf("com.google.android.youtube.tv" to "YouTube", "com.google.android.youtube.googletv" to "YouTube"))
+        .filter { (pkg, _) -> runCatching { pm.getPackageInfo(pkg, 0) }.isSuccess }
+    // Any other app that calls itself an audio app (and can be opened from the TV's home).
+    val others = runCatching {
+        pm.queryIntentActivities(android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LEANBACK_LAUNCHER), 0)
+            .map { it.activityInfo.applicationInfo }
+            .filter { it.category == android.content.pm.ApplicationInfo.CATEGORY_AUDIO && it.packageName != ctx.packageName }
+            .map { it.packageName to pm.getApplicationLabel(it).toString() }
+    }.getOrDefault(emptyList())
+    return (known + others).distinctBy { it.first }.distinctBy { it.second }
+}
 
 /** Opens a music app (the chosen platform), to pick something to play. */
 fun openMusicApp(ctx: android.content.Context, pkg: String) {

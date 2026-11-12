@@ -44,7 +44,16 @@ object NowPlaying {
         "com.spotify.tv.android" to "Spotify", "com.spotify.music" to "Spotify", "com.google.android.youtube.tvmusic" to "YouTube Music",
         "com.google.android.apps.youtube.music" to "YouTube Music", "com.apple.android.music" to "Apple Music", "com.anghami" to "Anghami",
         "deezer.android.tv" to "Deezer", "deezer.android.app" to "Deezer", "com.aspiro.tidal" to "TIDAL", "com.soundcloud.android" to "SoundCloud",
-        "com.amazon.mp3" to "Amazon Music", "com.pandora.android.atv" to "Pandora",
+        "com.amazon.mp3" to "Amazon Music", "com.amazon.music.tv" to "Amazon Music", "com.pandora.android.atv" to "Pandora", "com.pandora.android" to "Pandora",
+        "com.clearchannel.iheartradio.controller" to "iHeart", "com.clearchannel.iheartradio.tv" to "iHeart", "com.soundcloud.android.tv" to "SoundCloud",
+        "tunein.player" to "TuneIn", "radiotime.player" to "TuneIn", "com.sirius" to "SiriusXM", "com.siriusxm.androidtv" to "SiriusXM",
+        "com.qobuz.music" to "Qobuz", "com.napster.android" to "Napster", "com.audiomack" to "Audiomack", "com.plexapp.plexamp" to "Plexamp",
+        "com.jio.media.jiobeats" to "JioSaavn", "com.gaana" to "Gaana", "com.tencent.ibg.joox" to "JOOX", "com.skysoft.kkbox.android" to "KKBOX",
+        "ru.yandex.music" to "Yandex Music", "com.zvooq.openplay" to "Zvuk", "com.vk.music" to "VK Music", "com.bandcamp.android" to "Bandcamp",
+        "com.idagio.app" to "IDAGIO", "com.primephonic.android" to "Apple Classical", "com.boomplay.music" to "Boomplay", "com.audials" to "Audials",
+        "com.maxmpz.audioplayer" to "Poweramp", "org.videolan.vlc.music" to "VLC", "com.foobar2000.foobar2000" to "foobar2000",
+        "com.radio.garden" to "Radio Garden", "com.radio.fmradio" to "Radio FM", "com.spotify.lite" to "Spotify Lite",
+        "com.google.android.apps.podcasts" to "Podcasts", "au.com.shiftyjelly.pocketcasts" to "Pocket Casts", "com.audible.application" to "Audible",
     )
     private val VIDEO_APPS = setOf(
         "space.nuvio.nativelegacy", "com.nuvio.tv", "com.nuvio.tv.test", "com.nuvioreshaped.tv", "com.stremio.one", "com.netflix.ninja",
@@ -101,8 +110,19 @@ object NowPlaying {
         if (pkg in MUSIC_APPS) return true
         if (pkg in SOMETIMES_MUSIC) return c.playbackState?.state.let { it == PlaybackState.STATE_PLAYING || it == PlaybackState.STATE_BUFFERING || it == PlaybackState.STATE_PAUSED && c.sessionToken == controller?.sessionToken }
         if (pkg in VIDEO_APPS) return false
+        // Any other app: music when it says so (its sound is music, or it is an audio app), or its song has an artist.
+        val attrs = runCatching { c.playbackInfo?.audioAttributes }.getOrNull()
+        if (attrs?.contentType == android.media.AudioAttributes.CONTENT_TYPE_MOVIE) return false
+        if (attrs?.contentType == android.media.AudioAttributes.CONTENT_TYPE_MUSIC) return true
+        if (lastCtx?.let { audioApp(it, pkg) } == true) return true
         val md = c.metadata ?: return false
         return !md.getString(MediaMetadata.METADATA_KEY_ARTIST).isNullOrBlank()
+    }
+
+    private val audioCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    /** The app calls itself an audio app (Android's app category). */
+    fun audioApp(ctx: Context, pkg: String): Boolean = audioCache.getOrPut(pkg) {
+        runCatching { ctx.packageManager.getApplicationInfo(pkg, 0).category == android.content.pm.ApplicationInfo.CATEGORY_AUDIO }.getOrDefault(false)
     }
 
     /** The music session to follow: the one playing, else the last one that has a song. */
@@ -201,7 +221,8 @@ object NowPlaying {
     }.getOrDefault(false)
     /** Apps that play video as well as music (YouTube): their playing counts as music only once it goes on. */
     fun sometimesMusic(pkg: String) = pkg in SOMETIMES_MUSIC
-    fun appLabel(pkg: String): String = MUSIC_APPS[pkg] ?: if (pkg in SOMETIMES_MUSIC) "YouTube" else pkg.substringAfterLast('.')
+    fun appLabel(pkg: String): String = MUSIC_APPS[pkg] ?: if (pkg in SOMETIMES_MUSIC) "YouTube" else
+        lastCtx?.let { c -> runCatching { c.packageManager.getApplicationLabel(c.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrNull() } ?: pkg.substringAfterLast('.')
 }
 
 /** Glassio's notification listener: only there so Android lets it read the media sessions (no notifications are used). */

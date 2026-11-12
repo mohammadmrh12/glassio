@@ -276,6 +276,9 @@ class Settings(private val ctx: Context) {
     /** cinema (fills the screen) | original (its own shape) | popup (a small glass window by the buttons). */
     var trailerSize: String get() = s("trailerSize", "popup"); set(v) = putS("trailerSize", v)
     var trailerMute: Boolean get() = b("trailerMute", false); set(v) = putB("trailerMute", v)
+    /** Trailers' loudness, 10–100 % (the TV's own volume stays as it is). */
+    var trailerVolume: Int get() = i("trailerVolume", 100); set(v) = putI("trailerVolume", v.coerceIn(10, 100))
+    var saverTrailerVolume: Int get() = i("saverTrailerVolume", 100); set(v) = putI("saverTrailerVolume", v.coerceIn(10, 100))
     var trailerSubs: Boolean get() = b("trailerSubs", true); set(v) = putB("trailerSubs", v)
     /** While a trailer fills the page, the dock and the page dots step aside (never with the trailer in its window). */
     var trailerHideDock: Boolean get() = b("trailerHideDock", true); set(v) = putB("trailerHideDock", v)
@@ -548,6 +551,8 @@ class Settings(private val ctx: Context) {
     /** Sharp corners for the menu, the dock and the icons (no rounding). */
     var squareCorners: Boolean get() = b("squareCorners", false); set(v) = putB("squareCorners", v)
     var bgClockStyle: String get() = s("bgClockStyle", "theme"); set(v) = putS("bgClockStyle", v)
+    /** How much of the picture the large clock's glass digits show, 10–100 % (lower: clearer glass, mostly its rim). */
+    var bgClockGlass: Int get() = i("bgClockGlass", 100); set(v) = putI("bgClockGlass", v.coerceIn(10, 100))
     /** The large clock's date in white, whatever the time's look. */
     var bgClockDateWhite: Boolean get() = b("bgClockDateWhite", true); set(v) = putB("bgClockDateWhite", v)
     /** The large clock on the screensaver too (Down shows / hides it). */

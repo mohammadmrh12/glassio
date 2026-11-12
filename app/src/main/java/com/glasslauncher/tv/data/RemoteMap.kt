@@ -8,7 +8,8 @@ import com.glasslauncher.tv.GlassApp
  * or a TV input, from any app. The Home button service sees every button first (even ones the TV keeps from other
  * apps, like a Netflix button), so it works where button remappers can't (#12).
  *
- * Saved as "code|action|label" lines; the action is "app:<package>", "folder", "recents" or "input:<id>".
+ * Saved as "code|action|label" lines; the action is "app:<package>", "glassio" (Glassio's home screen, #13), "folder",
+ * "recents", "input:<id>" or "hue:<group id>" (those Hue lights off, and on again).
  */
 object RemoteMap {
     class Map(val code: Int, val action: String, val label: String)
@@ -32,6 +33,8 @@ object RemoteMap {
     /** What the button does, in words. */
     fun describe(m: Map): String = when {
         m.action.startsWith("app:") -> "Opens " + m.label.ifBlank { m.action.removePrefix("app:") }
+        m.action == "glassio" -> "Opens Glassio"
+        m.action.startsWith("hue:") -> "Turns the ${m.label.ifBlank { "Hue" }} lights off and on"
         m.action == "folder" -> "Opens the Apps folder"
         m.action == "recents" -> "Opens the recent apps"
         m.action.startsWith("input:") -> "Switches to " + m.label.ifBlank { "the input" }
@@ -57,12 +60,36 @@ object RemoteMap {
                 }
                 // On the home screen the button opens the folder and closes it again; elsewhere it opens Glassio on it.
                 a == "folder" -> if (com.glasslauncher.tv.KeyHub.homeInFront) app.folderToggle.intValue++ else glass(app) { it.putExtra("open_folder", true) }
+                // Glassio's own home screen (for a remote whose Home button doesn't work, #13).
+                a == "glassio" -> glass(app) {}
+                a.startsWith("hue:") -> hueToggle(app, a.removePrefix("hue:"), m.label)
                 a == "recents" && com.glasslauncher.tv.RecentsActivity.showing?.isFinishing == false ->
                     com.glasslauncher.tv.RecentsActivity.showing?.let { r -> r.runOnUiThread { r.close() } }
                 a == "recents" -> app.startActivity(Intent(app, com.glasslauncher.tv.RecentsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 a.startsWith("input:") -> Inputs.open(app, a)
             }
         }.onFailure { Glog.w("Remote button ${m.code}", it) }
+    }
+
+    /** The room's / zone's lights off (all of them: "0"); if they are all off already, on again. */
+    private fun hueToggle(app: GlassApp, group: String, label: String) {
+        val st = app.settings
+        if (st.hueIp.isBlank() || st.hueUser.isBlank()) {
+            android.widget.Toast.makeText(app, "Connect your Hue Bridge first: Glassio settings → Hue lights", android.widget.Toast.LENGTH_SHORT).show(); return
+        }
+        Thread({
+            val on = Hue.groupAnyOn(st.hueIp, st.hueUser, group)
+            if (on == null) { toastMain(app, "The Hue Bridge didn't answer"); return@Thread }
+            // Off: the colour sync leaves those lights alone until they are turned on again.
+            if (on) HueSync.leave(st, "keep")
+            Hue.groupOn(st.hueIp, st.hueUser, group, !on)
+            if (!on && com.glasslauncher.tv.KeyHub.homeInFront) HueSync.resume()
+            toastMain(app, (label.ifBlank { "Hue" }) + if (on) " lights off" else " lights on")
+        }, "glass-hue-key").start()
+    }
+
+    private fun toastMain(app: GlassApp, text: String) = android.os.Handler(android.os.Looper.getMainLooper()).post {
+        android.widget.Toast.makeText(app, text, android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun glass(app: GlassApp, extra: (Intent) -> Unit) {

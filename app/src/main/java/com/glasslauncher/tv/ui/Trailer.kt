@@ -250,7 +250,7 @@ private fun popupPlace(s: Float, scale: Float, aspect: Float): Pair<IntOffset, P
 @Composable
 private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: com.glasslauncher.tv.data.TrailerSource.Streams, mode: String, dockInset: Float,
                           /** The screensaver's own: its sound setting, no home-screen glass, and it is told when the trailer ends or fails. */
-                          muteOverride: Boolean? = null, glass: Boolean = true, onEnded: (() -> Unit)? = null, onFailed: (() -> Unit)? = null) {
+                          muteOverride: Boolean? = null, volumeOverride: Int? = null, glass: Boolean = true, onEnded: (() -> Unit)? = null, onFailed: (() -> Unit)? = null) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val st = app.settings
     val mute = muteOverride ?: st.trailerMute
@@ -286,11 +286,14 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
                     Glog.w("Trailer ${req.ytId}: load ${e.javaClass.simpleName} ${e.message?.take(80)} (tried again)")
                 }
             })
-            volume = if (mute || streams.audio == null) 0f else 1f
+            volume = if (mute || streams.audio == null) 0f else (volumeOverride ?: st.trailerVolume) / 100f
             playWhenReady = true
             prepare()
         }
     }
+    // The volume follows its setting while the trailer plays (the menu and the screensaver's menu change it).
+    val vol = volumeOverride ?: st.trailerVolume
+    LaunchedEffect(vol, mute) { player.volume = if (mute || streams.audio == null) 0f else vol / 100f }
     DisposableEffect(Unit) {
         val t0 = android.os.SystemClock.uptimeMillis()
         var waitFrom = 0L
@@ -526,6 +529,7 @@ fun SaverTrailers(app: GlassApp) {
     var rev by remember { mutableIntStateOf(0) }
     var pop by remember { mutableStateOf<PopState?>(null) }
     var muted by remember { mutableStateOf(st.saverTrailerMute) }
+    var volume by remember { mutableIntStateOf(st.saverTrailerVolume) }
     fun item(i: Int) = pool[i.mod(pool.size)].let { enriched[it.key] ?: it }
     fun go(d: Int) { dir = if (d < 0) -1 else 1; want = at + dir; tick++ }
     LaunchedEffect(tick, pool.size) {
@@ -582,6 +586,11 @@ fun SaverTrailers(app: GlassApp) {
                 toast(ctx, if (now) "Liked · ${it.name}" else "Like removed · ${it.name}")
             },
             PopOption(if (muted) "Sound on" else "Sound off") { muted = !muted; st.saverTrailerMute = muted; cur = cur?.let { c -> c.first to c.second.copy(rev = ++rev) } },
+            PopOption("Volume", "$volume %") {
+                // Up in steps of 10 %, then round again from 10 %.
+                volume = if (volume >= 100) 10 else volume + 10; st.saverTrailerVolume = volume
+                toast(ctx, "Trailer volume $volume %")
+            },
         ), null)
     }
     // OK and held OK, read by the screensaver's key handling.
@@ -611,7 +620,7 @@ fun SaverTrailers(app: GlassApp) {
         if (c != null) androidx.compose.runtime.key(c.second.rev) {
             val streams = c.second.streams
             if (streams != null) NativeTrailer(app, s, c.second, streams, if (st.saverTrailerSize == "original") "original" else "cinema", subsUp,
-                muteOverride = muted, glass = false, onEnded = { go(1) }, onFailed = { go(dir) })
+                muteOverride = muted, volumeOverride = volume, glass = false, onEnded = { go(1) }, onFailed = { go(dir) })
         }
         // The first trailer is still being found (a few seconds the first time): the title's picture meanwhile,
         // instead of a black screen.

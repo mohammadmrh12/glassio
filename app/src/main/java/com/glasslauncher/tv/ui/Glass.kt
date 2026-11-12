@@ -102,7 +102,9 @@ class SlideFrame(val curShift: Float, val prevShift: Float, val edge: Float, val
 
 fun slideFrame(kind: Int, dir: Int, e: Float, w: Float): SlideFrame {
     val edge = if (dir > 0) w * (1f - e) else w * e
-    return if (kind == SLIDE_APPLE) SlideFrame(dir * (1f - e) * w * 0.12f, -dir * e * w * 0.20f, edge, dir > 0, 0.30f * e)
+    // The new picture's own drift ends well before the edge does (squared): with the same slow ending as the
+    // edge it was still creeping the last few pixels after the sweep, a slight shake before the picture settled.
+    return if (kind == SLIDE_APPLE) SlideFrame(dir * (1f - e) * (1f - e) * w * 0.12f, -dir * e * w * 0.20f, edge, dir > 0, 0.30f * e)
     else SlideFrame(dir * (1f - e) * w, -dir * e * w, edge, dir > 0, 0f)
 }
 
