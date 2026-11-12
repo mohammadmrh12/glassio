@@ -179,9 +179,36 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
     val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState(
         cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
+    val cwRow = androidx.compose.foundation.lazy.rememberLazyListState()
     val topRow = remember { List(8) { FocusRequester() } }
     val topUpScope = rememberCoroutineScope()
-    fun topReq(list: String, i: Int): Modifier = if (list == posterFirst && i < minOf(st.libraryColumns, 8)) Modifier.focusRequester(topRow[i]) else Modifier
+    // Up from the first row of posters goes to the Continue Watching card nearest above it among those fully on
+    // screen. Left to the system it picked one half off the edge, and the whole row jumped sideways to show it
+    // (while the page was also moving: the row seemed to shake).
+    val cwReqs = remember(cw.size) { List(cw.size) { FocusRequester() } }
+    val cwX = remember { mutableMapOf<Int, Float>() }
+    val posterX = remember { mutableMapOf<Int, Float>() }
+    val screenWpx = ctx.resources.displayMetrics.widthPixels.toFloat()
+    fun toCw(i: Int): Modifier = if (cw.isEmpty()) Modifier else Modifier
+        .onGloballyPositioned { c -> posterX[i] = c.positionInRoot().x + c.size.width / 2f }
+        .onPreviewKeyEvent { e ->
+            if (e.key != androidx.compose.ui.input.key.Key.DirectionUp) return@onPreviewKeyEvent false
+            if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent true
+            val px = posterX[i] ?: return@onPreviewKeyEvent false
+            val shown = cwRow.layoutInfo.visibleItemsInfo.mapNotNull { v ->
+                val x = cwX[v.index] ?: return@mapNotNull null
+                if (x >= -1f && x + v.size <= screenWpx + 1f) Triple(v.index, x, v.size) else null
+            }
+            val pick = shown.minByOrNull { (_, x, w) -> kotlin.math.abs(x + w / 2f - px) }?.first ?: return@onPreviewKeyEvent false
+            // The row above the screen isn't placed yet (it can't take the focus): the page glides up to it first.
+            if (runCatching { cwReqs[pick].requestFocus() }.isFailure) topUpScope.launch {
+                val at = grid.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "cw-row" }?.index ?: 2
+                runCatching { grid.animateScrollToItem((at - 1).coerceAtLeast(0)) }
+                runCatching { cwReqs[pick].requestFocus() }
+            }
+            true
+        }
+    fun topReq(list: String, i: Int): Modifier = if (list == posterFirst && i < minOf(st.libraryColumns, 8)) Modifier.focusRequester(topRow[i]).then(toCw(i)) else Modifier
     // Up held through the Library stops at its top row: the next press goes back to the dock. Carried straight on,
     // the page started sliding home while the rows were still gliding up, and the Continue Watching row moved two
     // ways at once (it shook and smeared on the way to the dock). A press while the rows still glide waits for them.
@@ -200,7 +227,6 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     // in the middle of the glide stalled it for a few frames.
     // The Continue Watching row too: scrolled sideways, its first card wasn't built any more, so selecting it on
     // the next visit failed and the remote did nothing (the cards looked stuck).
-    val cwRow = androidx.compose.foundation.lazy.rememberLazyListState()
     var libFocused by remember { mutableStateOf(false) }
     val lastMove = remember { longArrayOf(0L) }
     val scope = rememberCoroutineScope()
@@ -310,7 +336,8 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                             val it = cw[i]
                             val src = cwEntries.firstOrNull { e -> e.key == it.key }?.app.orEmpty()
                             CwCard(it, src, s, wide, st.libraryCwSource, Modifier.width(cardW).then(if (i == 0) Modifier.focusRequester(first) else Modifier)
-                                .onGloballyPositioned { c -> cardX[i] = c.positionInRoot().x }
+                                .then(if (i < cwReqs.size) Modifier.focusRequester(cwReqs[i]) else Modifier)
+                                .onGloballyPositioned { c -> cardX[i] = c.positionInRoot().x; cwX[i] = c.positionInRoot().x }
                                 .onPreviewKeyEvent { e ->
                                     val n = minOf(cols, posterFirstSize, 8)
                                     if (e.key != androidx.compose.ui.input.key.Key.DirectionDown || n <= 0) return@onPreviewKeyEvent false
