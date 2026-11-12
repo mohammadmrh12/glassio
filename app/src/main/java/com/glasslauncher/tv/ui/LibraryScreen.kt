@@ -1,6 +1,6 @@
 package com.glasslauncher.tv.ui
 
-import kotlinx.coroutines.flow.first
+import androidx.compose.foundation.gestures.stopScroll
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.focusGroup
@@ -182,43 +182,42 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val cwRow = androidx.compose.foundation.lazy.rememberLazyListState()
     val topRow = remember { List(8) { FocusRequester() } }
     val topUpScope = rememberCoroutineScope()
-    // Up from the first row of posters goes to the Continue Watching card nearest above it among those fully on
-    // screen. Left to the system it picked one half off the edge, and the whole row jumped sideways to show it
+    // Up from the first row of posters goes to the first Continue Watching card (the row back at its start).
+    // Left to the system it picked a card half off the edge, and the whole row jumped sideways to show it
     // (while the page was also moving: the row seemed to shake).
     val cwReqs = remember(cw.size) { List(cw.size) { FocusRequester() } }
-    val cwX = remember { mutableMapOf<Int, Float>() }
-    val posterX = remember { mutableMapOf<Int, Float>() }
-    val screenWpx = ctx.resources.displayMetrics.widthPixels.toFloat()
-    fun toCw(i: Int): Modifier = if (cw.isEmpty()) Modifier else Modifier
-        .onGloballyPositioned { c -> posterX[i] = c.positionInRoot().x + c.size.width / 2f }
+    // Back to the dock at once: the rows stop where they are first (still gliding up while the page slid home,
+    // the Continue Watching row moved two ways at once). A held Up is spent at the dock (it went on to the menu).
+    val topUpAt = remember { longArrayOf(0L) }
+    fun goHome() {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - topUpAt[0] < 900) return
+        topUpAt[0] = now
+        LibPace.swallowUp = true
+        topUpScope.launch { runCatching { grid.stopScroll() }; onTopUp?.invoke() }
+    }
+    fun toCw(): Modifier = if (cw.isEmpty()) Modifier else Modifier
         .onPreviewKeyEvent { e ->
             if (e.key != androidx.compose.ui.input.key.Key.DirectionUp) return@onPreviewKeyEvent false
             if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent true
-            val px = posterX[i] ?: return@onPreviewKeyEvent false
-            val shown = cwRow.layoutInfo.visibleItemsInfo.mapNotNull { v ->
-                val x = cwX[v.index] ?: return@mapNotNull null
-                if (x >= -1f && x + v.size <= screenWpx + 1f) Triple(v.index, x, v.size) else null
-            }
-            val pick = shown.minByOrNull { (_, x, w) -> kotlin.math.abs(x + w / 2f - px) }?.first ?: return@onPreviewKeyEvent false
-            // The row above the screen isn't placed yet (it can't take the focus): the page glides up to it first.
-            if (runCatching { cwReqs[pick].requestFocus() }.isFailure) topUpScope.launch {
-                val at = grid.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "cw-row" }?.index ?: 2
-                runCatching { grid.animateScrollToItem((at - 1).coerceAtLeast(0)) }
-                runCatching { cwReqs[pick].requestFocus() }
+            // Up held: straight on to the dock, no stop on Continue Watching on the way.
+            if (e.nativeKeyEvent.repeatCount > 0 && onTopUp != null) { goHome(); return@onPreviewKeyEvent true }
+            topUpScope.launch {
+                runCatching { cwRow.scrollToItem(0) }
+                // The row above the screen isn't placed yet (it can't take the focus): the page glides up to it first.
+                if (runCatching { cwReqs[0].requestFocus() }.isFailure) {
+                    val at = grid.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "cw-row" }?.index ?: 2
+                    runCatching { grid.animateScrollToItem((at - 1).coerceAtLeast(0)) }
+                    runCatching { cwReqs[0].requestFocus() }
+                }
             }
             true
         }
-    fun topReq(list: String, i: Int): Modifier = if (list == posterFirst && i < minOf(st.libraryColumns, 8)) Modifier.focusRequester(topRow[i]).then(toCw(i)) else Modifier
-    // Up held through the Library stops at its top row: the next press goes back to the dock. Carried straight on,
-    // the page started sliding home while the rows were still gliding up, and the Continue Watching row moved two
-    // ways at once (it shook and smeared on the way to the dock). A press while the rows still glide waits for them.
+    fun topReq(list: String, i: Int): Modifier = if (list == posterFirst && i < minOf(st.libraryColumns, 8)) Modifier.focusRequester(topRow[i]).then(toCw()) else Modifier
     fun up(list: String, i: Int): Modifier = if (onTopUp != null && list == firstList && (list == "c" || i < st.libraryColumns))
         Modifier.onPreviewKeyEvent { e ->
             if (e.key != androidx.compose.ui.input.key.Key.DirectionUp) return@onPreviewKeyEvent false
-            if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) topUpScope.launch {
-                runCatching { kotlinx.coroutines.withTimeoutOrNull(500) { androidx.compose.runtime.snapshotFlow { grid.isScrollInProgress }.first { !it } } }
-                onTopUp()
-            }
+            if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) goHome()
             true
         } else Modifier
     // The page stays built between visits (ready for Down from the dock): each visit starts at the top again,
@@ -337,7 +336,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                             val src = cwEntries.firstOrNull { e -> e.key == it.key }?.app.orEmpty()
                             CwCard(it, src, s, wide, st.libraryCwSource, Modifier.width(cardW).then(if (i == 0) Modifier.focusRequester(first) else Modifier)
                                 .then(if (i < cwReqs.size) Modifier.focusRequester(cwReqs[i]) else Modifier)
-                                .onGloballyPositioned { c -> cardX[i] = c.positionInRoot().x; cwX[i] = c.positionInRoot().x }
+                                .onGloballyPositioned { c -> cardX[i] = c.positionInRoot().x }
                                 .onPreviewKeyEvent { e ->
                                     val n = minOf(cols, posterFirstSize, 8)
                                     if (e.key != androidx.compose.ui.input.key.Key.DirectionDown || n <= 0) return@onPreviewKeyEvent false
@@ -419,7 +418,11 @@ private class PivotScroll(private val grid: androidx.compose.foundation.lazy.gri
 }
 
 /** A remote key held down in the Library (the page moves faster then). */
-private object LibPace { @Volatile var held = false }
+internal object LibPace {
+    @Volatile var held = false
+    /** Up held all the way back to the dock: the rest of that hold is spent there (it went on to the menu). */
+    @Volatile var swallowUp = false
+}
 
 /** The Continue Watching row: it moves only when the next card would go past the page's margin, by just enough. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)

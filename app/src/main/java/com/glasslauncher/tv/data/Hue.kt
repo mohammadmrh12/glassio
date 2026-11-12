@@ -314,7 +314,10 @@ object HueSync {
     /** Glassio is on screen (sync allowed). */
     @Volatile var active = false
 
-    fun ready(st: Settings) = st.hueOn && st.hueIp.isNotBlank() && st.hueUser.isNotBlank()
+    /** Rooms / zones turned off with a remote button ("0" = every light): no colours are sent while there are any. */
+    val heldOff: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    fun ready(st: Settings) = st.hueOn && st.hueIp.isNotBlank() && st.hueUser.isNotBlank() && heldOff.isEmpty()
 
     @Volatile private var groupCache: List<Hue.Group>? = null
     @Volatile private var lightCache: Map<String, Hue.Light>? = null

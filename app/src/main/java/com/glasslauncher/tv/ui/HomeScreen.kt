@@ -754,6 +754,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // ▼ while a trailer has the dock hidden: the dock comes back first (with the dock already selected,
                     // that press only shows it; it used to go on down to the Library).
                     .onPreviewKeyEvent { ev ->
+                        // Up held from the Library back to the dock: it stops there until the button is let go.
+                        if (ev.key == Key.DirectionUp && LibPace.swallowUp) {
+                            if (ev.type == KeyEventType.KeyUp || ev.nativeKeyEvent.repeatCount == 0) LibPace.swallowUp = false
+                            return@onPreviewKeyEvent ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount > 0 || ev.type == KeyEventType.KeyUp
+                        }
                         if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown && Trailers.started.value && settings.trailerHideDock &&
                             settings.trailerSize != "popup" && !Trailers.dockAsked.value) { Trailers.dockAsked.value = true; dockHasFocus } else false
                     }
