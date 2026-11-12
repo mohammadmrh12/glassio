@@ -115,6 +115,30 @@ const val VEIL_DIM = 0.62f
 val VeilFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix(floatArrayOf(
     1f - VEIL_DIM, 0f, 0f, 0f, 0f,  0f, 1f - VEIL_DIM, 0f, 0f, 0f,  0f, 0f, 1f - VEIL_DIM, 0f, 0f,  0f, 0f, 0f, 1f, 0f)))
 
+/**
+ * The veil's picture already darkened (what [VeilFilter] does), made once per picture: the colour filter, worked out
+ * for the whole screen and every glass surface in each frame of the dock opening, was a good part of the graphics
+ * chip's time there. The picture itself comes back if the copy can't be made (then the filter is used).
+ */
+object VeilPic {
+    private var src: ImageBitmap? = null
+    private var out: ImageBitmap? = null
+    @Synchronized fun of(b: ImageBitmap): ImageBitmap {
+        if (src === b) return out ?: b
+        val made = runCatching {
+            val a = b.asAndroidBitmap().let { if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it }
+            val o = Bitmap.createBitmap(a.width, a.height, Bitmap.Config.ARGB_8888)
+            val k = 1f - VEIL_DIM
+            android.graphics.Canvas(o).drawBitmap(a, 0f, 0f, android.graphics.Paint().apply {
+                colorFilter = android.graphics.ColorMatrixColorFilter(floatArrayOf(k, 0f, 0f, 0f, 0f, 0f, k, 0f, 0f, 0f, 0f, 0f, k, 0f, 0f, 0f, 0f, 0f, 1f, 0f))
+            })
+            o.prepareToDraw(); o.asImageBitmap()
+        }.getOrNull()
+        src = b; out = made
+        return made ?: b
+    }
+}
+
 val LocalGlassEnv = compositionLocalOf { GlassEnv(null, null, null, 0, 0, 6, 14) }
 /**
  * The same environment for the glass surfaces, as a state read only while drawing: a new picture or a slide
@@ -400,7 +424,7 @@ fun LiquidSurface(
             if (v > 0.01f && DebugHide.intValue and 16 == 0) {
                 val heavy = if (!videoBehind && DebugHide.intValue and 32768 == 0) n.env.heavy else null
                 // Like the page veil: the darkened blurred picture over the glass, one pass.
-                if (heavy != null) drawBackdropRegion(heavy, n.env.rootW, n.env.rootH, pos.value, alpha = v, scrims = false, colorFilter = VeilFilter)
+                if (heavy != null) { val dark = VeilPic.of(heavy); drawBackdropRegion(dark, n.env.rootW, n.env.rootH, pos.value, alpha = v, scrims = false, colorFilter = if (dark === heavy) VeilFilter else null) }
                 else drawRect(Color.Black.copy(alpha = v * VEIL_DIM))
             }
         }
@@ -550,13 +574,16 @@ fun LiquidSurface(
         if (veilOn && DebugHide.intValue and 16 == 0) Canvas(Modifier.matchParentSize().graphicsLayer {
             val n = now()
             alpha = if (n.bmp != null && !n.sliding && n.veilPic != null) n.env.veil?.value ?: 0f else 0f
-            renderEffect = still
-            if (cache && DebugHide.intValue and 1024 == 0) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+            // No bending and no texture of its own: the veil's picture is heavily blurred (bending it shows nothing),
+            // and a second bent layer on the dock and every icon, on top of the glass itself, for each frame of the
+            // dock opening was most of the graphics chip's time there (frames of 50-60 ms: the opening stuttered).
+            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
         }) {
             val n = now()
             val vp = n.veilPic ?: return@Canvas
             if (n.bmp == null || n.sliding) return@Canvas
-            drawBackdropRegion(vp, n.env.rootW, n.env.rootH, pos.value, scrims = false, colorFilter = VeilFilter)
+            val dark = VeilPic.of(vp)
+            drawBackdropRegion(dark, n.env.rootW, n.env.rootH, pos.value, scrims = false, colorFilter = if (dark === vp) VeilFilter else null)
             tintIn(tint)
         }
         // The glass colour (black or petrol) on top of every layer and outside their effects: drawn inside them it

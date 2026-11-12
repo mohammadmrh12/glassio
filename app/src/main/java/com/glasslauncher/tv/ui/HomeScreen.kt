@@ -695,7 +695,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 if (img == null) Box(Modifier.fillMaxSize().graphicsLayer { alpha = veil.value; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }.background(Color.Black.copy(alpha = VEIL_DIM)))
                 // Not drawn where the open dock covers it (its glass is opaque): on the TV GPU every pixel drawn twice counts.
                 if (img != null) {
-                    val brush = remember(img, rootW, rootH) {
+                    // The picture darkened once (a small copy), not by a colour filter in every frame of the fade.
+                    val dark = remember(img) { VeilPic.of(img) }
+                    val veilFilter = if (dark === img) VeilFilter else null
+                    val brush = remember(dark, rootW, rootH) {
+                        @Suppress("NAME_SHADOWING") val img = dark
                         val bw = img.width.toFloat(); val bh = img.height.toFloat()
                         val sc = maxOf(rootW / bw, rootH / bh)
                         val sh = android.graphics.BitmapShader(img.asAndroidBitmap(), android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
@@ -705,7 +709,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     val cornerPx = with(density) { (radius * s).dp.toPx() }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize().graphicsLayer { alpha = blur.value; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }) {
                         val d = dockCover.value
-                        fun part(l: Float, t: Float, r: Float, b: Float) { if (r > l && b > t) drawRect(brush, androidx.compose.ui.geometry.Offset(l, t), androidx.compose.ui.geometry.Size(r - l, b - t), colorFilter = VeilFilter) }
+                        fun part(l: Float, t: Float, r: Float, b: Float) { if (r > l && b > t) drawRect(brush, androidx.compose.ui.geometry.Offset(l, t), androidx.compose.ui.geometry.Size(r - l, b - t), colorFilter = veilFilter) }
                         if (d.isEmpty || DebugHide.intValue and 524288 != 0) part(0f, 0f, size.width, size.height)
                         else {
                             val t = d.top + cornerPx; val b = d.bottom - cornerPx
