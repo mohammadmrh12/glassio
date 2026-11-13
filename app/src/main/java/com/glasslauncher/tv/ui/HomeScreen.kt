@@ -675,7 +675,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         LaunchedEffect(playingPkg) { if (playingPkg != null && playingPkg != settings.musicLastPkg) settings.musicLastPkg = playingPkg }
         androidx.compose.runtime.SideEffect { MusicUi.idleOn.value = idleNow }
         // (Nuvio / Stremio selected: their carousel, not the music page.)
-        val stageWanted = stageRaw && songShown != null && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value
+        // (Going to an idle player or the music apps: this page stays until the grey one has faded in over it;
+        // dropped at once, the carousel's picture showed under it for a moment.)
+        val stageWanted = stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value
         val stageArt = songNow?.art?.takeIf { stageRaw }
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
         // (Keyed by how the artwork looks: the app sends a new picture object with every update.) A song whose
@@ -884,6 +886,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         if (dockPkg == null) {
                             // (Down into the open dock's second row: what shows above stays, its background too.)
                             delay(150)
+                            // (An app no longer installed goes in any case.)
+                            MusicUi.dockApp.value?.let { p -> if (runCatching { ctx.packageManager.getPackageInfo(p, 0) }.isFailure) MusicUi.dockApp.value = null }
                             if (!expanded) {
                                 if (!ChannelsUi.focused) ChannelsUi.stagePkg.value = null
                                 if (!MusicUi.stageFocused) MusicUi.dockApp.value = null
@@ -1661,7 +1665,15 @@ private fun HeroSection(
         // Music mode: while a song plays, the player is the background (whatever was chosen).
         val song = MusicUi.songFor(MusicUi.heldTrack())
         // (A music app selected in the dock: its player, also with nothing playing.)
-        val musicStage = (MusicUi.stageOn(settings, song) && !MusicUi.carouselApp.value) || (song == null && settings.musicOn && MusicUi.dockApp.value != null)
+        val musicStageNow = (MusicUi.stageOn(settings, song) && !MusicUi.carouselApp.value) || (song == null && settings.musicOn && MusicUi.dockApp.value != null)
+        // While this page fades out (the rows, the music apps coming): the player stays as it was under the fade (it
+        // went at once, and the carousel showed for a moment).
+        val musicKept = remember { booleanArrayOf(false) }
+        val idleKept = remember { mutableStateOf<String?>(null) }
+        if (!hidden) { musicKept[0] = musicStageNow; idleKept.value = MusicUi.dockApp.value }
+        val musicStage = if (hidden) musicKept[0] else musicStageNow
+        // (Set before the player below is drawn: set after, another app's paused song showed for a frame or two.)
+        MusicUi.idleKept = if (hidden) idleKept.value else null
         // Opened from the dock's Music icon: it stays until Back or the music stops.
         LaunchedEffect(song == null) { if (song == null) MusicUi.forced.value = false }
         BackHandler(enabled = MusicUi.forced.value && musicStage) { MusicUi.forced.value = false }
@@ -2370,6 +2382,8 @@ private fun Dock(
                                 )
                             }
                         } else key(e.pkg) {
+                            // A selected app taken off the dock (uninstalled): the selection leaves it (its player stayed).
+                            androidx.compose.runtime.DisposableEffect(e.pkg) { onDispose { if (ChannelsUi.dockPkg.value == e.pkg) ChannelsUi.dockPkg.value = null } }
                             DockTile(
                                 entry = e, app = app, s = s, radius = radius, moving = movingPkg == e.pkg,
                                 modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() })

@@ -183,8 +183,10 @@ object MusicUi {
     val carouselApp = mutableStateOf(false)
     /** The music apps are on screen now (not while a song plays: the player then). */
     val appsVisible = mutableStateOf(false)
+    /** The idle player's app kept while its page fades out. */
+    @Volatile var idleKept: String? = null
     /** The song for the player now: a music app selected in the dock shows only its own (another app's: its idle player). */
-    fun songFor(t: NowPlaying.Track?): NowPlaying.Track? = t?.takeIf { forced.value || dockApp.value == null || it.pkg == dockApp.value }
+    fun songFor(t: NowPlaying.Track?): NowPlaying.Track? { val d = dockApp.value ?: idleKept; return t?.takeIf { forced.value || d == null || it.pkg == d } }
     /** Their grey page is on (also behind the open dock). */
     val appsPage = mutableStateOf(false)
     /** A music app (its player, not rows, unless chosen in Settings → Music / Channels). YouTube isn't one here. */
@@ -581,7 +583,7 @@ fun openMusicApp(ctx: android.content.Context, pkg: String) {
 fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: FocusRequester, onApps: () -> Unit) {
     val st = app.settings
     val held = MusicUi.songFor(MusicUi.heldTrack())
-    if (held == null) { MusicUi.dockApp.value?.let { MusicIdle(app, s, it, heroFocus, firstTile, onApps) }; return }
+    if (held == null) { (MusicUi.dockApp.value ?: MusicUi.idleKept)?.let { MusicIdle(app, s, it, heroFocus, firstTile, onApps) }; return }
     val tr = held
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val k = s * st.musicStageScale
