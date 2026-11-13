@@ -1184,7 +1184,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         val off = pkg in st.channelsOffApps
                         val locked = pkg in st.lockedApps
                         val shown = rows.count { it.key !in st.channelsHidden }
-                        add(Act(label(pkg), if (locked) "Locked app: its channels don't show" else if (off) "Off" else rows.filter { it.key !in st.channelsHidden }.take(st.channelsRows).joinToString(" · ") { it.name }.ifBlank { "Every row is hidden" },
+                        add(Act(label(pkg), if (locked) "Locked app: its channels don't show" else if (off) "Off" else rows.filter { it.key !in st.channelsHidden }.joinToString(" · ") { it.name }.ifBlank { "Every row is hidden" },
                             if (off || locked) "Off" else "On · $shown", ok = if (off || locked) null else true) {
                             dialog = MenuDialog(label(pkg), buildList {
                                 add((if (off) "Show this app's channels" else "Don't show this app's channels") to {

@@ -208,7 +208,11 @@ object MusicUi {
      * (the system brings it back, paused at first: Play once more when its player is there), another one through
      * its own Play. Opened if it doesn't answer.
      */
-    fun startIn(ctx: android.content.Context, pkg: String, lastPkg: String, scope: kotlinx.coroutines.CoroutineScope) {
+    // (Its own scope: the idle player or the music apps it was pressed on go away as soon as the app answers, and
+    // with them a scope of theirs, which stopped the Play retries.)
+    private val startScope = kotlinx.coroutines.MainScope()
+    fun startIn(ctx: android.content.Context, pkg: String, lastPkg: String) {
+        val scope = startScope
         val app = ctx.applicationContext
         val am = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
         for (a in listOf(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.ACTION_UP)) runCatching {
@@ -701,7 +705,7 @@ private fun MusicIdle(app: GlassApp, s: Float, pkg: String, heroFocus: FocusRequ
             val light = st.dockStyle == "bow" && look == "theme"
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
                 MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile) },
-                    onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg, scope) }) { playGlyph(it, false) }
+                    onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg) }) { playGlyph(it, false) }
                 MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile); right = FocusRequester.Cancel }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))

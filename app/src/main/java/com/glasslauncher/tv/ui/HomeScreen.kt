@@ -251,16 +251,13 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     LaunchedEffect(settings.channelsOn, settings.channelsBg, settings.blurRadius, settings.glassRes, settings.pageScale) {
         if (!settings.channelsOn) return@LaunchedEffect
         delay(4_000)
-        val dm = ctx.resources.displayMetrics
-        val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
-        withContext(Dispatchers.Default) { runCatching { ChannelPages.grey("$w|$h|${settings.blurRadius}|${settings.glassRes}", w, h, settings.blurRadius) } }
+        val (w, h, tag) = ChannelPages.size(ctx, settings)
+        withContext(Dispatchers.Default) { runCatching { ChannelPages.grey(tag, w, h, settings.blurRadius) } }
     }
     // Blurred cards made ahead, one at a time on a quiet thread: every card on screen as its picture loads, and each
     // app's first card a few seconds after start (selecting the app, or moving to a card, then shows it at once).
     LaunchedEffect(settings.blurRadius, settings.glassRes, settings.pageScale) {
-        val dm = ctx.resources.displayMetrics
-        val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
-        val tag = "$w|$h|${settings.blurRadius}|${settings.glassRes}"
+        val (w, h, tag) = ChannelPages.size(ctx, settings)
         val blur = settings.blurRadius
         ChannelsUi.warm = { link, b -> ChannelPages.warmer.execute { if (ChannelPages.peekArt(link, tag) == null) runCatching { ChannelPages.art(link, b, tag, w, h, blur) } } }
     }
@@ -288,9 +285,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // (the carousel's picture under it used to show for a second while the new background was being made).
         // (Also the idle music player, nothing playing: on the grey page.)
         if (ChannelsUi.shown.value || MusicUi.idleOn.value) {
-            val dm = ctx.resources.displayMetrics
-            val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
-            val tag = "$w|$h|${settings.blurRadius}|${settings.glassRes}"
+            val (w, h, tag) = ChannelPages.size(ctx, settings)
             val blurMode = settings.channelsBg == "blur" && ChannelsUi.shown.value
             val art = ChannelsUi.art.value?.takeIf { blurMode }
             // (Also when this page is new, e.g. back from the screensaver: it has no picture yet.)
@@ -951,28 +946,26 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             else scope.launch { delay(16); runCatching { gearReq.requestFocus() } }
                         })
                     androidx.compose.runtime.SideEffect { ChannelsUi.shown.value = chanPage }
+                    // ▲ from the top of the rows or the music apps: the menu (or the settings button), they stay under it.
+                    val toMenu: () -> Unit = {
+                        if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
+                        else runCatching { gearReq.requestFocus() }
+                    }
                     // The rows fade in and out (they went in one frame, the page under them bare for a moment), in
                     // step with the music page or the carousel coming back.
                     val chanA by animateFloatAsState(if (chanOn) 1f else 0f, tween(if (chanOn) 220 else 240), label = "chanStage")
                     val lastChan = remember { arrayOfNulls<Pair<String, List<com.glasslauncher.tv.data.Channels.Channel>>>(1) }
-                    if (chanOn && chanPkg != null) lastChan[0] = chanPkg to chanRows
+                    if (chanOn) lastChan[0] = chanPkg to chanRows
                     val stageNow = lastChan[0]
                     if (stageNow != null && (chanOn || chanA > 0.01f)) Box(Modifier.fillMaxSize().graphicsLayer { alpha = chanA }) { ChannelStage(app, s, stageNow.first, stageNow.second, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
                         onDown = { if (runCatching { tileFocus[stageNow.first]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
-                        // ▲ from the top row: the menu (or the settings button), the rows stay under it.
-                        onUp = {
-                            if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
-                            else runCatching { gearReq.requestFocus() }
-                        }) }
+                        onUp = toMenu) }
                     // The Music icon selected: the music apps, faded in and out like the rows.
                     val appsA by animateFloatAsState(if (appsShow) 1f else 0f, tween(if (appsShow) 220 else 240), label = "musicApps")
                     if (appsShow || appsA > 0.01f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = appsA }) {
                         MusicAppsStage(app, s, metrics, radius, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
                             onDown = { if (runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
-                            onUp = {
-                                if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
-                                else runCatching { gearReq.requestFocus() }
-                            })
+                            onUp = toMenu)
                     }
                 }
                 if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, menuOpen = menuOpen, onSettings = { onScreen(Screen.Settings) },
@@ -3008,6 +3001,12 @@ private object ChannelPages {
     /** The quiet thread that makes the blurs ahead. */
     val warmer: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
         Thread(r, "glass-chan-blur").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
+    /** The page's size and the key its pictures are kept under (they are made again when any of it changes). */
+    fun size(ctx: android.content.Context, st: com.glasslauncher.tv.data.Settings): Triple<Int, Int, String> {
+        val dm = ctx.resources.displayMetrics
+        val w = (dm.widthPixels * st.pageScale).toInt(); val h = (dm.heightPixels * st.pageScale).toInt()
+        return Triple(w, h, "$w|$h|${st.blurRadius}|${st.glassRes}")
+    }
     fun peekGrey(tag: String): Pair<ImageBitmap, GlassImages>? = grey?.takeIf { it.first == tag }?.let { it.second to it.third }
     private var last: Pair<String, Pair<ImageBitmap, GlassImages>>? = null
     /** The background shown last (a new page starts with it while the current card's is made). */
@@ -3041,7 +3040,8 @@ private fun MusicAppsStage(app: GlassApp, s: Float, metrics: DockMetrics, radius
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val st = app.settings
-    val apps = remember { installedMusicApps(ctx).filter { it.first in com.glasslauncher.tv.data.NowPlaying.MUSIC_APPS || it.first == st.musicLastPkg } }
+    // (The same list as Settings → Music / Channels.)
+    val apps = remember { installedMusicApps(ctx).filter { MusicUi.isMusicApp(ctx, it.first) || it.first == st.musicLastPkg } }
     val entries = remember(apps) { apps.map { (pkg, name) -> app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == pkg }
         ?: AppEntry(pkg, name, android.content.ComponentName(pkg, ""), true) } }
     val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
@@ -3054,7 +3054,7 @@ private fun MusicAppsStage(app: GlassApp, s: Float, metrics: DockMetrics, radius
             // Its song is the one here: its player (playing on).
             if (!t.playing) com.glasslauncher.tv.data.NowPlaying.play()
             MusicUi.forced.value = true; MusicUi.focusRev.intValue++
-        } else MusicUi.startIn(ctx, pkg, st.musicLastPkg, scope)
+        } else MusicUi.startIn(ctx, pkg, st.musicLastPkg)
     }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val top = (if (!st.topAutoHide && st.showClock) 64 else 30) * s
