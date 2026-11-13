@@ -1170,7 +1170,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("Glow", "A very soft light around the selected card, like in the Library", { when (st.channelsGlow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
                         { st.channelsGlow = cycle(listOf("off", "color", "white"), st.channelsGlow, it) }))
                     if (st.channelsGlow != "off") add(Adjust("  · Glow size", "How far and how strong it is", { pct(st.channelsGlowSize) }, { st.channelsGlowSize = ((st.channelsGlowSize * 10).roundToInt() + it) / 10f }))
-                    add(Toggle("Music apps: their rows", "Off: a music app selected in the dock (Spotify, SoundCloud…) shows its player, also with nothing playing. On: its rows, like other apps", { st.channelsMusicRows }, { st.channelsMusicRows = it }))
+                    addAll(musicRowsChoice(ctx, st) { tvRev.intValue++ })
                     add(Toggle("Hue lights", "The lights take the colour of the card you're on (Hue lights must be set up)", { st.channelsHue }, { st.channelsHue = it }))
                     if (st.channelsHue) add(Adjust("  · Brightness", "How bright the lights are with the card's colour (shared with the Library's posters)", { "${st.huePostersBri} %" }, { st.huePostersBri = st.huePostersBri + it * 5 }))
                     add(Adjust("App name", "The app's name over the rows: white, or in its icon's colour", { if (st.channelsLabel == "icon") "Icon colour" else "White" },
@@ -1247,6 +1247,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Note("Music apps on this TV: " + installedMusicApps(ctx).joinToString { it.second }.ifBlank { "none yet" } +
                         ". The player follows and controls whatever those apps play. Signing in to Spotify, YouTube Music or Apple Music for their playlists isn't here yet."))
                 }
+                if (st.musicOn) addAll(musicRowsChoice(ctx, st) { tvRev.intValue++ })
             }
         },
         Category("Remote mapping") {
@@ -2045,5 +2046,20 @@ private object SettingsPivot : androidx.compose.foundation.gestures.BringIntoVie
         val target = containerSize * 0.33f
         val d = if (size > containerSize) offset else offset - target
         return if (kotlin.math.abs(d) < 12f) 0f else d
+    }
+}
+
+/**
+ * Settings → Music and Settings → Channels: for each music app, its player (selected in the dock: its song, or an
+ * idle player) or its rows like other apps.
+ */
+private fun musicRowsChoice(ctx: android.content.Context, st: com.glasslauncher.tv.data.Settings, changed: () -> Unit): List<SRow> = buildList {
+    val apps = installedMusicApps(ctx).filter { MusicUi.isMusicApp(ctx, it.first) }
+    if (apps.isEmpty()) return@buildList
+    add(Note("Music apps selected in the dock: their player, or their rows (Channels) like other apps"))
+    apps.forEach { (pkg, name) ->
+        add(Toggle("$name: rows", "On: its rows. Off: its player (also with nothing playing)", { pkg in st.channelsMusicRowApps }, { on ->
+            st.channelsMusicRowApps = if (on) (st.channelsMusicRowApps - pkg) + pkg else st.channelsMusicRowApps - pkg; changed()
+        }))
     }
 }

@@ -603,8 +603,8 @@ class Settings(private val ctx: Context) {
     var channelsHue: Boolean get() = b("channelsHue", false); set(v) = putB("channelsHue", v)
     /** The music app that played last (the TV's own Play button brings that one back). */
     var musicLastPkg: String get() = s("musicLastPkg", ""); set(v) = putS("musicLastPkg", v)
-    /** A music app selected in the dock shows its rows (like other apps) instead of its player. */
-    var channelsMusicRows: Boolean get() = b("channelsMusicRows", false); set(v) = putB("channelsMusicRows", v)
+    /** Music apps that show their rows (like other apps) when selected in the dock, instead of their player. */
+    var channelsMusicRowApps: List<String> get() = list("channelsMusicRowApps"); set(v) = putList("channelsMusicRowApps", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */

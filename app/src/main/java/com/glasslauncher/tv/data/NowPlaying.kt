@@ -87,6 +87,13 @@ object NowPlaying {
     @Volatile private var lastCtx: Context? = null
     private var msm: MediaSessionManager? = null
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { lastCtx?.let { pick(it) } }
+    private val watched = HashMap<android.media.session.MediaSession.Token, MediaController>()
+    private val watchCb = object : MediaController.Callback() {
+        override fun onPlaybackStateChanged(state: PlaybackState?) {
+            val s = state?.state
+            if (s == PlaybackState.STATE_PLAYING || s == PlaybackState.STATE_BUFFERING || s == PlaybackState.STATE_CONNECTING) lastCtx?.let { pick(it) }
+        }
+    }
 
     /** Starts following the media sessions (once access is there). Safe to call again. */
     fun start(ctx: Context) {
@@ -130,11 +137,17 @@ object NowPlaying {
         val list = runCatching { msm?.getActiveSessions(listener(ctx)) }.getOrNull().orEmpty().filter { isMusic(it) }
         // The one playing; else the one followed so far, while it is still there (stopped from Glassio too: its
         // player goes, and another app's paused song from before didn't come up under it); else the last to play.
+        // (Starting counts: Spotify paused as SoundCloud was still loading, and the player stayed with Spotify.)
         val best = list.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+            ?: list.firstOrNull { it.sessionToken != controller?.sessionToken && it.playbackState?.state.let { s -> s == PlaybackState.STATE_BUFFERING || s == PlaybackState.STATE_CONNECTING } }
             ?: list.firstOrNull { it.sessionToken == controller?.sessionToken }
             ?: list.maxByOrNull { lastPlayed[it.packageName] ?: 0L }?.takeIf { (lastPlayed[it.packageName] ?: 0L) > 0L }
             ?: list.firstOrNull().takeIf { controller == null }
         list.forEach { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) lastPlayed[it.packageName] = android.os.SystemClock.uptimeMillis() }
+        // Every music app is listened to (not only the one followed): one that starts playing takes over at once.
+        val tokens = list.map { it.sessionToken }.toSet()
+        watched.keys.filter { it !in tokens }.forEach { t -> runCatching { watched.remove(t)?.unregisterCallback(watchCb) } }
+        list.forEach { c -> if (c.sessionToken !in watched) runCatching { c.registerCallback(watchCb, android.os.Handler(android.os.Looper.getMainLooper())); watched[c.sessionToken] = c } }
         if (best?.sessionToken != controller?.sessionToken) {
             runCatching { controller?.unregisterCallback(callback) }
             controller = best

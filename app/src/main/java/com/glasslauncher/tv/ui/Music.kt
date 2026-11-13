@@ -181,6 +181,16 @@ object MusicUi {
     val appsShowing get() = appsOn.value && !forced.value
     /** Nuvio / Stremio selected in the dock: the carousel stays, also while music plays (the island shows it). */
     val carouselApp = mutableStateOf(false)
+    /** The music apps are on screen now (not while a song plays: the player then). */
+    val appsVisible = mutableStateOf(false)
+    /** The song for the player now: a music app selected in the dock shows only its own (another app's: its idle player). */
+    fun songFor(t: NowPlaying.Track?): NowPlaying.Track? = t?.takeIf { forced.value || dockApp.value == null || it.pkg == dockApp.value }
+    /** Their grey page is on (also behind the open dock). */
+    val appsPage = mutableStateOf(false)
+    /** A music app (its player, not rows, unless chosen in Settings → Music / Channels). YouTube isn't one here. */
+    fun isMusicApp(ctx: android.content.Context, pkg: String) = pkg in NowPlaying.MUSIC_APPS || (!NowPlaying.sometimesMusic(pkg) && NowPlaying.audioApp(ctx, pkg))
+    fun playerFor(ctx: android.content.Context, st: com.glasslauncher.tv.data.Settings, pkg: String) =
+        st.musicOn && isMusicApp(ctx, pkg) && pkg !in st.channelsMusicRowApps
     /** The dock's tile for an app (set by the home screen). */
     @Volatile var tileFor: (String) -> FocusRequester? = { null }
     /** Down from the player: back to the tile it came from (the Music icon, or the music app), else the first app. */
@@ -570,7 +580,7 @@ fun openMusicApp(ctx: android.content.Context, pkg: String) {
 @Composable
 fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: FocusRequester, onApps: () -> Unit) {
     val st = app.settings
-    val held = MusicUi.heldTrack()
+    val held = MusicUi.songFor(MusicUi.heldTrack())
     if (held == null) { MusicUi.dockApp.value?.let { MusicIdle(app, s, it, heroFocus, firstTile, onApps) }; return }
     val tr = held
     val ctx = androidx.compose.ui.platform.LocalContext.current
