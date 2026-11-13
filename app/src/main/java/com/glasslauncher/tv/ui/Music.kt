@@ -197,7 +197,7 @@ object MusicUi {
     @Volatile var tileFor: (String) -> FocusRequester? = { null }
     /** Down from the player: back to the tile it came from (the Music icon, or the music app), else the first app. */
     fun downTo(first: FocusRequester): FocusRequester = when {
-        forced.value -> tileFor(DOCK_PKG)
+        forced.value || appsOn.value -> tileFor(DOCK_PKG)
         dockApp.value != null -> tileFor(dockApp.value!!)
         else -> null
     } ?: first
@@ -643,11 +643,14 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
                 MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = { NowPlaying.next() }) { skipGlyph(it, true) }
                 // Stop: the player goes away, so the selection moves to the dock (it was left nowhere).
                 MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = {
-                    runCatching { firstTile.requestFocus() }
+                    runCatching { MusicUi.downTo(firstTile).requestFocus() }
                     NowPlaying.stop()
-                    scope.launch { delay(120); runCatching { firstTile.requestFocus() } }
+                    // (Opened from the Music icon: back to it, not the first app.)
+                    val back = MusicUi.downTo(firstTile)
+                    scope.launch { delay(120); runCatching { back.requestFocus() } }
                 }) { stopGlyph(it) }
-                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = onApps) { listGlyph(it) }
+                // (The last button: Right stays on it, it went on to the menu.)
+                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile); right = FocusRequester.Cancel }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
             Text(NowPlaying.appLabel(tr.pkg), color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)
@@ -699,7 +702,7 @@ private fun MusicIdle(app: GlassApp, s: Float, pkg: String, heroFocus: FocusRequ
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
                 MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile) },
                     onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg, scope) }) { playGlyph(it, false) }
-                MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = onApps) { listGlyph(it) }
+                MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile); right = FocusRequester.Cancel }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
             Text("Play carries on where $label left off  ·  ≡ music apps", color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)

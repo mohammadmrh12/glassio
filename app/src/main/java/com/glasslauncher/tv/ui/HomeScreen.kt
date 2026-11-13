@@ -902,7 +902,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             if (!expanded) {
                                 if (!ChannelsUi.focused) ChannelsUi.stagePkg.value = null
                                 if (!MusicUi.stageFocused) MusicUi.dockApp.value = null
-                                if (!MusicUi.appsFocused) MusicUi.appsOn.value = false
+                                // (Up into the Music icon's player: still the Music icon's, Stop / pause come back to it.)
+                                if (!MusicUi.appsFocused && !MusicUi.stageFocused) MusicUi.appsOn.value = false
                             }
                             return@LaunchedEffect
                         }
@@ -935,6 +936,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         !(songNowHere?.playing == true && MusicUi.stageAllowed(settings) && settings.musicMode)
                     val appsShow = appsPage && !expanded
                     androidx.compose.runtime.SideEffect { MusicUi.appsVisible.value = appsShow; MusicUi.appsPage.value = appsPage }
+                    // Paused or stopped on the Music icon: the player gives way to the music apps, the selection goes back
+                    // to the icon (it was left in the player going away, then went to the first app).
+                    LaunchedEffect(appsShow) {
+                        if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
+                    }
                     HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage, paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
@@ -1707,7 +1713,10 @@ private fun HeroSection(
             delay(120)
             // (Not when the selection went down to the dock itself: the player closing then is that move's doing.)
             val lostWithIt = !pageFocus[0] && pageLostAt[0] >= changedAt - 100 && !DockFocus.dock
-            if (fromStage || lostWithIt) if (runCatching { heroFocus.requestFocus() }.isFailure) runCatching { firstTile.requestFocus() }
+            // (On the Music icon (paused, or stopped): back to the icon, not the first app.)
+            val onMusicIcon = MusicUi.appsOn.value || MusicUi.forced.value
+            if ((fromStage || lostWithIt) && onMusicIcon) runCatching { MusicUi.tileFor(MusicUi.DOCK_PKG)?.requestFocus() }
+            else if (fromStage || lostWithIt) if (runCatching { heroFocus.requestFocus() }.isFailure) runCatching { firstTile.requestFocus() }
         }
         // The trailer in place of the picture (under the text), or in its window.
         // The subtitles sit above the dock while it shows.
