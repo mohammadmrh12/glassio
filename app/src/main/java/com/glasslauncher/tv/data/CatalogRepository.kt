@@ -73,6 +73,13 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     /** Reads the account's add-ons; set once the Library (which holds the account) exists. */
     @Volatile var account: (() -> List<String>?)? = null
 
+    /**
+     * An add-on's host, also for links java.net.URI turns down: Torrentio's settings sit in the path with "|" in
+     * them ("Illegal character in path"), which stopped every catalog from refreshing (#15).
+     */
+    fun hostOf(u: String): String = runCatching { java.net.URI(u).host }.getOrNull()
+        ?: Regex("^[A-Za-z][A-Za-z0-9+.-]*://([^/:?#|]+)").find(u)?.groupValues?.get(1) ?: "Add-on"
+
     /** One add-on, however its link is written: host without case, path without the trailing slash. */
     fun addonKey(u: String): String = normalize(u).let { n ->
         runCatching { val x = java.net.URI(n); x.host.orEmpty().lowercase() + (if (x.port > 0) ":${x.port}" else "") + x.rawPath.orEmpty().trimEnd('/') + (x.rawQuery?.let { "?$it" } ?: "") }
@@ -165,8 +172,8 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
                         gate.withPermit {
                             runCatching {
                                 val m = http.json(u, 24L * 3600 * 1000)
-                                refs += parseCatalogs(u, java.net.URI(u).host ?: "Add-on", m)
-                            }.onFailure { android.util.Log.w("GlassCatalogs", "manifest failed for ${java.net.URI(u).host}: ${it.javaClass.simpleName} ${it.message}") }
+                                refs += parseCatalogs(u, hostOf(u), m)
+                            }.onFailure { android.util.Log.w("GlassCatalogs", "manifest failed for ${hostOf(u)}: ${it.javaClass.simpleName} ${it.message}") }
                         }
                     }
                 }.awaitAll()
@@ -326,7 +333,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     suspend fun addAddon(raw: String): String = withContext(Dispatchers.IO) {
         val url = canonical(raw)
         val m = try { http.json(url, 0) } catch (e: Exception) { throw IllegalStateException("Could not read that add-on (${e.message})") }
-        val refs = parseCatalogs(url, java.net.URI(url).host ?: "Add-on", m)
+        val refs = parseCatalogs(url, hostOf(url), m)
         sp.edit().putStringSet("manual_addons", manual + url).apply()
         saveAddons(addons + url)
         saveSelected(selectedKeys.value + refs.filter { it.type == "movie" || it.type == "series" }.map { it.key })
@@ -368,5 +375,5 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
         "${list.size} add-ons from your accounts: $only new" + (if (same > 0) ", $same already here (not added twice)" else "") + ". Pick their catalogs below."
     }
 
-    fun addonName(url: String) = catalogs.value.firstOrNull { it.addon == url }?.addonName ?: (runCatching { java.net.URI(url).host }.getOrNull() ?: url)
+    fun addonName(url: String) = catalogs.value.firstOrNull { it.addon == url }?.addonName ?: hostOf(url)
 }

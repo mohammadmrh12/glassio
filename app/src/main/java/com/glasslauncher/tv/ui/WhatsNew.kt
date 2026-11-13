@@ -42,7 +42,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 60
+    const val ID = 61
 
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null)
 
@@ -55,6 +55,18 @@ object WhatsNew {
     ), "Thank you for using Glassio ♥", qr = GITHUB)
 
     val PAGES = listOf(
+        Page("What's new in Glassio 3.5: Channels", listOf(
+            "Select an app in the dock (YouTube, Shahid, Prime Video…) and its rows (Continue watching, Recommended…) take the carousel's place.",
+            "▲ goes into the rows, ▲ / ▼ moves between them (one or two at a time, the others come in), OK opens the card.",
+            "On the Library's grey page or the selected card's picture blurred, with the Library's zoom and glow, and Hue lights if you like.",
+            "◀ ▶ to look through · OK for the next page · Back to close.",
+        ), "Settings → Channels: on, layout, cards in a row, background, glow, Hue, and each app's rows."),
+        Page("Music apps and the Music icon", listOf(
+            "A music app in the dock (Spotify, SoundCloud…) shows its player, also with nothing playing: Play carries on where it left off.",
+            "The dock's Music icon shows your music apps (their player while a song plays): OK plays, hold OK opens the app.",
+            "The player follows the app that starts playing, and the island shows the song over the rows.",
+            "Nuvio and Stremio always keep the carousel.",
+        ), "Settings → Music (and Channels): which music apps show their rows instead of their player."),
         Page("What's new in Glassio 3.4", listOf(
             "Trailer volume, on the home screen and in the Trailers screensaver (the TV's own volume stays as it is).",
             "The large clock's glass can be made clearer, down to just its rim.",

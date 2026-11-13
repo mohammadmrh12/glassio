@@ -26,6 +26,21 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.5.0** — Channels: an app's rows in the carousel's place, music apps and the Music icon
+- **Channels** (Settings → Channels): select an app in the dock (YouTube, Shahid, Prime Video, Netflix…) and its rows
+  (Continue watching, Recommended…) take the carousel's place. ▲ goes into them, ▲ / ▼ moves between rows (one or two
+  at a time, an app's other rows come in one by one), OK opens the card in its app, Back returns to the app.
+  Layout, cards in a row, the Library's grey page or the selected card's picture blurred, the Library's zoom and glow,
+  the app's name in its icon's colour, Hue lights following the card, and each app's rows hidden or reordered.
+- **Music apps in the dock** show their player, also with nothing playing (Play carries on where the app left off,
+  without opening it). Settings → Music / Channels: any music app can show its rows instead.
+- **The Music icon** shows your music apps (drawn like the dock's tiles), or the player while a song plays: OK plays,
+  hold OK opens the app. Pause, Stop and ▼ come back to the Music icon.
+- **The player follows the app that starts playing** (SoundCloud after Spotify), and the island shows the song over the rows.
+- **Nuvio and Stremio** always keep the carousel (the island shows what plays).
+- **Catalogs with Torrentio**: an add-on link with "|" in it (Torrentio's settings) stopped every catalog from
+  refreshing ("Illegal character in path", #15).
+
 **New in 3.4.0** — trailer volume, clearer clock glass, more music apps, Hue and Glassio on remote buttons
 - **Trailer volume** on the home screen (Settings → Carousel, and the menu's Trailer page) and in the Trailers
   screensaver (its settings and the hold-OK menu). The TV's own volume stays as it is.
