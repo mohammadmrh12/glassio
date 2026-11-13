@@ -276,16 +276,17 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             ChannelsUi.warm?.invoke(p.poster, b)
         }
     }
-    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
+    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
         // selected card's picture blurred), crossfaded together. Coming from the music page it fades from that page
         // (the carousel's picture under it used to show for a second while the new background was being made).
-        if (ChannelsUi.shown.value) {
+        // (Also the idle music player, nothing playing: on the grey page.)
+        if (ChannelsUi.shown.value || MusicUi.idleOn.value) {
             val dm = ctx.resources.displayMetrics
             val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
             val tag = "$w|$h|${settings.blurRadius}|${settings.glassRes}"
-            val blurMode = settings.channelsBg == "blur"
+            val blurMode = settings.channelsBg == "blur" && ChannelsUi.shown.value
             val art = ChannelsUi.art.value?.takeIf { blurMode }
             val first = !ChannelsUi.pageOn.value
             // Blurs are made ahead (every card on screen, and each app's first card): usually here at once.
@@ -658,6 +659,12 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // (Not while the channels' rows show: the music is the island then, and the page and glass stay theirs.)
         // (Its pictures are kept meanwhile: made again on the way back, the page waited for them.)
         val stageRaw = MusicUi.stageOn(settings, songNow)
+        // (Read here, not inside SideEffect: read there, a change didn't redraw this, and the grey page came late.)
+        val idleNow = songNow == null && settings.musicOn && MusicUi.dockApp.value != null
+        // The app that played last (the idle player's Play brings it back through the TV's own Play).
+        val playingPkg = songNow?.takeIf { it.playing }?.pkg
+        LaunchedEffect(playingPkg) { if (playingPkg != null && playingPkg != settings.musicLastPkg) settings.musicLastPkg = playingPkg }
+        androidx.compose.runtime.SideEffect { MusicUi.idleOn.value = idleNow }
         val stageWanted = stageRaw && !ChannelsUi.pageOn.value
         val stageArt = songNow?.art?.takeIf { stageRaw }
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
@@ -859,9 +866,19 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // moment after the app is selected (moving along the dock doesn't flash them), and stay while the
                     // selection is inside them.
                     val dockPkg = ChannelsUi.dockPkg.value
+                    // A music app (Spotify, Apple Music…) selected in the dock: its player in the carousel's place, also
+                    // with nothing playing (not its rows).
+                    LaunchedEffect(dockPkg, settings.musicOn) {
+                        if (dockPkg == null) { delay(150); if (!MusicUi.stageFocused) MusicUi.dockApp.value = null; return@LaunchedEffect }
+                        val music = settings.musicOn && dockPkg in com.glasslauncher.tv.data.NowPlaying.MUSIC_APPS
+                        if (!music) { MusicUi.dockApp.value = null; return@LaunchedEffect }
+                        delay(240)
+                        MusicUi.dockApp.value = dockPkg
+                    }
                     LaunchedEffect(dockPkg, settings.channelsOn, com.glasslauncher.tv.data.Channels.all.value) {
                         if (!settings.channelsOn) { ChannelsUi.stagePkg.value = null; return@LaunchedEffect }
                         if (dockPkg == null) { delay(150); if (!ChannelsUi.focused) ChannelsUi.stagePkg.value = null; return@LaunchedEffect }
+                        if (settings.musicOn && dockPkg in com.glasslauncher.tv.data.NowPlaying.MUSIC_APPS) { ChannelsUi.stagePkg.value = null; return@LaunchedEffect }
                         // An app without rows: the carousel / music page comes back almost at once (it waited as long as
                         // for rows, and the rows stayed a moment after leaving them).
                         val has = com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).isNotEmpty()
@@ -935,7 +952,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // The music island at the top of the home screen (Settings → Music), when Music mode isn't showing.
                 // Over the channels' rows too (the music page gives way to them): kept built and faded in and out with
                 // the rows (built each time they came, it appeared late and went at once).
-                val homeIsland = settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings))
+                val homeIsland = settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)) && MusicUi.dockApp.value == null
                 val chanIsland = ChannelsUi.shown.value
                 val islandA by animateFloatAsState(if (homeIsland || chanIsland) 1f else 0f, tween(if (chanIsland) 260 else 200), label = "chanIsland")
                 LaunchedEffect(chanIsland, homeIsland) { if (!chanIsland && !homeIsland) MusicUi.islandOpen.value = false }
@@ -1597,12 +1614,17 @@ private fun HeroSection(
     // When the selection last left this page (the music player and the carousel come and go under it).
     val pageFocus = remember { booleanArrayOf(false) }
     val pageLostAt = remember { longArrayOf(0L) }
-    Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }
+    // While the music page fades (to or from the channels' rows): one off-screen pass, so its artwork's shadow fades
+    // with it (faded piece by piece, the shadow isn't faded: a dark square stayed over the rows and came early).
+    Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha
+        compositingStrategy = if (alpha in 0.002f..0.998f && (MusicUi.stageCur.value != null || MusicUi.dockApp.value != null))
+            androidx.compose.ui.graphics.CompositingStrategy.Offscreen else androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }
         .onFocusChanged { if (it.hasFocus) pageFocus[0] = true else if (pageFocus[0]) { pageFocus[0] = false; pageLostAt[0] = android.os.SystemClock.uptimeMillis() } }) {
         val shown = textItem
         // Music mode: while a song plays, the player is the background (whatever was chosen).
         val song = MusicUi.heldTrack()
-        val musicStage = MusicUi.stageOn(settings, song)
+        // (A music app selected in the dock: its player, also with nothing playing.)
+        val musicStage = MusicUi.stageOn(settings, song) || (song == null && settings.musicOn && MusicUi.dockApp.value != null)
         // Opened from the dock's Music icon: it stays until Back or the music stops.
         LaunchedEffect(song == null) { if (song == null) MusicUi.forced.value = false }
         BackHandler(enabled = MusicUi.forced.value && musicStage) { MusicUi.forced.value = false }

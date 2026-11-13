@@ -601,6 +601,8 @@ class Settings(private val ctx: Context) {
     var channelsLabel: String get() = s("channelsLabel", "white"); set(v) = putS("channelsLabel", v)
     /** Hue: the lights take the colour of the card selected in the rows. */
     var channelsHue: Boolean get() = b("channelsHue", false); set(v) = putB("channelsHue", v)
+    /** The music app that played last (the TV's own Play button brings that one back). */
+    var musicLastPkg: String get() = s("musicLastPkg", ""); set(v) = putS("musicLastPkg", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */

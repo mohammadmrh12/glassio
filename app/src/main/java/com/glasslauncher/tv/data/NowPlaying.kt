@@ -252,6 +252,10 @@ object NowPlaying {
         // held the screen still for a moment on every resume.
         Thread({ runCatching { if (playing) c.transportControls.pause() else c.transportControls.play() } }, "glass-play").start()
     }
+    /** Play (never pause): for an app just woken, which may not take it at first. */
+    fun play() { val c = controller ?: return; Thread({ runCatching { c.transportControls.play() } }, "glass-play").start() }
+    /** What the app itself reports now (not what Glassio shows ahead of it). */
+    fun reallyPlaying(): Boolean = controller?.playbackState?.state == PlaybackState.STATE_PLAYING
     fun next() { controller?.transportControls?.skipToNext() }
     fun previous() { controller?.transportControls?.skipToPrevious() }
     /** Stops the music (and the player view goes away). */

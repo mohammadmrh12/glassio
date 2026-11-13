@@ -172,10 +172,46 @@ object MusicUi {
     val forced = mutableStateOf(false)
     /** Bumped to put the selection on the music page's Play button. */
     val focusRev = androidx.compose.runtime.mutableIntStateOf(0)
+    /** A music app selected in the dock (its player shows in the carousel's place, also with nothing playing). */
+    val dockApp = mutableStateOf<String?>(null)
+    /** Its player with nothing playing is on screen (the page under it is the grey one). */
+    val idleOn = mutableStateOf(false)
+    /**
+     * Starts [pkg] playing from where it was, without opening it: the app that played last through the TV's own Play
+     * (the system brings it back, paused at first: Play once more when its player is there), another one through
+     * its own Play. Opened if it doesn't answer.
+     */
+    fun startIn(ctx: android.content.Context, pkg: String, lastPkg: String, scope: kotlinx.coroutines.CoroutineScope) {
+        val app = ctx.applicationContext
+        val am = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        for (a in listOf(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.ACTION_UP)) runCatching {
+            val ev = android.view.KeyEvent(a, android.view.KeyEvent.KEYCODE_MEDIA_PLAY)
+            if (pkg == lastPkg) am.dispatchMediaKeyEvent(ev)
+            else app.sendBroadcast(android.content.Intent(android.content.Intent.ACTION_MEDIA_BUTTON).setPackage(pkg).putExtra(android.content.Intent.EXTRA_KEY_EVENT, ev))
+        }
+        scope.launch {
+            val t0 = android.os.SystemClock.uptimeMillis()
+            while (android.os.SystemClock.uptimeMillis() - t0 < 4_500) {
+                delay(250)
+                val t = NowPlaying.track.value
+                if (t?.pkg == pkg) {
+                    // Back, but paused: just woken, it turns Play down for a few seconds (Spotify), so Play again
+                    // until it plays (a plain Play, never a toggle that could pause it).
+                    repeat(14) {
+                        if (NowPlaying.reallyPlaying()) return@launch
+                        NowPlaying.play()
+                        delay(800)
+                    }
+                    return@launch
+                }
+            }
+            openMusicApp(app, pkg)
+        }
+    }
     /** Whether the music page takes the home screen now. */
     fun stageOn(st: com.glasslauncher.tv.data.Settings, song: NowPlaying.Track?): Boolean {
         if (song == null) return false
-        if (forced.value) return true
+        if (forced.value || dockApp.value != null) return true
         // Only a song that played while Glassio runs: a music app left paused from before (Spotify keeps its paused
         // session) put the music page up the moment Glassio started, after an update or a restart.
         val key = song.pkg + "|" + song.title + "|" + song.artist
@@ -519,7 +555,9 @@ fun openMusicApp(ctx: android.content.Context, pkg: String) {
 @Composable
 fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: FocusRequester, onApps: () -> Unit) {
     val st = app.settings
-    val tr = MusicUi.heldTrack() ?: return
+    val held = MusicUi.heldTrack()
+    if (held == null) { MusicUi.dockApp.value?.let { MusicIdle(app, s, it, heroFocus, firstTile, onApps) }; return }
+    val tr = held
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val k = s * st.musicStageScale
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -586,6 +624,58 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
             }
             Spacer(Modifier.height((8 * k).dp))
             Text(NowPlaying.appLabel(tr.pkg), color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)
+        }
+    }
+}
+
+/**
+ * A music app's player with nothing playing (the app selected in the dock): its logo where the artwork goes, its
+ * name, and Play (it carries on from where it was) and Open. On the grey page (drawn behind, the glass shows it).
+ */
+@Composable
+private fun MusicIdle(app: GlassApp, s: Float, pkg: String, heroFocus: FocusRequester, firstTile: FocusRequester, onApps: () -> Unit) {
+    val st = app.settings
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val k = s * st.musicStageScale
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val label = NowPlaying.appLabel(pkg)
+    // The app's TV banner (its own frame, 16:9), or its icon in the artwork's square.
+    val logo = remember(pkg) {
+        runCatching {
+            val pm = ctx.packageManager
+            val banner = pm.getApplicationBanner(pkg)
+            val d = banner ?: pm.getApplicationIcon(pkg)
+            val w = if (banner != null) 640 else 192; val h = if (banner != null) 360 else 192
+            val b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+            d.setBounds(0, 0, w, h); d.draw(android.graphics.Canvas(b))
+            (banner != null) to b.asImageBitmap()
+        }.getOrNull()
+    }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.align(Alignment.Center).offset(y = (-34 * s).dp).onFocusChanged { MusicUi.stageFocused = it.hasFocus },
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            if (logo?.first == true) Box(Modifier.width((300 * k).dp).height((169 * k).dp).padding(top = (10 * k).dp, bottom = (11 * k).dp)
+                .clip(RoundedCornerShape((14 * k).dp))) {
+                Image(logo.second, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            } else Box(Modifier.size((190 * k).dp).clip(RoundedCornerShape((14 * k).dp)).background(Color.White.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                if (logo != null) Image(logo.second, null, Modifier.fillMaxSize().padding((30 * k).dp), contentScale = ContentScale.Fit)
+            }
+            Column(Modifier.width((560 * k).dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height((16 * k).dp))
+                Text(label, color = Color.White, fontSize = (19 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text("Nothing playing", color = Color.White.copy(alpha = 0.7f), fontSize = (13 * k).sp, maxLines = 1)
+            }
+            // (Where the progress bar is on a song's page: the buttons stay in the same place.)
+            Spacer(Modifier.height((12 * k + 3 * k + 16 * k).dp))
+            val look = st.musicButtons
+            val light = st.dockStyle == "bow" && look == "theme"
+            Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
+                MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = firstTile },
+                    onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg, scope) }) { playGlyph(it, false) }
+                MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = firstTile }, onClick = onApps) { listGlyph(it) }
+            }
+            Spacer(Modifier.height((8 * k).dp))
+            Text("Play carries on where $label left off  ·  ≡ music apps", color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)
         }
     }
 }
