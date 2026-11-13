@@ -591,6 +591,8 @@ class Settings(private val ctx: Context) {
     var channelsCards: Int get() = i("channelsCards", 4); set(v) = putI("channelsCards", v.coerceIn(3, 8))
     /** The selected card's soft light, like the Library's: off, white or in the card's own colour. */
     var channelsGlow: String get() = s("channelsGlow", "off"); set(v) = putS("channelsGlow", v)
+    /** Behind the rows: the Library's grey page, or the selected card's picture blurred (like the music page). */
+    var channelsBg: String get() = s("channelsBg", "grey"); set(v) = putS("channelsBg", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */

@@ -246,17 +246,22 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val mix = remember { androidx.compose.animation.core.Animatable(1f) }
     // 0 = crossfade; 1 / -1 = the new picture slides in from the right / left (Slide animation).
     var slideDir by remember { mutableIntStateOf(0) }
-    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value) {
+    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value, if (settings.channelsBg == "blur") ChannelsUi.art.value?.first else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen (on the Library's grey page): the glass refracts that grey, not the
         // carousel's picture behind it. Crossfaded like a slide.
         if (ChannelsUi.shown.value) {
             val dm = ctx.resources.displayMetrics
             val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
+            // Blurred card (Settings → Channels → Background): the selected card's picture, blurred and darkened
+            // like the music page; a short wait first, so moving along a row doesn't blur every card passed.
+            val art = ChannelsUi.art.value?.takeIf { settings.channelsBg == "blur" }
+            if (art != null && shownUrl.value?.startsWith("glassio:channels") == true) delay(260)
             val (page, glass) = withContext(Dispatchers.Default) {
-                val g = greyPage(w, h)
-                GlassHalf.of(g)
-                g to GlassCache.fromBitmap("glassio:channels:$w", settings.blurRadius, g.asAndroidBitmap())
+                val g = art?.let { (link, b) -> runCatching { channelArtPage(b, w, h) }.getOrNull()?.let { link to it } }
+                val pg = g?.second ?: greyPage(w, h)
+                GlassHalf.of(pg)
+                pg to GlassCache.fromBitmap(if (g != null) "glassio:channels-art:${g.first}" else "glassio:channels:$w", settings.blurRadius, pg.asAndroidBitmap())
             }
             prevImgs = backImgs; prevBackdrop = shownBackdrop
             backImgs = Triple(glass.blurred, glass.sharp, glass.heavy)
@@ -264,7 +269,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             mix.snapTo(0f)
             shownBackdrop = page
             shownUrl.value = "glassio:channels"
-            try { mix.animateTo(1f, tween(220)) } finally {
+            try { mix.animateTo(1f, tween(if (art != null) 450 else 220)) } finally {
                 prevImgs = null; prevBackdrop = null
                 withContext(kotlinx.coroutines.NonCancellable) { mix.snapTo(1f) }
             }
@@ -2796,4 +2801,20 @@ object NavGate {
     @Volatile private var until = 0L
     fun hold(keyCode: Int, ms: Long) { key = keyCode; until = android.os.SystemClock.uptimeMillis() + ms }
     fun blocks(keyCode: Int): Boolean = keyCode == key && android.os.SystemClock.uptimeMillis() < until
+}
+
+/** The channels' blurred-card background: the picture blurred, large, on black and darkened (like the music page). */
+private fun channelArtPage(src: android.graphics.Bitmap, w: Int, h: Int): ImageBitmap {
+    val art = if (src.config == android.graphics.Bitmap.Config.HARDWARE) src.copy(android.graphics.Bitmap.Config.ARGB_8888, false) else src
+    val blur = blurredBackdrop(art, 70).asAndroidBitmap()
+    val out = android.graphics.Bitmap.createBitmap(w.coerceAtLeast(1), h.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(out)
+    c.drawColor(android.graphics.Color.BLACK)
+    val sc = maxOf(w.toFloat() / blur.width, h.toFloat() / blur.height)
+    val dw = blur.width * sc; val dh = blur.height * sc
+    c.drawBitmap(blur, null, android.graphics.RectF((w - dw) / 2, (h - dh) / 2, (w + dw) / 2, (h + dh) / 2),
+        android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.DITHER_FLAG).apply { alpha = (0.85f * 255).toInt() })
+    c.drawColor(android.graphics.Color.argb((0.45f * 255).toInt(), 0, 0, 0))
+    out.setHasAlpha(false)
+    return out.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { out.recycle(); it.prepareToDraw() }.asImageBitmap()
 }

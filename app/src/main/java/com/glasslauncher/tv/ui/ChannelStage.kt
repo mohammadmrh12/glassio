@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -70,6 +73,8 @@ object ChannelsUi {
     @Volatile var back: FocusRequester? = null
     /** The rows are on screen (the glass then refracts the grey page, not the carousel's picture). */
     val shown = mutableStateOf(false)
+    /** The selected card's picture (its link and the picture): the blurred background (Settings → Channels → Background). */
+    val art = mutableStateOf<Pair<String, android.graphics.Bitmap>?>(null)
 }
 
 /**
@@ -120,17 +125,25 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         // The Library's grey page (painted once, dithered) covers the carousel's picture.
         val density = androidx.compose.ui.platform.LocalDensity.current
         val bw = with(density) { maxWidth.roundToPx() }; val bh = with(density) { maxHeight.roundToPx() }
-        val bg = remember(bw, bh) { greyPage(bw, bh) }
-        androidx.compose.foundation.Image(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+        // Blurred card: nothing drawn here, the page behind (and the glass) show the card's picture blurred.
+        if (st.channelsBg != "blur") {
+            val bg = remember(bw, bh) { greyPage(bw, bh) }
+            androidx.compose.foundation.Image(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+        }
+        LaunchedEffect(pkg) { ChannelsUi.art.value = null }
+        // Rows that don't all fit: the lowest one shows whole above the dock (the top one goes under the top edge),
+        // until the selection moves into them (each selected row is then scrolled into sight).
+        val vs = androidx.compose.foundation.rememberScrollState()
+        LaunchedEffect(vs.maxValue) { if (!ChannelsUi.focused) vs.scrollTo(vs.maxValue) }
         // Card size: the chosen number of wide cards fits across a row (Settings → Channels → Cards in a row); posters
         // keep the same height. Smaller when the rows wouldn't fit between the top bar and the dock.
-        val side = 48 * s; val gap = 10 * s; val padV = 10 * s
+        // Rows that don't all fit scroll up and down with the selection (bigger cards keep their size).
+        val side = 48 * s; val gap = 10 * s; val padV = 14 * s; val rowGap = 10 * s
         val n = st.channelsCards
         val wideW = (maxWidth.value - 2 * side - gap * (n - 1)) / n
         val room = maxHeight.value - bottom - 56 * s
-        val perRow = (room - (rows.size - 1) * 10 * s) / rows.size.coerceAtLeast(1) - (20 * s + 2 * padV)
-        val cardH = minOf(wideW * 9f / 16f, perRow).coerceAtLeast(40 * s)
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = bottom.dp)
+        val cardH = minOf(wideW * 9f / 16f, room - (20 * s + 2 * padV)).coerceAtLeast(40 * s)
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = bottom.dp).heightIn(max = room.dp)
             .onFocusChanged { ChannelsUi.focused = it.hasFocus }
             // Up from the dock: the lowest row, at the card selected there last (or the first one on screen).
             .focusRequester(ChannelsUi.entry)
@@ -151,8 +164,9 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                     else -> false
                 }
             }
-            .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy((10 * s - 2 * padV).coerceAtLeast(0f).dp)) {
+            .focusGroup()
+            .verticalScroll(vs),
+            verticalArrangement = Arrangement.spacedBy(rowGap.dp)) {
             rows.forEachIndexed { r, ch ->
                 androidx.compose.runtime.key(ch.key) {
                     var sel by remember { mutableIntStateOf(-1) }
@@ -168,7 +182,7 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                             contentPadding = PaddingValues(horizontal = side.dp, vertical = padV.dp)) {
                             items(ch.programs.size, key = { ch.programs[it].id }) { i ->
                                 val p = ch.programs[i]
-                                ChannelCard(p, s, cardH, glow,
+                                ChannelCard(p, s, cardH, glow, lead = r == 0 && i == 0,
                                     Modifier.focusRequester(req(r, i))
                                         .onFocusChanged { f ->
                                             if (f.isFocused) { sel = i; at[0] = r; at[1] = i; lastSel[ch.key] = i }
@@ -185,13 +199,19 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
 }
 
 @Composable
-private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, modifier: Modifier, onOpen: () -> Unit) {
+private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, lead: Boolean, modifier: Modifier, onOpen: () -> Unit) {
     val ctx = LocalContext.current
     var focused by remember { mutableStateOf(false) }
     var failed by remember(p.poster) { mutableStateOf(p.poster.isBlank()) }
     var gc by remember(p.poster) { mutableStateOf(Glow.cached("ch:" + p.poster)) }
+    var bmp by remember(p.poster) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    // The blurred background follows the selected card (the first card's picture until one is selected).
+    androidx.compose.runtime.LaunchedEffect(focused, bmp) {
+        val b = bmp ?: return@LaunchedEffect
+        if (focused || (lead && ChannelsUi.art.value == null)) ChannelsUi.art.value = p.poster to b
+    }
     // Like the Library: the selected card grows (no frame), with the same soft light around it when it is on.
-    val k by animateFloatAsState(if (focused) (if (p.wide) 1.07f else 1.11f) else 1f, tween(160, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "chan")
+    val k by animateFloatAsState(if (focused) (if (p.wide) 1.13f else 1.16f) else 1f, tween(160, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "chan")
     val glowA by animateFloatAsState(if (focused && glow != "off") 1f else 0f, tween(220), label = "chanGlow")
     val shape = RoundedCornerShape((8 * s).dp)
     val ratio = if (p.wide) 16f / 9f else 2f / 3f
@@ -204,7 +224,11 @@ private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, m
         .drawBehind { if (glowA > 0f) with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = !p.wide, corner = (8 * s).dp.toPx()) } }
         .clip(shape).background(Color(0xFF34343A))) {
         if (!failed) AsyncImage(req, p.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onError = { failed = true },
-            onSuccess = { r -> if (glow == "color" && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("ch:" + p.poster, (b as? coil3.BitmapImage)?.bitmap) }.start() } })
+            onSuccess = { r ->
+                val b = (r.result.image as? coil3.BitmapImage)?.bitmap
+                bmp = b
+                if (glow == "color" && gc == null) Thread { gc = Glow.colorOf("ch:" + p.poster, b) }.start()
+            })
         // No picture (or one Glassio isn't allowed to read): the title instead.
         else Text(p.title, color = Color.White.copy(alpha = 0.85f), fontSize = (8.5f * s).sp, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.Center).padding((6 * s).dp))
