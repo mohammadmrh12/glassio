@@ -157,6 +157,15 @@ object MusicUi {
         finally { kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { stageMix.snapTo(1f); stagePrev.value = null } }
     }
 
+    /** The music page coming back over another page (the channels' background): faded in, the glass with it. */
+    suspend fun fadeFrom(page: androidx.compose.ui.graphics.ImageBitmap) {
+        if (stageCur.value == null) return
+        stageMix.snapTo(0f)
+        stagePrev.value = StagePics(page, page)
+        try { stageMix.animateTo(1f, androidx.compose.animation.core.tween(300)) }
+        finally { kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { stageMix.snapTo(1f); stagePrev.value = null } }
+    }
+
     val openInMenu = mutableStateOf(false)
     const val DOCK_PKG = "music:player"
     /** The dock's Music icon: the music page shows (even with Music mode off) until Back or the music stops. */

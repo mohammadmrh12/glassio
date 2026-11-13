@@ -76,6 +76,8 @@ object ChannelsUi {
     @Volatile var back: FocusRequester? = null
     /** The rows are on screen (the glass then refracts the grey page, not the carousel's picture). */
     val shown = mutableStateOf(false)
+    /** The page and the glass have switched to the rows' background (the music page waits for this to give way). */
+    val pageOn = mutableStateOf(false)
     /** The selected card's picture (its link and the picture): the blurred background (Settings → Channels → Background). */
     val art = mutableStateOf<Pair<String, android.graphics.Bitmap>?>(null)
 }
@@ -156,11 +158,8 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         // The Library's grey page (painted once, dithered) covers the carousel's picture.
         val density = androidx.compose.ui.platform.LocalDensity.current
         val bw = with(density) { maxWidth.roundToPx() }; val bh = with(density) { maxHeight.roundToPx() }
-        // Blurred card: nothing drawn here, the page behind (and the glass) show the card's picture blurred.
-        if (st.channelsBg != "blur") {
-            val bg = remember(bw, bh) { greyPage(bw, bh) }
-            androidx.compose.foundation.Image(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
-        }
+        // (No background here: the page behind and the glass show it, crossfaded together. Drawn here as well, the
+        // page changed at once while the glass still faded.)
         LaunchedEffect(pkg) { ChannelsUi.art.value = null }
         // Sizes. The rows fill the room between the top edge and the dock (none cut off); the cards are as big as the
         // chosen number across a row allows (Settings → Channels → Cards in a row), smaller when the rows wouldn't fit.
