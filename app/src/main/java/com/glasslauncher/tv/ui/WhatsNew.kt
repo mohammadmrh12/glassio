@@ -42,7 +42,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 59
+    const val ID = 60
 
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null)
 
@@ -55,6 +55,18 @@ object WhatsNew {
     ), "Thank you for using Glassio ♥", qr = GITHUB)
 
     val PAGES = listOf(
+        Page("What's new in Glassio 3.4", listOf(
+            "Trailer volume, on the home screen and in the Trailers screensaver (the TV's own volume stays as it is).",
+            "The large clock's glass can be made clearer, down to just its rim.",
+            "Music: iHeart, SoundCloud, TuneIn and more; any audio app is followed, with its artwork (or Glassio's own when a song has none).",
+            "◀ ▶ to look through · OK for the next page · Back to close.",
+        ), "Settings → Carousel → Trailer volume · Settings → Screensaver → Volume · Settings → Background & glass → Large clock glass."),
+        Page("Remote buttons and Hue", listOf(
+            "A remote button can open Glassio itself (for a remote whose Home button doesn't work).",
+            "A remote button can turn a Hue room, a zone or every light off; pressed again, on.",
+            "Hue lights change colour together: a Bloom no longer lags behind the Play bars.",
+            "Smoother: the dock opening, the carousel's slide and going up through the Library to the dock.",
+        ), "Settings → Remote mapping → Add a button."),
         Page("What's new in Glassio 3.3.1", listOf(
             "HDMI inputs open on TVs with plain Android too (no Live TV app): Glassio shows the input itself, Back comes home.",
             "Trailers screensaver: the title's picture while the first trailer loads (no black screen).",

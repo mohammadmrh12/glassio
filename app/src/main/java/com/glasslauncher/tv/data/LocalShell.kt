@@ -20,6 +20,34 @@ object LocalShell {
 
     private var conn: Dadb? = null
 
+    /** Where the TV's adb answered last time. */
+    @Volatile private var goodHost: String? = null
+
+    /** This TV's own addresses (its Wi-Fi / Ethernet), besides 127.0.0.1. */
+    private fun ownAddresses(): List<String> = runCatching {
+        java.net.NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList() }.filterIsInstance<java.net.Inet4Address>().mapNotNull { it.hostAddress }
+    }.getOrDefault(emptyList())
+
+    /**
+     * A connection to the TV's own adb that has answered. 127.0.0.1 first, then the TV's own network address: on Fire
+     * TV the adb at 127.0.0.1 never asked "Allow USB debugging?" (#14), so Glassio could never be allowed. Each try has
+     * a time limit, so a connection still waiting for the TV's question moves on instead of hanging.
+     */
+    private fun open(ctx: Context, port: Int): Dadb {
+        var last: Throwable? = null
+        for (h in (listOfNotNull(goodHost) + "127.0.0.1" + ownAddresses()).distinct()) {
+            val d = runCatching { Dadb.create(h, port, keyPair(ctx)) }.getOrElse { last = it; continue }
+            val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+            val ok = runCatching { pool.submit<Unit> { d.shell("true"); Unit }.get(15, java.util.concurrent.TimeUnit.SECONDS) }
+            pool.shutdownNow()
+            if (ok.isSuccess) { goodHost = h; return d }
+            last = ok.exceptionOrNull()
+            runCatching { d.close() }
+        }
+        throw last ?: IllegalStateException("the TV's adb didn't answer")
+    }
+
     /**
      * Copies an APK to the TV and installs it from the shell, detached, so the install survives this app
      * being stopped for the update; Glass is opened again afterwards.
@@ -29,7 +57,7 @@ object LocalShell {
      * command ends or the connection drops. Blocking (its own thread).
      */
     fun stream(ctx: Context, command: String, port: Int = 5555, onLine: (String) -> Unit) {
-        Dadb.create("127.0.0.1", port, keyPair(ctx)).use { d ->
+        open(ctx, port).use { d ->
             d.openShell(command).use { sh ->
                 val buf = StringBuilder()
                 while (true) {
@@ -65,7 +93,7 @@ object LocalShell {
             val d = runCatching {
                 pool.submit<Dadb> {
                     synchronized(this) {
-                        val d = conn ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { conn = it }
+                        val d = conn ?: open(ctx, port).also { conn = it }
                         d.push(apk, remote)
                         val cmd = "rm -f $log; nohup sh -c 'pm install -r -d $remote > $log 2>&1; rm -f $remote; " +
                             "grep -q Success $log && am start -n ${ctx.packageName}/.MainActivity' >/dev/null 2>&1 &"
@@ -97,7 +125,7 @@ object LocalShell {
     fun run(ctx: Context, command: String, port: Int = 5555): Result<String> {
         repeat(2) { attempt ->
             val r = runCatching {
-                val d = conn ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { conn = it }
+                val d = conn ?: open(ctx, port).also { conn = it }
                 val res = d.shell(command)
                 check(res.exitCode == 0) { res.allOutput.trim().ifBlank { "exit ${res.exitCode}" } }
                 res.allOutput
@@ -118,7 +146,7 @@ object LocalShell {
     fun warm(ctx: Context, port: Int = 5555) {
         Thread {
             synchronized(quickLock) {
-                if (quick == null) runCatching { Dadb.create("127.0.0.1", port, keyPair(ctx)).also { it.shell("true") } }
+                if (quick == null) runCatching { open(ctx, port).also { it.shell("true") } }
                     .onSuccess { quick = it }.onFailure { Glog.w("TV adb (quick)", it) }
             }
         }.apply { isDaemon = true }.start()
@@ -128,7 +156,7 @@ object LocalShell {
     /** [quick], waiting for the command to finish (call off the main thread). */
     fun quickNow(ctx: Context, command: String, port: Int = 5555): Boolean = synchronized(quickLock) {
         repeat(2) {
-            val r = runCatching { (quick ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { quick = it }).shell(command) }
+            val r = runCatching { (quick ?: open(ctx, port).also { quick = it }).shell(command) }
             if (r.isSuccess) return@synchronized true
             runCatching { quick?.close() }; quick = null
         }
@@ -142,7 +170,7 @@ object LocalShell {
                 repeat(2) { attempt ->
                     var tc = t0
                     val r = runCatching {
-                        val d = quick ?: Dadb.create("127.0.0.1", port, keyPair(ctx)).also { quick = it }
+                        val d = quick ?: open(ctx, port).also { quick = it }
                         tc = android.os.SystemClock.uptimeMillis()
                         d.shell(command)
                     }

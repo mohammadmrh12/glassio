@@ -26,6 +26,20 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.4.0** — trailer volume, clearer clock glass, more music apps, Hue and Glassio on remote buttons
+- **Trailer volume** on the home screen (Settings → Carousel, and the menu's Trailer page) and in the Trailers
+  screensaver (its settings and the hold-OK menu). The TV's own volume stays as it is.
+- **Large clock glass**: how much the glass digits show, down to clear glass with just its rim (home screen and screensaver).
+- **Music**: iHeart, SoundCloud, TuneIn, SiriusXM, Qobuz, Amazon Music and more; any app that says it is an audio app
+  is followed and controlled by the player. Artwork from apps that only send a link to it (SoundCloud showed a grey
+  square), and Glassio's own artwork for a song that has none.
+- **Remote mapping**: a button can open **Glassio itself** (for a remote whose Home button doesn't work, #13), or turn
+  a **Hue** room, zone or every light off (pressed again: on).
+- **Hue sync**: every light gets its new colour at the same moment (a Bloom no longer lags behind the Play bars).
+- **Smoother**: the dock opening (lighter veil), the carousel's slide settling, and Up held through the Library goes
+  through Continue Watching to the dock without the row jumping sideways.
+- **Fire TV**: "Allow Glassio" (TV access over ADB) works when the TV never asked at 127.0.0.1 (#14).
+
 **New in 3.3.1** — HDMI inputs on plain-Android TVs, screensaver fixes
 - **HDMI inputs** open on TVs running plain Android with their own UI (no Live TV app, e.g. Chinese boards with
   Wisdom UI): Glassio shows the input itself, full screen; Back comes home. Settings → Menu & themes → *Inputs open in*:

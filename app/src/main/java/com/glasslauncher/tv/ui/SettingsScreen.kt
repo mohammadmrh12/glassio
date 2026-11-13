@@ -1453,9 +1453,13 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 Act("2 · Open Developer options", if (adbOn) "USB debugging is on" else "Turn on USB debugging", "") { openSystem(ctx, AndroidSettings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) },
                 Act("3 · Allow Glassio", when (adbAccess) { true -> "Allowed: Glassio can use ADB"; false -> "Not allowed yet: press OK, then Always allow on the TV"; else -> "Press OK to check" }, "") {
                     scope.launch(Dispatchers.IO) {
-                        val ok = com.glasslauncher.tv.data.LocalShell.run(ctx, "echo ok").isSuccess
+                        val r = com.glasslauncher.tv.data.LocalShell.run(ctx, "echo ok")
+                        val ok = r.isSuccess
                         adbAccess = ok
-                        toast(ctx, if (ok) "Glassio can use ADB" else if (!adbOn) "Turn on USB debugging first (step 2)" else "Choose Always allow on the TV, then press OK here again")
+                        // Why it failed, in a few words (a TV that never asks is told apart from one that refused).
+                        val why = r.exceptionOrNull()?.let { e -> (e.cause ?: e).let { c -> c.message?.take(60) ?: c.javaClass.simpleName } }.orEmpty()
+                        toast(ctx, if (ok) "Glassio can use ADB" else if (!adbOn) "Turn on USB debugging first (step 2)"
+                            else "Choose Always allow on the TV, then press OK here again" + if (why.isNotBlank()) " ($why)" else "")
                     }
                 },
             )

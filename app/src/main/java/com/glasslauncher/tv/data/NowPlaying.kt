@@ -164,7 +164,7 @@ object NowPlaying {
         val ps = c.playbackState
         val title = md.getString(MediaMetadata.METADATA_KEY_TITLE) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
         if (title.isNullOrBlank()) return null
-        val art = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART) ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+        val art = artOf(c, md, title)
         val state = ps?.state ?: PlaybackState.STATE_NONE
         if (stoppedToken != null && c.sessionToken == stoppedToken) {
             if (state == PlaybackState.STATE_PLAYING) stoppedToken = null else return null
@@ -176,6 +176,70 @@ object NowPlaying {
             ps?.position ?: 0L, ps?.lastPositionUpdateTime ?: android.os.SystemClock.elapsedRealtime(), ps?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
             state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING,
         )
+    }
+
+    /**
+     * The song's artwork: the picture the app hands over, else the one at the link it gives (SoundCloud and others send
+     * only a link: the player showed an empty grey square), loaded once in the background; until then, or when there
+     * is none at all, Glassio's own artwork ([PlaceholderArt]).
+     */
+    private fun artOf(c: MediaController, md: MediaMetadata, title: String): Bitmap? {
+        md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)?.let { return it }
+        md.getBitmap(MediaMetadata.METADATA_KEY_ART)?.let { return it }
+        md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)?.let { return it }
+        md.description?.iconBitmap?.let { return it }
+        val uri = listOf(MediaMetadata.METADATA_KEY_ALBUM_ART_URI, MediaMetadata.METADATA_KEY_ART_URI, MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI)
+            .firstNotNullOfOrNull { k -> md.getString(k)?.takeIf { it.isNotBlank() } } ?: md.description?.iconUri?.toString()
+        if (uri != null) {
+            linkArt[uri]?.let { return it }
+            loadArt(c.packageName, uri)
+        }
+        return PlaceholderArt.of(title)
+    }
+
+    private val linkArt = object : LinkedHashMap<String, Bitmap>(16, 0.75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Bitmap>?) = size > 24
+    }.let { java.util.Collections.synchronizedMap(it) }
+    private val artLoading: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    private val artFailed: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    private fun loadArt(pkg: String, uri: String) {
+        if (uri in artFailed || !artLoading.add(uri)) return
+        val ctx = lastCtx ?: return
+        Thread({
+            val b = runCatching {
+                val u = android.net.Uri.parse(uri)
+                val bytes = when (u.scheme?.lowercase()) {
+                    "http", "https" -> (java.net.URL(uri).openConnection() as java.net.HttpURLConnection).run {
+                        connectTimeout = 5000; readTimeout = 8000; instanceFollowRedirects = true
+                        try { inputStream.use { it.readBytes() } } finally { disconnect() }
+                    }
+                    else -> ctx.contentResolver.openInputStream(u)?.use { it.readBytes() }
+                } ?: error("no data")
+                // Not bigger than the player shows it (some apps link a 3000 px cover).
+                val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+                var sample = 1
+                while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= 600) sample *= 2
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+                    ?: error("not a picture")
+            }.onFailure { Glog.w("Artwork of $pkg: ${it.javaClass.simpleName} ${it.message}") }.getOrNull()
+            artLoading.remove(uri)
+            if (b != null) linkArt[uri] = b else artFailed += uri
+            if (b != null) android.os.Handler(android.os.Looper.getMainLooper()).post { publish() }
+        }, "glass-art").apply { isDaemon = true }.start()
+    }
+
+    /** For testing: what each media session hands over (log "GlassMedia"). */
+    fun dump() {
+        val ctx = lastCtx ?: return
+        runCatching { msm?.getActiveSessions(listener(ctx)) }.getOrNull().orEmpty().forEach { c ->
+            val md = c.metadata
+            android.util.Log.i("GlassMedia", "${c.packageName} state=${c.playbackState?.state} keys=${md?.keySet()?.sorted()} " +
+                "bitmap=${md?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) != null || md?.getBitmap(MediaMetadata.METADATA_KEY_ART) != null || md?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON) != null} " +
+                "uri=${(md?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI) ?: md?.getString(MediaMetadata.METADATA_KEY_ART_URI) ?: md?.getString(MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI))?.substringBefore('?')?.take(60)} " +
+                "descIcon=${md?.description?.iconBitmap != null}/${md?.description?.iconUri?.scheme}")
+        }
     }
 
     fun playPause() {

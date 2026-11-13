@@ -93,10 +93,12 @@ object DevHooks {
             if (i.getBooleanExtra("fake_song", false)) {
                 val b = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)
                 android.graphics.Canvas(b).drawPaint(android.graphics.Paint().apply { shader = android.graphics.LinearGradient(0f, 0f, 300f, 300f, 0xFF7B61FF.toInt(), 0xFFFF6FA8.toInt(), android.graphics.Shader.TileMode.CLAMP) })
-                com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", "Test song", "Test artist", "Album", b,
+                com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", "Test song", "Test artist", "Album",
+                    if (i.getBooleanExtra("fake_noart", false)) com.glasslauncher.tv.data.PlaceholderArt.of("Test song") else b,
                     200_000, 60_000, android.os.SystemClock.elapsedRealtime(), 1f, true)
             } else com.glasslauncher.tv.data.NowPlaying.track.value = null
         }
+        if (i.getBooleanExtra("dump_media", false)) com.glasslauncher.tv.data.NowPlaying.dump()
         if (i.getBooleanExtra("start_saver", false)) a.startActivity(Intent(a, com.glasslauncher.tv.saver.ScreensaverActivity::class.java))
 
         if (!allowed(app, i)) return

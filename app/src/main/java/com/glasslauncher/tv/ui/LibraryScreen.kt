@@ -1,6 +1,6 @@
 package com.glasslauncher.tv.ui
 
-import androidx.compose.foundation.gestures.stopScroll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.focusGroup
@@ -186,22 +186,24 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     // Left to the system it picked a card half off the edge, and the whole row jumped sideways to show it
     // (while the page was also moving: the row seemed to shake).
     val cwReqs = remember(cw.size) { List(cw.size) { FocusRequester() } }
-    // Back to the dock at once: the rows stop where they are first (still gliding up while the page slid home,
-    // the Continue Watching row moved two ways at once). A held Up is spent at the dock (it went on to the menu).
+    // Back to the dock, also with Up held (through Continue Watching, without stopping on it): as soon as the rows
+    // have finished gliding up (the page sliding home while they still moved, the Continue Watching row moved two
+    // ways at once). A held Up is spent at the dock (it went on to the menu).
     val topUpAt = remember { longArrayOf(0L) }
     fun goHome() {
         val now = android.os.SystemClock.uptimeMillis()
         if (now - topUpAt[0] < 900) return
         topUpAt[0] = now
         LibPace.swallowUp = true
-        topUpScope.launch { runCatching { grid.stopScroll() }; onTopUp?.invoke() }
+        topUpScope.launch {
+            runCatching { kotlinx.coroutines.withTimeoutOrNull(120) { androidx.compose.runtime.snapshotFlow { grid.isScrollInProgress }.first { !it } } }
+            onTopUp?.invoke()
+        }
     }
     fun toCw(): Modifier = if (cw.isEmpty()) Modifier else Modifier
         .onPreviewKeyEvent { e ->
             if (e.key != androidx.compose.ui.input.key.Key.DirectionUp) return@onPreviewKeyEvent false
             if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent true
-            // Up held: straight on to the dock, no stop on Continue Watching on the way.
-            if (e.nativeKeyEvent.repeatCount > 0 && onTopUp != null) { goHome(); return@onPreviewKeyEvent true }
             topUpScope.launch {
                 runCatching { cwRow.scrollToItem(0) }
                 // The row above the screen isn't placed yet (it can't take the focus): the page glides up to it first.
