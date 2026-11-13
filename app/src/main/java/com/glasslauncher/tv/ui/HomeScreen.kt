@@ -933,7 +933,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // its player then.
                     val songNowHere by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
                     val appsPage = MusicUi.appsShowing && settings.musicOn && !folderOpen && screen == Screen.Home &&
-                        !(songNowHere?.playing == true && MusicUi.stageAllowed(settings) && settings.musicMode)
+                        // (Paused too: the player stays, paused; the music apps once the song has stopped.)
+                        !(songNowHere != null && MusicUi.stageOn(settings, songNowHere))
                     val appsShow = appsPage && !expanded
                     androidx.compose.runtime.SideEffect { MusicUi.appsVisible.value = appsShow; MusicUi.appsPage.value = appsPage }
                     // Paused or stopped on the Music icon: the player gives way to the music apps, the selection goes back
