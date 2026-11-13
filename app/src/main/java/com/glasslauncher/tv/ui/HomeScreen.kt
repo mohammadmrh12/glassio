@@ -818,7 +818,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             else scope.launch { delay(16); runCatching { gearReq.requestFocus() } }
                         })
                     androidx.compose.runtime.SideEffect { ChannelsUi.shown.value = chanOn }
-                    if (chanOn && chanPkg != null) ChannelStage(app, s, chanPkg, chanRows, bottom = metrics.collapsedH + metrics.bottomMargin + 40 * s,
+                    if (chanOn && chanPkg != null) ChannelStage(app, s, chanPkg, chanRows, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
                         onDown = { if (runCatching { tileFocus[chanPkg]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
                         // ▲ from the top row: the menu (or the settings button), the rows stay under it.
                         onUp = {

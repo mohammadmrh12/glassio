@@ -1161,12 +1161,17 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 if (st.channelsOn) {
                     if (!access) add(Act("Allow reading the TV's channels", "Needs TV access (ADB, System), or the TV's own question: press to try again", "Allow") { allow() })
                     else ch.start(ctx)
-                    add(Adjust("Rows", "How many of an app's rows show, one above the other", { "${st.channelsRows}" }, { st.channelsRows += it }))
+                    add(Adjust("Layout", "Rows one above the other, or one row in the middle that ▲ / ▼ switch", { if (st.channelsLayout == "single") "One row" else "Rows" },
+                        { st.channelsLayout = cycle(listOf("stack", "single"), st.channelsLayout, it) }))
+                    add(Adjust("Rows", "How many of an app's rows show (one above the other, or switched with ▲ / ▼)", { "${st.channelsRows}" }, { st.channelsRows += it }))
                     add(Adjust("Cards in a row", "How many cards fit across a row at first (posters are narrower: more of them show)", { "${st.channelsCards}" }, { st.channelsCards += it }))
                     add(Adjust("Background", "Behind the rows: the Library's grey page, or the selected card's picture blurred (like the music page)",
                         { if (st.channelsBg == "blur") "Blurred card" else "Grey" }, { st.channelsBg = cycle(listOf("grey", "blur"), st.channelsBg, it) }))
                     add(Adjust("Glow", "A very soft light around the selected card, like in the Library", { when (st.channelsGlow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
                         { st.channelsGlow = cycle(listOf("off", "color", "white"), st.channelsGlow, it) }))
+                    if (st.channelsGlow != "off") add(Adjust("  · Glow size", "How far and how strong it is", { pct(st.channelsGlowSize) }, { st.channelsGlowSize = ((st.channelsGlowSize * 10).roundToInt() + it) / 10f }))
+                    add(Adjust("App name", "The app's name over the rows: white, or in its icon's colour", { if (st.channelsLabel == "icon") "Icon colour" else "White" },
+                        { st.channelsLabel = cycle(listOf("white", "icon"), st.channelsLabel, it) }))
                     add(Note("Nuvio's apps keep the carousel, and a locked app's channels never show. An app's rows: press OK on it to switch them off, hide one of them or change their order."))
                     add(Note("Apps with channels"))
                     val apps = ch.apps()

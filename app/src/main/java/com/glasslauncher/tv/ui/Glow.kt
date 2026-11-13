@@ -42,13 +42,13 @@ object Glow {
     /** Settings → Glow size (0.3 … 1.6). */
     @Volatile var amount = 0.7f
 
-    fun DrawScope.glow(color: Color, a: Float, tallShape: Boolean = false, grow: Float = 1f, corner: Float = -1f) {
+    fun DrawScope.glow(color: Color, a: Float, tallShape: Boolean = false, grow: Float = 1f, corner: Float = -1f, amt: Float = amount) {
         if (a <= 0.01f) return
         val img = pic(tallShape)
         val w = size.width * grow; val h = size.height * grow
         // The picture's blurred edge spreads out from the element; its reach is set by the size, measured from the
         // shorter side so wide cards don't get a huge halo.
-        val padX = minOf(w, h) * PAD * 0.8f * amount; val padY = padX
+        val padX = minOf(w, h) * PAD * 0.8f * amt; val padY = padX
         val left = (size.width - w) / 2 - padX; val top = (size.height - h) / 2 - padY
         // Only around the edges: the inside is left out, so glass tiles aren't tinted from behind.
         val hole = androidx.compose.ui.graphics.Path().apply {
@@ -58,7 +58,7 @@ object Glow {
         clipPath(hole, androidx.compose.ui.graphics.ClipOp.Difference) {
             drawImage(img, srcOffset = IntOffset.Zero, srcSize = IntSize(img.width, img.height),
                 dstOffset = IntOffset(left.toInt(), top.toInt()), dstSize = IntSize((w + 2 * padX).toInt(), (h + 2 * padY).toInt()),
-                alpha = (0.35f + 0.25f * amount).coerceAtMost(0.8f) * a, colorFilter = ColorFilter.tint(color, BlendMode.SrcIn))
+                alpha = (0.35f + 0.25f * amt).coerceAtMost(0.8f) * a, colorFilter = ColorFilter.tint(color, BlendMode.SrcIn))
         }
     }
 

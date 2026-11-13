@@ -593,6 +593,11 @@ class Settings(private val ctx: Context) {
     var channelsGlow: String get() = s("channelsGlow", "off"); set(v) = putS("channelsGlow", v)
     /** Behind the rows: the Library's grey page, or the selected card's picture blurred (like the music page). */
     var channelsBg: String get() = s("channelsBg", "grey"); set(v) = putS("channelsBg", v)
+    /** Up to three rows one above the other ("stack"), or one row in the middle that Up / Down switch ("single"). */
+    var channelsLayout: String get() = s("channelsLayout", "stack"); set(v) = putS("channelsLayout", v)
+    var channelsGlowSize: Float get() = f("channelsGlowSize", 1f); set(v) = putF("channelsGlowSize", v.coerceIn(0.3f, 1.6f))
+    /** The app's name over the rows: white, or in its icon's colour ("icon"). */
+    var channelsLabel: String get() = s("channelsLabel", "white"); set(v) = putS("channelsLabel", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */
