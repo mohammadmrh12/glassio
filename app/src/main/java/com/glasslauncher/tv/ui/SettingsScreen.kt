@@ -1162,6 +1162,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     if (!access) add(Act("Allow reading the TV's channels", "Needs TV access (ADB, System), or the TV's own question: press to try again", "Allow") { allow() })
                     else ch.start(ctx)
                     add(Adjust("Rows", "How many of an app's rows show, one above the other", { "${st.channelsRows}" }, { st.channelsRows += it }))
+                    add(Adjust("Cards in a row", "How many cards fit across a row at first (posters are narrower: more of them show)", { "${st.channelsCards}" }, { st.channelsCards += it }))
+                    add(Adjust("Glow", "A very soft light around the selected card, like in the Library", { when (st.channelsGlow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
+                        { st.channelsGlow = cycle(listOf("off", "color", "white"), st.channelsGlow, it) }))
                     add(Note("Nuvio's apps keep the carousel, and a locked app's channels never show. An app's rows: press OK on it to switch them off, hide one of them or change their order."))
                     add(Note("Apps with channels"))
                     val apps = ch.apps()

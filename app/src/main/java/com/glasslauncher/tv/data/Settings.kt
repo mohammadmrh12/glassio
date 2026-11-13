@@ -587,6 +587,10 @@ class Settings(private val ctx: Context) {
     // Channels (Settings → Channels): an app's rows (Continue watching, New…) in the carousel's place while it is selected.
     var channelsOn: Boolean get() = b("channelsOn", false); set(v) = putB("channelsOn", v)
     var channelsRows: Int get() = i("channelsRows", 3); set(v) = putI("channelsRows", v.coerceIn(1, 3))
+    /** Cards that fit across a row at first (wide cards; posters are narrower, so more of them show). */
+    var channelsCards: Int get() = i("channelsCards", 4); set(v) = putI("channelsCards", v.coerceIn(3, 8))
+    /** The selected card's soft light, like the Library's: off, white or in the card's own colour. */
+    var channelsGlow: String get() = s("channelsGlow", "off"); set(v) = putS("channelsGlow", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */

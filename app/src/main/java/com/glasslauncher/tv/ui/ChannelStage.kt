@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -67,6 +68,8 @@ object ChannelsUi {
     val showing get() = stagePkg.value != null
     /** Up from the rows went to the carousel: Down from it goes back to this app (not the first one). */
     @Volatile var back: FocusRequester? = null
+    /** The rows are on screen (the glass then refracts the grey page, not the carousel's picture). */
+    val shown = mutableStateOf(false)
 }
 
 /**
@@ -81,8 +84,8 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val label = remember(pkg) { app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == pkg }?.label ?: pkg.substringAfterLast('.') }
-    // Fewer rows: bigger cards.
-    val cardH = when (rows.size) { 1 -> 150f; 2 -> 118f; else -> 88f } * s
+    val st = app.settings
+    val glow = st.channelsGlow
     // One focus handle per card ("row key#index"), each row's scroll and the card last selected in it.
     val reqs = remember(pkg) { HashMap<String, FocusRequester>() }
     fun req(r: Int, i: Int) = reqs.getOrPut("${rows[r].key}#$i") { FocusRequester() }
@@ -119,11 +122,21 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         val bw = with(density) { maxWidth.roundToPx() }; val bh = with(density) { maxHeight.roundToPx() }
         val bg = remember(bw, bh) { greyPage(bw, bh) }
         androidx.compose.foundation.Image(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+        // Card size: the chosen number of wide cards fits across a row (Settings → Channels → Cards in a row); posters
+        // keep the same height. Smaller when the rows wouldn't fit between the top bar and the dock.
+        val side = 48 * s; val gap = 10 * s; val padV = 10 * s
+        val n = st.channelsCards
+        val wideW = (maxWidth.value - 2 * side - gap * (n - 1)) / n
+        val room = maxHeight.value - bottom - 56 * s
+        val perRow = (room - (rows.size - 1) * 10 * s) / rows.size.coerceAtLeast(1) - (20 * s + 2 * padV)
+        val cardH = minOf(wideW * 9f / 16f, perRow).coerceAtLeast(40 * s)
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = bottom.dp)
             .onFocusChanged { ChannelsUi.focused = it.hasFocus }
             // Up from the dock: the lowest row, at the card selected there last (or the first one on screen).
             .focusRequester(ChannelsUi.entry)
-            .focusProperties { enter = { if (rows.isEmpty()) FocusRequester.Default else req(rows.lastIndex, below(rows.lastIndex, null)) } }
+            // From the dock (Up): the lowest row; from the menu / the top bar: the top row.
+            .focusProperties { enter = { dir -> if (rows.isEmpty()) FocusRequester.Default
+                else if (dir == androidx.compose.ui.focus.FocusDirection.Up) req(rows.lastIndex, below(rows.lastIndex, null)) else req(0, below(0, null)) } }
             .onPreviewKeyEvent { ev ->
                 val r = at[0]; val i = at[1]
                 if (r !in rows.indices) return@onPreviewKeyEvent false
@@ -139,23 +152,23 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                 }
             }
             .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy((10 * s).dp)) {
+            verticalArrangement = Arrangement.spacedBy((10 * s - 2 * padV).coerceAtLeast(0f).dp)) {
             rows.forEachIndexed { r, ch ->
                 androidx.compose.runtime.key(ch.key) {
                     var sel by remember { mutableIntStateOf(-1) }
                     Column {
-                        Row(Modifier.padding(start = (48 * s).dp, end = (48 * s).dp, bottom = (5 * s).dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.padding(start = (48 * s).dp, end = (48 * s).dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(if (r == 0) "$label  ·  ${ch.name}" else ch.name, color = Color.White.copy(alpha = 0.85f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                             // The selected card's title, next to the row's name.
                             val t = ch.programs.getOrNull(sel)
                             if (t != null) Text("   " + listOf(t.title, t.sub).filter { it.isNotBlank() }.joinToString("  ·  "), color = Color.White.copy(alpha = 0.6f),
                                 fontSize = (10 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        LazyRow(state = states[r], horizontalArrangement = Arrangement.spacedBy((10 * s).dp),
-                            contentPadding = PaddingValues(horizontal = (48 * s).dp, vertical = (5 * s).dp)) {
+                        LazyRow(state = states[r], horizontalArrangement = Arrangement.spacedBy(gap.dp),
+                            contentPadding = PaddingValues(horizontal = side.dp, vertical = padV.dp)) {
                             items(ch.programs.size, key = { ch.programs[it].id }) { i ->
                                 val p = ch.programs[i]
-                                ChannelCard(p, s, cardH,
+                                ChannelCard(p, s, cardH, glow,
                                     Modifier.focusRequester(req(r, i))
                                         .onFocusChanged { f ->
                                             if (f.isFocused) { sel = i; at[0] = r; at[1] = i; lastSel[ch.key] = i }
@@ -172,21 +185,26 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
 }
 
 @Composable
-private fun ChannelCard(p: Channels.Program, s: Float, h: Float, modifier: Modifier, onOpen: () -> Unit) {
+private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, modifier: Modifier, onOpen: () -> Unit) {
     val ctx = LocalContext.current
     var focused by remember { mutableStateOf(false) }
     var failed by remember(p.poster) { mutableStateOf(p.poster.isBlank()) }
-    val k by animateFloatAsState(if (focused) 1.07f else 1f, tween(140), label = "chan")
+    var gc by remember(p.poster) { mutableStateOf(Glow.cached("ch:" + p.poster)) }
+    // Like the Library: the selected card grows (no frame), with the same soft light around it when it is on.
+    val k by animateFloatAsState(if (focused) (if (p.wide) 1.07f else 1.11f) else 1f, tween(160, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "chan")
+    val glowA by animateFloatAsState(if (focused && glow != "off") 1f else 0f, tween(220), label = "chanGlow")
     val shape = RoundedCornerShape((8 * s).dp)
     val ratio = if (p.wide) 16f / 9f else 2f / 3f
     val req = remember(p.poster) { ImageRequest.Builder(ctx).data(p.poster).size((h * ratio * 2).toInt().coerceAtLeast(64), (h * 2).toInt().coerceAtLeast(64)).build() }
     Box(modifier.height(h.dp).aspectRatio(ratio)
+        // The remote's focus sits outside the zoom (see the Library's posters).
         .onFocusChanged { focused = it.isFocused }
         .tvPress(onClick = onOpen)
         .graphicsLayer { scaleX = k; scaleY = k }
-        .clip(shape).background(Color(0xFF34343A))
-        .border(if (focused) 1.5.dp else 0.dp, Color.White.copy(alpha = if (focused) 0.9f else 0f), shape)) {
-        if (!failed) AsyncImage(req, p.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onError = { failed = true })
+        .drawBehind { if (glowA > 0f) with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = !p.wide, corner = (8 * s).dp.toPx()) } }
+        .clip(shape).background(Color(0xFF34343A))) {
+        if (!failed) AsyncImage(req, p.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onError = { failed = true },
+            onSuccess = { r -> if (glow == "color" && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("ch:" + p.poster, (b as? coil3.BitmapImage)?.bitmap) }.start() } })
         // No picture (or one Glassio isn't allowed to read): the title instead.
         else Text(p.title, color = Color.White.copy(alpha = 0.85f), fontSize = (8.5f * s).sp, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.Center).padding((6 * s).dp))

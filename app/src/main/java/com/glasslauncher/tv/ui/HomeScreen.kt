@@ -246,8 +246,30 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val mix = remember { androidx.compose.animation.core.Animatable(1f) }
     // 0 = crossfade; 1 / -1 = the new picture slides in from the right / left (Slide animation).
     var slideDir by remember { mutableIntStateOf(0) }
-    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value) {
+    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value) {
         GlassCache.res = settings.glassRes
+        // The channels' rows on screen (on the Library's grey page): the glass refracts that grey, not the
+        // carousel's picture behind it. Crossfaded like a slide.
+        if (ChannelsUi.shown.value) {
+            val dm = ctx.resources.displayMetrics
+            val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
+            val (page, glass) = withContext(Dispatchers.Default) {
+                val g = greyPage(w, h)
+                GlassHalf.of(g)
+                g to GlassCache.fromBitmap("glassio:channels:$w", settings.blurRadius, g.asAndroidBitmap())
+            }
+            prevImgs = backImgs; prevBackdrop = shownBackdrop
+            backImgs = Triple(glass.blurred, glass.sharp, glass.heavy)
+            slideDir = 0
+            mix.snapTo(0f)
+            shownBackdrop = page
+            shownUrl.value = "glassio:channels"
+            try { mix.animateTo(1f, tween(220)) } finally {
+                prevImgs = null; prevBackdrop = null
+                withContext(kotlinx.coroutines.NonCancellable) { mix.snapTo(1f) }
+            }
+            return@LaunchedEffect
+        }
         BakeCache.max = when (settings.memTier) { 0 -> 2; 2 -> 4; else -> 3 }
         backdropScale = settings.pageScale
         backdrop565 = settings.memTier == 0
@@ -790,10 +812,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
                             else scope.launch { delay(16); runCatching { gearReq.requestFocus() } }
                         })
-                    if (chanOn && chanPkg != null) ChannelStage(app, s, chanPkg, chanRows, bottom = metrics.collapsedH + metrics.bottomMargin + 14 * s,
+                    androidx.compose.runtime.SideEffect { ChannelsUi.shown.value = chanOn }
+                    if (chanOn && chanPkg != null) ChannelStage(app, s, chanPkg, chanRows, bottom = metrics.collapsedH + metrics.bottomMargin + 40 * s,
                         onDown = { if (runCatching { tileFocus[chanPkg]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
-                        // ▲ from the top row: back to the carousel.
-                        onUp = { ChannelsUi.back = tileFocus[chanPkg]; ChannelsUi.focused = false; ChannelsUi.stagePkg.value = null; scope.launch { delay(60); runCatching { heroFocus.requestFocus() } } })
+                        // ▲ from the top row: the menu (or the settings button), the rows stay under it.
+                        onUp = {
+                            if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
+                            else runCatching { gearReq.requestFocus() }
+                        })
                 }
                 if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, menuOpen = menuOpen, onSettings = { onScreen(Screen.Settings) },
                     // Opens at once, also right after closing: the focus now goes back to Play (not to this button) when
@@ -859,7 +885,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // With your own background there is no carousel to go back to (its stand-in passes focus up to
                     // the settings button, which opened the menu again): back to the dock.
                     val custom = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial", "photos" -> true; else -> false }
-                    val back = if (custom) firstTile else heroFocus
+                    // The channels' rows on screen: back into their top row.
+                    val back = if (ChannelsUi.showing) ChannelsUi.entry else if (custom) firstTile else heroFocus
                     // The focus goes back first, straight from the menu, then the menu closes.
                     menuHasFocus = false
                     runCatching { back.requestFocus() }
