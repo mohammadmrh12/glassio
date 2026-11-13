@@ -584,6 +584,14 @@ class Settings(private val ctx: Context) {
     var photoCacheMb: Int get() = i("photoCacheMb", 1024); set(v) = putI("photoCacheMb", v.coerceIn(100, 8192))
     /** Apps that ask for the 4-digit code when opened from Glassio. */
     var lockedApps: List<String> get() = list("lockedApps"); set(v) = putList("lockedApps", v)
+    // Channels (Settings → Channels): an app's rows (Continue watching, New…) in the carousel's place while it is selected.
+    var channelsOn: Boolean get() = b("channelsOn", false); set(v) = putB("channelsOn", v)
+    var channelsRows: Int get() = i("channelsRows", 3); set(v) = putI("channelsRows", v.coerceIn(1, 3))
+    /** Apps whose rows don't show. */
+    var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
+    /** Rows that don't show ("package|name"), and your order of the rows. */
+    var channelsHidden: List<String> get() = list("channelsHidden"); set(v) = putList("channelsHidden", v)
+    var channelsOrder: List<String> get() = list("channelsOrder"); set(v) = putList("channelsOrder", v)
     var lockCode: String get() = s("lockCode", "0000"); set(v) = putS("lockCode", v.filter { it.isDigit() }.take(4).padStart(4, '0'))
 
     /** Existing installs skip the first-run setup (it is for new TVs). */

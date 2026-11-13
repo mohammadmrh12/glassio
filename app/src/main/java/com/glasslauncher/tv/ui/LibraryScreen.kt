@@ -604,7 +604,7 @@ private object CwShade {
 }
 
 /** The Library's grey page: a soft vertical gradient, dithered so the TV shows no steps. */
-private fun greyPage(w: Int, h: Int): ImageBitmap {
+internal fun greyPage(w: Int, h: Int): ImageBitmap {
     val b = android.graphics.Bitmap.createBitmap(w.coerceAtLeast(1), h.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
     val p = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG)
     p.shader = android.graphics.LinearGradient(0f, 0f, w * 0.25f, h.toFloat(),

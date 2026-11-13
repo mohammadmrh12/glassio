@@ -1141,6 +1141,59 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Act("Preview now", "") { ctx.startActivity(Intent(ctx, ScreensaverActivity::class.java)) })
             }
         },
+        Category("Channels") {
+            tvRev.intValue
+            val ch = com.glasslauncher.tv.data.Channels
+            val access = ch.hasAccess(ctx)
+            fun allow() = scope.launch(Dispatchers.IO) {
+                val ok = ch.grant(ctx)
+                if (ok) ch.start(ctx)
+                // Without ADB: the TV's own question.
+                else kotlinx.coroutines.withContext(Dispatchers.Main) { runCatching { (ctx as? android.app.Activity)?.requestPermissions(arrayOf(ch.PERMISSION), 77) } }
+                tvRev.intValue++
+                toast(ctx, if (ok) "Channels on" else "Allow it on the TV's question, or allow TV access (ADB) first: Glassio settings → System")
+            }
+            fun label(pkg: String) = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == pkg }?.label
+                ?: runCatching { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+            buildList {
+                add(Toggle("Channels", "While an app that has channels is selected in the dock (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…), its rows (Continue watching, New…) take the carousel's place. ▲ goes into them, ▼ back to the app",
+                    { st.channelsOn }, { on -> st.channelsOn = on; if (on) allow() }))
+                if (st.channelsOn) {
+                    if (!access) add(Act("Allow reading the TV's channels", "Needs TV access (ADB, System), or the TV's own question: press to try again", "Allow") { allow() })
+                    else ch.start(ctx)
+                    add(Adjust("Rows", "How many of an app's rows show, one above the other", { "${st.channelsRows}" }, { st.channelsRows += it }))
+                    add(Note("Nuvio's apps keep the carousel, and a locked app's channels never show. An app's rows: press OK on it to switch them off, hide one of them or change their order."))
+                    add(Note("Apps with channels"))
+                    val apps = ch.apps()
+                    if (access && apps.isEmpty()) add(Note("No app on this TV has published channels yet. Open YouTube, Netflix… once and come back."))
+                    apps.forEach { pkg ->
+                        val rows = ch.allFor(st, pkg)
+                        val off = pkg in st.channelsOffApps
+                        val locked = pkg in st.lockedApps
+                        val shown = rows.count { it.key !in st.channelsHidden }
+                        add(Act(label(pkg), if (locked) "Locked app: its channels don't show" else if (off) "Off" else rows.filter { it.key !in st.channelsHidden }.take(st.channelsRows).joinToString(" · ") { it.name }.ifBlank { "Every row is hidden" },
+                            if (off || locked) "Off" else "On · $shown", ok = if (off || locked) null else true) {
+                            dialog = MenuDialog(label(pkg), buildList {
+                                add((if (off) "Show this app's channels" else "Don't show this app's channels") to {
+                                    st.channelsOffApps = if (off) st.channelsOffApps - pkg else st.channelsOffApps + pkg; tvRev.intValue++
+                                })
+                                rows.forEach { r ->
+                                    val hidden = r.key in st.channelsHidden
+                                    add((if (hidden) "Show: " else "Hide: ") + r.name + "  (${r.programs.size})" to {
+                                        st.channelsHidden = if (hidden) st.channelsHidden - r.key else st.channelsHidden + r.key; tvRev.intValue++
+                                    })
+                                }
+                                if (rows.size > 1) add("Change the order of its rows" to {
+                                    dialog = ReorderDialog("${label(pkg)}: rows, first on top", rows.map { it.key to it.name }) { keys ->
+                                        st.channelsOrder = st.channelsOrder.filterNot { it.startsWith("$pkg|") } + keys; tvRev.intValue++
+                                    }
+                                })
+                            })
+                        })
+                    }
+                }
+            }
+        },
         Category("Music") {
             buildList {
                 tvRev.intValue
@@ -1964,7 +2017,7 @@ private fun videoName(u: String): String = runCatching {
 /** Sections that start a new group in the list on the left (a thin line above them). */
 private val CATEGORY_BREAKS = setOf("Library", "Cameras", "Performance")
 
-val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Menu & themes",
+val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Channels", "Menu & themes",
     "Cameras", "Background & glass", "Screensaver", "Music", "Hue lights", "Remote mapping", "Performance", "Manage from phone", "System", "About")
 
 /**

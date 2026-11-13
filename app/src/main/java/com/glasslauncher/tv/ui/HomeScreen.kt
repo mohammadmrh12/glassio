@@ -769,13 +769,31 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     .focusGroup()
             ) {
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (DebugHide.intValue and 2 != 0) 0f else 1f }.onFocusChanged { DockFocus.hero = it.hasFocus }) {
-                    HeroSection(app, s, hidden = dockVeils || folderOpen, paused = screen != Screen.Home || pop != null, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    // Channels (Settings → Channels): the selected app's rows stand in the carousel's place. They come a
+                    // moment after the app is selected (moving along the dock doesn't flash them), and stay while the
+                    // selection is inside them.
+                    val dockPkg = ChannelsUi.dockPkg.value
+                    LaunchedEffect(dockPkg, settings.channelsOn, com.glasslauncher.tv.data.Channels.all.value) {
+                        if (!settings.channelsOn) { ChannelsUi.stagePkg.value = null; return@LaunchedEffect }
+                        if (dockPkg == null) { delay(150); if (!ChannelsUi.focused) ChannelsUi.stagePkg.value = null; return@LaunchedEffect }
+                        delay(300)
+                        ChannelsUi.stagePkg.value = dockPkg.takeIf { com.glasslauncher.tv.data.Channels.rowsFor(settings, it).isNotEmpty() }
+                    }
+                    LaunchedEffect(settings.channelsOn) { if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(ctx) }
+                    val chanPkg = ChannelsUi.stagePkg.value
+                    val chanRows = if (chanPkg != null && !expanded && !folderOpen && screen == Screen.Home) com.glasslauncher.tv.data.Channels.rowsFor(settings, chanPkg) else emptyList()
+                    val chanOn = chanPkg != null && chanRows.isNotEmpty()
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanOn, paused = screen != Screen.Home || pop != null || chanOn, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
                             if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
                             else scope.launch { delay(16); runCatching { gearReq.requestFocus() } }
                         })
+                    if (chanOn && chanPkg != null) ChannelStage(app, s, chanPkg, chanRows, bottom = metrics.collapsedH + metrics.bottomMargin + 14 * s,
+                        onDown = { if (runCatching { tileFocus[chanPkg]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                        // ▲ from the top row: back to the carousel.
+                        onUp = { ChannelsUi.back = tileFocus[chanPkg]; ChannelsUi.focused = false; ChannelsUi.stagePkg.value = null; scope.launch { delay(60); runCatching { heroFocus.requestFocus() } } })
                 }
                 if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, menuOpen = menuOpen, onSettings = { onScreen(Screen.Settings) },
                     // Opens at once, also right after closing: the focus now goes back to Play (not to this button) when
@@ -1625,7 +1643,8 @@ private fun HeroInfo(
             .padding(start = (48 * s).dp, top = ((if (settings.heroButtons == "apple") 78 else 96) * s).dp)
             .width((440 * s).dp)
             .focusRequester(heroFocus)
-            .focusProperties { down = firstTile }
+            // Down: back to the app whose channels Up came from (the first app otherwise).
+            .focusProperties { down = ChannelsUi.back ?: firstTile }
             .onKeyEvent { ev ->
                 when {
                     ev.key == Key.DirectionRight && ev.type == KeyEventType.KeyDown -> {
@@ -2169,7 +2188,7 @@ private fun Dock(
                         val edges = gridEdges(c, row.size, r, rows.size, allowUp = true)
                         val base = Modifier.weight(1f)
                             .then(if (idx == 0) Modifier.focusRequester(firstTile) else Modifier)
-                            .then(if (r == 0) Modifier.focusProperties { up = heroFocus } else Modifier)
+                            .then(if (r == 0) Modifier.focusProperties { up = if (ChannelsUi.showing) ChannelsUi.entry else heroFocus } else Modifier)
                         if (e == null) {
                             key(FOLDER) {
                                 FolderTile(
@@ -2184,7 +2203,11 @@ private fun Dock(
                                 entry = e, app = app, s = s, radius = radius, moving = movingPkg == e.pkg,
                                 modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() })
                                     .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
-                                onFocus = { f -> DockFocus.on(idx, f); if (f) { onExpanded(r > 0); onMove() } },
+                                onFocus = { f ->
+                                    DockFocus.on(idx, f); if (f) { onExpanded(r > 0); onMove(); ChannelsUi.back = null }
+                                    // Channels: the app selected in the first row (its rows take the carousel's place).
+                                    if (f && r == 0) ChannelsUi.dockPkg.value = e.pkg else if (ChannelsUi.dockPkg.value == e.pkg) ChannelsUi.dockPkg.value = null
+                                },
                                 onMoveKey = onMoveKey,
                                 onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
                                 onLong = { onMenu(e) }, edges = edges,

@@ -194,6 +194,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         com.glasslauncher.tv.net.HaWatch.start(this)
         com.glasslauncher.tv.data.Photos.start(this)
         // Music: follows what any music app plays (its listener is switched on when Music is turned on).
+        if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(this)
         if (settings.musicOn) Thread { runCatching { com.glasslauncher.tv.data.NowPlaying.grant(this); com.glasslauncher.tv.data.NowPlaying.start(this) } }.apply { isDaemon = true }.start()
         // The TV's inputs (HDMI, CEC devices): read now and every few minutes.
         scope.launch {

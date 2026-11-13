@@ -9,6 +9,10 @@
     <!-- Granted once over adb: lets Glass keep its Home-button service enabled after updates. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- The TV's channels (the rows apps publish for the home screen), shown in the carousel's place: Settings → Channels. -->
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS"/>
+    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA"/>
+    <uses-permission android:name="com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ProtectedPermissions"/>
     <!-- Updates from GitHub Releases (fallback path; the TV's adb shell is tried first). -->

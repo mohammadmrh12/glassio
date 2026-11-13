@@ -99,6 +99,7 @@ object DevHooks {
             } else com.glasslauncher.tv.data.NowPlaying.track.value = null
         }
         if (i.getBooleanExtra("dump_media", false)) com.glasslauncher.tv.data.NowPlaying.dump()
+        if (i.getBooleanExtra("dump_channels", false)) Thread { com.glasslauncher.tv.data.Channels.dump(app) }.start()
         if (i.getBooleanExtra("start_saver", false)) a.startActivity(Intent(a, com.glasslauncher.tv.saver.ScreensaverActivity::class.java))
 
         if (!allowed(app, i)) return
