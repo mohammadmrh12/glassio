@@ -279,6 +279,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     }
     // A new home screen (back after it was rebuilt): the rows' page state starts over with it.
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { ChannelsUi.pageOn.value = false } }
+    // Whether the music page showed just before the rows came (the rows fade from it then).
+    val musicWas = remember { booleanArrayOf(false) }
     LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
@@ -311,7 +313,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             val (page, glass) = pair
             ChannelPages.remember(tag, pair)
             if (!first && shownBackdrop === page) return@LaunchedEffect
-            val music = MusicUi.stageCur.value?.takeIf { first }
+            // (Faded from the music page only when it was what showed: from Nuvio's carousel the song's blurred
+            // artwork flashed for a moment on the way to the rows.)
+            val music = MusicUi.stageCur.value?.takeIf { first && musicWas[0] }
             mix.snapTo(0f)
             if (music != null) { val m = music.glass ?: music.back; prevBackdrop = m; prevImgs = Triple(m, m, m) }
             else { prevImgs = backImgs; prevBackdrop = shownBackdrop }
@@ -680,7 +684,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // (Nuvio / Stremio selected: their carousel, not the music page.)
         // (Going to an idle player or the music apps: this page stays until the grey one has faded in over it;
         // dropped at once, the carousel's picture showed under it for a moment.)
-        val stageWanted = stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value
+        // (Rows chosen for the selected app, read at once: "shown" comes a frame later, and the music page flashed.)
+        val rowsNow = ChannelsUi.stagePkg.value != null || ChannelsUi.shown.value
+        val stageWanted = stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value &&
+            (!rowsNow || musicWas[0])
+        if (!rowsNow) musicWas[0] = stageWanted
         val stageArt = songNow?.art?.takeIf { stageRaw }
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
         // (Keyed by how the artwork looks: the app sends a new picture object with every update.) A song whose
@@ -905,6 +913,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         // Another app selected: the player the Music icon opened gives way (its rows stayed away).
                         if (dockPkg != MusicUi.DOCK_PKG) MusicUi.forced.value = false
                         MusicUi.carouselApp.value = com.glasslauncher.tv.data.Channels.keepsCarousel(dockPkg)
+                        // Another app's rows: their background starts from their first card (the card selected on an
+                        // earlier visit showed its blur for a moment first).
+                        if (rows && ChannelsUi.stagePkg.value != dockPkg) ChannelsUi.art.value =
+                            com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).firstOrNull()?.programs?.firstOrNull()?.poster?.takeIf { it.isNotBlank() }?.let { it to null }
                         ChannelsUi.stagePkg.value = dockPkg.takeIf { rows }
                         MusicUi.dockApp.value = dockPkg.takeIf { musicApp }
                         MusicUi.appsOn.value = musicIcon
