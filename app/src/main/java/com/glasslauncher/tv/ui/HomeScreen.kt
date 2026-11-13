@@ -398,7 +398,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         prevImgs = backImgs
         prevBackdrop = shownBackdrop
         if (next != null) backImgs = next
-        slideDir = if (slide && !first && prevBackdrop != null) SlideDir.dir else 0
+        // (Back from the rows or the grey page: a crossfade; it slid in from the side of the last carousel move.)
+        slideDir = if (slide && !first && prevBackdrop != null && shownUrl.value?.startsWith("glassio:") != true) SlideDir.dir else 0
         if (!first && next != null) mix.snapTo(0f)
         shownBackdrop = baked
         shownUrl.value = u
@@ -640,7 +641,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // (Multi-view over a video background: the blurred copy covers the video, which the screen's blur can't reach.)
         // Music mode: the music page stays as it is when you go down into the dock (it faded and blurred away, and
         // its artwork showed for a moment as a see-through blurred square).
-        val stageKeeps = MusicUi.stageOn(settings, MusicUi.heldTrack())
+        // (Only when the music page is really what shows: Nuvio / Stremio keep the carousel, and it blurs as usual.)
+        val stageKeeps = MusicUi.stageOn(settings, MusicUi.heldTrack()) && !MusicUi.carouselApp.value && !ChannelsUi.pageOn.value &&
+            MusicUi.songFor(MusicUi.heldTrack()) != null
         val dockVeils = expanded && !stageKeeps
         val veilIn = dockVeils || folderOpen || folderLeft != 0L || (com.glasslauncher.tv.MultiCamOverlay.open.value && (VideoFrames.showing.value || android.os.Build.VERSION.SDK_INT < 31))
         // Comes in just after the dock has grown (both at once made the opening stutter on the TV); straight away
