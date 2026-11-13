@@ -254,7 +254,29 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
         withContext(Dispatchers.Default) { runCatching { ChannelPages.grey("$w|$h|${settings.blurRadius}|${settings.glassRes}", w, h, settings.blurRadius) } }
     }
-    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value, if (settings.channelsBg == "blur") ChannelsUi.art.value?.first else null) {
+    // Blurred cards made ahead, one at a time on a quiet thread: every card on screen as its picture loads, and each
+    // app's first card a few seconds after start (selecting the app, or moving to a card, then shows it at once).
+    LaunchedEffect(settings.blurRadius, settings.glassRes, settings.pageScale) {
+        val dm = ctx.resources.displayMetrics
+        val w = (dm.widthPixels * settings.pageScale).toInt(); val h = (dm.heightPixels * settings.pageScale).toInt()
+        val tag = "$w|$h|${settings.blurRadius}|${settings.glassRes}"
+        val blur = settings.blurRadius
+        ChannelsUi.warm = { link, b -> ChannelPages.warmer.execute { if (ChannelPages.peekArt(link, tag) == null) runCatching { ChannelPages.art(link, b, tag, w, h, blur) } } }
+    }
+    LaunchedEffect(com.glasslauncher.tv.data.Channels.all.value, settings.channelsOn, settings.channelsBg) {
+        if (!settings.channelsOn || settings.channelsBg != "blur") return@LaunchedEffect
+        delay(3_000)
+        val loader = SingletonImageLoader.get(ctx)
+        for (pkg in com.glasslauncher.tv.data.Channels.apps()) {
+            val p = com.glasslauncher.tv.data.Channels.rowsFor(settings, pkg).firstOrNull()?.programs?.firstOrNull() ?: continue
+            if (p.poster.isBlank()) continue
+            val b = withContext(Dispatchers.IO) { runCatching {
+                (loader.execute(ImageRequest.Builder(ctx).data(p.poster).size(640, 360).allowHardware(false).build()) as? SuccessResult)?.image?.toBitmap()
+            }.getOrNull() } ?: continue
+            ChannelsUi.warm?.invoke(p.poster, b)
+        }
+    }
+    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
         // selected card's picture blurred), crossfaded together. Coming from the music page it fades from that page
@@ -266,20 +288,19 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             val blurMode = settings.channelsBg == "blur"
             val art = ChannelsUi.art.value?.takeIf { blurMode }
             val first = !ChannelsUi.pageOn.value
-            if (blurMode && art == null) {
-                // Another app's rows (its first card's picture comes in a moment): keep the background until then.
-                if (!first) return@LaunchedEffect
-                // Just come in: wait a little for the first card's picture (no grey flash before the blur).
-                delay(400)
+            // Blurs are made ahead (every card on screen, and each app's first card): usually here at once.
+            var pair = if (art != null) ChannelPages.peekArt(art.first, tag) else if (!blurMode) ChannelPages.peekGrey(tag) else null
+            if (pair == null && blurMode) {
+                val b = art?.second
+                if (b != null) pair = withContext(Dispatchers.Default) { runCatching { ChannelPages.art(art.first, b, tag, w, h, settings.blurRadius) }.getOrNull() }
+                else {
+                    // The card's picture isn't loaded yet (it comes in a moment, and this starts again): the page
+                    // stays as it is meanwhile, no grey flash before the blur. Only if it never comes: grey.
+                    if (!first) return@LaunchedEffect
+                    delay(700)
+                }
             }
-            var pair = if (art != null) ChannelPages.peekArt(art.first, tag) else ChannelPages.peekGrey(tag)
-            if (pair == null) {
-                // Moving along a row: only the card stopped on is blurred.
-                if (art != null && !first) delay(110)
-                pair = withContext(Dispatchers.Default) {
-                    if (art != null) runCatching { ChannelPages.art(art.first, art.second, tag, w, h, settings.blurRadius) }.getOrNull() else null
-                } ?: withContext(Dispatchers.Default) { ChannelPages.grey(tag, w, h, settings.blurRadius) }
-            }
+            if (pair == null) pair = withContext(Dispatchers.Default) { ChannelPages.grey(tag, w, h, settings.blurRadius) }
             val (page, glass) = pair
             if (!first && shownBackdrop === page) return@LaunchedEffect
             val music = MusicUi.stageCur.value?.takeIf { first }
@@ -291,7 +312,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             shownBackdrop = page
             shownUrl.value = "glassio:channels"
             ChannelsUi.pageOn.value = true
-            try { mix.animateTo(1f, tween(300)) } finally {
+            try { mix.animateTo(1f, tween(if (first) 240 else 260)) } finally {
                 prevImgs = null; prevBackdrop = null
                 withContext(kotlinx.coroutines.NonCancellable) { mix.snapTo(1f) }
             }
@@ -678,9 +699,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             if (!folderOpen && DebugHide.intValue and 1 == 0 && !VideoFrames.showing.value) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if ((veilCovers && blur.value > 0.995f) || libCovers.value || SettingsCovers.value) 0f else 1f }) {
                 if (stageBack != null) {
                     // (The page it fades in over: a song's last picture, or the channels' background.)
+                    // (Drawn as the music page looks, darkened: drawn plain it was brighter, and when the music page
+                    // over it had faded in, the screen jumped darker.)
                     val sp = MusicUi.stagePrev.value
-                    if (sp != null) Image(sp.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    Image(stageBack.back, null, Modifier.fillMaxSize().graphicsLayer { alpha = if (sp != null) MusicUi.stageMix.value else 1f }, contentScale = ContentScale.Crop)
+                    if (sp != null) Image(if (sp.page) sp.back else (sp.glass ?: sp.back), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    Image(stageBack.glass ?: stageBack.back, null, Modifier.fillMaxSize().graphicsLayer { alpha = if (sp != null) MusicUi.stageMix.value else 1f }, contentScale = ContentScale.Crop)
                 }
                 else if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
                     if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH)
@@ -839,8 +862,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     LaunchedEffect(dockPkg, settings.channelsOn, com.glasslauncher.tv.data.Channels.all.value) {
                         if (!settings.channelsOn) { ChannelsUi.stagePkg.value = null; return@LaunchedEffect }
                         if (dockPkg == null) { delay(150); if (!ChannelsUi.focused) ChannelsUi.stagePkg.value = null; return@LaunchedEffect }
-                        delay(300)
-                        ChannelsUi.stagePkg.value = dockPkg.takeIf { com.glasslauncher.tv.data.Channels.rowsFor(settings, it).isNotEmpty() }
+                        // An app without rows: the carousel / music page comes back almost at once (it waited as long as
+                        // for rows, and the rows stayed a moment after leaving them).
+                        val has = com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).isNotEmpty()
+                        delay(if (has) 240 else 90)
+                        ChannelsUi.stagePkg.value = dockPkg.takeIf { has }
                     }
                     LaunchedEffect(settings.channelsOn) { if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(ctx) }
                     val chanPkg = ChannelsUi.stagePkg.value
@@ -855,13 +881,19 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             else scope.launch { delay(16); runCatching { gearReq.requestFocus() } }
                         })
                     androidx.compose.runtime.SideEffect { ChannelsUi.shown.value = chanOn }
-                    if (chanOn && chanPkg != null) ChannelStage(app, s, chanPkg, chanRows, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
-                        onDown = { if (runCatching { tileFocus[chanPkg]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                    // The rows fade in and out (they went in one frame, the page under them bare for a moment), in
+                    // step with the music page or the carousel coming back.
+                    val chanA by animateFloatAsState(if (chanOn) 1f else 0f, tween(if (chanOn) 220 else 240), label = "chanStage")
+                    val lastChan = remember { arrayOfNulls<Pair<String, List<com.glasslauncher.tv.data.Channels.Channel>>>(1) }
+                    if (chanOn && chanPkg != null) lastChan[0] = chanPkg to chanRows
+                    val stageNow = lastChan[0]
+                    if (stageNow != null && (chanOn || chanA > 0.01f)) Box(Modifier.fillMaxSize().graphicsLayer { alpha = chanA }) { ChannelStage(app, s, stageNow.first, stageNow.second, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
+                        onDown = { if (runCatching { tileFocus[stageNow.first]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
                         // ▲ from the top row: the menu (or the settings button), the rows stay under it.
                         onUp = {
                             if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
                             else runCatching { gearReq.requestFocus() }
-                        })
+                        }) }
                 }
                 if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, menuOpen = menuOpen, onSettings = { onScreen(Screen.Settings) },
                     // Opens at once, also right after closing: the focus now goes back to Play (not to this button) when
@@ -2872,7 +2904,10 @@ private fun channelArtPage(src: android.graphics.Bitmap, w: Int, h: Int): ImageB
  */
 private object ChannelPages {
     private var grey: Triple<String, ImageBitmap, GlassImages>? = null
-    private val arts = android.util.LruCache<String, Pair<ImageBitmap, GlassImages>>(10)
+    private val arts = android.util.LruCache<String, Pair<ImageBitmap, GlassImages>>(16)
+    /** The quiet thread that makes the blurs ahead. */
+    val warmer: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread(r, "glass-chan-blur").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
     fun peekGrey(tag: String): Pair<ImageBitmap, GlassImages>? = grey?.takeIf { it.first == tag }?.let { it.second to it.third }
     @Synchronized fun grey(tag: String, w: Int, h: Int, blur: Int): Pair<ImageBitmap, GlassImages> = peekGrey(tag) ?: run {
         val g = greyPage(w, h)
@@ -2882,9 +2917,9 @@ private object ChannelPages {
         g to gl
     }
     fun peekArt(link: String, tag: String): Pair<ImageBitmap, GlassImages>? = arts.get("$tag|$link")
-    /** Made at a third of the screen (it is a blur: drawn larger it looks the same, and it is ready much sooner). */
+    /** Made at a quarter of the screen (it is a blur: drawn larger it looks the same, and it is ready much sooner). */
     fun art(link: String, b: android.graphics.Bitmap, tag: String, w: Int, h: Int, blur: Int): Pair<ImageBitmap, GlassImages> = peekArt(link, tag) ?: run {
-        val pg = channelArtPage(b, w / 3, h / 3)
+        val pg = channelArtPage(b, w / 4, h / 4)
         GlassHalf.of(pg)
         val gl = GlassCache.fromBitmap("glassio:channels-art:$tag|$link", blur, pg.asAndroidBitmap())
         (pg to gl).also { arts.put("$tag|$link", it) }

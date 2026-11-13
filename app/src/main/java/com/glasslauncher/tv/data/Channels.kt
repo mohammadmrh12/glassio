@@ -118,11 +118,11 @@ object Channels {
             .sortedBy { (i, ch) -> order.indexOf(ch.key).let { o -> if (o >= 0) o else 1000 + i } }.map { it.value }
     }
 
-    /** The rows shown for [pkg]: none for an app switched off or locked; without the hidden ones; at most the chosen number. */
+    /** The rows of [pkg] (one or two show at once, the others with Up / Down): none for an app switched off or locked; without the hidden ones. */
     fun rowsFor(st: Settings, pkg: String?): List<Channel> {
         if (pkg == null || !st.channelsOn || pkg in st.channelsOffApps || pkg in st.lockedApps) return emptyList()
         val hidden = st.channelsHidden
-        return allFor(st, pkg).filter { it.key !in hidden }.take(st.channelsRows)
+        return allFor(st, pkg).filter { it.key !in hidden }
     }
 
     /** Opens what the row's card stands for, in its app. */

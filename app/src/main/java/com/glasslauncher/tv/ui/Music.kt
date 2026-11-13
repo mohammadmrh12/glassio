@@ -83,7 +83,7 @@ object MusicUi {
         when (st.bgMode) { "image" -> st.bgImage.isBlank(); "video" -> st.bgVideo.isBlank(); "aerial", "photos" -> false; else -> true }
 
     /** The music page's background for one song: the artwork blurred (the page) and its small copy for the glass. */
-    class StagePics(val back: androidx.compose.ui.graphics.ImageBitmap, val glass: androidx.compose.ui.graphics.ImageBitmap?)
+    class StagePics(val back: androidx.compose.ui.graphics.ImageBitmap, val glass: androidx.compose.ui.graphics.ImageBitmap?, val page: Boolean = false)
     /** The song's pictures now, the last song's while the new one fades in over it, and that fade (0..1). */
     val stageCur = mutableStateOf<StagePics?>(null)
     val stagePrev = mutableStateOf<StagePics?>(null)
@@ -161,8 +161,8 @@ object MusicUi {
     suspend fun fadeFrom(page: androidx.compose.ui.graphics.ImageBitmap) {
         if (stageCur.value == null) return
         stageMix.snapTo(0f)
-        stagePrev.value = StagePics(page, page)
-        try { stageMix.animateTo(1f, androidx.compose.animation.core.tween(300)) }
+        stagePrev.value = StagePics(page, page, page = true)
+        try { stageMix.animateTo(1f, androidx.compose.animation.core.tween(240)) }
         finally { kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { stageMix.snapTo(1f); stagePrev.value = null } }
     }
 
@@ -532,12 +532,15 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
     val artKey = remember(tr.art) { MusicUi.artKey(tr.art) }
     val artImg = remember(artKey) { tr.art?.asImageBitmap() }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (prev != null) Image(prev.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        if (cur != null) Image(cur.back, null, Modifier.fillMaxSize().graphicsLayer { alpha = if (prev != null) MusicUi.stageMix.value else 1f },
-            contentScale = ContentScale.Crop)
-        // The page darkened as before (the blurred artwork at 85 % on black, then 35 % black over it), and more while
-        // paused (the glass over it dims the same way: its veil).
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+        // The page faded from (another page as it is, or the last song's darkened like this one), and this song's
+        // picture darkened, fading in over it as one layer (darkening both together dimmed the page faded from).
+        if (prev != null) { Image(prev.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            if (!prev.page) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f))) }
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (prev != null) MusicUi.stageMix.value else 1f }) {
+            if (cur != null) Image(cur.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+        }
+        // More dimmed while paused (the glass over it dims the same way: its veil).
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = MusicUi.pauseDim.value * VEIL_DIM }.background(Color.Black))
         Column(Modifier.align(Alignment.Center).offset(y = (-34 * s).dp).onFocusChanged { MusicUi.stageFocused = it.hasFocus },
             horizontalAlignment = Alignment.CenterHorizontally) {

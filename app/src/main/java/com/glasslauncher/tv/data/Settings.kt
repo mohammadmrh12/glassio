@@ -586,7 +586,8 @@ class Settings(private val ctx: Context) {
     var lockedApps: List<String> get() = list("lockedApps"); set(v) = putList("lockedApps", v)
     // Channels (Settings → Channels): an app's rows (Continue watching, New…) in the carousel's place while it is selected.
     var channelsOn: Boolean get() = b("channelsOn", false); set(v) = putB("channelsOn", v)
-    var channelsRows: Int get() = i("channelsRows", 3); set(v) = putI("channelsRows", v.coerceIn(1, 3))
+    /** Rows shown at once (1 or 2); the others come in with Up / Down. */
+    var channelsRows: Int get() = i("channelsRows", 2).coerceIn(1, 2); set(v) = putI("channelsRows", v.coerceIn(1, 2))
     /** Cards that fit across a row at first (wide cards; posters are narrower, so more of them show). */
     var channelsCards: Int get() = i("channelsCards", 4); set(v) = putI("channelsCards", v.coerceIn(3, 8))
     /** The selected card's soft light, like the Library's: off, white or in the card's own colour. */
@@ -598,6 +599,8 @@ class Settings(private val ctx: Context) {
     var channelsGlowSize: Float get() = f("channelsGlowSize", 1f); set(v) = putF("channelsGlowSize", v.coerceIn(0.3f, 1.6f))
     /** The app's name over the rows: white, or in its icon's colour ("icon"). */
     var channelsLabel: String get() = s("channelsLabel", "white"); set(v) = putS("channelsLabel", v)
+    /** Hue: the lights take the colour of the card selected in the rows. */
+    var channelsHue: Boolean get() = b("channelsHue", false); set(v) = putB("channelsHue", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */

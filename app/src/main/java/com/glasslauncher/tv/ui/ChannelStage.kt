@@ -79,15 +79,18 @@ object ChannelsUi {
     /** The page and the glass have switched to the rows' background (the music page waits for this to give way). */
     val pageOn = mutableStateOf(false)
     /** The selected card's picture (its link and the picture): the blurred background (Settings → Channels → Background). */
-    val art = mutableStateOf<Pair<String, android.graphics.Bitmap>?>(null)
+    val art = mutableStateOf<Pair<String, android.graphics.Bitmap?>?>(null)
+    /** Makes a card's blurred background ahead, in the background (set by the home screen). */
+    @Volatile var warm: ((String, android.graphics.Bitmap) -> Unit)? = null
 }
 
 /**
- * An app's channels in the carousel's place, each row with its name and its cards: up to three rows one above the
- * other, or one row in the middle that Up / Down switch (Settings → Channels → Layout). ▲ from the dock goes into
- * the rows, ▼ from the lowest one back to the app, ▲ from the top one to the menu. Every move is decided here: left
- * to the system, Up from a row could land on the carousel's hidden buttons behind (nothing on screen was selected),
- * and Right past the last card went on to the menu.
+ * An app's channels in the carousel's place, each row with its name and its cards: one or two rows at a time (one
+ * in the middle, or two one above the other), and every row of the app reached with Up / Down: past the lowest
+ * row shown the next one comes in (the 3rd, the 4th…), only after the last row Down goes back to the dock.
+ * ▲ from the dock goes into the lowest row shown, ▲ from the first row to the menu. Every move is decided here:
+ * left to the system, Up from a row could land on the carousel's hidden buttons behind, and Right past the last
+ * card went on to the menu.
  */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -98,16 +101,20 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
     val st = app.settings
     val glow = st.channelsGlow
     val glowAmt = st.channelsGlowSize
-    val single = st.channelsLayout == "single"
+    val hueApp = if (st.channelsHue && com.glasslauncher.tv.data.HueSync.ready(st)) app else null
+    val blurBg = st.channelsBg == "blur"
+    // Rows shown at once, and the first of them (the window moves with the selection).
+    val vis = (if (st.channelsLayout == "single") 1 else st.channelsRows.coerceIn(1, 2)).coerceAtMost(rows.size.coerceAtLeast(1))
+    var win by remember(pkg) { mutableIntStateOf(0) }
+    if (win > (rows.size - vis).coerceAtLeast(0)) win = (rows.size - vis).coerceAtLeast(0)
+    val shown = (win until (win + vis).coerceAtMost(rows.size)).toList()
     // One focus handle per card ("row key#index"), each row's scroll and the card last selected in it.
     val reqs = remember(pkg) { HashMap<String, FocusRequester>() }
     fun req(r: Int, i: Int) = reqs.getOrPut("${rows[r].key}#$i") { FocusRequester() }
     val lastSel = remember(pkg) { HashMap<String, Int>() }
     val states = rows.map { ch -> androidx.compose.runtime.key(ch.key) { rememberLazyListState() } }
-    // Where the selection is now (row, card), and the row shown in the one-row layout.
+    // Where the selection is now (row, card).
     val at = remember(pkg) { intArrayOf(-1, -1) }
-    var cur by remember(pkg) { mutableIntStateOf(0) }
-    if (cur > rows.lastIndex) cur = rows.lastIndex.coerceAtLeast(0)
     // The app's name in the icon's own colour (Settings → Channels → App name).
     var appColor by remember(pkg) { mutableStateOf(Glow.cached("lbl:$pkg")) }
     LaunchedEffect(pkg, st.channelsLabel) {
@@ -122,13 +129,16 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         }
     }
     val nameColor = (if (st.channelsLabel == "icon") appColor else null) ?: Color.White
+    // The blurred background's first picture: the first row's first card, known before its picture is loaded (a
+    // blur made ahead for it shows at once).
+    LaunchedEffect(pkg) { ChannelsUi.art.value = rows.firstOrNull()?.programs?.firstOrNull()?.poster?.takeIf { it.isNotBlank() }?.let { it to null } }
 
     /** The card of row [r] under the selected card (its centre nearest), fully on screen if one is. */
     fun below(r: Int, fromCentre: Float?): Int {
         val info = states[r].layoutInfo
-        val vis = info.visibleItemsInfo
-        if (vis.isEmpty()) return lastSel[rows[r].key] ?: 0
-        val full = vis.filter { it.offset >= info.viewportStartOffset && it.offset + it.size <= info.viewportEndOffset }.ifEmpty { vis }
+        val vs = info.visibleItemsInfo
+        if (vs.isEmpty()) return lastSel[rows[r].key] ?: 0
+        val full = vs.filter { it.offset >= info.viewportStartOffset && it.offset + it.size <= info.viewportEndOffset }.ifEmpty { vs }
         val c = fromCentre ?: return (lastSel[rows[r].key]?.takeIf { i -> full.any { it.index == i } } ?: full.first().index)
         return full.minBy { kotlin.math.abs(it.offset + it.size / 2f - c) }.index
     }
@@ -144,10 +154,12 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         }
     }
     fun centreOf(r: Int, i: Int): Float? = states[r].layoutInfo.visibleItemsInfo.firstOrNull { it.index == i }?.let { it.offset + it.size / 2f }
-    /** One-row layout: the next / previous row takes the place, at the card under the selected one. */
-    fun switchTo(t: Int) {
-        val c = centreOf(cur, at[1])
-        cur = t; at[0] = t
+    /** To row [t]: the window moves to show it (when it is outside), then the card under the selected one. */
+    fun goRow(t: Int) {
+        val c = centreOf(at[0], at[1])
+        val nw = when { t < win -> t; t >= win + vis -> t - vis + 1; else -> win }
+        if (nw == win) { focusCard(t, below(t, c)); return }
+        win = nw; at[0] = t
         scope.launch {
             repeat(2) { androidx.compose.runtime.withFrameNanos { } }
             focusCard(t, below(t, c))
@@ -155,44 +167,35 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
     }
 
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-        // The Library's grey page (painted once, dithered) covers the carousel's picture.
         val density = androidx.compose.ui.platform.LocalDensity.current
-        val bw = with(density) { maxWidth.roundToPx() }; val bh = with(density) { maxHeight.roundToPx() }
-        // (No background here: the page behind and the glass show it, crossfaded together. Drawn here as well, the
-        // page changed at once while the glass still faded.)
-        LaunchedEffect(pkg) { ChannelsUi.art.value = null }
+        // (No background here: the page behind and the glass show it, crossfaded together.)
         // Sizes. The rows fill the room between the top edge and the dock (none cut off); the cards are as big as the
         // chosen number across a row allows (Settings → Channels → Cards in a row), smaller when the rows wouldn't fit.
         // Spacing leaves room for the selected card's zoom (neighbours aren't covered) and its glow (not cut off).
         val zoomW = 1.13f; val zoomP = 1.16f
         val side = 48 * s; val labelH = 18 * s; val rowGap = 8 * s
         val n = st.channelsCards
-        val shownRows = if (single) 1 else rows.size.coerceAtLeast(1)
         val wideFit = (maxWidth.value - 2 * side - (n - 1) * 4 * s) / (n + (n - 1) * (zoomW - 1f) / 2f)
-        // Under the clock when it always shows (not hidden until the settings button is selected).
-        // Under the music island too, while a song plays (it stands in for the music page here).
+        // Under the clock when it always shows, and under the music island while a song plays.
         val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
         val top = (if ((!st.topAutoHide && st.showClock) || (st.musicOn && song != null)) 64 else 30) * s
         val room = maxHeight.value - bottom - top
-        val hFit = (room - (shownRows - 1) * rowGap - shownRows * (labelH + 6 * s)) / (shownRows * zoomP)
+        val hFit = (room - (vis - 1) * rowGap - vis * (labelH + 6 * s)) / (vis * zoomP)
         val cardH = minOf(wideFit * 9f / 16f, hFit).coerceAtLeast(40 * s)
-        // Room above and below the cards for the zoom (part of the row's height) and for the glow (drawn over the
-        // space around, not taking any).
         val grow = cardH * (zoomP - 1f) / 2f + 3 * s
         val glowPad = cardH * zoomP * 0.2f * glowAmt + 4 * s
         val padV = grow + glowPad
-        val content = shownRows * (labelH + cardH + 2 * grow) + (shownRows - 1) * rowGap
-        // One row: in the middle of the room; rows: from the dock up.
-        val lift = if (single) bottom + (room - content) / 2f else bottom
+        val content = vis * (labelH + cardH + 2 * grow) + (vis - 1) * rowGap
+        // One row: in the middle of the room; two: from the dock up.
+        val lift = if (vis == 1) bottom + (room - content) / 2f else bottom
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = lift.coerceAtLeast(bottom).dp)
             .onFocusChanged { ChannelsUi.focused = it.hasFocus }
             .focusRequester(ChannelsUi.entry)
-            // From the dock (Up): the lowest row; from the menu / the top bar: the top row. One row: that row.
+            // From the dock (Up): the lowest row shown; from the menu / the top bar: the first row shown.
             .focusProperties { enter = { dir -> when {
                 rows.isEmpty() -> FocusRequester.Default
-                single -> req(cur, below(cur, null))
-                dir == androidx.compose.ui.focus.FocusDirection.Up -> req(rows.lastIndex, below(rows.lastIndex, null))
-                else -> req(0, below(0, null))
+                dir == androidx.compose.ui.focus.FocusDirection.Up -> shown.last().let { req(it, below(it, null)) }
+                else -> shown.first().let { req(it, below(it, null)) }
             } } }
             .onPreviewKeyEvent { ev ->
                 val r = at[0]; val i = at[1]
@@ -200,16 +203,8 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                 val cards = rows[r].programs.size
                 val down = ev.type == KeyEventType.KeyDown
                 when (ev.key) {
-                    Key.DirectionUp -> { if (down) { when {
-                        r == 0 -> onUp()
-                        single -> switchTo(r - 1)
-                        else -> focusCard(r - 1, below(r - 1, centreOf(r, i)))
-                    } }; true }
-                    Key.DirectionDown -> { if (down) { when {
-                        r == rows.lastIndex -> onDown()
-                        single -> switchTo(r + 1)
-                        else -> focusCard(r + 1, below(r + 1, centreOf(r, i)))
-                    } }; true }
+                    Key.DirectionUp -> { if (down) { if (r == 0) onUp() else goRow(r - 1) }; true }
+                    Key.DirectionDown -> { if (down) { if (r == rows.lastIndex) onDown() else goRow(r + 1) }; true }
                     // The ends of a row: the selection stays.
                     Key.DirectionRight -> i >= cards - 1
                     Key.DirectionLeft -> i <= 0
@@ -218,19 +213,19 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
             }
             .focusGroup(),
             verticalArrangement = Arrangement.spacedBy(rowGap.dp)) {
-            rows.forEachIndexed { r, ch ->
-                if (single && r != cur) return@forEachIndexed
+            shown.forEach { r ->
+                val ch = rows[r]
                 androidx.compose.runtime.key(ch.key) {
                     var sel by remember { mutableIntStateOf(-1) }
                     Column {
                         Row(Modifier.height(labelH.dp).padding(start = side.dp, end = side.dp), verticalAlignment = Alignment.CenterVertically) {
                             val name = androidx.compose.ui.text.buildAnnotatedString {
-                                if (r == 0 || single) {
+                                if (r == shown.first()) {
                                     withStyle(androidx.compose.ui.text.SpanStyle(color = nameColor)) { append(label) }
                                     append("  ·  ")
                                 }
                                 append(ch.name)
-                                if (single && rows.size > 1) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.45f))) { append("   ${r + 1} / ${rows.size}") }
+                                if (rows.size > vis) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.45f))) { append("   ${r + 1} / ${rows.size}") }
                             }
                             Text(name, color = Color.White.copy(alpha = 0.85f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                             // The selected card's title, next to the row's name.
@@ -255,7 +250,7 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                             }) {
                             items(ch.programs.size, key = { ch.programs[it].id }) { i ->
                                 val p = ch.programs[i]
-                                ChannelCard(p, s, cardH, glow, glowAmt, lead = (if (single) r == cur else r == 0) && i == 0,
+                                ChannelCard(p, s, cardH, glow, glowAmt, blurBg, hueApp,
                                     Modifier.focusRequester(req(r, i))
                                         .onFocusChanged { f ->
                                             if (f.isFocused) { sel = i; at[0] = r; at[1] = i; lastSel[ch.key] = i }
@@ -285,17 +280,21 @@ private class FirstPlace(private val start: Float) : androidx.compose.foundation
 }
 
 @Composable
-private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, glowAmt: Float, lead: Boolean, modifier: Modifier, onOpen: () -> Unit) {
+private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, glowAmt: Float, blurBg: Boolean, hueApp: com.glasslauncher.tv.GlassApp?, modifier: Modifier, onOpen: () -> Unit) {
     val ctx = LocalContext.current
     var focused by remember { mutableStateOf(false) }
     var failed by remember(p.poster) { mutableStateOf(p.poster.isBlank()) }
     var gc by remember(p.poster) { mutableStateOf(Glow.cached("ch:" + p.poster)) }
     var bmp by remember(p.poster) { mutableStateOf<android.graphics.Bitmap?>(null) }
-    // The blurred background follows the selected card (the first card's picture until one is selected).
-    androidx.compose.runtime.LaunchedEffect(focused, bmp) {
-        val b = bmp ?: return@LaunchedEffect
-        if (focused || (lead && ChannelsUi.art.value == null)) ChannelsUi.art.value = p.poster to b
+    // The blurred background follows the selected card; its picture, once loaded, also goes to the first card's
+    // entry (set before the picture was there).
+    LaunchedEffect(focused, bmp) {
+        val b = bmp
+        val cur = ChannelsUi.art.value
+        if (focused || (cur?.first == p.poster && cur.second == null && b != null)) ChannelsUi.art.value = p.poster to b
     }
+    // Hue (Settings → Channels / Hue lights): the lights take the selected card's colour, like the Library's posters.
+    if (hueApp != null) com.glasslauncher.tv.ui.HueFocus(hueApp, true, focused, gc, poster = true)
     // Like the Library: the selected card grows (no frame), with the same soft light around it when it is on.
     val k by animateFloatAsState(if (focused) (if (p.wide) 1.13f else 1.16f) else 1f, tween(160, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "chan")
     val glowA by animateFloatAsState(if (focused && glow != "off") 1f else 0f, tween(220), label = "chanGlow")
@@ -313,7 +312,9 @@ private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, g
             onSuccess = { r ->
                 val b = (r.result.image as? coil3.BitmapImage)?.bitmap
                 bmp = b
-                if (glow == "color" && gc == null) Thread { gc = Glow.colorOf("ch:" + p.poster, b) }.start()
+                // The blurred background made ahead for every card on screen: moving to one shows it at once.
+                if (blurBg && b != null) ChannelsUi.warm?.invoke(p.poster, b)
+                if ((glow == "color" || hueApp != null) && gc == null) Thread { gc = Glow.colorOf("ch:" + p.poster, b) }.start()
             })
         // No picture (or one Glassio isn't allowed to read): the title instead.
         else Text(p.title, color = Color.White.copy(alpha = 0.85f), fontSize = (8.5f * s).sp, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
