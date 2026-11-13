@@ -205,6 +205,8 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                 when (ev.key) {
                     Key.DirectionUp -> { if (down) { if (r == 0) onUp() else goRow(r - 1) }; true }
                     Key.DirectionDown -> { if (down) { if (r == rows.lastIndex) onDown() else goRow(r + 1) }; true }
+                    // Back: to the app in the dock (the selection was lost).
+                    Key.Back -> { if (ev.type == KeyEventType.KeyUp) onDown(); true }
                     // The ends of a row: the selection stays.
                     Key.DirectionRight -> i >= cards - 1
                     Key.DirectionLeft -> i <= 0

@@ -22,8 +22,8 @@ object Channels {
     const val PERMISSION = "android.permission.READ_TV_LISTINGS"
     const val WATCH_NEXT_NAME = "Continue watching"
 
-    /** Nuvio's apps keep the carousel (it is made of their titles): their rows never take its place. */
-    fun keepsCarousel(pkg: String) = pkg.contains("nuvio", ignoreCase = true)
+    /** Nuvio's and Stremio's apps keep the carousel (it is made of their titles): no rows, no music player there. */
+    fun keepsCarousel(pkg: String) = pkg.contains("nuvio", ignoreCase = true) || pkg.contains("stremio", ignoreCase = true)
 
     /** Every app's rows that have something in them (read on the main thread's behalf, see [refresh]). */
     val all = androidx.compose.runtime.mutableStateOf<List<Channel>>(emptyList())

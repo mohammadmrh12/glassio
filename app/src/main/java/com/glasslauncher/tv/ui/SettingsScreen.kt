@@ -1170,11 +1170,12 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("Glow", "A very soft light around the selected card, like in the Library", { when (st.channelsGlow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
                         { st.channelsGlow = cycle(listOf("off", "color", "white"), st.channelsGlow, it) }))
                     if (st.channelsGlow != "off") add(Adjust("  · Glow size", "How far and how strong it is", { pct(st.channelsGlowSize) }, { st.channelsGlowSize = ((st.channelsGlowSize * 10).roundToInt() + it) / 10f }))
+                    add(Toggle("Music apps: their rows", "Off: a music app selected in the dock (Spotify, SoundCloud…) shows its player, also with nothing playing. On: its rows, like other apps", { st.channelsMusicRows }, { st.channelsMusicRows = it }))
                     add(Toggle("Hue lights", "The lights take the colour of the card you're on (Hue lights must be set up)", { st.channelsHue }, { st.channelsHue = it }))
                     if (st.channelsHue) add(Adjust("  · Brightness", "How bright the lights are with the card's colour (shared with the Library's posters)", { "${st.huePostersBri} %" }, { st.huePostersBri = st.huePostersBri + it * 5 }))
                     add(Adjust("App name", "The app's name over the rows: white, or in its icon's colour", { if (st.channelsLabel == "icon") "Icon colour" else "White" },
                         { st.channelsLabel = cycle(listOf("white", "icon"), st.channelsLabel, it) }))
-                    add(Note("Nuvio's apps keep the carousel, and a locked app's channels never show. An app's rows: press OK on it to switch them off, hide one of them or change their order."))
+                    add(Note("Nuvio and Stremio keep the carousel (no rows, no music player), and a locked app's channels never show. An app's rows: press OK on it to switch them off, hide one of them or change their order."))
                     add(Note("Apps with channels"))
                     val apps = ch.apps()
                     if (access && apps.isEmpty()) add(Note("No app on this TV has published channels yet. Open YouTube, Netflix… once and come back."))

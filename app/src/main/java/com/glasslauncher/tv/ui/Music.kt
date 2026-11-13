@@ -174,6 +174,21 @@ object MusicUi {
     val focusRev = androidx.compose.runtime.mutableIntStateOf(0)
     /** A music app selected in the dock (its player shows in the carousel's place, also with nothing playing). */
     val dockApp = mutableStateOf<String?>(null)
+    /** The dock's Music icon is selected: the music apps stand in the carousel's place. */
+    val appsOn = mutableStateOf(false)
+    @Volatile var appsFocused = false
+    val appsEntry = FocusRequester()
+    val appsShowing get() = appsOn.value && !forced.value
+    /** Nuvio / Stremio selected in the dock: the carousel stays, also while music plays (the island shows it). */
+    val carouselApp = mutableStateOf(false)
+    /** The dock's tile for an app (set by the home screen). */
+    @Volatile var tileFor: (String) -> FocusRequester? = { null }
+    /** Down from the player: back to the tile it came from (the Music icon, or the music app), else the first app. */
+    fun downTo(first: FocusRequester): FocusRequester = when {
+        forced.value -> tileFor(DOCK_PKG)
+        dockApp.value != null -> tileFor(dockApp.value!!)
+        else -> null
+    } ?: first
     /** Its player with nothing playing is on screen (the page under it is the grey one). */
     val idleOn = mutableStateOf(false)
     /**
@@ -610,17 +625,17 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
             val big = (40 * k).dp; val small = (32 * k).dp
             val shuffled = NowPlaying.shuffled.value
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
-                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, active = shuffled, onOff = true, onClick = { NowPlaying.shuffle(ctx, !shuffled) }) { shuffleGlyph(it) }
-                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = { NowPlaying.previous() }) { skipGlyph(it, false) }
-                MusicButton(big, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = firstTile }, onClick = { NowPlaying.playPause() }) { playGlyph(it, tr.playing) }
-                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = { NowPlaying.next() }) { skipGlyph(it, true) }
+                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, active = shuffled, onOff = true, onClick = { NowPlaying.shuffle(ctx, !shuffled) }) { shuffleGlyph(it) }
+                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = { NowPlaying.previous() }) { skipGlyph(it, false) }
+                MusicButton(big, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile) }, onClick = { NowPlaying.playPause() }) { playGlyph(it, tr.playing) }
+                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = { NowPlaying.next() }) { skipGlyph(it, true) }
                 // Stop: the player goes away, so the selection moves to the dock (it was left nowhere).
-                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = {
+                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = {
                     runCatching { firstTile.requestFocus() }
                     NowPlaying.stop()
                     scope.launch { delay(120); runCatching { firstTile.requestFocus() } }
                 }) { stopGlyph(it) }
-                MusicButton(small, look, light, Modifier.focusProperties { down = firstTile }, onClick = onApps) { listGlyph(it) }
+                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
             Text(NowPlaying.appLabel(tr.pkg), color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)
@@ -670,9 +685,9 @@ private fun MusicIdle(app: GlassApp, s: Float, pkg: String, heroFocus: FocusRequ
             val look = st.musicButtons
             val light = st.dockStyle == "bow" && look == "theme"
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
-                MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = firstTile },
+                MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile) },
                     onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg, scope) }) { playGlyph(it, false) }
-                MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = firstTile }, onClick = onApps) { listGlyph(it) }
+                MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
             Text("Play carries on where $label left off  ·  ≡ music apps", color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)

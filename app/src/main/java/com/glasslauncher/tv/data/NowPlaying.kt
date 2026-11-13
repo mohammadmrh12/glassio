@@ -128,7 +128,13 @@ object NowPlaying {
     /** The music session to follow: the one playing, else the last one that has a song. */
     private fun pick(ctx: Context) {
         val list = runCatching { msm?.getActiveSessions(listener(ctx)) }.getOrNull().orEmpty().filter { isMusic(it) }
-        val best = list.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: list.firstOrNull()
+        // The one playing; else the one followed so far, while it is still there (stopped from Glassio too: its
+        // player goes, and another app's paused song from before didn't come up under it); else the last to play.
+        val best = list.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+            ?: list.firstOrNull { it.sessionToken == controller?.sessionToken }
+            ?: list.maxByOrNull { lastPlayed[it.packageName] ?: 0L }?.takeIf { (lastPlayed[it.packageName] ?: 0L) > 0L }
+            ?: list.firstOrNull().takeIf { controller == null }
+        list.forEach { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) lastPlayed[it.packageName] = android.os.SystemClock.uptimeMillis() }
         if (best?.sessionToken != controller?.sessionToken) {
             runCatching { controller?.unregisterCallback(callback) }
             controller = best
@@ -271,6 +277,8 @@ object NowPlaying {
     }
     /** When Stop was pressed here (the player then goes at once, not after the short hold of MusicUi.heldTrack). */
     @Volatile var stoppedAt = 0L
+    /** When each app last played (which one comes back when the one followed goes away). */
+    private val lastPlayed = java.util.concurrent.ConcurrentHashMap<String, Long>()
     /** Stopped from Glassio: this session shows nothing until it plays again. */
     @Volatile private var stoppedToken: android.media.session.MediaSession.Token? = null
     /** Shuffle on / off in the playing app (most music apps take it through their media session). */
