@@ -1416,7 +1416,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             "settings put secure accessibility_enabled 1; appops set ${ctx.packageName} ACCESS_RESTRICTED_SETTINGS allow 2>/dev/null; " +
                             // Lets Glassio switch the service back on by itself after every update.
                             "pm grant ${ctx.packageName} android.permission.WRITE_SECURE_SETTINGS 2>/dev/null; true"
-                        val r = com.glasslauncher.tv.data.LocalShell.run(ctx, cmd)
+                        // Without ADB (Fire TV) the right to change the TV's settings, given from a computer, is enough.
+                        val direct = com.glasslauncher.tv.data.SystemSetup.secureOk(ctx) && com.glasslauncher.tv.data.SystemSetup.enableHomeKey(ctx)
+                        val r = if (direct) Result.success("") else com.glasslauncher.tv.data.LocalShell.run(ctx, cmd)
                         homeKeyOn = isHomeKeyOn(ctx)
                         toast(ctx, if (r.isSuccess && homeKeyOn) "Accessibility service turned on" else if (r.isSuccess) "Done, but the TV didn't turn it on. Try the button above" else "Allow TV access (ADB) first: steps below")
                     }
@@ -1448,6 +1450,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 Note("TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use the TV's own debugging connection. Turn it on once:"),
                 Note("1. Developer options: open About below and press OK on \"Android TV OS build\" (or \"Build\") 7 times, until it says you are a developer."),
                 Note("2. Open Developer options below and turn on USB debugging (on some TVs also \"Network debugging\" / \"ADB over network\")."),
+                *(if (com.glasslauncher.tv.data.SystemSetup.isFireTv()) arrayOf<SRow>(Note("Fire TV doesn't let apps use its own ADB any more (Fire OS 7.6.6.9 / 8.1.0.3 and later), so \"Allow Glassio\" can't work there. " +
+                    "From a computer or phone with ADB, connected to this Fire TV, type once: " + com.glasslauncher.tv.data.SystemSetup.FIRE_TV_COMMANDS +
+                    ". Glassio then turns on the Home button service (remote buttons, cameras) and the music player by itself.")) else emptyArray()),
                 Note("3. Press \"Allow Glassio\" below. The TV asks \"Allow USB debugging?\": tick Always allow from this computer, then OK. It is asked only once."),
                 Act("1 · Open About (enable Developer options)", if (devOn) "Developer options are on" else "Press OK on the build number 7 times", "") { openSystem(ctx, AndroidSettings.ACTION_DEVICE_INFO_SETTINGS) },
                 Act("2 · Open Developer options", if (adbOn) "USB debugging is on" else "Turn on USB debugging", "") { openSystem(ctx, AndroidSettings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) },
@@ -1459,6 +1464,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         // Why it failed, in a few words (a TV that never asks is told apart from one that refused).
                         val why = r.exceptionOrNull()?.let { e -> (e.cause ?: e).let { c -> c.message?.take(60) ?: c.javaClass.simpleName } }.orEmpty()
                         toast(ctx, if (ok) "Glassio can use ADB" else if (!adbOn) "Turn on USB debugging first (step 2)"
+                            else if (com.glasslauncher.tv.data.SystemSetup.isFireTv()) "Fire TV doesn't let apps use its own ADB: see the note above (from a computer, once)"
                             else "Choose Always allow on the TV, then press OK here again" + if (why.isNotBlank()) " ($why)" else "")
                     }
                 },
