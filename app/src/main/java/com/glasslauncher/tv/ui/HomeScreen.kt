@@ -893,13 +893,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // (also with nothing playing), the music apps (the Music icon), or the carousel (Nuvio / Stremio and
                     // apps without rows). Worked out once the selection rests a moment, and all changed together: cleared
                     // at once, the carousel (or the music page) flashed between two of them.
-                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, com.glasslauncher.tv.data.Channels.all.value, expanded) {
+                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
                         if (dockPkg == null) {
                             // (Down into the open dock's second row: what shows above stays, its background too.)
                             delay(150)
                             // (An app no longer installed goes in any case.)
                             MusicUi.dockApp.value?.let { p -> if (runCatching { ctx.packageManager.getPackageInfo(p, 0) }.isFailure) MusicUi.dockApp.value = null }
-                            if (!expanded) {
+                            // (Also with an app's menu open (hold OK), or its icon picker: what shows stays behind it.)
+                            if (!expanded && pop == null && pickerFor == null) {
                                 if (!ChannelsUi.focused) ChannelsUi.stagePkg.value = null
                                 if (!MusicUi.stageFocused) MusicUi.dockApp.value = null
                                 // (Up into the Music icon's player: still the Music icon's, Stop / pause come back to it.)
