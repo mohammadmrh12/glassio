@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,7 +87,7 @@ object ChannelsUi {
  * to the system, Up from a row could land on the carousel's hidden buttons behind (nothing on screen was selected),
  * and Right past the last card went on to the menu.
  */
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows: List<Channels.Channel>, bottom: Float, onDown: () -> Unit, onUp: () -> Unit) {
     val ctx = LocalContext.current
@@ -170,7 +171,9 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         val shownRows = if (single) 1 else rows.size.coerceAtLeast(1)
         val wideFit = (maxWidth.value - 2 * side - (n - 1) * 4 * s) / (n + (n - 1) * (zoomW - 1f) / 2f)
         // Under the clock when it always shows (not hidden until the settings button is selected).
-        val top = (if (!st.topAutoHide && st.showClock) 64 else 30) * s
+        // Under the music island too, while a song plays (it stands in for the music page here).
+        val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
+        val top = (if ((!st.topAutoHide && st.showClock) || (st.musicOn && song != null)) 64 else 30) * s
         val room = maxHeight.value - bottom - top
         val hFit = (room - (shownRows - 1) * rowGap - shownRows * (labelH + 6 * s)) / (shownRows * zoomP)
         val cardH = minOf(wideFit * 9f / 16f, hFit).coerceAtLeast(40 * s)
@@ -242,6 +245,9 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                         // Laid out with the glow's room above and below, but taking only the zoom's room: the glow
                         // spreads over the space around the row instead of being cut off at its edge.
                         val extra = with(density) { (padV - grow).dp.roundToPx() }
+                        // TV scrolling: the selected card always stands in the first place, the row moves under it.
+                        val sidePx = with(density) { side.dp.toPx() }
+                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides remember(sidePx) { FirstPlace(sidePx) }) {
                         LazyRow(state = states[r], horizontalArrangement = Arrangement.spacedBy(gap.dp),
                             contentPadding = PaddingValues(horizontal = side.dp, vertical = padV.dp),
                             modifier = Modifier.layout { m, c ->
@@ -259,10 +265,23 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                                     onOpen = { Channels.open(ctx, pkg, p) })
                             }
                         }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/** A row's scrolling: the selected card goes to the row's first place (its left margin), with a soft glide. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private class FirstPlace(private val start: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 420f, visibilityThreshold = 0.5f)
+    @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> get() = soft
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val d = offset - start
+        return if (kotlin.math.abs(d) < 1f) 0f else d
     }
 }
 

@@ -256,7 +256,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // Blurred card (Settings → Channels → Background): the selected card's picture, blurred and darkened
             // like the music page; a short wait first, so moving along a row doesn't blur every card passed.
             val art = ChannelsUi.art.value?.takeIf { settings.channelsBg == "blur" }
-            if (art != null && shownUrl.value?.startsWith("glassio:channels") == true) delay(260)
+            if (art != null && shownUrl.value?.startsWith("glassio:channels") == true) delay(140)
             val (page, glass) = withContext(Dispatchers.Default) {
                 val g = art?.let { (link, b) -> runCatching { channelArtPage(b, w, h) }.getOrNull()?.let { link to it } }
                 val pg = g?.second ?: greyPage(w, h)
@@ -269,7 +269,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             mix.snapTo(0f)
             shownBackdrop = page
             shownUrl.value = "glassio:channels"
-            try { mix.animateTo(1f, tween(if (art != null) 450 else 220)) } finally {
+            try { mix.animateTo(1f, tween(if (art != null) 320 else 220)) } finally {
                 prevImgs = null; prevBackdrop = null
                 withContext(kotlinx.coroutines.NonCancellable) { mix.snapTo(1f) }
             }
@@ -606,7 +606,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // Music mode: the glass (dock, menus, pop-ups) shows the music page (its blurred artwork), not the carousel
         // picture under it, and changes with each song.
         val songNow = MusicUi.heldTrack()
-        val stageWanted = MusicUi.stageOn(settings, songNow)
+        // (Not while the channels' rows show: the music is the island then, and the page and glass stay theirs.)
+        val stageWanted = MusicUi.stageOn(settings, songNow) && !ChannelsUi.shown.value
         val stageArt = songNow?.art?.takeIf { stageWanted }
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
         // (Keyed by how the artwork looks: the app sends a new picture object with every update.) A song whose
@@ -809,7 +810,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     LaunchedEffect(settings.channelsOn) { if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(ctx) }
                     val chanPkg = ChannelsUi.stagePkg.value
                     val chanRows = if (chanPkg != null && !expanded && !folderOpen && screen == Screen.Home) com.glasslauncher.tv.data.Channels.rowsFor(settings, chanPkg) else emptyList()
-                    val chanOn = chanPkg != null && chanRows.isNotEmpty()
+                    // The dock's Music icon puts the player in the carousel's place: no rows then.
+                    val chanOn = chanPkg != null && chanRows.isNotEmpty() && !MusicUi.forced.value
                     HeroSection(app, s, hidden = dockVeils || folderOpen || chanOn, paused = screen != Screen.Home || pop != null || chanOn, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
@@ -864,7 +866,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // A trailer in its own window: over the dock and the dots too (only the pop-up menu is above it).
                 if (settings.trailerSize == "popup") TrailerLayer(app, s)
                 // The music island at the top of the home screen (Settings → Music), when Music mode isn't showing.
-                if (settings.musicOn && settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)) && !MusicUi.forced.value) MusicIsland(app, s)
+                if (settings.musicOn && (ChannelsUi.shown.value || (settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)))) && !MusicUi.forced.value) MusicIsland(app, s)
             }
             // The folder fades out over the home screen instead of vanishing: the dock's glass is drawn again under it
             // first (it showed black for a couple of frames as the folder closed).
@@ -1150,12 +1152,15 @@ private fun SlideBackdrop(prev: ImageBitmap?, cur: ImageBitmap?, mix: androidx.c
         val W = size.width; val H = size.height
         val dst = androidx.compose.ui.unit.IntSize(W.toInt(), H.toInt())
         // Moved by fractions of a pixel (filtered while moving): whole-pixel steps made the slow end of the slide judder.
-        fun img(b: ImageBitmap, dx: Float, dim: Float = 0f) = translate(left = dx) { drawImage(
-            b, dstSize = dst,
+        fun img(b: ImageBitmap, dx: Float, dim: Float = 0f, a: Float = 1f) = translate(left = dx) { drawImage(
+            b, dstSize = dst, alpha = a,
             filterQuality = if (b.width < W - 8 || dx != 0f) androidx.compose.ui.graphics.FilterQuality.Low else androidx.compose.ui.graphics.FilterQuality.None,
             colorFilter = if (dim > 0.002f) androidx.compose.ui.graphics.ColorFilter.tint(Color.Black.copy(alpha = dim), androidx.compose.ui.graphics.BlendMode.SrcAtop) else null,
         ) }
-        if (prev == null || dir == 0 || cur == null) { (cur ?: prev)?.let { img(it, 0f) } }
+        // No slide (the channels' backgrounds): a crossfade on the same mix as the glass, so the page never
+        // changes ahead of the dock's glass.
+        if (prev != null && cur != null && dir == 0 && mix.value < 0.999f) { img(prev, 0f); img(cur, 0f, a = mix.value) }
+        else if (prev == null || dir == 0 || cur == null) { (cur ?: prev)?.let { img(it, 0f) } }
         else {
             val f = slideFrame(kind, dir, mix.value, W)
             // Each picture only where it shows: nothing is drawn twice, the TV GPU reads each pixel once.
