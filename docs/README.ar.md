@@ -1,5 +1,11 @@
 <img src="brand/readme_banner.png" width="100%" alt="Glassio">
 
+<p align="center">
+  <a href="https://www.reddit.com/r/glassio_/"><img src="https://img.shields.io/badge/Reddit-r%2Fglassio__-FF4500?style=for-the-badge&logo=reddit&logoColor=white" alt="انضم لـ r/glassio_ على ريدت"></a>
+  <a href="https://github.com/mohammadmrh12/glassio/releases/latest"><img src="https://img.shields.io/github/v/release/mohammadmrh12/glassio?style=for-the-badge&label=Download&color=6E5BFF" alt="Download the latest release"></a>
+  <a href="https://github.com/mohammadmrh12/glassio/discussions"><img src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
+</p>
+
 <div dir="rtl">
 
 # Glassio — دليل الاستخدام
@@ -16,7 +22,7 @@ Home Assistant، وسنك بين تلفزيوناتك.
 | ![السكرين سيفر](screenshots/54-screensaver-netflix.jpg) | ![الإعداد الأول](screenshots/55-setup-hello.jpg) |
 | ![سكرين سيفر التريلرات](screenshots/72-screensaver-trailers.jpg) | ![زجاج نفطي](screenshots/71-dock-petrol-glass.jpg) |
 
-[English](../README.md) · [سجل التغييرات](CHANGELOG.ar.md) · [ريدت r/glassio_](https://www.reddit.com/r/glassio_/)
+[English](../README.md) · [سجل التغييرات](CHANGELOG.ar.md)
 
 ## المميزات
 
