@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://www.reddit.com/r/glassio_/"><img src="https://img.shields.io/badge/Reddit-r%2Fglassio__-FF4500?style=for-the-badge&logo=reddit&logoColor=white" alt="Join r/glassio_ on Reddit"></a>
-  <a href="#install-with-downloader--the-easiest-way"><img src="https://img.shields.io/badge/Downloader-2097981-F37A22?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMSAzaDJ2MTBsMy41LTMuNSAxLjQgMS40TDEyIDE2LjggNi4xIDEwLjlsMS40LTEuNEwxMSAxM3pNNSAxOWgxNHYySDV6Ii8+PC9zdmc+" alt="Downloader code 2097981"></a>
+  <a href="#install"><img src="https://img.shields.io/badge/Downloader-2097981-F37A22?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMSAzaDJ2MTBsMy41LTMuNSAxLjQgMS40TDEyIDE2LjggNi4xIDEwLjlsMS40LTEuNEwxMSAxM3pNNSAxOWgxNHYySDV6Ii8+PC9zdmc+" alt="Downloader code 2097981"></a>
   <a href="https://github.com/mohammadmrh12/glassio/releases/latest"><img src="https://img.shields.io/github/v/release/mohammadmrh12/glassio?style=for-the-badge&label=Download&color=6E5BFF" alt="Download the latest release"></a>
   <a href="https://github.com/mohammadmrh12/glassio/discussions"><img src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
 </p>
@@ -56,18 +56,23 @@ Latest: **3.6.0** — sync between your TVs, Nuvio profiles, a new settings butt
 
 <a href="https://aftv.news/2097981"><img src="docs/brand/downloader_code.png" width="100%" alt="Downloader code 2097981: open Downloader, type 2097981, press Go"></a>
 
-### Install with Downloader — the easiest way
+<a id="install"></a>
 
-1. On the TV, install **Downloader** (by AFTVnews) from the Google Play Store or the Amazon Appstore.
-2. Open Downloader, type **`2097981`** in the box and press **Go** — Glassio's download starts.
-3. The first time, the TV asks to let Downloader install apps: turn on **Allow from this source**, then go back.
-   *Fire TV*: Settings → My Fire TV → Developer options → **Install unknown apps** → Downloader → On.
-4. Press **Install**, then **Open**. Downloader can delete the file afterwards to free space.
+### <img src="docs/icons/download.svg" width="22" alt=""> Install with Downloader
 
-Updates come inside Glassio itself, so you need Downloader only once.
+| Step | On the TV |
+|:--:|---|
+| **1** | Install **Downloader** from Google Play or the Amazon Appstore |
+| **2** | Open it, type **`2097981`** and press **Go** |
+| **3** | When the TV asks, let Downloader install apps (**Allow from this source**) |
+| **4** | Press **Install**, then **Open** — the setup walks you through accounts, catalogs and the look |
+
+> [!NOTE]
+> **Fire TV:** Settings → My Fire TV → Developer options → **Install unknown apps** → Downloader → On.
+> You need Downloader only once: updates come inside Glassio.
 
 <details>
-<summary><img src="docs/icons/download.svg" width="18" alt=""> <b>Other ways to install</b> — from a computer, a USB stick or the release page</summary>
+<summary><img src="docs/icons/download.svg" width="18" alt=""> <b>Other ways to install</b> — release page, computer or USB stick</summary>
 
 - **Release page**: download `Glassio-x.y.z.apk` from [the latest release](https://github.com/mohammadmrh12/glassio/releases/latest).
 - **From a computer** (TV access on, same network):
@@ -78,22 +83,25 @@ Updates come inside Glassio itself, so you need Downloader only once.
 - **USB stick**: copy the APK on it and open it with a file manager on the TV.
 </details>
 
-The first time Glassio opens, a short setup walks you through accounts, catalogs and the look.
+### <img src="docs/icons/home.svg" width="22" alt=""> Make Glassio your Home button
 
-### Make Glassio your Home button
+Google TV always sends Home to its own launcher; Glassio catches it with an accessibility service.
 
-Google TV always sends Home to its own launcher, so Glassio catches it with an accessibility service.
-
-1. Settings → **System** → *Turn on the accessibility service* → **Glassio** → On.
-2. Once, from a computer — keeps the service on after updates and lets Glassio run the TV screensaver:
-   ```sh
-   adb shell pm grant com.glasslauncher.tv android.permission.WRITE_SECURE_SETTINGS
-   ```
-3. The first time Glassio uses the TV's own adb, the TV asks **"Allow USB debugging?"** — tick **Always allow**, then **Allow**.
+| Step | On the TV |
+|:--:|---|
+| **1** | Settings → **System** → *Turn on the accessibility service* → **Glassio** → On |
+| **2** | When the TV asks **Allow USB debugging?** tick **Always allow**, then **Allow** |
 
 > [!TIP]
-> Moving from another TV? Settings → **System → Back up now** there, then *Restore backup* in the setup here.
-> Or keep both TVs the same with **Settings → Sync**.
+> **Recommended, once from a computer** — keeps the service on after updates and lets Glassio run the TV screensaver:
+> ```sh
+> adb shell pm grant com.glasslauncher.tv \
+>   android.permission.WRITE_SECURE_SETTINGS
+> ```
+
+> [!TIP]
+> **Moving from another TV?** Settings → System → **Back up now** there, then *Restore backup* in the setup here —
+> or keep both TVs the same with **Settings → Sync**.
 
 ---
 
