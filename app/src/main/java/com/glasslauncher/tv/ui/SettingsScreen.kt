@@ -574,8 +574,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     { st.glassColorAmount = ((st.glassColorAmount * 20).roundToInt() + it) / 20f; GlassTint.apply(st) }),
                 Adjust("Settings button", "The button at the top that opens the menu", { SETTINGS_ICONS[st.settingsIcon] ?: "Sliders" },
                     { st.settingsIcon = cycle(SETTINGS_ICONS.keys.toList(), st.settingsIcon, it) }),
-                Adjust("  · Frame", "Around the settings button (it fills in white when selected)", { SETTINGS_FRAMES[st.settingsFrame] ?: "Square" },
-                    { st.settingsFrame = cycle(SETTINGS_FRAMES.keys.toList(), st.settingsFrame, it) }),
+                // ("hello" has no frame.)
+                *(if (st.settingsIcon == "hello") emptyArray() else arrayOf<SRow>(Adjust("  · Frame", "Around the settings button (it fills in white when selected)", { SETTINGS_FRAMES[st.settingsFrame] ?: "Square" },
+                    { st.settingsFrame = cycle(SETTINGS_FRAMES.keys.toList(), st.settingsFrame, it) }))),
                 Toggle("Bold text", "All of Glassio's writing a step bolder", { st.boldText }, { st.boldText = it; TextLook.bold.value = it }),
                 Act("Switch colour", "The colour of the switches in Settings, and of a row while you change it", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
                     dialog = ThumbDialog("Switch colour", SETTINGS_ACCENTS.map { (k, v) -> ThumbItem(v.first, if (k == "burgundy") "Default" else "", HueArt.swatch(v.second), checked = k == st.settingsAccent) { st.settingsAccent = k } })
@@ -1541,13 +1542,17 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     scope.launch(Dispatchers.IO) { toast(ctx, runCatching { "Saved: " + com.glasslauncher.tv.data.Backup.saveToTv(ctx) }.getOrElse { "Backup failed: ${it.message}" }) }
                 },
                 Act("Restore backup", "The newest backup in Download/Glassio on the TV. Glassio restarts after", "Restore") {
-                    scope.launch(Dispatchers.IO) {
+                    // Asked first: it replaces everything, and from another TV some things don't come along.
+                    dialog = MenuDialog("Replace every setting on this TV?", listOf("Restore and restart" to { scope.launch(Dispatchers.IO) {
                         val j = com.glasslauncher.tv.data.Backup.latestOnTv(ctx)
                         if (j == null) toast(ctx, "No backup on the TV yet (Download/Glassio)")
                         else runCatching { val n = com.glasslauncher.tv.data.Backup.restore(ctx, j); toast(ctx, "Restored ($n parts). Restarting…"); kotlinx.coroutines.delay(1200); com.glasslauncher.tv.data.Backup.restart(ctx) }
                             .onFailure { toast(ctx, "Restore failed: ${it.message}") }
-                    }
+                    }; Unit }, "Cancel" to { }))
                 },
+                Note("Moving your setup to another TV: back up here (or from the phone page), then restore on the other TV. " + com.glasslauncher.tv.data.Backup.MOVES),
+                Note(com.glasslauncher.tv.data.Backup.STAYS),
+                Note(com.glasslauncher.tv.data.Backup.WARN),
                 Act("Run setup again", "The welcome screen: restore, catalogs, accounts and theme", "") { st.setupDone = false; app.requestSetup.intValue++ },
                 Note("TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use the TV's own debugging connection. Turn it on once:"),
                 Note("1. Developer options: open About below and press OK on \"Android TV OS build\" (or \"Build\") 7 times, until it says you are a developer."),
@@ -2099,5 +2104,5 @@ private fun musicRowsChoice(ctx: android.content.Context, st: com.glasslauncher.
 }
 
 /** Settings → Menu & themes → Settings button: the glyphs and frames (drawn on the home screen, see GearButton). */
-private val SETTINGS_ICONS = linkedMapOf("sliders" to "Sliders", "gear" to "Gear", "dots" to "Three dots", "menu" to "Three lines", "person" to "Person", "hello" to "Hello")
+private val SETTINGS_ICONS = linkedMapOf("sliders" to "Sliders", "gear" to "Gear", "dots" to "Three dots", "menu" to "Three lines", "person" to "Person", "hello" to "hello")
 private val SETTINGS_FRAMES = linkedMapOf("square" to "Square", "circle" to "Circle", "none" to "None")

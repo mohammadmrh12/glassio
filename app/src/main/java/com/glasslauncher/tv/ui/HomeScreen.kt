@@ -40,6 +40,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -2245,23 +2247,37 @@ private fun GearButton(s: Float, icon: String, frame: String, onClick: () -> Uni
             .tvPress(onKey = { ev -> ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp && onUp() }, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        // A soft shadow under it (the same drawing in black, blurred, a little lower), so the white button reads over a
+        // bright picture too. It fades as the button fills in white.
+        val pad = 6 * s
+        val shadow = Modifier.graphicsLayer {
+            alpha = 0.6f * (1f - lit.value)
+            translationY = 1.2f * s * density
+            if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = androidx.compose.ui.graphics.BlurEffect(2.2f * s * density, 2.2f * s * density)
+        }
         if (hello) {
-            // Apple's "hello", in a script hand, in a pill (or on its own).
-            Box(Modifier.matchParentSize().drawBehind { buttonFrame(frame, Color.White, lit.value, pill = true) })
-            Text("hello", fontFamily = androidx.compose.ui.text.font.FontFamily.Cursive, fontSize = (13 * s).sp, fontWeight = FontWeight.SemiBold,
-                color = androidx.compose.ui.graphics.lerp(Color.White, Color(0xFF1C1C1E), lit.value),
-                modifier = Modifier.padding(horizontal = ((if (frame == "none") 3 else 8) * s).dp))
-        } else SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.White) { lit.value }
+            // "hello" in Glassio's own type, bold, on its own (no frame, whatever Frame says). Selected it grows like the
+            // other glyphs, staying white (there is no frame to fill).
+            @Composable fun helloText(color: Color, mod: Modifier) = Text("hello", fontSize = (14 * s).sp, fontWeight = FontWeight.Bold,
+                color = color, modifier = mod.padding(horizontal = (2 * s).dp))
+            Box(Modifier.wrapContentHeight(unbounded = true).requiredHeight((20 * s + 2 * pad).dp).then(shadow).padding(pad.dp), contentAlignment = Alignment.Center) {
+                helloText(Color.Black, Modifier)
+            }
+            helloText(Color.White, Modifier)
+        } else {
+            Box(Modifier.requiredSize((20 * s + 2 * pad).dp).then(shadow).padding(pad.dp)) { SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.Black) }
+            SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.White) { lit.value }
+        }
     }
 }
 
-/** The settings button's frame: a rounded square, a circle (a pill for "hello"), or none (only the white fill when selected). */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.buttonFrame(frame: String, outline: Color, lit: Float, pill: Boolean = false) {
+/** The settings button's frame: a rounded square, a circle, or none (only the white fill when selected). */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.buttonFrame(frame: String, outline: Color, lit: Float) {
     val sw = size.height * 0.085f
     val tl = androidx.compose.ui.geometry.Offset(sw / 2, sw / 2)
     val sz = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw)
     val cr = androidx.compose.ui.geometry.CornerRadius(if (frame == "square") size.height * 0.26f else size.height / 2)
-    val round = frame != "square" && !pill
+    val round = frame != "square"
     if (lit > 0.01f) {
         if (round) drawCircle(Color.White.copy(alpha = lit)) else drawRoundRect(Color.White.copy(alpha = lit), topLeft = tl, size = sz, cornerRadius = cr)
     }

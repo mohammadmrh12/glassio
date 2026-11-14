@@ -406,7 +406,9 @@ button.x{color:var(--red)}button.p{background:var(--blue);color:#fff;border-radi
 <section data-k="backup restore settings"><h2>Backup</h2><div class="list">
 <button class="act" onclick="location.href='/api/backup?t='+encodeURIComponent(T)">Download backup</button>
 <input type="file" id="rf" accept=".json,application/json" class="hide" onchange="restore()"><button class="act" onclick="document.getElementById('rf').click()">Restore from a file&hellip;</button>
-</div><p class="foot">Every setting, catalog, Library and account, tokens included. Keep the file private.</p></section>
+</div><p class="foot"><b>Another TV:</b> download the backup here, open this page on the other TV and restore it there.</p>
+<p class="foot">${com.glasslauncher.tv.data.Backup.MOVES}</p><p class="foot">${com.glasslauncher.tv.data.Backup.STAYS}</p>
+<p class="foot"><b>Before restoring:</b> ${com.glasslauncher.tv.data.Backup.WARN}</p></section>
 </main><script>
 var T=new URLSearchParams(location.search).get('t')||'',D=null,mt=0;
 function v(i){return document.getElementById(i).value.trim()}
@@ -426,7 +428,7 @@ x.open('POST','/api/bg/upload?use=1&name='+encodeURIComponent(f.name)+'&t='+enco
 x.upload.onprogress=function(e){if(e.lengthComputable)p.textContent='Uploading '+Math.round(e.loaded*100/e.total)+'%'};
 x.onload=function(){p.textContent='';try{var r=JSON.parse(x.responseText);say(r.ok?r.message:r.error,r.ok)}catch(e){say('Upload failed',false)}document.getElementById('bf').value='';load()};
 x.onerror=function(){p.textContent='';say('Upload failed',false)};say('Uploading…',true);x.send(f)}
-function restore(){var f=document.getElementById('rf').files[0];if(!f)return;if(!confirm('Replace every setting on the TV with this backup?'))return;f.text().then(function(t){say('Restoring…',true);return fetch('/api/restore?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:t})}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok)}).catch(function(){say('Restore failed',false)})}
+function restore(){var f=document.getElementById('rf').files[0];if(!f)return;if(!confirm('Replace every setting on this TV with this backup? Nothing is merged, and Glassio restarts. Icons you made, background pictures and TV access (ADB) stay as they are on this TV.'))return;f.text().then(function(t){say('Restoring…',true);return fetch('/api/restore?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:t})}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok)}).catch(function(){say('Restore failed',false)})}
 function drawApps(){if(!D)return;var q=v('af').toLowerCase(),p=document.getElementById('apps');p.textContent='';D.apps.filter(function(x){return !q||x.label.toLowerCase().indexOf(q)>=0}).forEach(function(x){var c=item(x.label,'',x.custom?['custom']:[]);var r=el('div','btns');
 r.appendChild(btn('Link','',function(){var u=prompt('Image link for '+x.label);if(u)send('/api/icon/url',{pkg:x.pkg,url:u})}));
 var fi=el('input');fi.type='file';fi.accept='image/*';fi.className='hide';fi.onchange=function(){if(fi.files[0])up(x.pkg,fi.files[0])};

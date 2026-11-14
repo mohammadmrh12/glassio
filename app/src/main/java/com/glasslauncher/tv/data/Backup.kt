@@ -19,6 +19,14 @@ import java.io.File
  */
 object Backup {
     private val SKIP = setOf("glass_home_key")
+
+    /** What a backup carries to another TV, and what to know first (Settings → System and the phone page). */
+    const val MOVES = "Moves: every setting (theme, dock order and hidden apps, icon pack, channels, music, Hue, cameras, remote mapping), " +
+        "add-ons and catalogs, the Library and Continue Watching lists, and the accounts with their sign-ins (Nuvio, Stremio, Trakt, Simkl, TMDB, Home Assistant)."
+    const val STAYS = "Doesn't move: icons you made yourself, background pictures, videos and photos, and TV access (ADB) with the Home button service: " +
+        "allow those again on the other TV. Apps that aren't installed there are left out of the dock, and the performance settings go back to Auto."
+    const val WARN = "Restoring replaces everything on this TV (nothing is merged). Both TVs then share the same sign-ins: a service may sign one of them " +
+        "out (sign in again there if it does). A remote's button mapping may need setting again for another remote. Keep the file private: it holds your sign-ins."
     const val FOLDER = "Glassio"
 
     private fun prefNames(ctx: Context): List<String> =
