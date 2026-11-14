@@ -109,8 +109,13 @@ object NowPlaying {
         }.onFailure { Glog.w("Now playing", it) }
     }
 
+    /** Other YouTube apps for the TV, each with its name (they play music and video, like YouTube). */
+    val YOUTUBE_CLIENTS = linkedMapOf(
+        "io.gh.reisxd.tizentube.cobalt" to "TizenTube", "org.smarttube.stable" to "SmartTube", "org.smarttube.beta" to "SmartTube Beta",
+        "com.teamsmart.videomanager.tv" to "SmartTube", "com.liskovsoft.smarttubetv" to "SmartTube", "com.liskovsoft.smarttubetv.beta" to "SmartTube Beta",
+    )
     /** Apps that play music as well as video: followed while they play (music left playing in YouTube). */
-    private val SOMETIMES_MUSIC = setOf("com.google.android.youtube.tv", "com.google.android.youtube.googletv", "com.google.android.youtube")
+    private val SOMETIMES_MUSIC = setOf("com.google.android.youtube.tv", "com.google.android.youtube.googletv", "com.google.android.youtube") + YOUTUBE_CLIENTS.keys
 
     private fun isMusic(c: MediaController): Boolean {
         val pkg = c.packageName
@@ -310,7 +315,7 @@ object NowPlaying {
     }.getOrDefault(false)
     /** Apps that play video as well as music (YouTube): their playing counts as music only once it goes on. */
     fun sometimesMusic(pkg: String) = pkg in SOMETIMES_MUSIC
-    fun appLabel(pkg: String): String = MUSIC_APPS[pkg] ?: if (pkg in SOMETIMES_MUSIC) "YouTube" else
+    fun appLabel(pkg: String): String = MUSIC_APPS[pkg] ?: YOUTUBE_CLIENTS[pkg] ?: if (pkg in SOMETIMES_MUSIC) "YouTube" else
         lastCtx?.let { c -> runCatching { c.packageManager.getApplicationLabel(c.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrNull() } ?: pkg.substringAfterLast('.')
 }
 

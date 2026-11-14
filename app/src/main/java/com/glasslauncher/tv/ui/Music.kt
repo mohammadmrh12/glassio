@@ -192,7 +192,10 @@ object MusicUi {
     /** A music app (its player, not rows, unless chosen in Settings → Music / Channels). YouTube isn't one here. */
     fun isMusicApp(ctx: android.content.Context, pkg: String) = pkg in NowPlaying.MUSIC_APPS || (!NowPlaying.sometimesMusic(pkg) && NowPlaying.audioApp(ctx, pkg))
     fun playerFor(ctx: android.content.Context, st: com.glasslauncher.tv.data.Settings, pkg: String) =
-        st.musicOn && isMusicApp(ctx, pkg) && pkg !in st.channelsMusicRowApps
+        st.musicOn && pkg !in st.channelsMusicRowApps && (isMusicApp(ctx, pkg) ||
+            // TizenTube, SmartTube…: their player while their song is on (playing or paused), else their rows (when they
+            // publish some), else their player.
+            pkg in NowPlaying.YOUTUBE_CLIENTS && (NowPlaying.track.value?.pkg == pkg || com.glasslauncher.tv.data.Channels.rowsFor(st, pkg).isEmpty()))
     /** The dock's tile for an app (set by the home screen). */
     @Volatile var tileFor: (String) -> FocusRequester? = { null }
     /** Down from the player: back to the tile it came from (the Music icon, or the music app), else the first app. */
@@ -560,7 +563,8 @@ fun installedMusicApps(ctx: android.content.Context): List<Pair<String, String>>
 }
 private fun findMusicApps(ctx: android.content.Context): List<Pair<String, String>> {
     val pm = ctx.packageManager
-    val known = (NowPlaying.MUSIC_APPS.entries.map { it.key to it.value } + listOf("com.google.android.youtube.tv" to "YouTube", "com.google.android.youtube.googletv" to "YouTube"))
+    val known = (NowPlaying.MUSIC_APPS.entries.map { it.key to it.value } + listOf("com.google.android.youtube.tv" to "YouTube", "com.google.android.youtube.googletv" to "YouTube") +
+        NowPlaying.YOUTUBE_CLIENTS.entries.map { it.key to it.value })
         .filter { (pkg, _) -> runCatching { pm.getPackageInfo(pkg, 0) }.isSuccess }
     // Any other app that calls itself an audio app (and can be opened from the TV's home).
     val others = runCatching {
