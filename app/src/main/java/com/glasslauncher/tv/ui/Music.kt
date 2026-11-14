@@ -117,6 +117,9 @@ object MusicUi {
      * or while an app changes its session, there is often a moment with no song: the page and the dock's glass
      * flashed the carousel picture). Stop from Glassio takes it away at once.
      */
+    private val ytOkPkg = androidx.compose.runtime.mutableStateOf<String?>(null)
+    private var ytOkRev = -1
+
     @Composable
     fun heldTrack(): NowPlaying.Track? {
         val t by NowPlaying.track.collectAsState()
@@ -125,22 +128,27 @@ object MusicUi {
         // before it stopped, and the music page flashed up and went (taking the selection with it). It counts as
         // music only once it has played on for 3 seconds.
         val yt = t?.pkg?.let { NowPlaying.sometimesMusic(it) } == true
-        // (Once it counts, pausing it keeps it: a paused song in YouTube, SmartTube or TizenTube showed "Nothing
-        // playing", and the app's rows came and went under it. Coming back to Glassio asks for the 3 seconds again.)
-        var okKey by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
-        LaunchedEffect(resumedRev.intValue) { okKey = null }
-        LaunchedEffect(t?.key, t?.playing, yt) {
-            val k = t?.key
-            if (yt && t?.playing == true && k != null && okKey != k) { delay(3000); okKey = k }
+        // TizenTube, SmartTube: a "song" is each video, and between two of them the session is empty a moment.
+        val client = t?.pkg?.let { it in NowPlaying.YOUTUBE_CLIENTS } == true
+        // (Once the app counts, its next songs and a pause keep it: each new video started the 3 seconds again, and
+        // "Nothing playing" came up in between. Coming back to Glassio asks for them again.)
+        // (Kept once for the whole screen: each player made again — the dock's, after another app was selected — asked
+        // for the 3 seconds again, and showed "Nothing playing" meanwhile.)
+        var okPkg by ytOkPkg
+        LaunchedEffect(resumedRev.intValue) { if (ytOkRev != resumedRev.intValue) { ytOkRev = resumedRev.intValue; okPkg = null } }
+        LaunchedEffect(t?.pkg, t?.playing, yt) {
+            val p = t?.pkg
+            if (yt && t?.playing == true && p != null && okPkg != p) { delay(3000); okPkg = p }
         }
-        val ytOk = yt && t?.key?.let { it == okKey } == true
+        val ytOk = yt && t?.pkg?.let { it == okPkg } == true
         // Until then the music app under it (Spotify, paused by the video) stays the page.
         val alt by NowPlaying.alt.collectAsState()
         val usable = if (yt && !ytOk) alt else t
+        var lastClient by remember { androidx.compose.runtime.mutableStateOf(false) }
         LaunchedEffect(usable) {
-            if (usable != null) last = usable
-            else if (android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt < 3000 || yt) last = null
-            else { delay(1500); last = null }
+            if (usable != null) { last = usable; lastClient = usable.pkg in NowPlaying.YOUTUBE_CLIENTS }
+            else if (android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt < 3000 || (yt && !client && !lastClient)) last = null
+            else { delay(if (lastClient) 6000 else 1500); last = null }
         }
         return usable ?: last?.takeIf { android.os.SystemClock.uptimeMillis() - NowPlaying.stoppedAt > 3000 }
     }

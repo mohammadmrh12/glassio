@@ -139,7 +139,8 @@ object NowPlaying {
 
     /** The music session to follow: the one playing, else the last one that has a song. */
     private fun pick(ctx: Context) {
-        val list = runCatching { msm?.getActiveSessions(listener(ctx)) }.getOrNull().orEmpty().filter { isMusic(it) }
+        val all = runCatching { msm?.getActiveSessions(listener(ctx)) }.getOrNull().orEmpty()
+        val list = all.filter { isMusic(it) }
         // The one playing; else the one followed so far, while it is still there (stopped from Glassio too: its
         // player goes, and another app's paused song from before didn't come up under it); else the last to play.
         // (Starting counts: Spotify paused as SoundCloud was still loading, and the player stayed with Spotify.)
@@ -150,9 +151,13 @@ object NowPlaying {
             ?: list.firstOrNull().takeIf { controller == null }
         list.forEach { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) lastPlayed[it.packageName] = android.os.SystemClock.uptimeMillis() }
         // Every music app is listened to (not only the one followed): one that starts playing takes over at once.
-        val tokens = list.map { it.sessionToken }.toSet()
+        // (YouTube, SmartTube, TizenTube too while they don't play yet: their session often comes before their song, and
+        // unwatched, their starting to play went unnoticed and the player stayed with a paused Spotify.)
+        val musicTokens = list.map { it.sessionToken }.toSet()
+        val heard = all.filter { it.sessionToken in musicTokens || it.packageName in SOMETIMES_MUSIC }
+        val tokens = heard.map { it.sessionToken }.toSet()
         watched.keys.filter { it !in tokens }.forEach { t -> runCatching { watched.remove(t)?.unregisterCallback(watchCb) } }
-        list.forEach { c -> if (c.sessionToken !in watched) runCatching { c.registerCallback(watchCb, android.os.Handler(android.os.Looper.getMainLooper())); watched[c.sessionToken] = c } }
+        heard.forEach { c -> if (c.sessionToken !in watched) runCatching { c.registerCallback(watchCb, android.os.Handler(android.os.Looper.getMainLooper())); watched[c.sessionToken] = c } }
         if (best?.sessionToken != controller?.sessionToken) {
             runCatching { controller?.unregisterCallback(callback) }
             controller = best
