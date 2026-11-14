@@ -31,7 +31,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **3.6.0** — sync between your TVs, Nuvio profiles, a new settings button. What changed in every version:
+Latest: **3.7.0** — your own picture as the settings button, Menu & themes in groups, hide an app's rows, performance in Sync. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
@@ -191,7 +191,7 @@ screensaver, music — and what happens when you open an app or the TV turns off
 <details>
 <summary><b><img src="docs/icons/sun.svg" width="18" alt=""> Weather, artwork and performance</b></summary>
 
-- **Weather**: Background & glass → *Weather* and *Weather city* (English or Arabic), Fahrenheit. Free, no key.
+- **Weather**: Menu & themes → *Weather* and *Weather city* (English or Arabic), Fahrenheit. Free, no key.
 - **Artwork**: Carousel → *Artwork* (main, second picture, highest resolution, the add-on's). Hold OK on the carousel
   to switch one title's picture; Glassio remembers it.
 - **Performance → Mode**: **Auto** picks for the TV (a 2 GB TCL gets *Performance*, a Google TV Streamer *Balanced*);

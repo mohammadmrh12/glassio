@@ -2,6 +2,19 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 3.7.0 — your picture as the settings button, Menu & themes in groups, hide an app's rows
+
+- **The settings button** (Settings → Menu & themes): *Hello*, the handwriting *hello* in its pill again, *Menu*, or
+  **your own picture** in a circle — scan the QR code on the TV and press *Upload a picture* on your phone (or use a link).
+  Next to a picture the clock is a little larger.
+- **Menu & themes in groups**: *Top bar* (the settings button, clock, date and weather, auto-hide — moved here from
+  Background & glass and Dock & icons), *Look*, *Menu* (with what shows in it) and *TV inputs*; rows under a switch that
+  is off are hidden.
+- **Hide an app's rows**: hold OK on an app with channels → *Hide its rows* / *Show its rows*.
+- **Sync**: *Performance* is its own part, off unless you turn it on, so a weaker TV keeps its own settings; turned off,
+  the TV goes back to its own performance mode.
+- **The What's new tour** shows only the new version, and on its last page (the GitHub QR code) only OK closes it.
+
 ## 3.6.0 — Sync between your TVs, your Nuvio profile, the settings button
 - **Sync** (Settings → Sync): one TV is the main one, the others follow it over your home network, live (a change on
   the main TV shows on them a moment later) or only when you press Sync now. Found on their own, paired once with a

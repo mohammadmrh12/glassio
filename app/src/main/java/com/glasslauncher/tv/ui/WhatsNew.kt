@@ -42,7 +42,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 62
+    const val ID = 63
 
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null)
 
@@ -54,128 +54,14 @@ object WhatsNew {
         "Support Glassio: a ⭐ on GitHub and sharing it with friends keeps it going. Thank you!",
     ), "Thank you for using Glassio ♥", qr = GITHUB)
 
+    // Only the latest version's pages (every version's notes: CHANGELOG on GitHub), then the GitHub page.
     val PAGES = listOf(
-        Page("What's new in Glassio 3.6: Sync between your TVs", listOf(
-            "One TV is the main one, the others follow it over your home network: what you change on it shows on them a moment later.",
-            "Add a TV on the main one shows a code; on the other TV choose Follows another TV, pick it and type the code.",
-            "Automatic, or Manual (only when you press Sync now). Choose what each TV takes: look, dock, home, channels, screensaver, add-ons, library.",
-            "Keys (TMDB, Home Assistant), Hue, cameras, remote buttons and the app lock only if you turn them on. Sign-ins never move.",
-        ), "Settings → Sync: this TV's role and name, what it takes, Pause sharing on the main TV."),
-        Page("Your Nuvio profile, and the settings button", listOf(
-            "Glassio can use another of your Nuvio account's profiles: Continue Watching, the Library and add-ons follow it.",
-            "The settings button at the top: sliders, a gear, dots, lines, a person or \"hello\", in a square, a circle or no frame.",
-            "Backups say exactly what moves to another TV, and ask before replacing everything.",
-        ), "Settings → Connections → Nuvio profile · Settings → Menu & themes → Settings button · Settings → System → Backup"),
-        Page("What's new in Glassio 3.5: Channels", listOf(
-            "Select an app in the dock (YouTube, Shahid, Prime Video…) and its rows (Continue watching, Recommended…) take the carousel's place.",
-            "▲ goes into the rows, ▲ / ▼ moves between them (one or two at a time, the others come in), OK opens the card.",
-            "On the Library's grey page or the selected card's picture blurred, with the Library's zoom and glow, and Hue lights if you like.",
-            "◀ ▶ to look through · OK for the next page · Back to close.",
-        ), "Settings → Channels: on, layout, cards in a row, background, glow, Hue, and each app's rows."),
-        Page("Music apps and the Music icon", listOf(
-            "A music app in the dock (Spotify, SoundCloud…) shows its player, also with nothing playing: Play carries on where it left off.",
-            "The dock's Music icon shows your music apps (their player while a song plays): OK plays, hold OK opens the app.",
-            "The player follows the app that starts playing, and the island shows the song over the rows.",
-            "Nuvio and Stremio always keep the carousel.",
-        ), "Settings → Music (and Channels): which music apps show their rows instead of their player."),
-        Page("What's new in Glassio 3.4", listOf(
-            "Trailer volume, on the home screen and in the Trailers screensaver (the TV's own volume stays as it is).",
-            "The large clock's glass can be made clearer, down to just its rim.",
-            "Music: iHeart, SoundCloud, TuneIn and more; any audio app is followed, with its artwork (or Glassio's own when a song has none).",
-            "◀ ▶ to look through · OK for the next page · Back to close.",
-        ), "Settings → Carousel → Trailer volume · Settings → Screensaver → Volume · Settings → Background & glass → Large clock glass."),
-        Page("Remote buttons and Hue", listOf(
-            "A remote button can open Glassio itself (for a remote whose Home button doesn't work).",
-            "A remote button can turn a Hue room, a zone or every light off; pressed again, on.",
-            "Hue lights change colour together: a Bloom no longer lags behind the Play bars.",
-            "Smoother: the dock opening, the carousel's slide and going up through the Library to the dock.",
-        ), "Settings → Remote mapping → Add a button."),
-        Page("What's new in Glassio 3.3.1", listOf(
-            "HDMI inputs open on TVs with plain Android too (no Live TV app): Glassio shows the input itself, Back comes home.",
-            "Trailers screensaver: the title's picture while the first trailer loads (no black screen).",
-            "Without the internet it says so, the note moves around the screen (no burn-in on OLED), and the trailers come back by themselves.",
-            "◀ ▶ to look through · OK for the next page · Back to close.",
-        ), "Inputs: Settings → Menu & themes → Inputs open in (Automatic, the TV's app or Glassio)."),
-        Page("What's new in Glassio 3.3", listOf(
-            "A new screensaver: Trailers. The carousel's trailers one after another, with their logo and details; OK opens the title in Nuvio, hold OK for more.",
-            "Posters screensaver: OK opens the title in Nuvio, ◀ ▶ the next or the one before.",
-            "A colour for all the glass: black or petrol, still see-through, like a tinted window. And Bold text everywhere.",
-            "◀ ▶ to look through · OK for the next page · Back to close.",
-        ), "Screensaver: Settings → Screensaver → Type (also in the menu). Glass colour, Bold text: Settings → Menu & themes (and the menu's Themes)."),
-        Page("Trailers", listOf(
-            "When a title has no trailer listed, Glassio finds one on TMDB, then with a YouTube search.",
-            "Subtitles one line at a time, each replacing the last (they no longer roll up), with a size of their own.",
-            "The trailer's window always stays inside the screen, and it shows with the first frame (it waited before).",
-            "Trailers play in the best quality the source has.",
-        ), "Settings → Carousel → Trailers (Subtitle size)."),
-        Page("Also in 3.3", listOf(
-            "Settings opens where you left it, on the same page and row.",
-            "Something is always selected: after the Apps folder, Home, or an app opened from the folder.",
-            "Music mode: the music page stays when you go down into the dock.",
-            "Music mode no longer opens by itself when Glassio starts with a song left paused.",
-            "Holding a button in the Library moves faster. The carousel's work between slides is spread out (less CPU).",
-            "Settings: more room between groups; the dock's look is in Dock & icons; the screensaver's info is under On screen.",
-        ), "Settings → Dock & icons → Dock look."),
-        Page("What's new in Glassio 3.2.2", listOf(
-            "Trailers no longer stop by themselves after a few seconds.",
-            "Trailer sound fixed: it played twice, slightly apart.",
-            "◀ ▶ to look through · OK for the next page · Back to close.",
-        ), "Trailers: Settings → Trailers."),
-        Page("What's new in Glassio 3.2.1", listOf(
-            "Icon packs show every icon they have, also the ones not tied to an app (Projectivy and Blueprint packs gave only some).",
-            "Search icons: type part of a name and every installed pack is searched at once.",
-            "Recent apps work without USB debugging: Glassio lists the apps you used lately. With USB debugging on, the list is exact as before.",
-            "◀ ▶ to look through · OK for the next page · Back to close.",
-        ), "Change an icon: hold OK on an app → Change icon → Search icons. Recent apps: Settings → Remote mapping → Home and Back."),
-        Page("What's new in Glassio 3.2", listOf(
-            "Remote mapping: any button on your remote opens what you choose, in any app.",
-            "Then everything that came with 3.1: Hue Sync, the new Settings and more.",
-            "Each page says what's new and where to switch it off or change it.",
-            "◀ ▶ to look through · OK for the next page · Back to close.",
-        ), "You can open this again in Settings → About → What's new."),
-        Page("Remote mapping", listOf(
-            "Give a remote button an app, the Apps folder, the recent apps or a TV input (HDMI…).",
-            "It works everywhere, also inside other apps. Pressed again, the Apps folder or the recent apps close.",
-            "Shuffle, multi-view, the corner camera, Hold Home and Back for the screensaver are set here too.",
-        ), "Settings → Remote mapping. Buttons in other apps need System → Home button service."),
-        Page("Also in 3.2", listOf(
-            "A locked app's menu (hold OK) asks for its code first.",
-            "Signing out of Nuvio, Stremio, Trakt or Simkl asks first.",
-            "A row you change (◀ ▶) takes the Switch colour: burgundy, green or purple.",
-            "Music mode: opening the dock keeps the song's picture behind it.",
-            "The selection always comes back: after the screensaver, the Apps folder or the recent apps.",
-        ), "Settings → Menu & themes → Switch colour."),
-        Page("From Glassio 3.1", listOf(
-            "Philips Hue lights in the colours of the screen, a new Settings with search, and much more.",
-        ), "The next pages."),
-        Page("Hue Sync", listOf(
-            "Your Philips Hue lights take the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork.",
-            "Each light follows its own part of the screen (pictures show which), or its place in a Hue entertainment area.",
-            "Philips and other makes (Lidl Livarno, Tuya…) each get their colours the way they show them best.",
-            "Optional: the lights take the colour of the app selected in the dock or the poster in the Library, with their own brightness.",
-            "Back as they were when you open a film or turn the TV off (or dimmed, or off).",
-        ), "Settings → Hue lights: press the bridge's button, then Connect."),
-        Page("A new Settings", listOf(
-            "Grouped like on an iPhone: rows together in rounded cards with thin lines between them.",
-            "Search at the top, with Glassio's own keyboard: a result opens its page at that setting.",
-            "Lighter and quicker to open and to move through.",
-            "Switch colour: burgundy, green or purple.",
-        ), "Settings → Menu & themes → Switch colour."),
-        Page("Music", listOf(
-            "The dock's Music icon opens the music page, even with Music mode off.",
-            "Pause and Play show at once, the song's name cross-fades in place, no flash in the dock.",
-            "Leaving a YouTube video no longer takes the music page or the selection away.",
-        ), "Settings → Music."),
-        Page("Library and cameras", listOf(
-            "Holding Down in the Library glides at a steady pace, even with fast key repeat.",
-            "Multi-view cameras blur everything behind them, on the home screen and the screensaver.",
-            "The screensaver never starts while a trailer plays.",
-        ), "Settings → Library, Settings → Cameras."),
-        Page("Nuvio and your phone", listOf(
-            "A self-hosted Nuvio server can be used (address, key, sign in with email).",
-            "Home Assistant can get Nuvio's playback from Glassio itself and control it (pause, play, seek), quick and light.",
-            "The phone page looks like iPhone Settings, with a search.",
-        ), "Settings → Connections (Nuvio server, Home Assistant), Settings → Manage from phone."),
+        Page("What's new in Glassio 3.7", listOf(
+            "Sync between your TVs: one main TV, the others follow it live over your home network. Performance can sync too, or stay on each TV.",
+            "The settings button: Hello, the handwriting hello, Menu, or your own picture in a circle, sent from your phone with a QR code.",
+            "Hold OK on an app with channels: Hide its rows or show them again.",
+            "Menu & themes in clear groups: the top bar (button, clock, weather) together, then the look, then the menu.",
+        ), "Settings → Sync · Settings → Menu & themes"),
         GITHUB_PAGE,
     )
 
@@ -190,7 +76,10 @@ object WhatsNew {
         if (code == KeyEvent.KEYCODE_HOME) return false
         if (!down) return true
         when (code) {
-            KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
+            // ▶ only turns the page: on the last one (the GitHub QR code) it does nothing, so the page isn't closed by
+            // accident; OK closes it.
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (page.intValue < PAGES.lastIndex) page.intValue++
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
                 if (page.intValue < PAGES.lastIndex) page.intValue++ else close(app)
             KeyEvent.KEYCODE_DPAD_LEFT -> if (page.intValue > 0) page.intValue--
             KeyEvent.KEYCODE_BACK -> close(app)
