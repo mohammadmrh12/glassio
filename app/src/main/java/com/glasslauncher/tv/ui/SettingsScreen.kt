@@ -1541,7 +1541,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     "main" -> {
                         add(Act("Add a TV", "Shows a code: on the other TV choose Settings → Sync → This TV → Follows another TV, then type it", "Show code") {
                             val c = ps.openPairing()
-                            dialog = MenuDialog("Code for the other TV:   ${c.toCharArray().joinToString("  ")}", listOf("Done (the code works for 5 minutes)" to { ps.closePairing() }))
+                            dialog = MenuDialog("Code for the other TV:   ${c.toCharArray().joinToString("  ")}", listOf("Done (the code works for 5 minutes)" to { }))
                         })
                         val fl = ps.followers.entries.sortedByDescending { it.value.second }
                         add(Note(if (fl.isEmpty()) "No TV follows this one yet." else "Following this TV"))
@@ -1581,7 +1581,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             "hue" to "The Hue bridge Glassio is paired with (each TV keeps its own lights and room)",
                             "cameras" to "Your cameras, the corner camera and multi-view, and the doorbell",
                             "remote" to "Glassio's remote buttons and Hold Home (for TVs with the same kind of remote)",
-                            "lock" to "Which apps are locked, and the code",
+                            "lock" to "Which apps are locked, the code and its reminder",
                         )
                         com.glasslauncher.tv.data.PeerSync.EXTRAS.forEach { (k, n) ->
                             add(Toggle(n, extra[k].orEmpty(), { k in g }, { on -> ps.groups = if (on) g + k else g - k }))

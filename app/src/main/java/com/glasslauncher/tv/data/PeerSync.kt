@@ -53,7 +53,7 @@ object PeerSync {
     private val NEVER = setOf(
         "perfMode", "memTier", "pageScale", "glassRes", "imageQuality", "cacheMb", "prefetchDepth", "maxItems", "photoCacheMb",
         "interceptHome", "inputs", "inputPlayer", "setupDone", "tourSeen", "musicLastPkg", "bootStart", "recentsAdb",
-        "nuvioToken", "phoneMinutes", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
+        "nuvioToken", "nuvioTarget", "cameraDecoder", "phoneMinutes", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
     )
     // (Hue: the bridge and its key are shared on request; the lights and rooms each TV drives stay its own.)
     private val NEVER_PREFIX = listOf("hue", "sys", "saverCache", "settingsLast")
@@ -73,7 +73,7 @@ object PeerSync {
         NEVER_PREFIX.any { prefixed(k, it) } -> null
         k == "cameras" || k == "cornerCamera" || prefixed(k, "camera") || prefixed(k, "multi") || prefixed(k, "doorbell") -> "cameras"
         k in setOf("keyMaps", "shuffleKey", "multiKey", "cornerKey", "homeLong", "homeRecents") -> "remote"
-        k == "lockCode" || k == "lockedApps" || prefixed(k, "lockHint") || prefixed(k, "saverLock") -> "lock"
+        k == "lockCode" || k == "lockedApps" || k.startsWith("lockHint") -> "lock"
         k in LOOK -> "look"
         k in LISTS -> "lists"
         k.startsWith("dock") || k in setOf("hiddenApps", "showFolder", "folderPos", "showMobileApps", "inputsDock", "musicDock") -> "dock"
@@ -139,7 +139,9 @@ object PeerSync {
     @Volatile var pairCode: String = ""; private set
     @Volatile private var pairUntil = 0L
     /** Opens pairing for a few minutes and gives the code to show. */
+    @Volatile private var pairMisses = 0
     fun openPairing(): String {
+        pairMisses = 0
         pairCode = (1000..9999).random().toString(); pairUntil = System.currentTimeMillis() + 5 * 60_000L
         return pairCode
     }
@@ -211,7 +213,12 @@ object PeerSync {
             "/hello" -> return json(200, JSONObject().put("glassio", 1).put("name", name).put("model", Build.MODEL))
             "/pair" -> {
                 val ok = System.currentTimeMillis() < pairUntil && q["code"] == pairCode
-                if (!ok) return json(403, JSONObject().put("error", "Wrong or expired code"))
+                if (!ok) {
+                    // A few wrong codes close pairing (no guessing all 10,000): Add a TV gives a new code.
+                    if (System.currentTimeMillis() < pairUntil && ++pairMisses >= 5) { pairUntil = 0L; main.post { rev.intValue++ } }
+                    return json(403, JSONObject().put("error", "Wrong or expired code"))
+                }
+                pairUntil = 0L
                 seen(q["name"], c); main.post { rev.intValue++ }
                 return json(200, JSONObject().put("key", myKey).put("name", name))
             }
@@ -446,7 +453,7 @@ object PeerSync {
 
     private fun setStatus(s: String, news: Boolean) = main.post { status.value = s; waiting.value = news; rev.intValue++ }
 
-    private fun pull(announce: Boolean) {
+    @Synchronized private fun pull(announce: Boolean) {
         val s = get("${base()}/state?${auth()}", 15_000)
         val g = groups
         val n = apply(s, g)
@@ -504,14 +511,17 @@ object PeerSync {
         val had = sp.getString("iconSigs", "").orEmpty().split('\n').filter { '=' in it }.associate { it.substringBefore('=') to it.substringAfter('=') }
         val sigs = HashMap<String, String>(); var n = 0
         for (pkg in icons.keys()) {
-            val sig = icons.getString(pkg); sigs[pkg] = sig
+            if (!Regex("[A-Za-z0-9._]+").matches(pkg)) continue
+            val sig = icons.getString(pkg)
             val f = app.icons.fileFor(pkg)
-            if (had[pkg] == sig && f.isFile) continue
-            val bytes = runCatching { getBytes("${base()}/icon?${auth()}&pkg=${enc(pkg)}", 10_000) }.getOrNull() ?: continue
-            f.writeBytes(bytes); n++
+            if (had[pkg] == sig && f.isFile) { sigs[pkg] = sig; continue }
+            // (Not taken now: tried again next time.)
+            val bytes = runCatching { getBytes("${base()}/icon?${auth()}&pkg=${enc(pkg)}", 10_000) }.getOrNull()
+            if (bytes == null || bytes.isEmpty()) { had[pkg]?.let { sigs[pkg] = it }; continue }
+            f.writeBytes(bytes); sigs[pkg] = sig; n++
         }
         // Icons the main TV no longer has (one synced before, or this TV's own made the same way): back to the app's.
-        for (pkg in had.keys) if (pkg !in sigs) { app.icons.fileFor(pkg).delete(); n++ }
+        for (pkg in had.keys) if (pkg !in sigs && !icons.has(pkg)) { app.icons.fileFor(pkg).delete(); n++ }
         sp.edit().putString("iconSigs", sigs.entries.joinToString("\n") { "${it.key}=${it.value}" }).apply()
         if (n > 0) main.post { app.icons.rev.intValue++ }
         return n
