@@ -1,3 +1,5 @@
+<img src="brand/readme_banner.png" width="100%" alt="Glassio">
+
 <div dir="rtl">
 
 # Glassio — دليل الاستخدام

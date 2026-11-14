@@ -1,6 +1,4 @@
-<p align="center"><img src="docs/brand/icon_512.png" width="140" alt="Glassio icon"></p>
-
-# Glassio
+<img src="docs/brand/readme_banner.png" width="100%" alt="Glassio">
 
 **An Apple TV–style home screen for Google TV / Android TV**: real liquid glass, a carousel of your Nuvio and Stremio
 catalogs with trailers, each app's channels, music mode, Continue Watching from Nuvio, Stremio, Trakt and Simkl, a 4K /
