@@ -180,6 +180,41 @@ object NowPlaying {
         track.value = if (t != null && want != null && android.os.SystemClock.uptimeMillis() < pendingUntil && t.playing != want) t.copy(playing = want)
             else { if (t?.playing == want) pendingPlaying = null; t }
     }
+    /** For testing: every media session and the fields of its song (log "GlassMedia"). */
+    fun dumpSessions(ctx: Context) {
+        runCatching { msm?.getActiveSessions(listener(ctx)) }.getOrNull().orEmpty().forEach { c ->
+            val md = c.metadata
+            val keys = md?.keySet().orEmpty().joinToString(", ") { k -> k.removePrefix("android.media.metadata.") + "=" + (runCatching { md?.getString(k) }.getOrNull()?.take(40) ?: "…") }
+            android.util.Log.i("GlassMedia", "${c.packageName} state=${c.playbackState?.state} music=${isMusic(c)} followed=${c.sessionToken == controller?.sessionToken} | $keys")
+        }
+    }
+    /** A YouTube video's title, channel and picture, by its id (asked once, in the background). */
+    private val ytCache = java.util.concurrent.ConcurrentHashMap<String, Triple<String, String, Bitmap?>>()
+    private val ytAsked = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+    private fun ytInfo(id: String): Triple<String, String, Bitmap?>? {
+        ytCache[id]?.let { return it }
+        if (ytAsked.add(id)) Thread({
+            runCatching {
+                val c = java.net.URL("https://www.youtube.com/oembed?format=json&url=" + java.net.URLEncoder.encode("https://www.youtube.com/watch?v=$id", "UTF-8"))
+                    .openConnection() as java.net.HttpURLConnection
+                c.connectTimeout = 5000; c.readTimeout = 6000
+                val o = try { org.json.JSONObject(c.inputStream.bufferedReader().use { it.readText() }) } finally { c.disconnect() }
+                val pic = runCatching {
+                    val p = java.net.URL("https://i.ytimg.com/vi/$id/hqdefault.jpg").openConnection() as java.net.HttpURLConnection
+                    p.connectTimeout = 5000; p.readTimeout = 6000
+                    try { p.inputStream.use { android.graphics.BitmapFactory.decodeStream(it) } } finally { p.disconnect() }
+                }.getOrNull()?.let { b ->
+                    // The 4:3 picture has black bars: its 16:9 middle, made square around the centre like an album cover.
+                    val h = b.width * 9 / 16; val y = (b.height - h) / 2; val side = minOf(b.width, h); val x = (b.width - side) / 2
+                    Bitmap.createBitmap(b, x, y.coerceAtLeast(0), side, side)
+                }
+                ytCache[id] = Triple(o.optString("title"), o.optString("author_name"), pic)
+                android.os.Handler(android.os.Looper.getMainLooper()).post { publish() }
+            }.onFailure { Glog.w("YouTube info $id", it) }
+        }, "glass-ytinfo").apply { isDaemon = true }.start()
+        return null
+    }
+
     private val seenAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
     /** [pkg] had a song a moment ago (between two videos an app's session is empty for a second or two). */
     fun hadSong(pkg: String, withinMs: Long = 6000) = android.os.SystemClock.uptimeMillis() - (seenAt[pkg] ?: -withinMs * 2) < withinMs
@@ -190,16 +225,21 @@ object NowPlaying {
     private fun trackOf(c: MediaController): Track? {
         val md = c.metadata ?: return null
         val ps = c.playbackState
-        val title = md.getString(MediaMetadata.METADATA_KEY_TITLE) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+        // SmartTube playing in the background sends its song with every field empty but the video's id: its title,
+        // channel and picture come from YouTube by that id (until then, the app's name).
+        val vid = md.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)?.takeIf { c.packageName in YOUTUBE_CLIENTS && Regex("[A-Za-z0-9_-]{11}").matches(it) }
+        val own = (md.getString(MediaMetadata.METADATA_KEY_TITLE) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE))?.takeIf { it.isNotBlank() }
+        val yt = if (own == null && vid != null) ytInfo(vid) else null
+        val title = own ?: yt?.first ?: vid?.let { appLabel(c.packageName) }
         if (title.isNullOrBlank()) return null
-        val art = artOf(c, md, title)
+        val art = if (own == null && yt?.third != null) yt.third else artOf(c, md, title)
         val state = ps?.state ?: PlaybackState.STATE_NONE
         if (stoppedToken != null && c.sessionToken == stoppedToken) {
             if (state == PlaybackState.STATE_PLAYING) stoppedToken = null else return null
         }
         if (state == PlaybackState.STATE_STOPPED || state == PlaybackState.STATE_NONE || state == PlaybackState.STATE_ERROR) return null
         return Track(
-            c.packageName, title, md.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE) ?: "",
+            c.packageName, title, md.getString(MediaMetadata.METADATA_KEY_ARTIST)?.takeIf { it.isNotBlank() } ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)?.takeIf { it.isNotBlank() } ?: yt?.second ?: "",
             md.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: "", art, md.getLong(MediaMetadata.METADATA_KEY_DURATION),
             ps?.position ?: 0L, ps?.lastPositionUpdateTime ?: android.os.SystemClock.elapsedRealtime(), ps?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
             state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING,
