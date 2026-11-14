@@ -26,6 +26,20 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
+**New in 3.6.0** — Sync between your TVs, your Nuvio profile, the settings button
+- **Sync** (Settings → Sync): one TV is the main one, the others follow it over your home network, live (a change on
+  the main TV shows on them a moment later) or only when you press Sync now. Found on their own, paired once with a
+  4-digit code shown on the main TV. Each TV chooses what it takes: look and theme, dock and icons, home screen,
+  channels and music, screensaver, add-ons and catalogs, library and likes. Off unless you turn them on: keys (TMDB,
+  Unsplash, Home Assistant), the Hue bridge, cameras and doorbell, remote buttons, the app lock. Never synced:
+  sign-ins (Nuvio, Stremio, Trakt, Simkl), performance and HDMI inputs. Pause sharing on the main TV to try things
+  out; one way only, from the main TV to the others.
+- **Nuvio profile** (Settings → Connections): Continue Watching, the Library and the account's add-ons can follow
+  another of your account's profiles (#16).
+- **The settings button** (Settings → Menu & themes): sliders, a gear, dots, lines, a person or "hello", in a rounded
+  square, a circle or no frame, with a soft shadow over bright pictures.
+- **Backups** say what moves to another TV and what stays, and ask before a restore replaces everything.
+
 **New in 3.5.0** — Channels: an app's rows in the carousel's place, music apps and the Music icon
 - **Channels** (Settings → Channels): select an app in the dock (YouTube, Shahid, Prime Video, Netflix…) and its rows
   (Continue watching, Recommended…) take the carousel's place. ▲ goes into them, ▲ / ▼ moves between rows (one or two
