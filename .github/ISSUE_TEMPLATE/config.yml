@@ -3,3 +3,6 @@ contact_links:
   - name: Setup questions and chat
     url: https://github.com/mohammadmrh12/glassio/discussions
     about: "Home button, catalogs, Home Assistant help, screenshots and general talk go to Discussions."
+  - name: Reddit community
+    url: https://www.reddit.com/r/glassio_/
+    about: "News, screenshots of your setup and chat about Glassio on r/glassio_."

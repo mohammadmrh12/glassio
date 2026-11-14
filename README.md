@@ -5,7 +5,7 @@ catalogs with trailers, each app's channels, music mode, Continue Watching from 
 HDR screensaver, Hue lights, cameras, Home Assistant, and sync between your TVs. Built with Kotlin and Jetpack Compose.
 Tested on the Google TV Streamer (4K).
 
-[العربية — دليل الاستخدام الكامل](docs/README.ar.md) · [Discussions](https://github.com/mohammadmrh12/glassio/discussions) · [Report a bug](https://github.com/mohammadmrh12/glassio/issues/new/choose) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[العربية — دليل الاستخدام الكامل](docs/README.ar.md) · [Discussions](https://github.com/mohammadmrh12/glassio/discussions) · [Reddit](https://www.reddit.com/r/glassio_/) · [Report a bug](https://github.com/mohammadmrh12/glassio/issues/new/choose) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ![Home](docs/screenshots/50-home.jpg)
 

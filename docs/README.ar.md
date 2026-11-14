@@ -16,7 +16,7 @@ Home Assistant، وسنك بين تلفزيوناتك.
 | ![السكرين سيفر](screenshots/54-screensaver-netflix.jpg) | ![الإعداد الأول](screenshots/55-setup-hello.jpg) |
 | ![سكرين سيفر التريلرات](screenshots/72-screensaver-trailers.jpg) | ![زجاج نفطي](screenshots/71-dock-petrol-glass.jpg) |
 
-[English](../README.md) · [سجل التغييرات](CHANGELOG.ar.md)
+[English](../README.md) · [سجل التغييرات](CHANGELOG.ar.md) · [ريدت r/glassio_](https://www.reddit.com/r/glassio_/)
 
 ## المميزات
 
