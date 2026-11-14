@@ -146,6 +146,8 @@ class MainActivity : ComponentActivity() {
         hideBars()
         (application as GlassApp).cw.pollNow()
         com.glasslauncher.tv.data.PeerSync.resumed()
+        // An app's rows read again on the way back (what was just watched shows at once).
+        if ((application as GlassApp).settings.channelsOn) com.glasslauncher.tv.data.Channels.refresh(this)
         com.glasslauncher.tv.data.NuvioWatch.start(this)
         com.glasslauncher.tv.ui.MusicUi.resumedRev.intValue++
         resumed = true

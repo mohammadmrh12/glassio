@@ -44,6 +44,8 @@ object Channels {
             val iId = col("_id"); val iKey = col(keyColumn); val iTitle = col("title"); val iEp = col("episode_title")
             val iPoster = col("poster_art_uri"); val iThumb = col("thumbnail_uri"); val iIntent = col("intent_uri")
             val iAr = col("poster_art_aspect_ratio"); val iPos = col("last_playback_position_millis"); val iDur = col("duration_millis"); val iBr = col("browsable")
+            val iSeen = col("last_engagement_time_utc_millis")
+            val seen = HashMap<Long, Long>()
             if (iKey < 0 || iIntent < 0) return out
             fun str(i: Int) = if (i >= 0 && !c.isNull(i)) c.getString(i).orEmpty() else ""
             while (c.moveToNext()) {
@@ -55,9 +57,14 @@ object Channels {
                 val dur = if (iDur >= 0 && !c.isNull(iDur)) c.getLong(iDur) else 0L
                 // Aspect ratios: 0 = 16:9, 1 = 3:2, 2 = 4:3, 3 = 1:1, 4 = 2:3, 5 = movie poster.
                 val ar = if (iAr >= 0 && !c.isNull(iAr)) c.getInt(iAr) else 0
+                if (iSeen >= 0 && !c.isNull(iSeen)) seen[c.getLong(iId)] = c.getLong(iSeen)
                 out.getOrPut(str(iKey)) { ArrayList() } += Program(c.getLong(iId), str(iTitle), str(iEp), poster, intent,
                     wide = ar <= 2, progress = if (dur > 0 && pos > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f)
             }
+            // Continue watching: what was watched last comes first, like the TV's own row (the TV hands them over oldest
+            // first, so a title just watched went to the end of the row). Without a time, the newest card first.
+            if (keyColumn == "package_name") for ((_, l) in out)
+                l.sortWith(compareByDescending<Program> { seen[it.id] ?: 0L }.thenByDescending { it.id })
         }
         return out
     }
@@ -143,6 +150,17 @@ object Channels {
 
     /** For testing: what the TV hands over (log "GlassChannels"). */
     fun dump(ctx: Context) {
+        // The raw Continue watching rows, with when each was last touched by its app.
+        runCatching {
+            ctx.contentResolver.query(WATCH_NEXT, null, null, null, null)?.use { c ->
+                fun v(n: String) = c.getColumnIndex(n).let { i -> if (i >= 0 && !c.isNull(i)) c.getString(i) else "-" }
+                val f = java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US)
+                while (c.moveToNext()) {
+                    val t = v("last_engagement_time_utc_millis").toLongOrNull()?.let { f.format(java.util.Date(it)) } ?: "-"
+                    android.util.Log.i("GlassChannels", "WN ${v("package_name")} · id=${v("_id")} · ${v("title").take(30)} · ${v("episode_title").take(20)} · engaged=$t · pos=${v("last_playback_position_millis")} · dur=${v("duration_millis")} · type=${v("watch_next_type")} · browsable=${v("browsable")}")
+                }
+            }
+        }.onFailure { android.util.Log.i("GlassChannels", "WN failed: ${it.message}") }
         read(ctx).onSuccess { l ->
             android.util.Log.i("GlassChannels", "${l.size} channels")
             l.forEach { ch -> android.util.Log.i("GlassChannels", "${ch.pkg} · ${ch.name} · ${ch.programs.size} · ${ch.programs.firstOrNull()?.let { it.title.take(30) + " | wide=" + it.wide + " | " + it.poster.take(40) + " | " + it.intent.take(50) }}") }
