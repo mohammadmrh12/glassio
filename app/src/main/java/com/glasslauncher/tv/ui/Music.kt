@@ -259,7 +259,8 @@ object MusicUi {
     /** Whether the music page takes the home screen now. */
     fun stageOn(st: com.glasslauncher.tv.data.Settings, song: NowPlaying.Track?): Boolean {
         if (song == null) return false
-        if (forced.value || dockApp.value != null) return true
+        // (The Music icon selected while a song is on: its player, on the song's page; the music apps once it stopped.)
+        if (forced.value || dockApp.value != null || appsOn.value) return true
         // Only a song that played while Glassio runs: a music app left paused from before (Spotify keeps its paused
         // session) put the music page up the moment Glassio started, after an update or a restart.
         val key = song.pkg + "|" + song.title + "|" + song.artist

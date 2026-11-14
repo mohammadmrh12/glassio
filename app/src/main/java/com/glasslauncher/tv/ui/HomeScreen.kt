@@ -726,7 +726,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // player): the carousel never shows in between — one went at once while the next faded in over it. The
             // last music page stays under the one coming in, or a dark page when there was none.
             val otherPage = otherPageNow
-            val stageBack = MusicUi.stageCur.value?.takeIf { otherPage && (stageWanted || musicWas[0] || !rowsNow) }
+            // (The music apps and an idle player have their own grey page: the dark one under them, never the song's
+            // picture.)
+            val greyPage = MusicUi.appsShowing || (idleNow && !stageWanted)
+            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted || (otherPage && !greyPage && (musicWas[0] || !rowsNow)) }
             val veilCovers = (stageBack?.let { it.glass ?: it.back } ?: backImgs?.third) != null
             // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
             // painted every pixel four times there and the Library's scrolling lost frames.
