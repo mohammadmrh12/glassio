@@ -71,6 +71,8 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         val path = target.substringBefore('?'); val q = target.substringAfter('?', "")
         if (!MessageDigest.isEqual(query(q, "t").toByteArray(), token.toByteArray())) { respond(c, 403, "text/plain", "Forbidden"); return }
         if (method == "GET" && path == "/") { respond(c, 200, "text/html", PAGE); return }
+        // The settings button's picture: one button that sends a picture from the phone (the QR code in Settings → Menu & themes).
+        if (method == "GET" && path == "/button") { respond(c, 200, "text/html", BUTTON_PAGE); return }
         if (method == "GET" && path == "/api/state") { respond(c, 200, "application/json", state().toString()); return }
         if (method == "GET" && path == "/api/backup") {
             respond(c, 200, "application/json", com.glasslauncher.tv.data.Backup.export(app).toString(1),
@@ -269,6 +271,9 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         app.catalogs.addons.sorted().forEach { addons.put(JSONObject().put("url", it).put("name", app.catalogs.addonName(it)).put("host", runCatching { java.net.URI(it).host }.getOrNull() ?: "")) }
         app.catalogs.accountOnly().forEach { addons.put(JSONObject().put("url", it).put("name", app.catalogs.addonName(it)).put("host", runCatching { java.net.URI(it).host }.getOrNull() ?: "").put("account", true)) }
         val apps = JSONArray()
+        // First: Glassio's own settings button (Settings → Menu & themes → Settings button → Your picture).
+        val sb = com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON
+        apps.put(JSONObject().put("pkg", sb).put("label", "Settings button (Glassio)").put("custom", app.icons.fileFor(sb).exists()))
         app.apps.ordered(includeHidden = true).forEach {
             apps.put(JSONObject().put("pkg", it.pkg).put("label", it.label).put("custom", app.icons.fileFor(it.pkg).exists()))
         }
@@ -305,6 +310,40 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
     }
 
     private companion object {
+        /** A small page with one big button: pick a picture on the phone, and it becomes Glassio's settings button. */
+        const val BUTTON_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark"><title>Glassio · Settings button</title><style>
+:root{--bg:#f2f2f7;--card:#fff;--text:#1c1c1e;--sub:#6e6e73;--accent:#6e5bff;--ok:#34c759;--bad:#ff3b30}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f2f2f7;--sub:#98989f}}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font:17px/1.4 -apple-system,system-ui,sans-serif;
+display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.card{width:100%;max-width:380px;background:var(--card);border-radius:22px;padding:28px 22px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+h1{font-size:22px;margin:0 0 6px}p{margin:0;color:var(--sub);font-size:15px}
+.pv{width:96px;height:96px;margin:22px auto;border-radius:22px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pv img{width:100%;height:100%;object-fit:cover}.pv svg{width:40px;height:40px;fill:var(--sub)}
+button{width:100%;border:0;border-radius:14px;padding:16px;font:600 17px -apple-system,system-ui,sans-serif;background:var(--accent);color:#fff}
+button:active{opacity:.8}button[disabled]{opacity:.5}
+.msg{margin-top:14px;font-size:15px;min-height:21px}.ok{color:var(--ok)}.bad{color:var(--bad)}
+</style></head><body><div class="card">
+<h1>Settings button</h1><p>Choose a picture: it becomes the button at the top of Glassio, on your TV.</p>
+<div class="pv" id="pv"><svg viewBox="0 0 16 16"><path d="M16 13.25A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h.94l.03-.03 6.077-6.078a1.75 1.75 0 0 1 2.412-.06L14.5 10.31V2.75a.25.25 0 0 0-.25-.25Zm12.5 11a.25.25 0 0 0 .25-.25v-.917l-4.298-3.889a.25.25 0 0 0-.344.009L4.81 13.5ZM7 6a2 2 0 1 1-3.999.001A2 2 0 0 1 7 6ZM5.5 6a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0Z"/></svg></div>
+<input type="file" id="f" accept="image/*" hidden>
+<button id="b" onclick="document.getElementById('f').click()">Upload a picture</button>
+<div class="msg" id="m"></div></div>
+<script>
+var T=new URLSearchParams(location.search).get('t')||'',f=document.getElementById('f'),b=document.getElementById('b'),m=document.getElementById('m');
+function say(t,c){m.textContent=t;m.className='msg '+(c||'')}
+f.onchange=function(){var x=f.files[0];if(!x)return;b.disabled=true;say('Sending…');
+var im=new Image();im.onload=function(){
+// Made small on the phone first (a photo can be many MB): 512 px on its longer side, as PNG.
+var s=Math.min(1,512/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
+c.getContext('2d').drawImage(im,0,0,c.width,c.height);document.getElementById('pv').innerHTML='<img src="'+c.toDataURL()+'">';
+c.toBlob(function(bl){fetch('/api/icon/upload?pkg=glassio.settingsbutton&t='+encodeURIComponent(T),{method:'POST',body:bl})
+.then(function(r){return r.json()}).then(function(r){say(r.ok?'Done ✓  Look at your TV':(r.error||'Failed'),r.ok?'ok':'bad');b.disabled=false;b.textContent='Choose another'})
+.catch(function(){say('Couldn\'t reach the TV. Same Wi-Fi?','bad');b.disabled=false})},'image/png')};
+im.onerror=function(){say('That file is not a picture','bad');b.disabled=false};im.src=URL.createObjectURL(x);f.value=''}
+</script></body></html>"""
+
         const val PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark"><title>Glassio</title><style>
 :root{--bg:#f2f2f7;--card:#fff;--ink:#000;--sub:#8a8a8e;--line:rgba(60,60,67,.18);--field:#f2f2f7;--blue:#007aff;--red:#ff3b30;--green:#34c759}

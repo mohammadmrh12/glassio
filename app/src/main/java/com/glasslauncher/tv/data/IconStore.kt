@@ -9,6 +9,9 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
+/** The settings button's own picture is kept with the icons (it travels with them: phone page, backups of icons, Sync). */
+const val SETTINGS_BUTTON_ICON = "glassio.settingsbutton"
+
 /**
  * Custom dock icons. An icon can come from a link, from a file saved in the app's icon folder,
  * or from an upload through the phone page. All of them end up as PNG files in filesDir/icons.

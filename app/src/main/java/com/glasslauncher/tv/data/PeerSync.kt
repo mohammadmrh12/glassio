@@ -45,19 +45,26 @@ object PeerSync {
     /** Also syncable, but only when turned on (they fit TVs in the same home, with the same kind of remote). */
     val EXTRAS = linkedMapOf(
         "keys" to "Keys: TMDB, Unsplash, Home Assistant", "hue" to "Hue bridge", "cameras" to "Cameras & doorbell",
-        "remote" to "Remote buttons", "lock" to "App lock & code",
+        "remote" to "Remote buttons", "lock" to "App lock & code", "perf" to "Performance",
     )
     private val DEFAULT_GROUPS = GROUPS.keys
 
     // ---- What belongs to each TV (never synced)
     private val NEVER = setOf(
-        "perfMode", "memTier", "pageScale", "glassRes", "imageQuality", "cacheMb", "prefetchDepth", "maxItems", "photoCacheMb",
         "interceptHome", "inputs", "inputPlayer", "setupDone", "tourSeen", "musicLastPkg", "bootStart", "recentsAdb",
         "nuvioToken", "nuvioTarget", "cameraDecoder", "phoneMinutes", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
     )
     // (Hue: the bridge and its key are shared on request; the lights and rooms each TV drives stay its own.)
     private val NEVER_PREFIX = listOf("hue", "sys", "saverCache", "settingsLast")
     private fun prefixed(k: String, p: String) = k.startsWith(p) && k.length > p.length && k[p.length].isUpperCase()
+    /**
+     * What weighs on the TV: the performance mode and everything it sets. Off unless turned on, so a weaker TV that
+     * follows a stronger one stays smooth with its own choices.
+     */
+    private val PERF = setOf(
+        "perfMode", "memTier", "pageScale", "glassRes", "imageQuality", "cacheMb", "prefetchDepth", "maxItems", "photoCacheMb",
+        "refraction", "transitionMs", "slideAnim", "heroGallery", "galleryShots", "saverQuality",
+    )
     private val LOOK = setOf(
         "theme", "glass", "glassColor", "glassColorAmount", "glassTint", "blurRadius", "refraction", "tileStyle", "tileBacking", "tileLift",
         "tileZoom", "dockStyle", "menuStyle", "panelStyle", "focusColor", "focusPlate", "glow", "glowSize", "cornerRadius", "squareCorners",
@@ -68,6 +75,7 @@ object PeerSync {
     /** The group a setting syncs with, or null for one that stays on each TV. */
     fun groupOf(k: String): String? = when {
         k in NEVER -> null
+        k in PERF -> "perf"
         k == "tmdbToken" || k == "unsplashKey" || prefixed(k, "ha") -> "keys"
         k == "hueIp" || k == "hueUser" -> "hue"
         NEVER_PREFIX.any { prefixed(k, it) } -> null
@@ -101,7 +109,13 @@ object PeerSync {
         set(v) { sp.edit().putString("name", v).apply(); rev.intValue++; if (role == "main") { unregister(); register() } }
     var groups: Set<String>
         get() = sp.getStringSet("groups", null) ?: DEFAULT_GROUPS
-        set(v) { sp.edit().putStringSet("groups", v).remove("applied").apply(); rev.intValue++; wake() }
+        set(v) {
+            // Performance turned off: this TV goes back to its own performance mode (what the main TV sent is undone).
+            val perfOff = "perf" in groups && "perf" !in v
+            sp.edit().putStringSet("groups", v).remove("applied").apply(); rev.intValue++
+            if (perfOff) main.post { app.settings.applyMode(app.settings.perfMode) }
+            wake()
+        }
     /** The main TV a follower follows (its name, where it was last found, the key it gave). */
     /** A follower: a short note on screen when a change from the main TV came. */
     var notify: Boolean

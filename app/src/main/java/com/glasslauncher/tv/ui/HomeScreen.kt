@@ -1130,6 +1130,15 @@ private fun appMenu(
     }
     if (startMove != null) opts += "Move" to startMove
     opts += "Change icon" to pickIcon
+    // Its rows in the carousel's place (Settings → Channels): hidden or shown again from here too.
+    val st = app.settings
+    if (st.channelsOn && com.glasslauncher.tv.data.Channels.allFor(st, e.pkg).isNotEmpty()) {
+        val off = e.pkg in st.channelsOffApps
+        opts += (if (off) "Show its rows" else "Hide its rows") to {
+            st.channelsOffApps = if (off) st.channelsOffApps - e.pkg else st.channelsOffApps + e.pkg
+            toast(ctx, if (off) "${e.label}: its rows show again" else "${e.label}: the carousel stays in place of its rows")
+        }
+    }
     opts += (if (hidden) "Show in dock" else "Hide") to { app.apps.toggleHidden(e.pkg) }
     // Asks for the 4-digit code when opened from Glassio (Settings → System sets the code).
     opts += (if (AppLock.locked(app, e.pkg)) "Unlock" else "Lock") to { AppLock.toggle(app, ctx, e, verified) }
@@ -2122,6 +2131,7 @@ private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: B
         verticalAlignment = Alignment.Top,
     ) {
         val right = settings.clockPos == "right"
+        val gearPic = settingsPicture(app, settings.settingsIcon)
         // Apple TV: time and date, top left.
         if (settings.showClock && !right) Column {
             Text(time, color = Color.White, fontSize = (19 * s).sp, fontWeight = FontWeight.SemiBold, style = shade)
@@ -2151,13 +2161,13 @@ private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: B
                         fontWeight = FontWeight.SemiBold, letterSpacing = (0.6f * s).sp, style = shade)
                 }
                 UpdateDot(app, s) { barFocused = it }
-                GearButton(s, settings.settingsIcon, settings.settingsFrame, gearClick, gearReq, gearUp) { barFocused = it; gearFocus(it) }
+                GearButton(s, settings.settingsIcon, settings.settingsFrame, gearClick, gearReq, gearUp, gearPic) { barFocused = it; gearFocus(it) }
             }
             weatherRow()
         } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * s).dp)) {
             weatherRow()
             UpdateDot(app, s) { barFocused = it }
-            GearButton(s, settings.settingsIcon, settings.settingsFrame, gearClick, gearReq, gearUp) { barFocused = it; gearFocus(it) }
+            GearButton(s, settings.settingsIcon, settings.settingsFrame, gearClick, gearReq, gearUp, gearPic) { barFocused = it; gearFocus(it) }
         }
     }
 }
@@ -2231,16 +2241,39 @@ fun UpdateBanner(app: GlassApp, s: Float, modifier: Modifier) {
 private fun dateText(): String =
     java.text.SimpleDateFormat("d MMM ''yy", java.util.Locale.US).format(java.util.Date()).uppercase()
 
+/** The settings button's own picture (Settings → Menu & themes → Settings button → Your picture), or null. */
 @Composable
-private fun GearButton(s: Float, icon: String, frame: String, onClick: () -> Unit, req: FocusRequester, onUp: () -> Boolean = { false }, onFocus: (Boolean) -> Unit) {
+private fun settingsPicture(app: GlassApp, icon: String): androidx.compose.ui.graphics.ImageBitmap? {
+    if (icon != "picture") return null
+    val rev = app.icons.rev.intValue
+    return remember(rev) {
+        val f = app.icons.fileFor(com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON)
+        if (!f.isFile) null else runCatching {
+            val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(f.absolutePath, o)
+            var sample = 1
+            while (o.outHeight / sample > 256) sample *= 2
+            android.graphics.BitmapFactory.decodeFile(f.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
+        }.getOrNull()
+    }
+}
+
+@Composable
+private fun GearButton(s: Float, icon: String, frame: String, onClick: () -> Unit, req: FocusRequester, onUp: () -> Boolean = { false },
+                       pic: androidx.compose.ui.graphics.ImageBitmap? = null, onFocus: (Boolean) -> Unit) {
     // tvOS 26 top-right button: a small glass button with a glyph; selected it fills white and the glyph turns dark.
     // Its glyph and frame: Settings → Menu & themes → Settings button.
     var focused by remember { mutableStateOf(false) }
     val scale = animateFloatAsState(if (focused) 1.16f else 1f, spring(0.8f, 900f), label = "gear")
     val lit = animateFloatAsState(if (focused) 1f else 0f, tween(120), label = "gearLit")
-    val hello = icon == "hello"
+    // A word instead of a glyph: "Hello" or "Menu" in Glassio's own bold type (no frame), or Apple's "hello" in a script
+    // hand in a pill.
+    val word = when (icon) { "hello" -> "Hello"; "menuText" -> "Menu"; else -> null }
+    val script = icon == "helloScript"
+    val picture = if (icon == "picture") pic else null
+    val wide = word != null || script || picture != null
     Box(
-        (if (hello) Modifier.height((20 * s).dp) else Modifier.size((20 * s).dp))
+        (if (wide) Modifier.height((20 * s).dp) else Modifier.size((20 * s).dp))
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
             .focusRequester(req)
             .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
@@ -2255,20 +2288,57 @@ private fun GearButton(s: Float, icon: String, frame: String, onClick: () -> Uni
             translationY = 1.2f * s * density
             if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = androidx.compose.ui.graphics.BlurEffect(2.2f * s * density, 2.2f * s * density)
         }
-        if (hello) {
-            // "hello" in Glassio's own type, bold, on its own (no frame, whatever Frame says). Selected it grows like the
-            // other glyphs, staying white (there is no frame to fill).
-            @Composable fun helloText(color: Color, mod: Modifier) = Text("hello", fontSize = (14 * s).sp, fontWeight = FontWeight.Bold,
-                color = color, modifier = mod.padding(horizontal = (2 * s).dp))
-            Box(Modifier.wrapContentHeight(unbounded = true).requiredHeight((20 * s + 2 * pad).dp).then(shadow).padding(pad.dp), contentAlignment = Alignment.Center) {
-                helloText(Color.Black, Modifier)
+        when {
+            word != null -> {
+                // On its own (no frame, whatever Frame says). Selected it grows like the other glyphs, staying white.
+                @Composable fun wordText(color: Color, mod: Modifier) = Text(word, fontSize = (14 * s).sp, fontWeight = FontWeight.Bold,
+                    color = color, modifier = mod.padding(horizontal = (2 * s).dp))
+                Box(Modifier.wrapContentHeight(unbounded = true).requiredHeight((20 * s + 2 * pad).dp).then(shadow).padding(pad.dp), contentAlignment = Alignment.Center) {
+                    wordText(Color.Black, Modifier)
+                }
+                wordText(Color.White, Modifier)
             }
-            helloText(Color.White, Modifier)
-        } else {
-            Box(Modifier.requiredSize((20 * s + 2 * pad).dp).then(shadow).padding(pad.dp)) { SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.Black) }
-            SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.White) { lit.value }
+            script -> {
+                // Apple's "hello": a script hand in a pill (or on its own with Frame: None); selected the pill fills white.
+                val none = frame == "none"
+                Box(Modifier.matchParentSize().drawBehind { pillFrame(none, lit.value) })
+                Text("hello", fontFamily = androidx.compose.ui.text.font.FontFamily.Cursive, fontSize = (13 * s).sp, fontWeight = FontWeight.SemiBold,
+                    color = androidx.compose.ui.graphics.lerp(Color.White, Color(0xFF1C1C1E), lit.value),
+                    modifier = Modifier.padding(horizontal = ((if (none) 3 else 8) * s).dp))
+            }
+            picture != null -> {
+                // Your own picture, as tall as the other buttons; Frame shapes it (rounded square, circle or as it is),
+                // and selected it gets a white ring.
+                val ratio = (picture.width.toFloat() / picture.height).coerceIn(0.5f, 3f)
+                val shape = when (frame) {
+                    "circle" -> androidx.compose.foundation.shape.CircleShape
+                    "square" -> RoundedCornerShape(26)
+                    else -> RoundedCornerShape(0)
+                }
+                Box(Modifier.height((20 * s).dp).aspectRatio(ratio)
+                    .border((1.6f * s).dp, Color.White.copy(alpha = if (frame == "none") 0f else 0.85f * lit.value + 0.0f), shape)
+                    .padding((if (frame == "none") 0f else 1f * s).dp)
+                    .clip(shape)) {
+                    androidx.compose.foundation.Image(picture, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
+            }
+            else -> {
+                Box(Modifier.requiredSize((20 * s + 2 * pad).dp).then(shadow).padding(pad.dp)) { SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.Black) }
+                SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.White) { lit.value }
+            }
         }
     }
+}
+
+/** The script "hello"'s pill: an outline (unless Frame is None) that fills white when selected. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.pillFrame(none: Boolean, lit: Float) {
+    val sw = size.height * 0.085f
+    val tl = androidx.compose.ui.geometry.Offset(sw / 2, sw / 2)
+    val sz = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw)
+    val cr = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
+    if (lit > 0.01f) drawRoundRect(Color.White.copy(alpha = lit), topLeft = tl, size = sz, cornerRadius = cr)
+    if (!none) drawRoundRect(androidx.compose.ui.graphics.lerp(Color.White.copy(alpha = 0.9f), Color.White, lit), topLeft = tl, size = sz,
+        cornerRadius = cr, style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw))
 }
 
 /** The settings button's frame: a rounded square, a circle, or none (only the white fill when selected). */

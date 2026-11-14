@@ -468,18 +468,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 },
                 Act("Video from the folder", "", "") { pick(true) },
                 Note("Folder for your pictures and videos: $bgFolder (copy with adb push, a file manager or a USB stick). The glass shows the picture; with a video it shows one frame of it."),
-                Toggle("Show clock", "", { st.showClock }, { st.showClock = it }),
-                Toggle("24-hour clock", "", { st.clock24h }, { st.clock24h = it }),
-                Toggle("Show date", "Under the clock, like Apple TV", { st.showDate }, { st.showDate = it }),
-                Adjust("Clock position", "", { if (st.clockPos == "right") "Right, by Settings" else "Left, like Apple TV" },
-                    { st.clockPos = cycle(listOf("left", "right"), st.clockPos, it) }),
-                Adjust("Weather", "Top bar, next to the settings button", {
-                    when (st.weatherMode) { "off" -> "Off"; "temp" -> "Temperature"; "condition" -> "Temperature + sky"; "city" -> "Temperature + city"; else -> "Everything" }
-                }, { st.weatherMode = cycle(listOf("all", "condition", "city", "temp", "off"), st.weatherMode, it); app.weather.reload() }),
-                Act("Weather city", st.weatherCity + weatherFound.takeIf { it.isNotBlank() }?.let { "  →  $it" }.orEmpty(), "Change") {
-                    dialog = TextEntry("Weather city", st.weatherCity, "Baghdad") { st.weatherCity = it; app.weather.reload() }
-                },
-                Toggle("Fahrenheit", "", { st.weatherF }, { st.weatherF = it }),
+                link("Menu & themes", "The clock, date and weather at the top, and the settings button"),
                 Toggle("Show phone apps too", "Apps without a TV launcher entry", { st.showMobileApps }, { st.showMobileApps = it; app.apps.reload() }),
             )
         },
@@ -508,8 +497,6 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     styleName(st.tileStyle)
                 }, { st.tileStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.tileStyle, it); st.theme = "" }))
                 add(Note("Dock look"))
-                add(Toggle("Auto-hide clock and settings button", "Hidden while you browse; they appear when you go up to the settings button", { st.topAutoHide }, { st.topAutoHide = it }))
-                add(Adjust("Shown at start for", "Then hidden until you go up to them", { "${st.topHideSec} s" }, { st.topHideSec += it }))
                 add(Adjust("Corner radius", "Dock and app tiles (0 = square)", { "${st.cornerRadius}" }, { st.cornerRadius += it * 2 }))
                 add(Adjust("Glass blur", "0 turns blur off", { "${st.blurRadius}" }, { st.blurRadius += it * 4 }))
                 add(Adjust("Glass refraction", "How much the rim bends what is behind it (0 = flat)", { "${st.refraction}" }, { st.refraction += it * 2 }))
@@ -567,59 +554,126 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
         },
         Category("Menu & themes") {
             val themes = listOf("bow", "amoled", "liquid", "clear", "water_still", "water")
-            listOf(
-                Adjust("Glass colour", "A tint through all the glass (dock, icons, menus, panels), still see-through, like a tinted window",
-                    { GlassTint.NAMES[st.glassColor] ?: "None (clear)" }, { st.glassColor = cycle(GlassTint.NAMES.keys.toList(), st.glassColor, it); GlassTint.apply(st) }),
-                Adjust("  · Strength", "How deep the glass colour is", { pct(st.glassColorAmount) },
-                    { st.glassColorAmount = ((st.glassColorAmount * 20).roundToInt() + it) / 20f; GlassTint.apply(st) }),
-                Adjust("Settings button", "The button at the top that opens the menu", { SETTINGS_ICONS[st.settingsIcon] ?: "Sliders" },
-                    { st.settingsIcon = cycle(SETTINGS_ICONS.keys.toList(), st.settingsIcon, it) }),
-                // ("hello" has no frame.)
-                *(if (st.settingsIcon == "hello") emptyArray() else arrayOf<SRow>(Adjust("  · Frame", "Around the settings button (it fills in white when selected)", { SETTINGS_FRAMES[st.settingsFrame] ?: "Square" },
-                    { st.settingsFrame = cycle(SETTINGS_FRAMES.keys.toList(), st.settingsFrame, it) }))),
-                Toggle("Bold text", "All of Glassio's writing a step bolder", { st.boldText }, { st.boldText = it; TextLook.bold.value = it }),
-                Act("Switch colour", "The colour of the switches in Settings, and of a row while you change it", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
+            val icon = st.settingsIcon
+            val hasPic = app.icons.has(com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON)
+            buildList {
+                // ── The top bar: the settings button, the clock and the weather, and when they hide.
+                add(Note("Top bar"))
+                add(Adjust("Settings button", "The button at the top that opens the menu", { SETTINGS_ICONS[icon] ?: "Sliders" },
+                    { st.settingsIcon = cycle(SETTINGS_ICONS.keys.toList(), icon, it) }))
+                if (icon == "picture") add(Act("  · Your picture", if (hasPic) "Shown as the settings button. Change it from your phone (QR code) or a link"
+                    else "Not chosen yet: the sliders show until you add one. Add it from your phone (QR code) or a link", if (hasPic) "Change" else "Add") {
+                    dialog = MenuDialog("Settings button picture", buildList {
+                        // A QR code: the phone opens a page with one Upload button; this closes by itself when the picture arrives.
+                        add("From your phone (QR code)" to {
+                            scope.launch(Dispatchers.IO) {
+                                val base = com.glasslauncher.tv.net.PhoneHost.start(app)
+                                    ?: run { kotlinx.coroutines.withContext(Dispatchers.Main) { toast(ctx, "The TV is not on a network") }; return@launch }
+                                val f = app.icons.fileFor(com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON)
+                                val before = if (f.isFile) f.lastModified() else 0L
+                                val code = kotlinx.coroutines.flow.MutableStateFlow<String?>("")
+                                dialog = QrCodeDialog("Settings button picture", base.replace("/?t=", "/button?t="), code,
+                                    "Scan with your phone and press Upload a picture. This closes by itself when it arrives.")
+                                var n = 0
+                                while (dialog != null && n++ < 600) {
+                                    kotlinx.coroutines.delay(1000)
+                                    if (f.isFile && f.lastModified() != before) break
+                                }
+                                val got = f.isFile && f.lastModified() != before
+                                code.value = null
+                                com.glasslauncher.tv.net.PhoneHost.leave(app)
+                                if (got) kotlinx.coroutines.withContext(Dispatchers.Main) { st.settingsIcon = "picture"; toast(ctx, "Picture set") }
+                            }
+                        })
+                        add("From a link" to {
+                            dialog = TextEntry("Picture link", "", "https://… (png, jpg, webp)") { u ->
+                                if (u.isNotBlank()) scope.launch(Dispatchers.IO) {
+                                    val r = runCatching { app.icons.setFromUrl(com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON, u.trim()) }
+                                    kotlinx.coroutines.withContext(Dispatchers.Main) { toast(ctx, if (r.isSuccess) "Picture set" else "Couldn't use it: ${r.exceptionOrNull()?.message.orEmpty()}") }
+                                }
+                            }
+                        })
+                        if (hasPic) add("Remove the picture" to { app.icons.reset(com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON) })
+                    })
+                })
+                // ("Hello" and "Menu" are words on their own: no frame.)
+                if (icon != "hello" && icon != "menuText") add(Adjust("  · Frame", if (icon == "picture") "The shape of your picture" else "Around the settings button (it fills in white when selected)",
+                    { SETTINGS_FRAMES[st.settingsFrame] ?: "Square" }, { st.settingsFrame = cycle(SETTINGS_FRAMES.keys.toList(), st.settingsFrame, it) }))
+                add(Toggle("Show clock", "", { st.showClock }, { st.showClock = it }))
+                if (st.showClock) add(Toggle("  · 24-hour clock", "", { st.clock24h }, { st.clock24h = it }))
+                if (st.showClock) add(Toggle("  · Show date", "Under the clock, like Apple TV", { st.showDate }, { st.showDate = it }))
+                if (st.showClock) add(Adjust("  · Clock position", "", { if (st.clockPos == "right") "Right, by Settings" else "Left, like Apple TV" },
+                    { st.clockPos = cycle(listOf("left", "right"), st.clockPos, it) }))
+                add(Adjust("Weather", "Next to the settings button", {
+                    when (st.weatherMode) { "off" -> "Off"; "temp" -> "Temperature"; "condition" -> "Temperature + sky"; "city" -> "Temperature + city"; else -> "Everything" }
+                }, { st.weatherMode = cycle(listOf("all", "condition", "city", "temp", "off"), st.weatherMode, it); app.weather.reload() }))
+                if (st.weatherMode != "off" || st.menuWeather) add(Act("  · Weather city", st.weatherCity + weatherFound.takeIf { it.isNotBlank() }?.let { "  →  $it" }.orEmpty(), "Change") {
+                    dialog = TextEntry("Weather city", st.weatherCity, "Baghdad") { st.weatherCity = it; app.weather.reload() }
+                })
+                if (st.weatherMode != "off" || st.menuWeather) add(Toggle("  · Fahrenheit", "", { st.weatherF }, { st.weatherF = it }))
+                add(Toggle("Auto-hide the top bar", "The clock and the settings button hide while you browse, and come back when you go up to them", { st.topAutoHide }, { st.topAutoHide = it }))
+                if (st.topAutoHide) add(Adjust("  · Shown at start for", "Then hidden until you go up to them", { "${st.topHideSec} s" }, { st.topHideSec += it }))
+
+                // ── How Glassio looks.
+                add(Note("Look"))
+                add(Adjust("Theme", "One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)",
+                    { if (st.theme.isBlank()) "Custom" else themeName(st.theme) }, { st.applyTheme(cycle(themes, st.theme.ifBlank { "liquid" }, it)) }))
+                add(Adjust("Glass colour", "A tint through all the glass (dock, icons, menus, panels), still see-through, like a tinted window",
+                    { GlassTint.NAMES[st.glassColor] ?: "None (clear)" }, { st.glassColor = cycle(GlassTint.NAMES.keys.toList(), st.glassColor, it); GlassTint.apply(st) }))
+                add(Adjust("  · Strength", "How deep the glass colour is", { pct(st.glassColorAmount) },
+                    { st.glassColorAmount = ((st.glassColorAmount * 20).roundToInt() + it) / 20f; GlassTint.apply(st) }))
+                add(Toggle("Bold text", "All of Glassio's writing a step bolder", { st.boldText }, { st.boldText = it; TextLook.bold.value = it }))
+                add(Act("Switch colour", "The colour of the switches in Settings, and of a row while you change it", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
                     dialog = ThumbDialog("Switch colour", SETTINGS_ACCENTS.map { (k, v) -> ThumbItem(v.first, if (k == "burgundy") "Default" else "", HueArt.swatch(v.second), checked = k == st.settingsAccent) { st.settingsAccent = k } })
-                },
-                Adjust("Theme", "One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)",
-                    { if (st.theme.isBlank()) "Custom" else themeName(st.theme) }, { st.applyTheme(cycle(themes, st.theme.ifBlank { "liquid" }, it)) }),
-                Adjust("Menu", "The Apple TV-style menu at the settings button",
+                })
+
+                // ── The Apple TV-style menu at the settings button.
+                add(Note("Menu"))
+                add(Adjust("Menu", "The Apple TV-style menu at the settings button",
                     { when (st.menuMode) { "auto" -> "Opens when you go up to it"; "manual" -> "Opens with OK"; else -> "Off (OK opens Settings)" } },
-                    { st.menuMode = cycle(listOf("auto", "manual", "off"), st.menuMode, it) }),
-                Adjust("Menu look", "", { styleName(st.menuStyle) },
-                    { st.menuStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.menuStyle, it); st.theme = "" }),
-                Toggle("Clock in the menu", "", { st.menuClock }, { st.menuClock = it }),
-                Toggle("Date in the menu", "", { st.menuDate }, { st.menuDate = it }),
-                Toggle("Weather in the menu", "Temperature, conditions, high / low, humidity and wind (city in Background & glass)", { st.menuWeather }, { st.menuWeather = it; app.weather.reload() }),
-                Toggle("City in the menu", "", { st.menuCity }, { st.menuCity = it }),
-                Toggle("Library in the menu", "", { st.menuLibrary }, { st.menuLibrary = it }),
-                Toggle("Android settings in the menu", "", { st.menuAndroid }, { st.menuAndroid = it }),
-                Toggle("Wi-Fi in the menu", "", { st.menuWifi }, { st.menuWifi = it }),
-                Toggle("Recent apps in the menu", "Opens the app switcher (like holding Home)", { st.menuRecents }, { st.menuRecents = it }),
-                Toggle("Inputs in the menu", "The TV's HDMI inputs and the devices plugged into them (found by themselves, by name over HDMI-CEC)",
-                    { st.menuInputs }, { st.menuInputs = it; if (it) scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }),
-                Toggle("Inputs in the dock", "Each input as an icon: move, hide and change its icon like an app",
-                    { st.inputsDock }, { st.inputsDock = it; scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx); app.apps.reload() } }),
-                Adjust("Inputs open in", "Glassio: shows the input itself (for TVs on plain Android, where the TV's app doesn't open it)",
+                    { st.menuMode = cycle(listOf("auto", "manual", "off"), st.menuMode, it) }))
+                if (st.menuMode != "off") {
+                    add(Adjust("  · Look", "", { styleName(st.menuStyle) },
+                        { st.menuStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.menuStyle, it); st.theme = "" }))
+                    add(Adjust("  · Size", "", { pct(st.menuScale) }, { st.menuScale = ((st.menuScale * 20).roundToInt() + it) / 20f }))
+                    add(Act("  · Order", st.menuOrder.joinToString(" · ") { com.glasslauncher.tv.data.MENU_NAMES[it] ?: it }, "Change") {
+                        dialog = ReorderDialog("Menu order", st.menuOrder.map { it to (com.glasslauncher.tv.data.MENU_NAMES[it] ?: it) }) { st.menuOrder = it }
+                    })
+                    add(Note("In the menu"))
+                    add(Toggle("Clock", "", { st.menuClock }, { st.menuClock = it }))
+                    add(Toggle("Date", "", { st.menuDate }, { st.menuDate = it }))
+                    add(Toggle("Weather", "Temperature, conditions, high / low, humidity and wind (the city is in Top bar, above)", { st.menuWeather }, { st.menuWeather = it; app.weather.reload() }))
+                    add(Toggle("City", "", { st.menuCity }, { st.menuCity = it }))
+                    add(Toggle("TV info", "Under the weather: IP, CPU, GPU, RAM, storage (CPU and GPU need TV access (ADB))", { st.menuSys }, { st.menuSys = it }))
+                    if (st.menuSys) {
+                        add(Toggle("  · IP address", "", { st.sysIp }, { st.sysIp = it }))
+                        add(Toggle("  · CPU", "Use and temperature", { st.sysCpu }, { st.sysCpu = it }))
+                        add(Toggle("  · GPU", "Use, or its memory where the TV doesn't tell the use", { st.sysGpu }, { st.sysGpu = it }))
+                        add(Toggle("  · RAM", "", { st.sysRam }, { st.sysRam = it }))
+                        add(Toggle("  · Storage", "", { st.sysStorage }, { st.sysStorage = it }))
+                    }
+                    add(Toggle("Library", "", { st.menuLibrary }, { st.menuLibrary = it }))
+                    add(Toggle("Themes", "", { st.menuThemes }, { st.menuThemes = it }))
+                    add(Toggle("Background", "Switch between title backdrops, your picture, your video and the screensaver", { st.menuBackground }, { st.menuBackground = it }))
+                    add(Toggle("Trailer", "Play or stop the trailer, and its size, starting by itself and subtitles", { st.menuTrailer }, { st.menuTrailer = it }))
+                    add(Toggle("Screensaver", "Start it, choose its videos and when it starts", { st.menuSaver }, { st.menuSaver = it }))
+                    add(Toggle("Camera", if (st.cameras.isEmpty()) "Add a camera in Settings → Cameras" else "Live view in the menu, like Apple TV", { st.menuCamera }, { st.menuCamera = it }))
+                    add(Toggle("Inputs", "The TV's HDMI inputs and the devices plugged into them (found by themselves, by name over HDMI-CEC)",
+                        { st.menuInputs }, { st.menuInputs = it; if (it) scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }))
+                    add(Toggle("Recent apps", "Opens the app switcher (like holding Home)", { st.menuRecents }, { st.menuRecents = it }))
+                    add(Toggle("Wi-Fi", "", { st.menuWifi }, { st.menuWifi = it }))
+                    add(Toggle("Android settings", "", { st.menuAndroid }, { st.menuAndroid = it }))
+                }
+
+                // ── The TV's inputs.
+                add(Note("TV inputs"))
+                add(Toggle("Inputs in the dock", "Each input as an icon: move, hide and change its icon like an app",
+                    { st.inputsDock }, { st.inputsDock = it; scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx); app.apps.reload() } }))
+                add(Adjust("Inputs open in", "Glassio: shows the input itself (for TVs on plain Android, where the TV's app doesn't open it)",
                     { when (st.inputPlayer) { "tv" -> "The TV's app"; "glassio" -> "Glassio"; else -> "Automatic" } },
-                    { st.inputPlayer = cycle(listOf("auto", "tv", "glassio"), st.inputPlayer, it) }),
-                Toggle("Themes in the menu", "", { st.menuThemes }, { st.menuThemes = it }),
-                Toggle("Background in the menu", "Switch between title backdrops, your picture, your video and the screensaver", { st.menuBackground }, { st.menuBackground = it }),
-                Adjust("Menu size", "", { pct(st.menuScale) }, { st.menuScale = ((st.menuScale * 20).roundToInt() + it) / 20f }),
-                Act("Menu order", st.menuOrder.joinToString(" · ") { com.glasslauncher.tv.data.MENU_NAMES[it] ?: it }, "Change") {
-                    dialog = ReorderDialog("Menu order", st.menuOrder.map { it to (com.glasslauncher.tv.data.MENU_NAMES[it] ?: it) }) { st.menuOrder = it }
-                },
-                Toggle("TV info in the menu", "Under the weather: IP, CPU, GPU, RAM, storage (CPU and GPU need TV access (ADB))", { st.menuSys }, { st.menuSys = it }),
-                Toggle("  · IP address", "", { st.sysIp }, { st.sysIp = it }),
-                Toggle("  · CPU", "Use and temperature", { st.sysCpu }, { st.sysCpu = it }),
-                Toggle("  · GPU", "Use, or its memory where the TV doesn't tell the use", { st.sysGpu }, { st.sysGpu = it }),
-                Toggle("  · RAM", "", { st.sysRam }, { st.sysRam = it }),
-                Toggle("  · Storage", "", { st.sysStorage }, { st.sysStorage = it }),
-                Toggle("Trailer in the menu", "Play or stop the trailer, and its size, starting by itself and subtitles", { st.menuTrailer }, { st.menuTrailer = it }),
-                Toggle("Screensaver in the menu", "Start it, choose its videos and when it starts", { st.menuSaver }, { st.menuSaver = it }),
-                Toggle("Camera in the menu", if (st.cameras.isEmpty()) "Add a camera in Settings → Cameras" else "Live view in the menu, like Apple TV", { st.menuCamera }, { st.menuCamera = it }),
-                link("Library", "Its rows, accounts and Continue Watching there"),
-            )
+                    { st.inputPlayer = cycle(listOf("auto", "tv", "glassio"), st.inputPlayer, it) }))
+                add(link("Library", "Its rows, accounts and Continue Watching there"))
+            }
         },
         Category("Catalogs") {
             buildList {
@@ -1521,7 +1575,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             }
             buildList {
                 add(Note("Keep Glassio the same on all your TVs: one is the main TV, the others follow it over your home network, live or when you press Sync now. " +
-                    "Sign-ins never move (sign in on each TV), nor performance and HDMI inputs. Keys, Hue, cameras, remote buttons and the lock move only if you turn them on."))
+                    "Sign-ins and HDMI inputs never move (sign in on each TV). Performance, keys, Hue, cameras, remote buttons and the lock move only if you turn them on."))
                 add(Act("This TV", when (ps.role) {
                     "main" -> "The main TV: the TVs that follow it take its setup"
                     "follow" -> "Follows ${ps.peerName.ifBlank { "another TV" }}"
@@ -1582,6 +1636,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             "cameras" to "Your cameras, the corner camera and multi-view, and the doorbell",
                             "remote" to "Glassio's remote buttons and Hold Home (for TVs with the same kind of remote)",
                             "lock" to "Which apps are locked, the code and its reminder",
+                            "perf" to "The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth",
                         )
                         com.glasslauncher.tv.data.PeerSync.EXTRAS.forEach { (k, n) ->
                             add(Toggle(n, extra[k].orEmpty(), { k in g }, { on -> ps.groups = if (on) g + k else g - k }))
@@ -2201,5 +2256,6 @@ private fun musicRowsChoice(ctx: android.content.Context, st: com.glasslauncher.
 }
 
 /** Settings → Menu & themes → Settings button: the glyphs and frames (drawn on the home screen, see GearButton). */
-private val SETTINGS_ICONS = linkedMapOf("sliders" to "Sliders", "gear" to "Gear", "dots" to "Three dots", "menu" to "Three lines", "person" to "Person", "hello" to "hello")
+private val SETTINGS_ICONS = linkedMapOf("sliders" to "Sliders", "gear" to "Gear", "dots" to "Three dots", "menu" to "Three lines", "person" to "Person",
+    "hello" to "Hello", "helloScript" to "hello (handwriting)", "menuText" to "Menu", "picture" to "Your picture")
 private val SETTINGS_FRAMES = linkedMapOf("square" to "Square", "circle" to "Circle", "none" to "None")
