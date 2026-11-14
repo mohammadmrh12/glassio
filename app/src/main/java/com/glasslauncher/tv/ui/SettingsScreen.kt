@@ -572,6 +572,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     { GlassTint.NAMES[st.glassColor] ?: "None (clear)" }, { st.glassColor = cycle(GlassTint.NAMES.keys.toList(), st.glassColor, it); GlassTint.apply(st) }),
                 Adjust("  · Strength", "How deep the glass colour is", { pct(st.glassColorAmount) },
                     { st.glassColorAmount = ((st.glassColorAmount * 20).roundToInt() + it) / 20f; GlassTint.apply(st) }),
+                Adjust("Settings button", "The button at the top that opens the menu", { SETTINGS_ICONS[st.settingsIcon] ?: "Sliders" },
+                    { st.settingsIcon = cycle(SETTINGS_ICONS.keys.toList(), st.settingsIcon, it) }),
+                Adjust("  · Frame", "Around the settings button (it fills in white when selected)", { SETTINGS_FRAMES[st.settingsFrame] ?: "Square" },
+                    { st.settingsFrame = cycle(SETTINGS_FRAMES.keys.toList(), st.settingsFrame, it) }),
                 Toggle("Bold text", "All of Glassio's writing a step bolder", { st.boldText }, { st.boldText = it; TextLook.bold.value = it }),
                 Act("Switch colour", "The colour of the switches in Settings, and of a row while you change it", SETTINGS_ACCENTS[st.settingsAccent]?.first ?: "Burgundy") {
                     dialog = ThumbDialog("Switch colour", SETTINGS_ACCENTS.map { (k, v) -> ThumbItem(v.first, if (k == "burgundy") "Default" else "", HueArt.swatch(v.second), checked = k == st.settingsAccent) { st.settingsAccent = k } })
@@ -2093,3 +2097,7 @@ private fun musicRowsChoice(ctx: android.content.Context, st: com.glasslauncher.
         }))
     }
 }
+
+/** Settings → Menu & themes → Settings button: the glyphs and frames (drawn on the home screen, see GearButton). */
+private val SETTINGS_ICONS = linkedMapOf("sliders" to "Sliders", "gear" to "Gear", "dots" to "Three dots", "menu" to "Three lines", "person" to "Person", "hello" to "Hello")
+private val SETTINGS_FRAMES = linkedMapOf("square" to "Square", "circle" to "Circle", "none" to "None")

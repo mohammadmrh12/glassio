@@ -387,6 +387,9 @@ class Settings(private val ctx: Context) {
     /** The selected icon rises a little, like tvOS. */
     var tileLift: Boolean get() = b("tileLift", false); set(v) = putB("tileLift", v)
     var showClock: Boolean get() = b("showClock", false); set(v) = putB("showClock", v)
+    /** The settings button at the top: its glyph (sliders, gear, dots, menu, person or "hello") and its frame (square, circle, none). */
+    var settingsIcon: String get() = s("settingsIcon", "sliders"); set(v) = putS("settingsIcon", v)
+    var settingsFrame: String get() = s("settingsFrame", "square"); set(v) = putS("settingsFrame", v)
     var clock24h: Boolean get() = b("clock24h", false); set(v) = putB("clock24h", v)
     var blurRadius: Int get() = i("blurRadius", 20); set(v) = putI("blurRadius", v.coerceIn(0, 80))
     var glassTint: Int get() = i("glassTint", 0); set(v) = putI("glassTint", v.coerceIn(0, 40))

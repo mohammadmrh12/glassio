@@ -2149,13 +2149,13 @@ private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: B
                         fontWeight = FontWeight.SemiBold, letterSpacing = (0.6f * s).sp, style = shade)
                 }
                 UpdateDot(app, s) { barFocused = it }
-                GearButton(s, gearClick, gearReq, gearUp) { barFocused = it; gearFocus(it) }
+                GearButton(s, settings.settingsIcon, settings.settingsFrame, gearClick, gearReq, gearUp) { barFocused = it; gearFocus(it) }
             }
             weatherRow()
         } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * s).dp)) {
             weatherRow()
             UpdateDot(app, s) { barFocused = it }
-            GearButton(s, gearClick, gearReq, gearUp) { barFocused = it; gearFocus(it) }
+            GearButton(s, settings.settingsIcon, settings.settingsFrame, gearClick, gearReq, gearUp) { barFocused = it; gearFocus(it) }
         }
     }
 }
@@ -2230,69 +2230,94 @@ private fun dateText(): String =
     java.text.SimpleDateFormat("d MMM ''yy", java.util.Locale.US).format(java.util.Date()).uppercase()
 
 @Composable
-private fun GearButton(s: Float, onClick: () -> Unit, req: FocusRequester, onUp: () -> Boolean = { false }, onFocus: (Boolean) -> Unit) {
-    // tvOS 26 top-right button: a small glass circle with the gearshape glyph; selected it turns white.
+private fun GearButton(s: Float, icon: String, frame: String, onClick: () -> Unit, req: FocusRequester, onUp: () -> Boolean = { false }, onFocus: (Boolean) -> Unit) {
+    // tvOS 26 top-right button: a small glass button with a glyph; selected it fills white and the glyph turns dark.
+    // Its glyph and frame: Settings → Menu & themes → Settings button.
     var focused by remember { mutableStateOf(false) }
     val scale = animateFloatAsState(if (focused) 1.16f else 1f, spring(0.8f, 900f), label = "gear")
     val lit = animateFloatAsState(if (focused) 1f else 0f, tween(120), label = "gearLit")
+    val hello = icon == "hello"
     Box(
-        Modifier.size((20 * s).dp)
+        (if (hello) Modifier.height((20 * s).dp) else Modifier.size((20 * s).dp))
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
             .focusRequester(req)
             .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
             .tvPress(onKey = { ev -> ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionUp && onUp() }, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        SlidersGlyph(Modifier.fillMaxSize(), Color.White) { lit.value }
+        if (hello) {
+            // Apple's "hello", in a script hand, in a pill (or on its own).
+            Box(Modifier.matchParentSize().drawBehind { buttonFrame(frame, Color.White, lit.value, pill = true) })
+            Text("hello", fontFamily = androidx.compose.ui.text.font.FontFamily.Cursive, fontSize = (13 * s).sp, fontWeight = FontWeight.SemiBold,
+                color = androidx.compose.ui.graphics.lerp(Color.White, Color(0xFF1C1C1E), lit.value),
+                modifier = Modifier.padding(horizontal = ((if (frame == "none") 3 else 8) * s).dp))
+        } else SettingsGlyph(Modifier.fillMaxSize(), icon, frame, Color.White) { lit.value }
     }
 }
 
-/** Settings glyph: three sliders in a rounded square. */
+/** The settings button's frame: a rounded square, a circle (a pill for "hello"), or none (only the white fill when selected). */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.buttonFrame(frame: String, outline: Color, lit: Float, pill: Boolean = false) {
+    val sw = size.height * 0.085f
+    val tl = androidx.compose.ui.geometry.Offset(sw / 2, sw / 2)
+    val sz = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw)
+    val cr = androidx.compose.ui.geometry.CornerRadius(if (frame == "square") size.height * 0.26f else size.height / 2)
+    val round = frame != "square" && !pill
+    if (lit > 0.01f) {
+        if (round) drawCircle(Color.White.copy(alpha = lit)) else drawRoundRect(Color.White.copy(alpha = lit), topLeft = tl, size = sz, cornerRadius = cr)
+    }
+    if (frame == "none") return
+    val c = androidx.compose.ui.graphics.lerp(outline.copy(alpha = 0.9f), Color.White, lit)
+    val st = androidx.compose.ui.graphics.drawscope.Stroke(width = sw)
+    if (round) drawCircle(c, radius = size.minDimension / 2 - sw / 2, style = st) else drawRoundRect(c, topLeft = tl, size = sz, cornerRadius = cr, style = st)
+}
+
+/** The settings button's glyph in its frame: sliders, a gear, three dots, three lines or a person. */
 @Composable
-private fun SlidersGlyph(modifier: Modifier, outline: Color, litOf: () -> Float = { 0f }) {
+private fun SettingsGlyph(modifier: Modifier, icon: String, frame: String, outline: Color, litOf: () -> Float = { 0f }) {
     // The highlight is read while drawing: animating it redraws the glyph, it never recomposes.
     androidx.compose.foundation.Canvas(modifier) {
         val lit = litOf()
         val w = size.minDimension
         val sw = w * 0.085f
-        val st = androidx.compose.ui.graphics.drawscope.Stroke(width = sw, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        val tl = androidx.compose.ui.geometry.Offset(sw / 2, sw / 2)
-        val sz = androidx.compose.ui.geometry.Size(w - sw, w - sw)
-        val cr = androidx.compose.ui.geometry.CornerRadius(w * 0.26f)
-        // Selected: the square fills white and the sliders turn dark.
-        if (lit > 0.01f) drawRoundRect(Color.White.copy(alpha = lit), topLeft = tl, size = sz, cornerRadius = cr)
+        buttonFrame(frame, outline, lit)
         val color = androidx.compose.ui.graphics.lerp(outline, Color(0xFF1C1C1E), lit)
-        drawRoundRect(androidx.compose.ui.graphics.lerp(outline.copy(alpha = 0.9f), Color.White, lit), topLeft = tl, size = sz, cornerRadius = cr, style = st)
-        val knobs = floatArrayOf(0.40f, 0.62f, 0.40f)
-        for (i in 0..2) {
-            val y = w * (0.30f + i * 0.20f)
-            val kx = w * knobs[i]; val kr = w * 0.075f
-            // The track stops at the knob, so the knob reads as a ring.
-            drawLine(color, androidx.compose.ui.geometry.Offset(w * 0.24f, y), androidx.compose.ui.geometry.Offset(kx - kr, y), sw * 0.9f, androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(color, androidx.compose.ui.geometry.Offset(kx + kr, y), androidx.compose.ui.geometry.Offset(w * 0.76f, y), sw * 0.9f, androidx.compose.ui.graphics.StrokeCap.Round)
-            drawCircle(color, w * 0.075f, androidx.compose.ui.geometry.Offset(kx, y), style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw * 0.9f))
+        fun at(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(w * x, w * y)
+        when (icon) {
+            "gear" -> {
+                // SF Symbols "gearshape.fill": a toothed wheel with a hole.
+                val c = at(0.5f, 0.5f)
+                val ro = w * 0.31f; val ri = ro * 0.74f; val teeth = 8
+                val p = androidx.compose.ui.graphics.Path()
+                for (i in 0 until teeth * 4) {
+                    val a = (i / (teeth * 4f)) * 2 * Math.PI - Math.PI / 2
+                    val r = if ((i % 4) == 1 || (i % 4) == 2) ro else ri
+                    val x = c.x + (kotlin.math.cos(a) * r).toFloat(); val y = c.y + (kotlin.math.sin(a) * r).toFloat()
+                    if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
+                }
+                p.close()
+                val hole = androidx.compose.ui.graphics.Path().apply { addOval(androidx.compose.ui.geometry.Rect(c, ro * 0.32f)) }
+                drawPath(androidx.compose.ui.graphics.Path.combine(androidx.compose.ui.graphics.PathOperation.Difference, p, hole), color)
+            }
+            "dots" -> for (x in floatArrayOf(0.31f, 0.5f, 0.69f)) drawCircle(color, w * 0.065f, at(x, 0.5f))
+            "menu" -> for (y in floatArrayOf(0.34f, 0.5f, 0.66f))
+                drawLine(color, at(0.28f, y), at(0.72f, y), sw * 0.95f, androidx.compose.ui.graphics.StrokeCap.Round)
+            "person" -> {
+                val st = androidx.compose.ui.graphics.drawscope.Stroke(width = sw * 0.95f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                drawCircle(color, w * 0.115f, at(0.5f, 0.39f), style = st)
+                drawArc(color, 180f, 180f, false, at(0.27f, 0.60f), androidx.compose.ui.geometry.Size(w * 0.46f, w * 0.36f), style = st)
+            }
+            else -> {
+                // Sliders: three tracks with a knob each (the track stops at the knob, so it reads as a ring).
+                val knobs = floatArrayOf(0.40f, 0.62f, 0.40f)
+                for (i in 0..2) {
+                    val y = w * (0.30f + i * 0.20f)
+                    val kx = w * knobs[i]; val kr = w * 0.075f
+                    drawLine(color, androidx.compose.ui.geometry.Offset(w * 0.24f, y), androidx.compose.ui.geometry.Offset(kx - kr, y), sw * 0.9f, androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawLine(color, androidx.compose.ui.geometry.Offset(kx + kr, y), androidx.compose.ui.geometry.Offset(w * 0.76f, y), sw * 0.9f, androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawCircle(color, kr, androidx.compose.ui.geometry.Offset(kx, y), style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw * 0.9f))
+                }
+            }
         }
-    }
-}
-
-/** SF Symbols "gearshape.fill" style: a toothed wheel with a hole. */
-@Composable
-private fun GearGlyph(modifier: Modifier, color: Color) {
-    androidx.compose.foundation.Canvas(modifier) {
-        val c = androidx.compose.ui.geometry.Offset(size.width / 2, size.height / 2)
-        val ro = size.minDimension / 2; val ri = ro * 0.74f; val teeth = 8
-        val p = androidx.compose.ui.graphics.Path()
-        for (i in 0 until teeth * 4) {
-            val a = (i / (teeth * 4f)) * 2 * Math.PI - Math.PI / 2
-            val r = if ((i % 4) == 1 || (i % 4) == 2) ro else ri
-            val x = c.x + (kotlin.math.cos(a) * r).toFloat(); val y = c.y + (kotlin.math.sin(a) * r).toFloat()
-            if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
-        }
-        p.close()
-        val hole = androidx.compose.ui.graphics.Path().apply {
-            addOval(androidx.compose.ui.geometry.Rect(c, ro * 0.30f))
-        }
-        drawPath(androidx.compose.ui.graphics.Path.combine(androidx.compose.ui.graphics.PathOperation.Difference, p, hole), color)
     }
 }
 
