@@ -135,7 +135,9 @@ object MusicUi {
         // (Kept once for the whole screen: each player made again — the dock's, after another app was selected — asked
         // for the 3 seconds again, and showed "Nothing playing" meanwhile.)
         var okPkg by ytOkPkg
-        LaunchedEffect(resumedRev.intValue) { if (ytOkRev != resumedRev.intValue) { ytOkRev = resumedRev.intValue; okPkg = null } }
+        // (Only YouTube's own app: TizenTube and SmartTube kept playing music behind the screensaver, and their player
+        // went when it ended.)
+        LaunchedEffect(resumedRev.intValue) { if (ytOkRev != resumedRev.intValue) { ytOkRev = resumedRev.intValue; if (okPkg !in NowPlaying.YOUTUBE_CLIENTS) okPkg = null } }
         LaunchedEffect(t?.pkg, t?.playing, yt) {
             val p = t?.pkg
             if (yt && t?.playing == true && p != null && okPkg != p) { delay(3000); okPkg = p }

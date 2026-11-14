@@ -686,12 +686,16 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val stageWanted = stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value &&
             (!rowsNow || musicWas[0])
         if (!rowsNow) musicWas[0] = stageWanted
-        val stageArt = songNow?.art?.takeIf { stageRaw }
+        // A page that isn't the carousel is on, or coming (see the backdrop below).
+        val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null)
+        // (Made ready whenever a song is on, shown or not: thrown away when its page went (another app selected, the
+        // Music icon) and made again on the way back, the carousel showed meanwhile.)
+        val stageArt = songNow?.art
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
         // (Keyed by how the artwork looks: the app sends a new picture object with every update.) A song whose
         // artwork hasn't come yet keeps the last picture (the dock's glass flashed the carousel poster).
         val stageArtKey = remember(stageArt) { MusicUi.artKey(stageArt) }
-        LaunchedEffect(stageArtKey, stageRaw) { if (!stageRaw) MusicUi.stageTo(null) else if (stageArt != null) MusicUi.stageTo(stageArt) }
+        LaunchedEffect(stageArtKey, songNow == null) { if (songNow == null) { delay(8000); MusicUi.stageTo(null) } else if (stageArt != null) MusicUi.stageTo(stageArt) }
         // Paused: the page and its glass dim.
         val songPlaying = songNow?.playing == true
         LaunchedEffect(songPlaying, stageWanted) { MusicUi.pauseDim.animateTo(if (stageWanted && !songPlaying) 0.6f else 0f, tween(if (songPlaying) 140 else 180, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
@@ -718,7 +722,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // Under the fully open veil (an opaque picture) the backdrop isn't drawn at all.
             // Music mode: the open dock (Down from the dock) showed the carousel's title picture behind it, the music
             // page fades out with the rest of the page then. The song's picture is behind it instead.
-            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted }
+            // Switching between two pages that aren't the carousel (the player, an app's rows, the music apps, an idle
+            // player): the carousel never shows in between — one went at once while the next faded in over it. The
+            // last music page stays under the one coming in, or a dark page when there was none.
+            val otherPage = otherPageNow
+            val stageBack = MusicUi.stageCur.value?.takeIf { otherPage && (stageWanted || musicWas[0] || !rowsNow) }
             val veilCovers = (stageBack?.let { it.glass ?: it.back } ?: backImgs?.third) != null
             // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
             // painted every pixel four times there and the Library's scrolling lost frames.
@@ -732,6 +740,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     if (sp != null) Image(if (sp.page) sp.back else (sp.glass ?: sp.back), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     Image(stageBack.glass ?: stageBack.back, null, Modifier.fillMaxSize().graphicsLayer { alpha = if (sp != null) MusicUi.stageMix.value else 1f }, contentScale = ContentScale.Crop)
                 }
+                else if (otherPage) Box(Modifier.fillMaxSize().background(Color(0xFF141416)))
                 else if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
                     if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH)
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
@@ -940,7 +949,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     LaunchedEffect(appsShow) {
                         if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
                     }
-                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage, paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !stageWanted), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
