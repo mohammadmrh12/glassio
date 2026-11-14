@@ -103,6 +103,9 @@ object Trailers {
         return ids
     }
 
+    /** Below this a trailer is too blurry for a TV: the next one is tried, or the picture stays. */
+    const val MIN_HEIGHT = 480
+
     /** Last resort: YouTube's own search for "<title> <year> official trailer". Blocking. */
     fun searchIds(name: String, year: String, type: String): List<String> {
         if (name.isBlank()) return emptyList()
@@ -116,7 +119,7 @@ object Trailers {
             c.setRequestProperty("Accept-Language", "en-US,en;q=0.8")
             c.setRequestProperty("Cookie", "CONSENT=YES+1")
             val html = try { c.inputStream.bufferedReader().use { it.readText() } } finally { c.disconnect() }
-            Regex(""""videoRenderer":\{"videoId":"([A-Za-z0-9_-]{11})"""").findAll(html).map { it.groupValues[1] }.distinct().take(4).toList()
+            Regex(""""videoRenderer":\{"videoId":"([A-Za-z0-9_-]{11})"""").findAll(html).map { it.groupValues[1] }.distinct().take(6).toList()
         }.onFailure { Glog.w("Trailer search '$q'", it) }.getOrDefault(emptyList())
         if (ids.isNotEmpty()) cache["yt:$q"] = ids.joinToString(",")
         return ids
@@ -167,11 +170,14 @@ object Trailers {
         val tried = HashSet<String>()
         // The first ordinary trailer that plays here (one with a sign-language interpreter or audio description,
         // or one YouTube won't show here, is passed over for the next).
-        fun firstOf(ids: List<String>): Pair<String, com.glasslauncher.tv.data.TrailerSource.Streams>? {
-            for (yt in ids.filterNot { it in bad || it in tried }.take(4)) {
+        // An old upload in 240p or 360p (often what a YouTube search finds for an older series) looks blurry on a TV:
+        // passed over for the next one, and with none sharp enough the title's picture stays instead.
+        fun firstOf(ids: List<String>, n: Int = 4): Pair<String, com.glasslauncher.tv.data.TrailerSource.Streams>? {
+            for (yt in ids.filterNot { it in bad || it in tried }.take(n)) {
                 tried += yt
                 val st = com.glasslauncher.tv.data.TrailerSource.resolve(yt, maxHeight(app, full), full) ?: continue
                 if (accessible.containsMatchIn(st.title)) { Glog.i("Trailer $yt skipped: ${st.title}"); continue }
+                if (st.height in 1 until MIN_HEIGHT) { Glog.i("Trailer $yt skipped: only ${st.height}p"); continue }
                 return yt to st
             }
             return null
@@ -179,7 +185,7 @@ object Trailers {
         // Cinemeta first, then TMDB's videos, then a YouTube search by the title's name.
         firstOf(youtubeIds(app.http, type, imdb))?.let { return it }
         firstOf(tmdbIds(app, type, imdb))?.let { Glog.i("Trailer ${it.first}: from TMDB"); return it }
-        firstOf(searchIds(name, year, type))?.let { Glog.i("Trailer ${it.first}: from a YouTube search for $name"); return it }
+        firstOf(searchIds(name, year, type), n = 6)?.let { Glog.i("Trailer ${it.first}: from a YouTube search for $name"); return it }
         return null
     }
     fun isPlaying(key: String?) = key != null && playing.value?.key == key

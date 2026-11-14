@@ -87,6 +87,12 @@ object DevHooks {
                 java.io.File(app.getExternalFilesDir(null), "trailer.txt").writeText(r.video + "\n" + (r.audio ?: "") + "\n" + r.subs.joinToString("\n") { "${it.lang} ${it.auto} ${it.url}" } + "\n")
             }
         }.start() }
+        // Finds a title's trailer the way the carousel does (log: "Trailer …"): --es trailer_find "<name>|<year>|<series|movie>|<imdb>".
+        i.getStringExtra("trailer_find")?.let { q -> Thread {
+            val p = q.split('|')
+            val r = com.glasslauncher.tv.ui.Trailers.prepare(app, p.getOrElse(2) { "series" }, p.getOrElse(3) { "" }, p.getOrElse(0) { "" }, p.getOrElse(1) { "" })
+            com.glasslauncher.tv.data.Glog.i("Trailer find '${p[0]}': " + (r?.let { "${it.first} ${it.second?.height}p" } ?: "none (the picture stays)"))
+        }.start() }
         // Starts (or stops) the trailer of the title on screen, like the Play menu: --ez trailer_now true.
         if (i.getBooleanExtra("trailer_now", false)) com.glasslauncher.tv.ui.Trailers.request.intValue++
         if (i.hasExtra("fake_song")) {
