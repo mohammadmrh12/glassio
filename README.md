@@ -67,7 +67,7 @@ Latest: **3.6.0** — sync between your TVs, Nuvio profiles, a new settings butt
 Updates come inside Glassio itself, so you need Downloader only once.
 
 <details>
-<summary><b>Other ways to install</b> — from a computer, a USB stick or the release page</summary>
+<summary><img src="docs/icons/download.svg" width="18" alt=""> <b>Other ways to install</b> — from a computer, a USB stick or the release page</summary>
 
 - **Release page**: download `Glassio-x.y.z.apk` from [the latest release](https://github.com/mohammadmrh12/glassio/releases/latest).
 - **From a computer** (TV access on, same network):
@@ -102,7 +102,7 @@ Google TV always sends Home to its own launcher, so Glassio catches it with an a
 Tap a guide to open it. Every path starts in Glassio's **Settings** (the button at the top of the home screen).
 
 <details>
-<summary><b>📚 Catalogs</b> — fill the carousel from your Nuvio / Stremio add-ons</summary>
+<summary><b><img src="docs/icons/stack.svg" width="18" alt=""> Catalogs</b> — fill the carousel from your Nuvio / Stremio add-ons</summary>
 
 - **Catalogs → Add add-ons from my phone (QR)**: scan the code (same Wi-Fi) and paste manifest links
   (`https://…/manifest.json`) and, if you like, your TMDB token.
@@ -112,7 +112,7 @@ Tap a guide to open it. Every path starts in Glassio's **Settings** (the button 
 </details>
 
 <details>
-<summary><b>🎬 TMDB token</b> — logos, full-size pictures, ratings and the synopsis in your language</summary>
+<summary><b><img src="docs/icons/key.svg" width="18" alt=""> TMDB token</b> — logos, full-size pictures, ratings and the synopsis in your language</summary>
 
 1. Make a free account at [themoviedb.org](https://www.themoviedb.org/) → Settings → API → copy the **API Read Access Token**
    (the long one starting `eyJ…`).
@@ -121,7 +121,7 @@ Tap a guide to open it. Every path starts in Glassio's **Settings** (the button 
 </details>
 
 <details>
-<summary><b>⏯️ Continue Watching</b> — from Nuvio, Stremio, Trakt and Simkl</summary>
+<summary><b><img src="docs/icons/play.svg" width="18" alt=""> Continue Watching</b> — from Nuvio, Stremio, Trakt and Simkl</summary>
 
 - **Connections**: sign in to Nuvio, Stremio, Trakt or Simkl with a code or QR on your phone — no password on the TV.
   Nuvio can use any of the account's profiles.
@@ -131,7 +131,7 @@ Tap a guide to open it. Every path starts in Glassio's **Settings** (the button 
 </details>
 
 <details>
-<summary><b>🔓 TV access (ADB)</b> — one time, for the TV screensaver, Nuvio Legacy, recent apps and silent updates</summary>
+<summary><b><img src="docs/icons/unlock.svg" width="18" alt=""> TV access (ADB)</b> — one time, for the TV screensaver, Nuvio Legacy, recent apps and silent updates</summary>
 
 **System** walks you through it; each row shows what's already done:
 1. **Open About** → press OK on *Android TV OS build* **7 times** (you're now a developer).
@@ -142,7 +142,7 @@ Glassio talks to the TV's adb on the TV itself; nothing leaves your home.
 </details>
 
 <details>
-<summary><b>🧩 Icons</b> — icon packs, the Apple TV library, or one app at a time</summary>
+<summary><b><img src="docs/icons/apps.svg" width="18" alt=""> Icons</b> — icon packs, the Apple TV library, or one app at a time</summary>
 
 - **One app**: on the home screen hold **OK** on it → **Change icon**: suggested, Apple TV icons, any icon pack (with
   search), a photo on the TV, a link, your phone, or the original.
@@ -153,7 +153,7 @@ Glassio talks to the TV's adb on the TV itself; nothing leaves your home.
 </details>
 
 <details>
-<summary><b>📺 Sync between your TVs</b> — one main TV, the others follow it</summary>
+<summary><b><img src="docs/icons/sync.svg" width="18" alt=""> Sync between your TVs</b> — one main TV, the others follow it</summary>
 
 1. On the main TV: **Sync → This TV → Main TV**, then **Add a TV** shows a 4-digit code.
 2. On the other TV: **Sync → This TV → Follows another TV**, pick the main TV and type the code.
@@ -163,7 +163,7 @@ Keys, Hue, cameras, remote buttons and the app lock move only if you turn them o
 </details>
 
 <details>
-<summary><b>💡 Hue lights</b> — your lights in the colours of the screen</summary>
+<summary><b><img src="docs/icons/light-bulb.svg" width="18" alt=""> Hue lights</b> — your lights in the colours of the screen</summary>
 
 **Hue lights**: find the bridge and press its button, then give each light a part of the screen (or use a Hue
 entertainment area). *Blink it* shows which light is which. Choose what they follow — the picture, trailers, the
@@ -171,7 +171,7 @@ screensaver, music — and what happens when you open an app or the TV turns off
 </details>
 
 <details>
-<summary><b>🌌 Screensaver</b> — 4K / HDR aerials, trailers or posters</summary>
+<summary><b><img src="docs/icons/image.svg" width="18" alt=""> Screensaver</b> — 4K / HDR aerials, trailers or posters</summary>
 
 1. **Screensaver → Type**: aerial videos, posters with logos, trailers, or the TV's own screensaver app.
 2. Pick collections (Apple tvOS, Amazon Fire TV, Jetson Creative, Robin Fourcade) and/or **My videos**, and the
@@ -181,7 +181,7 @@ screensaver, music — and what happens when you open an app or the TV turns off
 </details>
 
 <details>
-<summary><b>☀️ Weather, artwork and performance</b></summary>
+<summary><b><img src="docs/icons/sun.svg" width="18" alt=""> Weather, artwork and performance</b></summary>
 
 - **Weather**: Background & glass → *Weather* and *Weather city* (English or Arabic), Fahrenheit. Free, no key.
 - **Artwork**: Carousel → *Artwork* (main, second picture, highest resolution, the add-on's). Hold OK on the carousel
@@ -196,15 +196,15 @@ screensaver, music — and what happens when you open an app or the TV turns off
 
 Glassio and Home Assistant work both ways:
 
-| | |
+| When | What happens |
 |---|---|
-| 🎬 **A title opens** | Glassio posts it to a webhook — dim the lights for a film. |
-| ▶️ **Nuvio playback** | What plays in Nuvio is sent to Home Assistant, and pause / play / seek come back. |
-| 🔔 **The doorbell rings** | Its camera pops up in the corner over any app, with a chime and your words. |
-| 📷 **Cameras** | Any camera Home Assistant shows, in the menu, the corner or multi-view. |
+| <img src="docs/icons/webhook.svg" width="18" alt=""> **A title opens** | Glassio posts it to a webhook — dim the lights for a film. |
+| <img src="docs/icons/play.svg" width="18" alt=""> **Nuvio playback** | What plays in Nuvio is sent to Home Assistant, and pause / play / seek come back. |
+| <img src="docs/icons/bell.svg" width="18" alt=""> **The doorbell rings** | Its camera pops up in the corner over any app, with a chime and your words. |
+| <img src="docs/icons/device-camera-video.svg" width="18" alt=""> **Cameras** | Any camera Home Assistant shows, in the menu, the corner or multi-view. |
 
 <details>
-<summary><b>Webhook: when a title opens</b></summary>
+<summary><img src="docs/icons/webhook.svg" width="18" alt=""> <b>Webhook: when a title opens</b></summary>
 
 Every title opened from the carousel sends:
 
@@ -241,7 +241,7 @@ then *Send a test event*. Use Home Assistant's IP address (the TV may not find `
 
 <a id="doorbell-pop-up"></a>
 <details>
-<summary><b>Doorbell pop-up</b></summary>
+<summary><img src="docs/icons/bell.svg" width="18" alt=""> <b>Doorbell pop-up</b></summary>
 
 Settings → **Cameras → Doorbell pop-up**. **Try it** shows it straight away.
 
@@ -274,7 +274,7 @@ Glassio reopens by itself. Every release is signed with the same key, so it inst
 
 ## Something wrong?
 
-| | |
+| Problem | Fix |
 |---|---|
 | **Home goes to Google TV** | System → turn the accessibility service on, and run the `pm grant` line above once. |
 | **No Continue Watching from Nuvio Legacy** | Finish *TV access (ADB)* in System. |
@@ -287,7 +287,7 @@ Glassio reopens by itself. Every release is signed with the same key, so it inst
 ## For developers
 
 <details>
-<summary><b>Build</b></summary>
+<summary><img src="docs/icons/package.svg" width="18" alt=""> <b>Build</b></summary>
 
 ```sh
 export JAVA_HOME=/path/to/jdk-17
@@ -298,7 +298,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for testing from a computer and the setti
 </details>
 
 <details>
-<summary><b>Tools and terminal helpers</b></summary>
+<summary><img src="docs/icons/terminal.svg" width="18" alt=""> <b>Tools and terminal helpers</b></summary>
 
 - `tools/appletv_icons.py <out>` — builds the Apple TV icon library from Apple's public iTunes Search API (each app's tvOS
   icon, 1280×768) in default / dark / white / clear. The icons belong to their owners and aren't in this repository.
@@ -313,15 +313,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for testing from a computer and the setti
 
 ## Privacy & security
 
-- 🚫 No accounts of ours, no analytics, no ads. Settings stay on the TV.
-- 📱 The phone page only runs while you use it, and every request needs the one-time token in its QR code.
-- 🔑 Backups hold your sign-ins — keep the file private. Sync never sends sign-ins, and talks only to TVs you paired.
-- 🏠 The webhook, TMDB token and add-on links go only where you point them. The TV's adb is used only for the screensaver,
+- <img src="docs/icons/shield-check.svg" width="18" alt=""> No accounts of ours, no analytics, no ads. Settings stay on the TV.
+- <img src="docs/icons/device-mobile.svg" width="18" alt=""> The phone page only runs while you use it, and every request needs the one-time token in its QR code.
+- <img src="docs/icons/key.svg" width="18" alt=""> Backups hold your sign-ins — keep the file private. Sync never sends sign-ins, and talks only to TVs you paired.
+- <img src="docs/icons/home.svg" width="18" alt=""> The webhook, TMDB token and add-on links go only where you point them. The TV's adb is used only for the screensaver,
   Nuvio Legacy's playback, TV info, recent apps, starting with the TV and installing Glassio's updates.
 
 ## Credits & license
 
-Inter typeface (SIL Open Font License) · Weather by [Open-Meteo](https://open-meteo.com) · Catalog data from your add-ons ·
+Inter typeface (SIL Open Font License) · Icons from [Octicons](https://primer.style/octicons) (MIT) · Weather by [Open-Meteo](https://open-meteo.com) · Catalog data from your add-ons ·
 This product uses the TMDB API but is not endorsed or certified by TMDB · Not affiliated with Apple, Google or Nuvio.
 
 Copyright (C) 2026 mohammad (mrh12). Glassio is free software under the [GNU General Public License v3.0](LICENSE), the
