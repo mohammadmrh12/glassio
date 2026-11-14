@@ -51,131 +51,147 @@ Latest: **3.6.0** — sync between your TVs, Nuvio profiles, a new settings butt
 
 ---
 
-## Install
+## Get started
 
-1. Download `Glassio-x.y.z.apk` from [Releases](https://github.com/mohammadmrh12/glassio/releases).
-2. Install it on the TV: with the **Downloader** app (enter the release link), a USB stick, or from a computer:
-   ```sh
-   adb connect <tv-ip>:5555
-   adb install -r Glassio-x.y.z.apk
-   ```
-3. Open **Glassio** from the TV's apps. The first time, the setup walks you through accounts, catalogs and the look.
+| | |
+|:--:|---|
+| **1 · Download** | Get `Glassio-x.y.z.apk` from **[the latest release](https://github.com/mohammadmrh12/glassio/releases/latest)**. |
+| **2 · Install** | With the **Downloader** app (type the release link), a USB stick, or from a computer: `adb install -r Glassio-x.y.z.apk` |
+| **3 · Open** | Open **Glassio** from the TV's apps. A short setup walks you through accounts, catalogs and the look. |
 
-### Make it your home screen (Home button)
+### Make Glassio your Home button
 
-Google TV always sends the Home button to its own launcher, so Glass uses an accessibility service to catch it.
+Google TV always sends Home to its own launcher, so Glassio catches it with an accessibility service.
 
-1. Settings → **System** → *Turn on the accessibility service* → choose **Glassio** → On.
-2. Recommended — so Android keeps the service on after updates, and so Glass can start the TV screensaver and read Nuvio's
-   progress, run once from a computer:
+1. Settings → **System** → *Turn on the accessibility service* → **Glassio** → On.
+2. Once, from a computer — keeps the service on after updates and lets Glassio run the TV screensaver:
    ```sh
    adb shell pm grant com.glasslauncher.tv android.permission.WRITE_SECURE_SETTINGS
    ```
-3. The first time Glass uses the TV's own adb (TV screensaver, Continue Watching, silent updates) the TV asks
-   **"Allow USB debugging?"** for Glassio: tick **Always allow** and choose **Allow**. *Network debugging* must be
-   on (Settings → System → Developer options).
+3. The first time Glassio uses the TV's own adb, the TV asks **"Allow USB debugging?"** — tick **Always allow**, then **Allow**.
+
+> [!TIP]
+> Moving from another TV? Settings → **System → Back up now** there, then *Restore backup* in the setup here.
+> Or keep both TVs the same with **Settings → Sync**.
 
 ---
 
-## Setup
+## Setup guides
 
-### Catalogs (Nuvio add-ons)
-- **Settings → Catalogs → Add add-ons from my phone (QR)**: scan the code with your phone (same Wi-Fi), paste manifest
-  links (`https://…/manifest.json`) and, optionally, your TMDB token.
-- Or **Connect to Nuvio**: in Nuvio open *Add-ons → Manage from phone* first, then press Connect.
-- Choose the catalogs you want; *Refresh catalogs* reloads them.
+Tap a guide to open it. Every path starts in Glassio's **Settings** (the button at the top of the home screen).
 
-### TMDB token (logos, full-size art, synopsis language, ratings, gallery)
-1. Create a free account at [themoviedb.org](https://www.themoviedb.org/) → Settings → API → copy the **API Read Access Token**.
-2. Settings → Catalogs → **TMDB token** (or paste it on the phone page).
-3. Settings → Carousel → **Synopsis language**: 24 languages (English, Arabic, French, Spanish, German, Italian,
-   Portuguese, Turkish, Russian, Persian, Hindi, Japanese, Korean, Chinese …). English is used when a title has no text in that language.
+<details>
+<summary><b>📚 Catalogs</b> — fill the carousel from your Nuvio / Stremio add-ons</summary>
 
-### Continue Watching
-- Works with **Nuvio Legacy**: Nuvio Legacy writes what you play (title, episode, how far) to the TV's log, and Glassio
-  reads that log through the TV's own debugging connection (ADB, see below). Nothing leaves the TV.
-- **Trakt**: Settings → Continue Watching → *Connect Trakt account* shows a short code; enter it at trakt.tv/activate on
-  your phone (no password on the TV). What you pause in any app that scrobbles to Trakt — the official Nuvio app,
-  Nuvio Arc, Re-Shaped, Stremio, Kodi… — then shows up too (synced every few minutes and when you come back to Glassio).
-  Removing a Trakt title here removes it on Trakt as well.
-- The official Nuvio app, Nuvio Arc and Re-Shaped don't write the Legacy log, so for them use Trakt. Other apps (Netflix, YouTube…) keep their Continue Watching private on Google TV.
-- Settings → **Continue Watching**: at the start / mixed / off, how many slides lead, open on what you just watched, progress bar, clear the list.
-- A title leaves the list when you finish it (past 92 %) or remove it.
+- **Catalogs → Add add-ons from my phone (QR)**: scan the code (same Wi-Fi) and paste manifest links
+  (`https://…/manifest.json`) and, if you like, your TMDB token.
+- Or **Connections → Nuvio / Stremio**: sign in and the account's add-ons come with it.
+- Pick the catalogs you want; *Refresh catalogs* reloads them. Titles open in Nuvio Legacy, the official Nuvio app,
+  Nuvio Arc, Re-Shaped or Stremio (*Connections → Open titles in*, **Auto** picks the first installed).
+</details>
 
-### TV access (ADB) — one-time setup
-Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info (CPU / GPU), open apps, starting with the TV
-and silent updates use the TV's own
-debugging connection (Glassio talks to it on the TV itself, like Nuvio TV Relay). Settings → **System** walks you through it:
-1. **Open About** → press OK on *Android TV OS build* (or *Build*) **7 times** until it says you are a developer.
-2. **Open Developer options** → turn on **USB debugging** (on some TVs also *Network debugging* / *ADB over network*).
-3. **Allow Glassio** → the TV asks *Allow USB debugging?* → tick **Always allow from this computer** → OK. Asked only once.
-The rows show what is already done (Developer options on, USB debugging on, Glassio allowed).
+<details>
+<summary><b>🎬 TMDB token</b> — logos, full-size pictures, ratings and the synopsis in your language</summary>
 
-### Icons
-**One app**
-- On the home screen, hold **OK** on the app → **Change icon**, then pick from:
-  Suggested, the Apple TV icons (default / dark / white / clear), any installed icon pack,
-  a photo saved on the TV, a link to a PNG, your phone (Settings → Manage from phone), or back to the original.
+1. Make a free account at [themoviedb.org](https://www.themoviedb.org/) → Settings → API → copy the **API Read Access Token**
+   (the long one starting `eyJ…`).
+2. Paste it in **Connections → TMDB token** (easier from *Manage from phone*).
+3. **Carousel → Synopsis language**: 24 languages; English when a title has none in yours.
+</details>
 
-**Icon packs (all apps at once)**
-1. Install an Android TV / Projectivy icon pack from Google Play
-   (Settings → Dock & icons → *Find icon packs on Google Play* opens the search). ADW / Nova / Blueprint packs work too.
-2. Settings → Dock & icons → **Icon pack** → choose it. Every app takes the pack's icon; single apps can still be changed.
+<details>
+<summary><b>⏯️ Continue Watching</b> — from Nuvio, Stremio, Trakt and Simkl</summary>
 
-**Many icons from files**
-- Copy `<package>.png` files (for example `com.netflix.ninja.png`) into the icon folder shown in
-  Settings → Dock & icons, then press **Import icons from the icon folder**.
+- **Connections**: sign in to Nuvio, Stremio, Trakt or Simkl with a code or QR on your phone — no password on the TV.
+  Nuvio can use any of the account's profiles.
+- **Nuvio Legacy** without an account: Glassio reads what it plays from the TV itself (needs *TV access*, below).
+- **Continue Watching** settings: where it shows in the carousel, how many slides lead, Next Up, progress, clearing the list.
+- A title leaves the list when you finish it or remove it — removing it here removes it where it came from.
+</details>
 
-**Apps folder**: Settings → Dock & icons → *Show Apps folder* (or hold OK on the folder → *Hide from the dock*).
+<details>
+<summary><b>🔓 TV access (ADB)</b> — one time, for the TV screensaver, Nuvio Legacy, recent apps and silent updates</summary>
 
-Look: Settings → Dock & icons (dock size, dock and settings background, icon style) and
-Settings → Clock & glass (colour on focus, plate light/dark, bounce, lift).
+**System** walks you through it; each row shows what's already done:
+1. **Open About** → press OK on *Android TV OS build* **7 times** (you're now a developer).
+2. **Open Developer options** → turn on **USB debugging** (some TVs: *Network debugging*).
+3. **Allow Glassio** → tick **Always allow from this computer** → OK. Asked only once.
 
-### Weather
-Settings → Clock & glass → **Weather** (everything / temperature + sky / temperature + city / temperature / off),
-**Weather city** (English or Arabic name; the place found is shown next to it), Fahrenheit.
+Glassio talks to the TV's adb on the TV itself; nothing leaves your home.
+</details>
 
-### Screensaver
-Settings → **Screensaver**:
-1. *Type*: **Aerial videos**, posters with logos (OK opens the title in Nuvio), **Trailers** (the carousel's
-   trailers with their logo and details; OK opens the title, hold OK for a menu), or the TV's own screensaver app.
-2. Turn on the collections you like (Apple tvOS, Amazon Fire TV, Jetson Creative, Robin Fourcade) and/or **My videos**
-   (your links and the videos in the backgrounds folder; upload them from your phone). *Quality*: 1080p H.264, 1080p HEVC,
-   4K, 1080p HDR, 4K HDR / Dolby Vision — videos without that quality play the nearest one.
-3. **Glassio is the TV screensaver (ADB)**: it then starts in every app when the TV is idle, after *TV screensaver starts
-   after*. Otherwise *Start after* sets the idle time on the home screen.
-4. *Keep videos on the TV* saves each video as it plays (up to the space you choose), so it starts at once next time.
-5. While it plays: **◀ ▶** change the video, **OK** shows or hides the info, any other key ends it.
+<details>
+<summary><b>🧩 Icons</b> — icon packs, the Apple TV library, or one app at a time</summary>
 
-### Performance
-Settings → **Performance** → *Mode*: **Auto** (default: picked for the TV from its memory and graphics chip,
-e.g. a 2 GB TCL gets Performance, a Google TV Streamer gets Balanced), *Performance*, *Balanced*, *Quality*.
-Each setting can be changed on its own (the mode then shows *Custom*):
-- **Glass detail**: resolution of the picture the glass bends (480 px, or 720 px for crisper glass).
-- Picture quality, prepare ahead, slide transition, glass refraction, backdrop gallery.
+- **One app**: on the home screen hold **OK** on it → **Change icon**: suggested, Apple TV icons, any icon pack (with
+  search), a photo on the TV, a link, your phone, or the original.
+- **Every app at once**: install a Projectivy / ADW / Nova / Blueprint pack, then **Dock & icons → Icon pack**.
+- **Many from files**: put `<package>.png` files (e.g. `com.netflix.ninja.png`) in the icon folder shown in
+  **Dock & icons**, then *Import icons from the icon folder*.
+- The look — colour on focus, plate, glow, lift, bounce, the Apps folder — is all in **Dock & icons**.
+</details>
 
-The clear dock and tiles show the page picture itself (half screen resolution), so the glass lines up with the
-backdrop and stays sharp at any *Glass detail*.
+<details>
+<summary><b>📺 Sync between your TVs</b> — one main TV, the others follow it</summary>
 
-In Settings, rows changed with ◀ ▶ (and app order) only change after you press **OK** on them; OK or Back
-again when done. Moving down the list never changes a value by accident.
+1. On the main TV: **Sync → This TV → Main TV**, then **Add a TV** shows a 4-digit code.
+2. On the other TV: **Sync → This TV → Follows another TV**, pick the main TV and type the code.
+3. Choose what it takes (look, dock, home screen, channels, screensaver, add-ons, library) and **Automatic** or **Manual**.
 
-### Artwork
-Settings → Carousel → **Artwork**: Main (TMDB), Second picture, Highest resolution, or the add-on's own picture.
-For one title: on the carousel **hold OK** (or press Menu) to switch to its next picture; Glassio remembers it
-(*Reset pictures picked per title* undoes all of them).
+Keys, Hue, cameras, remote buttons and the app lock move only if you turn them on. Sign-ins never move — sign in on each TV.
+</details>
+
+<details>
+<summary><b>💡 Hue lights</b> — your lights in the colours of the screen</summary>
+
+**Hue lights**: find the bridge and press its button, then give each light a part of the screen (or use a Hue
+entertainment area). *Blink it* shows which light is which. Choose what they follow — the picture, trailers, the
+screensaver, music — and what happens when you open an app or the TV turns off.
+</details>
+
+<details>
+<summary><b>🌌 Screensaver</b> — 4K / HDR aerials, trailers or posters</summary>
+
+1. **Screensaver → Type**: aerial videos, posters with logos, trailers, or the TV's own screensaver app.
+2. Pick collections (Apple tvOS, Amazon Fire TV, Jetson Creative, Robin Fourcade) and/or **My videos**, and the
+   *Quality*: 1080p H.264 / HEVC, 4K, HDR, Dolby Vision.
+3. **Glassio is the TV screensaver (ADB)** starts it in every app when the TV is idle.
+4. While it plays: **◀ ▶** change the video, **OK** shows or hides the info, hold **OK** to keep a video you like.
+</details>
+
+<details>
+<summary><b>☀️ Weather, artwork and performance</b></summary>
+
+- **Weather**: Background & glass → *Weather* and *Weather city* (English or Arabic), Fahrenheit. Free, no key.
+- **Artwork**: Carousel → *Artwork* (main, second picture, highest resolution, the add-on's). Hold OK on the carousel
+  to switch one title's picture; Glassio remembers it.
+- **Performance → Mode**: **Auto** picks for the TV (a 2 GB TCL gets *Performance*, a Google TV Streamer *Balanced*);
+  every option can be changed on its own (*Custom*).
+</details>
 
 ---
 
 ## Home Assistant
 
-Glass posts JSON to a Home Assistant **webhook** every time you open a title from the carousel:
+Glassio and Home Assistant work both ways:
+
+| | |
+|---|---|
+| 🎬 **A title opens** | Glassio posts it to a webhook — dim the lights for a film. |
+| ▶️ **Nuvio playback** | What plays in Nuvio is sent to Home Assistant, and pause / play / seek come back. |
+| 🔔 **The doorbell rings** | Its camera pops up in the corner over any app, with a chime and your words. |
+| 📷 **Cameras** | Any camera Home Assistant shows, in the menu, the corner or multi-view. |
+
+<details>
+<summary><b>Webhook: when a title opens</b></summary>
+
+Every title opened from the carousel sends:
 
 ```json
 { "event": "launch", "title": "Severance", "type": "series", "id": "tt11280740", "app": "space.nuvio.nativelegacy" }
 ```
 
-**1. Create the automation** (Settings → Automations → Create → Edit in YAML):
+**1. The automation** (Settings → Automations → Create → Edit in YAML):
 
 ```yaml
 alias: Glassio – title opened
@@ -186,36 +202,32 @@ triggers:
     allowed_methods: [POST]
     local_only: true
 actions:
-  # Re-fire as an event other automations can use
-  - event: glass_launcher
+  - event: glass_launcher          # re-fired for your other automations
     event_data:
       title: "{{ trigger.json.title }}"
       type: "{{ trigger.json.type }}"
       id: "{{ trigger.json.id }}"
-  # Example: movie time
   - if: "{{ trigger.json.event == 'launch' }}"
     then:
       - action: light.turn_off
         target: { area_id: living_room }
 ```
 
-**2. Give Glass the URL**: `http://<home-assistant-ip>:8123/api/webhook/glass_launcher_CHANGE_ME`
-- Settings → **Connections → Home Assistant webhook**, or paste it on the phone page (Settings → *Manage from phone*).
-- Turn on **Tell Home Assistant when a title opens**, then **Send a test event** (sends `{"event":"test"}`).
+**2. In Glassio**: Connections → **Home Assistant webhook** →
+`http://<home-assistant-ip>:8123/api/webhook/glass_launcher_CHANGE_ME`, turn on *Tell Home Assistant when a title opens*,
+then *Send a test event*. Use Home Assistant's IP address (the TV may not find `homeassistant.local`).
+</details>
 
-Use the IP address of Home Assistant (the TV may not resolve `homeassistant.local`). `local_only: true` keeps the webhook
-on your home network.
+<a id="doorbell-pop-up"></a>
+<details>
+<summary><b>Doorbell pop-up</b></summary>
 
-### Doorbell pop-up
+Settings → **Cameras → Doorbell pop-up**. **Try it** shows it straight away.
 
-Settings → **Cameras → Doorbell pop-up**. When the doorbell rings, the camera shows in the corner over any app, for as
-long as you set, with an optional chime and words at the bottom. **Try it** shows it straight away.
+**Easiest, no automation**: under *Straight from Home Assistant* add the Home Assistant link, a **long-lived access token**
+(your profile → Security) and pick the **doorbell sensor**. Glassio watches it itself.
 
-**Easiest — no automation.** Under *Straight from Home Assistant*, add the Home Assistant link, a **long-lived access
-token** (your profile → Security; easier to paste from *Manage from phone*) and pick the **doorbell sensor**. Glassio
-watches that sensor itself (a binary sensor turning on, or an `event.` entity firing).
-
-**Or from an automation.** Home Assistant sends the same request PiPup takes to `http://<tv-ip>:7979/notify`:
+**Or from an automation** — the same request PiPup takes:
 
 ```yaml
 # configuration.yaml
@@ -227,66 +239,71 @@ rest_command:
     payload: '{"camera": "Front door", "duration": 30, "title": "Front Door", "message": "Someone is at the door"}'
 ```
 
-Then call `rest_command.glassio_doorbell` from the automation that runs when the doorbell rings.
-
-`camera` is the name of one of your cameras in Glassio (or send `video_url` with a stream link). Everything is optional:
-without it, Glassio uses the camera and words chosen in Settings. Keep port 7979 on your home network.
+Call `rest_command.glassio_doorbell` when the doorbell rings. `camera` is one of your cameras in Glassio (or send
+`video_url`); everything is optional. Keep port 7979 on your home network.
+</details>
 
 ---
 
 ## Updates
-Glass checks this repository's latest release at start and every 12 hours. An **Update x.y.z** pill appears next to the
-clock with a small banner of what's new: go up to it and press **OK** to download and install right there (or Settings →
-**About → Install update**). With "Allow USB debugging" accepted, the update is
-silent and Glass reopens by itself; otherwise Android asks you to confirm (allow *Install unknown apps* for Glassio).
 
-Releases are signed with the same key, so they install over each other.
+Glassio checks for a new release when it starts and every 12 hours. An **Update** pill appears next to the clock: press
+**OK** on it and it downloads and installs right there (or **About → Install update**). With TV access it's silent and
+Glassio reopens by itself. Every release is signed with the same key, so it installs over the last one and keeps your settings.
+
+## Something wrong?
+
+| | |
+|---|---|
+| **Home goes to Google TV** | System → turn the accessibility service on, and run the `pm grant` line above once. |
+| **No Continue Watching from Nuvio Legacy** | Finish *TV access (ADB)* in System. |
+| **Catalogs stay empty** | Catalogs → *Refresh catalogs*; check each add-on link opens on your phone. |
+| **Reinstalling** | System → **Back up now** first; *Restore backup* brings everything back. |
+| **Still stuck** | [Open an issue](https://github.com/mohammadmrh12/glassio/issues/new/choose) with `adb logcat -s Glassio`, or ask on [Reddit](https://www.reddit.com/r/glassio_/). |
 
 ---
 
-## Troubleshooting
-- Everything that fails quietly (network, Trakt, the TV's adb, opening a title in Nuvio) is logged under one tag:
-  `adb logcat -s Glassio`.
-- Settings snapshot: see *Testing from a computer* in [CONTRIBUTING.md](CONTRIBUTING.md) (`--ez dump_prefs true`, then `adb logcat -s GlassPrefs`).
-- Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, open apps and silent updates need TV access (ADB): Settings → System.
-- Stuck somewhere? Settings → System → **Back up now** keeps everything; *Restore backup* brings it back after a reinstall.
+## For developers
 
-## Tools
-- `tools/appletv_icons.py <out>` — builds the Apple TV icon library from Apple's public iTunes Search API (the tvOS
-  home-screen icon of each app, 1280×768) and renders dark / white / clear looks. The icons belong to their owners and are
-  not included in this repository.
-- `TV=<tv-ip>:5555 tools/push_appletv_icons.sh <out>` — copies the library to the TV
-  (`Android/data/com.glasslauncher.tv/files/appletv/`).
-- `tools/framestats.py` — summarises `adb shell dumpsys gfxinfo com.glasslauncher.tv framestats` per frame stage.
+<details>
+<summary><b>Build</b></summary>
 
-Terminal helpers (`adb shell am start -n com.glasslauncher.tv/.MainActivity …`): `--ez open_folder true`,
-`--ei open_settings <tab>`, `--ez open_menu true`, `--ez open_library true`, `--ez start_saver true`, `--ez show_tour true`. Changing settings
-from a computer needs the dev key (so other apps can't): see [CONTRIBUTING.md](CONTRIBUTING.md#testing-from-a-computer).
-
-## Build
 ```sh
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=/path/to/android-sdk
 ./gradlew assembleRelease     # app/build/outputs/apk/release/app-release.apk
 ```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for testing from a computer and the settings snapshot (`--ez dump_prefs true`).
+</details>
+
+<details>
+<summary><b>Tools and terminal helpers</b></summary>
+
+- `tools/appletv_icons.py <out>` — builds the Apple TV icon library from Apple's public iTunes Search API (each app's tvOS
+  icon, 1280×768) in default / dark / white / clear. The icons belong to their owners and aren't in this repository.
+- `TV=<tv-ip>:5555 tools/push_appletv_icons.sh <out>` — copies it to the TV (`Android/data/com.glasslauncher.tv/files/appletv/`).
+- `tools/framestats.py` — sums up `adb shell dumpsys gfxinfo com.glasslauncher.tv framestats` per frame stage.
+- `adb shell am start -n com.glasslauncher.tv/.MainActivity` with `--ez open_folder true`, `--ei open_settings <tab>`,
+  `--ez open_menu true`, `--ez open_library true`, `--ez start_saver true` or `--ez show_tour true`. Changing settings
+  from a computer needs the dev key ([CONTRIBUTING.md](CONTRIBUTING.md#testing-from-a-computer)).
+</details>
+
+---
 
 ## Privacy & security
-- No accounts, analytics or ads. Settings stay on the TV (`allowBackup=false`).
-- The phone page runs while its screen is open (and for the time you choose after), and every request needs the one-time
-  token in its QR code. Changing settings from a computer needs a dev key only adb can read.
-- Backups contain your sign-ins: keep the file private.
-- Webhook, TMDB token and add-on links are only sent where you point them.
-- The TV's adb is used only for: the screensaver settings, reading Nuvio Legacy's playback log, TV info (CPU / GPU), open
-  apps, starting with the TV and installing Glassio updates.
 
-## Credits
-Inter typeface (SIL Open Font License) · Weather by [Open-Meteo](https://open-meteo.com) · Catalog data from your Nuvio add-ons ·
-This product uses the TMDB API but is not endorsed or certified by TMDB. · Not affiliated with Apple, Google or Nuvio.
+- 🚫 No accounts of ours, no analytics, no ads. Settings stay on the TV.
+- 📱 The phone page only runs while you use it, and every request needs the one-time token in its QR code.
+- 🔑 Backups hold your sign-ins — keep the file private. Sync never sends sign-ins, and talks only to TVs you paired.
+- 🏠 The webhook, TMDB token and add-on links go only where you point them. The TV's adb is used only for the screensaver,
+  Nuvio Legacy's playback, TV info, recent apps, starting with the TV and installing Glassio's updates.
 
-## Copyright, name and license
-Copyright (C) 2026 mohammad (mrh12).
+## Credits & license
 
-Glassio is free software under the [GNU General Public License v3.0](LICENSE) (GPL-3.0), the same license as Nuvio.
-You may use, study, change and share the code under GPL-3.0. If you distribute a modified version, you must comply with the license, including its applicable source-code and notice requirements.
+Inter typeface (SIL Open Font License) · Weather by [Open-Meteo](https://open-meteo.com) · Catalog data from your add-ons ·
+This product uses the TMDB API but is not endorsed or certified by TMDB · Not affiliated with Apple, Google or Nuvio.
 
-The GPL-3.0 license grants rights to the code; it does not automatically grant permission to use the Glassio name or logo in a way that suggests an independent build is an official release. See [TRADEMARKS.md](TRADEMARKS.md).
+Copyright (C) 2026 mohammad (mrh12). Glassio is free software under the [GNU General Public License v3.0](LICENSE), the
+same license as Nuvio: use, study, change and share it under GPL-3.0; a modified version you distribute must follow the
+license, including its source-code and notice terms. The license covers the code, not the Glassio name or logo in a way
+that makes an independent build look official — see [TRADEMARKS.md](TRADEMARKS.md).
