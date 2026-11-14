@@ -16,8 +16,8 @@ Tested on the Google TV Streamer (4K).
 | ![Menu with TV info](docs/screenshots/53-menu-tv-info.jpg) | ![Screensaver, Netflix style](docs/screenshots/54-screensaver-netflix.jpg) |
 | ![Setup: Hello](docs/screenshots/55-setup-hello.jpg) | ![Setup: Connect](docs/screenshots/57-setup-connect.jpg) |
 | ![Carousel](docs/screenshots/02-carousel.jpg) | ![Apps folder](docs/screenshots/05-apps-folder.jpg) |
-| ![Library settings](docs/screenshots/58-settings-library.jpg) | ![Screensaver settings](docs/screenshots/59-settings-screensaver.jpg) |
-| ![System](docs/screenshots/60-settings-system.jpg) | ![About](docs/screenshots/61-settings-about.jpg) |
+| ![Petrol glass](docs/screenshots/70-home-petrol-glass.jpg) | ![Carousel](docs/screenshots/81-carousel.jpg) |
+| ![Trailer screensaver menu](docs/screenshots/73-screensaver-trailer-menu.jpg) | ![What's new tour](docs/screenshots/77-tour-whats-new-3-3.jpg) |
 | ![Themes](docs/screenshots/41-menu-themes.jpg) | ![Black on white](docs/screenshots/45-theme-black-on-white.jpg) |
 
 ---
