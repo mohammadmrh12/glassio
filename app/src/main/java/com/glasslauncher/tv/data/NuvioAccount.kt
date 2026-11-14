@@ -146,7 +146,29 @@ class NuvioAccount(ctx: Context) {
     }
 
     /** Signs out (the server chosen stays). */
-    fun signOut() { sp.edit().remove("access").remove("refresh").remove("exp").remove("email").apply() }
+    fun signOut() { sp.edit().remove("access").remove("refresh").remove("exp").remove("email").remove("profile").remove("profileName").apply() }
+
+    /**
+     * The account's profile Glassio reads and saves to (Continue Watching, Library, add-ons): 1 is the account's main
+     * profile, the one used before this could be chosen (Settings → Connections → Nuvio profile).
+     */
+    val profile: Int get() = sp.getInt("profile", 1)
+    val profileName: String get() = sp.getString("profileName", "").orEmpty()
+    fun setProfile(id: Int, name: String) { sp.edit().putInt("profile", id).putString("profileName", name).apply() }
+
+    /** The account's profiles (its number and name, in Nuvio's order). Null on failure. */
+    fun profiles(): List<Pair<Int, String>>? = runCatching {
+        var tok = access() ?: return null
+        var (c, t) = call("/rest/v1/rpc/sync_pull_profiles", JSONObject(), tok)
+        if (c == 401) { tok = access(force = true) ?: return null; val r = call("/rest/v1/rpc/sync_pull_profiles", JSONObject(), tok); c = r.first; t = r.second }
+        check(c in 200..299) { "Nuvio answered HTTP $c" }
+        val a = JSONArray(t)
+        (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            val id = o.optInt("profile_index", -1).takeIf { it > 0 } ?: return@mapNotNull null
+            id to o.optString("name").ifBlank { "Profile $id" }
+        }.sortedBy { it.first }
+    }.getOrElse { lastError = it.message.orEmpty(); null }
 
     companion object {
         const val OFFICIAL = "https://api.nuvio.tv"
@@ -168,7 +190,7 @@ class NuvioAccount(ctx: Context) {
      * Adds a title to (or removes it from) the account's Library. The server only takes the whole list, so
      * this reads it, changes the one title and writes it back; it never writes an empty or half-read list.
      */
-    fun setSaved(add: Boolean, id: String, type: String, name: String, poster: String, background: String, profile: Int = 1): Boolean = runCatching {
+    fun setSaved(add: Boolean, id: String, type: String, name: String, poster: String, background: String, profile: Int = this.profile): Boolean = runCatching {
         var tok = access() ?: return false
         val rows = ArrayList<JSONObject>()
         var offset = 0
@@ -227,7 +249,7 @@ class NuvioAccount(ctx: Context) {
      * The add-ons installed on the account (profile 1, in the account's order, only the ones turned on): the same
      * list Nuvio Legacy and the Nuvio web app read. Null when it couldn't be read (signed out, offline).
      */
-    fun addons(profile: Int = 1): List<String>? = runCatching {
+    fun addons(profile: Int = this.profile): List<String>? = runCatching {
         var tok = access() ?: return null
         val uid = userId(tok).ifBlank { return null }
         val q = "/rest/v1/addons?user_id=eq.$uid&profile_id=eq.$profile&select=*&order=sort_order.asc"
@@ -244,7 +266,7 @@ class NuvioAccount(ctx: Context) {
     data class Progress(val key: String, val imdb: String, val season: Int, val episode: Int, val percent: Int, val at: Long)
 
     /** What you're watching on the account (Nuvio Legacy, the official app and forks push it). Null on failure. */
-    fun progress(profile: Int = 1): List<Progress>? = runCatching {
+    fun progress(profile: Int = this.profile): List<Progress>? = runCatching {
         var tok = access() ?: return null
         val body = JSONObject().put("p_profile_id", profile)
         var (c, t) = call("/rest/v1/rpc/sync_pull_watch_progress", body, tok)
@@ -277,7 +299,7 @@ class NuvioAccount(ctx: Context) {
      * The account's watched episodes (newest first), where Nuvio's own "Next up" comes from: a finished
      * episode leaves the watch progress, so the next one has to be worked out from these. Null on failure.
      */
-    fun watchedEpisodes(profile: Int = 1, maxPages: Int = 4): List<Watched>? = runCatching {
+    fun watchedEpisodes(profile: Int = this.profile, maxPages: Int = 4): List<Watched>? = runCatching {
         var tok = access() ?: return null
         val out = mutableListOf<Watched>()
         var page = 1
@@ -303,7 +325,7 @@ class NuvioAccount(ctx: Context) {
     }.getOrElse { Glog.w("Nuvio watched", it); null }
 
     /** Takes a title out of the account's Continue Watching. */
-    fun deleteProgress(key: String, profile: Int = 1): Boolean = runCatching {
+    fun deleteProgress(key: String, profile: Int = this.profile): Boolean = runCatching {
         val tok = access() ?: return false
         call("/rest/v1/rpc/sync_delete_watch_progress", JSONObject().put("p_profile_id", profile).put("p_keys", JSONArray().put(key)), tok).first in 200..299
     }.getOrDefault(false)
@@ -312,7 +334,7 @@ class NuvioAccount(ctx: Context) {
                      val description: String, val year: String, val at: Long)
 
     /** The account's Library (profile 1, newest first). */
-    fun library(profile: Int = 1): List<Saved> {
+    fun library(profile: Int = this.profile): List<Saved> {
         var tok = access() ?: return emptyList()
         val out = ArrayList<Saved>()
         var offset = 0

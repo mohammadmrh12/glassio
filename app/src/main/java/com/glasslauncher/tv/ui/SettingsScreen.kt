@@ -248,6 +248,33 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
         }
     }
 
+    /**
+     * Which of the Nuvio account's profiles Glassio uses (Continue Watching, Library, add-ons), under the account row.
+     * The main profile stays the default: it goes straight to it, as before (#16).
+     */
+    fun nuvioProfileRows(): List<SRow> {
+        val nv = app.library.nuvio
+        if (!nv.connected) return emptyList()
+        return listOf(Act("Nuvio profile", "Whose Continue Watching, Library and add-ons Glassio shows. The main profile is the one Nuvio opens first",
+            nv.profileName.ifBlank { if (nv.profile == 1) "Main profile" else "Profile ${nv.profile}" }) {
+            scope.launch(Dispatchers.IO) {
+                val list = nv.profiles()
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    if (list.isNullOrEmpty()) { toast(ctx, "Couldn't read the profiles: ${nv.lastError.ifBlank { "no answer from Nuvio" }}"); return@withContext }
+                    dialog = MenuDialog("Nuvio profile", list.map { (id, name) ->
+                        ((if (id == nv.profile) "✓  " else "") + name + (if (id == 1) "  (main)" else "")) to {
+                            if (id != nv.profile) {
+                                nv.setProfile(id, name); tvRev.intValue++
+                                toast(ctx, "Glassio now uses $name")
+                                scope.launch(Dispatchers.IO) { app.library.refreshNuvio(); app.cw.pollNow(); runCatching { app.catalogs.refresh() } }
+                            }
+                        }
+                    })
+                }
+            }
+        })
+    }
+
     fun nuvioAccountRow(): SRow =
         if (!app.library.nuvio.connected) Act("Connect Nuvio account", "Scan a QR code with your phone and approve, like signing in to Nuvio on a TV", if (nuvioUrl != null) "Waiting…" else "") {
                         val appCtx = ctx.applicationContext
@@ -520,6 +547,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 Toggle("Nuvio library", if (app.library.nuvio.connected) "From your Nuvio account" + (app.library.nuvio.email.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "") + ": Nuvio Legacy, the official Nuvio app and forks that sync with it"
                     else "Connect your Nuvio account below", { st.libraryNuvio }, { st.libraryNuvio = it; scope.launch(Dispatchers.IO) { app.library.refreshNuvio() } }),
                 nuvioAccountRow(),
+                *nuvioProfileRows().toTypedArray(),
                 Toggle("Save to the Nuvio library too", "The + button also saves the title to your Nuvio account (Legacy, official Nuvio and forks see it)", { st.libraryToNuvio }, { st.libraryToNuvio = it }),
                 Toggle("Save to the Trakt watchlist too", "The + button also adds the title on Trakt", { st.libraryToTrakt }, { st.libraryToTrakt = it }),
                 Toggle("Titles under posters", "In the Library", { st.libraryTitles }, { st.libraryTitles = it }),
@@ -596,6 +624,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Toggle("Add-ons from my Nuvio account", if (app.library.nuvio.connected) "The add-ons on your Nuvio account (${app.library.nuvio.email.ifBlank { "signed in" }}) too. One that's already here isn't added twice"
                     else "Connect your Nuvio account first (the row below)", { st.catalogsNuvio }, { on -> io { app.catalogs.useAccount(on) } }))
                 add(nuvioAccountRow())
+                addAll(nuvioProfileRows())
                 add(Act("Add add-on link", "Paste a manifest link", "") {
                     dialog = TextEntry("Add-on link", "", "https://…/manifest.json or stremio://…") { u -> io { app.catalogs.addAddon(u) } }
                 })
@@ -675,6 +704,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             buildList {
                 add(Note("Nuvio"))
                 add(nuvioAccountRow())
+                addAll(nuvioProfileRows())
                 val nv = app.library.nuvio
                 tvRev.intValue
                 if (!nv.connected) add(Act("Sign in with email", "With the account's email and password (for a server without a TV sign-in page)", "") {
