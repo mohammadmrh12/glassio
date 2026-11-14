@@ -2132,10 +2132,12 @@ private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: B
     ) {
         val right = settings.clockPos == "right"
         val gearPic = settingsPicture(app, settings.settingsIcon)
+        // Next to a picture (larger than a glyph) the clock grows a little too.
+        val ck = if (gearPic != null) 1.15f else 1f
         // Apple TV: time and date, top left.
         if (settings.showClock && !right) Column {
-            Text(time, color = Color.White, fontSize = (19 * s).sp, fontWeight = FontWeight.SemiBold, style = shade)
-            if (settings.showDate) Text(date, color = Color.White.copy(alpha = 0.75f), fontSize = (8.5f * s).sp,
+            Text(time, color = Color.White, fontSize = (19 * s * ck).sp, fontWeight = FontWeight.SemiBold, style = shade)
+            if (settings.showDate) Text(date, color = Color.White.copy(alpha = 0.75f), fontSize = (8.5f * s * ck).sp,
                 fontWeight = FontWeight.SemiBold, letterSpacing = (0.6f * s).sp, style = shade)
         }
         Spacer(Modifier.weight(1f))
@@ -2156,8 +2158,8 @@ private fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: B
             // Clock next to Settings, weather under it.
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((10 * s).dp)) {
                 if (settings.showClock) Column(horizontalAlignment = Alignment.End) {
-                    Text(time, color = Color.White, fontSize = (17 * s).sp, fontWeight = FontWeight.SemiBold, style = shade)
-                    if (settings.showDate) Text(date, color = Color.White.copy(alpha = 0.75f), fontSize = (8 * s).sp,
+                    Text(time, color = Color.White, fontSize = (17 * s * ck).sp, fontWeight = FontWeight.SemiBold, style = shade)
+                    if (settings.showDate) Text(date, color = Color.White.copy(alpha = 0.75f), fontSize = (8 * s * ck).sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = (0.6f * s).sp, style = shade)
                 }
                 UpdateDot(app, s) { barFocused = it }
@@ -2271,9 +2273,9 @@ private fun GearButton(s: Float, icon: String, frame: String, onClick: () -> Uni
     val word = when (icon) { "hello" -> "Hello"; "menuText" -> "Menu"; else -> null }
     val script = icon == "helloScript"
     val picture = if (icon == "picture") pic else null
-    val wide = word != null || script || picture != null
+    val wide = word != null || script
     Box(
-        (if (wide) Modifier.height((20 * s).dp) else Modifier.size((20 * s).dp))
+        (if (picture != null) Modifier.size((26 * s).dp) else if (wide) Modifier.height((20 * s).dp) else Modifier.size((20 * s).dp))
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
             .focusRequester(req)
             .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
@@ -2307,18 +2309,11 @@ private fun GearButton(s: Float, icon: String, frame: String, onClick: () -> Uni
                     modifier = Modifier.padding(horizontal = ((if (none) 3 else 8) * s).dp))
             }
             picture != null -> {
-                // Your own picture, as tall as the other buttons; Frame shapes it (rounded square, circle or as it is),
-                // and selected it gets a white ring.
-                val ratio = (picture.width.toFloat() / picture.height).coerceIn(0.5f, 3f)
-                val shape = when (frame) {
-                    "circle" -> androidx.compose.foundation.shape.CircleShape
-                    "square" -> RoundedCornerShape(26)
-                    else -> RoundedCornerShape(0)
-                }
-                Box(Modifier.height((20 * s).dp).aspectRatio(ratio)
-                    .border((1.6f * s).dp, Color.White.copy(alpha = if (frame == "none") 0f else 0.85f * lit.value + 0.0f), shape)
-                    .padding((if (frame == "none") 0f else 1f * s).dp)
-                    .clip(shape)) {
+                // Your own picture: always a circle, a little larger than the glyphs; selected it gets a white ring.
+                Box(Modifier.fillMaxSize()
+                    .border((1.8f * s).dp, Color.White.copy(alpha = 0.35f + 0.65f * lit.value), androidx.compose.foundation.shape.CircleShape)
+                    .padding((1.2f * s).dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)) {
                     androidx.compose.foundation.Image(picture, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 }
             }

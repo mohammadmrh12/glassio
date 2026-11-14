@@ -596,8 +596,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         if (hasPic) add("Remove the picture" to { app.icons.reset(com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON) })
                     })
                 })
-                // ("Hello" and "Menu" are words on their own: no frame.)
-                if (icon != "hello" && icon != "menuText") add(Adjust("  · Frame", if (icon == "picture") "The shape of your picture" else "Around the settings button (it fills in white when selected)",
+                // ("Hello" and "Menu" are words on their own, and your picture is always round: no frame.)
+                if (icon != "hello" && icon != "menuText" && icon != "picture") add(Adjust("  · Frame", "Around the settings button (it fills in white when selected)",
                     { SETTINGS_FRAMES[st.settingsFrame] ?: "Square" }, { st.settingsFrame = cycle(SETTINGS_FRAMES.keys.toList(), st.settingsFrame, it) }))
                 add(Toggle("Show clock", "", { st.showClock }, { st.showClock = it }))
                 if (st.showClock) add(Toggle("  · 24-hour clock", "", { st.clock24h }, { st.clock24h = it }))
