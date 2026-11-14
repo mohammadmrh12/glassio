@@ -174,11 +174,15 @@ object NowPlaying {
             if (shuffled.value != v) shuffled.value = v
         }
         val t = controller?.let { trackOf(it) }
+        t?.let { seenAt[it.pkg] = android.os.SystemClock.uptimeMillis() }
         // Play / Pause pressed here: an update still saying the old state (it often comes first) doesn't undo it.
         val want = pendingPlaying
         track.value = if (t != null && want != null && android.os.SystemClock.uptimeMillis() < pendingUntil && t.playing != want) t.copy(playing = want)
             else { if (t?.playing == want) pendingPlaying = null; t }
     }
+    private val seenAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    /** [pkg] had a song a moment ago (between two videos an app's session is empty for a second or two). */
+    fun hadSong(pkg: String, withinMs: Long = 6000) = android.os.SystemClock.uptimeMillis() - (seenAt[pkg] ?: -withinMs * 2) < withinMs
     @Volatile private var pendingPlaying: Boolean? = null
     @Volatile private var pendingUntil = 0L
 

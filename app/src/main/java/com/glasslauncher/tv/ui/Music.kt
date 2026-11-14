@@ -125,11 +125,15 @@ object MusicUi {
         // before it stopped, and the music page flashed up and went (taking the selection with it). It counts as
         // music only once it has played on for 3 seconds.
         val yt = t?.pkg?.let { NowPlaying.sometimesMusic(it) } == true
-        var ytOk by remember { androidx.compose.runtime.mutableStateOf(false) }
-        LaunchedEffect(t?.key, t?.playing, yt, resumedRev.intValue) {
-            ytOk = false
-            if (yt && t?.playing == true) { delay(3000); ytOk = true }
+        // (Once it counts, pausing it keeps it: a paused song in YouTube, SmartTube or TizenTube showed "Nothing
+        // playing", and the app's rows came and went under it. Coming back to Glassio asks for the 3 seconds again.)
+        var okKey by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+        LaunchedEffect(resumedRev.intValue) { okKey = null }
+        LaunchedEffect(t?.key, t?.playing, yt) {
+            val k = t?.key
+            if (yt && t?.playing == true && k != null && okKey != k) { delay(3000); okKey = k }
         }
+        val ytOk = yt && t?.key?.let { it == okKey } == true
         // Until then the music app under it (Spotify, paused by the video) stays the page.
         val alt by NowPlaying.alt.collectAsState()
         val usable = if (yt && !ytOk) alt else t
@@ -195,7 +199,7 @@ object MusicUi {
         st.musicOn && pkg !in st.channelsMusicRowApps && (isMusicApp(ctx, pkg) ||
             // TizenTube, SmartTube…: their player while their song is on (playing or paused), else their rows (when they
             // publish some), else their player.
-            pkg in NowPlaying.YOUTUBE_CLIENTS && (NowPlaying.track.value?.pkg == pkg || com.glasslauncher.tv.data.Channels.rowsFor(st, pkg).isEmpty()))
+            pkg in NowPlaying.YOUTUBE_CLIENTS && (NowPlaying.track.value?.pkg == pkg || NowPlaying.hadSong(pkg) || com.glasslauncher.tv.data.Channels.rowsFor(st, pkg).isEmpty()))
     /** The dock's tile for an app (set by the home screen). */
     @Volatile var tileFor: (String) -> FocusRequester? = { null }
     /** Down from the player: back to the tile it came from (the Music icon, or the music app), else the first app. */
