@@ -13,7 +13,7 @@ What changed in each version of Glassio. Downloads: [Releases](https://github.co
 - **Hide an app's rows**: hold OK on an app with channels → *Hide its rows* / *Show its rows*.
 - **Sync**: *Performance* is its own part, off unless you turn it on, so a weaker TV keeps its own settings; turned off,
   the TV goes back to its own performance mode.
-- **The What's new tour** shows only the new version, and on its last page (the GitHub QR code) only OK closes it.
+- **The What's new tour** is short: what's new, then everything Glassio does in three pages; on its last page (the GitHub QR code) only OK closes it.
 
 ## 3.6.0 — Sync between your TVs, your Nuvio profile, the settings button
 - **Sync** (Settings → Sync): one TV is the main one, the others follow it over your home network, live (a change on

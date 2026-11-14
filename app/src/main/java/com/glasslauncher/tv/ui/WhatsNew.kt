@@ -54,14 +54,28 @@ object WhatsNew {
         "Support Glassio: a ⭐ on GitHub and sharing it with friends keeps it going. Thank you!",
     ), "Thank you for using Glassio ♥", qr = GITHUB)
 
-    // Only the latest version's pages (every version's notes: CHANGELOG on GitHub), then the GitHub page.
+    // What's new in this version first, then everything Glassio does in a few short pages, then the GitHub page.
     val PAGES = listOf(
         Page("What's new in Glassio 3.7", listOf(
-            "Sync between your TVs: one main TV, the others follow it live over your home network. Performance can sync too, or stay on each TV.",
-            "The settings button: Hello, the handwriting hello, Menu, or your own picture in a circle, sent from your phone with a QR code.",
-            "Hold OK on an app with channels: Hide its rows or show them again.",
-            "Menu & themes in clear groups: the top bar (button, clock, weather) together, then the look, then the menu.",
-        ), "Settings → Sync · Settings → Menu & themes"),
+            "Your own picture as the settings button, sent from your phone with a QR code. Also Hello, hello and Menu.",
+            "Menu & themes in clear groups: the top bar, the look and the menu.",
+            "Hold OK on an app with channels to hide its rows. Sync can share performance too, or leave it to each TV.",
+        ), "Settings → Menu & themes · Settings → Sync"),
+        Page("Glassio: home screen", listOf(
+            "A carousel of your Nuvio and Stremio catalogs, with trailers and subtitles in your language.",
+            "Channels: select YouTube, Shahid, Netflix… in the dock and its rows take the carousel's place.",
+            "Liquid glass in six themes and a glass colour; icon packs and the Apple TV icons in the dock.",
+        ), "Settings → Carousel · Channels · Menu & themes · Dock & icons"),
+        Page("Glassio: watch and listen", listOf(
+            "Continue Watching and your Library from Nuvio, Stremio, Trakt and Simkl, kept the same everywhere.",
+            "Music mode, the dynamic island and the Music icon, for any music app.",
+            "A 4K / HDR screensaver of aerial videos, trailers or posters, with a large glass clock.",
+        ), "Settings → Connections · Library · Music · Screensaver"),
+        Page("Glassio: your home and your TVs", listOf(
+            "Sync: one main TV, the others follow it over your home network.",
+            "Hue lights in the screen's colours, cameras, the doorbell and Home Assistant.",
+            "Any remote button, HDMI inputs, app lock, backups and managing from your phone.",
+        ), "Settings → Sync · Hue lights · Cameras · Remote mapping · System"),
         GITHUB_PAGE,
     )
 
@@ -104,7 +118,7 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
                 AnimatedContent(i, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "tour") { n ->
                     val p = WhatsNew.PAGES[n]
                     Column {
-                        Text(if (n == 0) "Glassio ${com.glasslauncher.tv.BuildConfig.VERSION_NAME}" else "New", color = ink.copy(alpha = 0.55f),
+                        Text(if (n == 0) "Glassio ${com.glasslauncher.tv.BuildConfig.VERSION_NAME}" else "${n + 1} / ${WhatsNew.PAGES.size}", color = ink.copy(alpha = 0.55f),
                             fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp)
                         Spacer(Modifier.height((4 * s).dp))
                         Text(p.title, color = ink, fontSize = (22 * s).sp, fontWeight = FontWeight.SemiBold)
