@@ -70,6 +70,11 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     }
     /** Add-ons read from the Nuvio account (kept apart from the TV's own list, so turning it off removes only them). */
     val accountAddons = MutableStateFlow(sp.getStringSet("account_addons", emptySet()) ?: emptySet())
+    /** Settings → Sync wrote this file: the add-ons and chosen catalogs are read again from it. */
+    fun reloadFromPrefs() {
+        addonList.value = sp.getStringSet("addons", emptySet()) ?: emptySet()
+        selectedKeys.value = sp.getStringSet("selected", emptySet()) ?: emptySet()
+    }
     /** Reads the account's add-ons; set once the Library (which holds the account) exists. */
     @Volatile var account: (() -> List<String>?)? = null
 

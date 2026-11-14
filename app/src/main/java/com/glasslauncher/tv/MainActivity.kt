@@ -145,6 +145,7 @@ class MainActivity : ComponentActivity() {
         lastInput = System.currentTimeMillis()
         hideBars()
         (application as GlassApp).cw.pollNow()
+        com.glasslauncher.tv.data.PeerSync.resumed()
         com.glasslauncher.tv.data.NuvioWatch.start(this)
         com.glasslauncher.tv.ui.MusicUi.resumedRev.intValue++
         resumed = true

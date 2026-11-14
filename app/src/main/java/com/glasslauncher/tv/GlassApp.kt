@@ -48,6 +48,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
      */
     /** Activities of Glassio on screen; when 0 another app is in front. */
     @Volatile private var shown = 0
+    /** Glassio is on screen (one of its screens is started). */
+    fun foreground() = shown > 0
     /** When the TV last turned its screen off (the lights then follow "When the TV turns off", not "When you leave"). */
     @Volatile private var screenOffAt = -60_000L
     @Volatile private var hiddenAt = 0L
@@ -195,6 +197,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         com.glasslauncher.tv.data.Photos.start(this)
         // Music: follows what any music app plays (its listener is switched on when Music is turned on).
         if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(this)
+        // Settings → Sync: the main TV's server, or following the main TV.
+        com.glasslauncher.tv.data.PeerSync.start(this)
         if (settings.musicOn) Thread { runCatching { com.glasslauncher.tv.data.NowPlaying.grant(this); com.glasslauncher.tv.data.NowPlaying.start(this) } }.apply { isDaemon = true }.start()
         // The TV's inputs (HDMI, CEC devices): read now and every few minutes.
         scope.launch {

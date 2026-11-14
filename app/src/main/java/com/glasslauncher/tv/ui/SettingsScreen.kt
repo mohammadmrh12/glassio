@@ -1496,6 +1496,103 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             }
         },
         Category("Manage from phone", Kind.Phone),
+        Category("Sync") {
+            tvRev.intValue
+            val ps = com.glasslauncher.tv.data.PeerSync
+            ps.rev.intValue
+            // Follow a main TV: find it on the network, then the code it shows.
+            fun follow() {
+                toast(ctx, "Looking for Glassio on your network…")
+                scope.launch(Dispatchers.IO) {
+                    val found = ps.discover()
+                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        if (found.isEmpty()) { toast(ctx, "No main TV found. On the other TV: Settings → Sync → This TV → Main TV (both on the same network)"); return@withContext }
+                        dialog = MenuDialog("Follow which TV?", found.map { f -> "${f.name}  ·  ${f.host}" to {
+                            AppLock.ask.value = AppLock.Ask("The code shown on ${f.name}", newCode = true) { code ->
+                                io { ps.pair(f, code) ?: "Following ${f.name}: its setup comes over now" }
+                            }
+                        } })
+                    }
+                }
+            }
+            fun ago(t: Long): String {
+                val m = (System.currentTimeMillis() - t) / 60_000
+                return when { t == 0L -> "never"; m < 1 -> "just now"; m < 60 -> "$m min ago"; m < 1440 -> "${m / 60} h ago"; else -> "${m / 1440} days ago" }
+            }
+            buildList {
+                add(Note("Keep Glassio the same on all your TVs: one is the main TV, the others follow it over your home network, live or when you press Sync now. " +
+                    "Sign-ins never move (sign in on each TV), nor performance and HDMI inputs. Keys, Hue, cameras, remote buttons and the lock move only if you turn them on."))
+                add(Act("This TV", when (ps.role) {
+                    "main" -> "The main TV: the TVs that follow it take its setup"
+                    "follow" -> "Follows ${ps.peerName.ifBlank { "another TV" }}"
+                    else -> "Not synced with another TV"
+                }, when (ps.role) { "main" -> "Main TV"; "follow" -> "Follows"; else -> "Off" }) {
+                    dialog = MenuDialog("This TV", listOf(
+                        "Main TV (the others follow it)" to { if (ps.role != "main") { ps.role = "main"; toast(ctx, "This is the main TV now. Add a TV shows the code for the other one") } },
+                        "Follows another TV" to { follow() },
+                        "Off" to { if (ps.role == "follow") ps.unfollow() else ps.role = "off" },
+                    ))
+                })
+                add(Act("This TV's name", "How your other TVs see it", ps.name) {
+                    dialog = MenuDialog("This TV's name", (listOf("Living room", "Bedroom", "Kids' room", "Office", "Kitchen", "Guest room", android.os.Build.MODEL))
+                        .map { n -> ((if (n == ps.name) "✓  " else "") + n) to { ps.name = n } })
+                })
+                when (ps.role) {
+                    "main" -> {
+                        add(Act("Add a TV", "Shows a code: on the other TV choose Settings → Sync → This TV → Follows another TV, then type it", "Show code") {
+                            val c = ps.openPairing()
+                            dialog = MenuDialog("Code for the other TV:   ${c.toCharArray().joinToString("  ")}", listOf("Done (the code works for 5 minutes)" to { ps.closePairing() }))
+                        })
+                        val fl = ps.followers.entries.sortedByDescending { it.value.second }
+                        add(Note(if (fl.isEmpty()) "No TV follows this one yet." else "Following this TV"))
+                        fl.forEach { (n, v) -> add(Act(n, "Last synced ${ago(v.second)} · ${v.first}", if (System.currentTimeMillis() - v.second < 120_000) "Online" else "", ok = System.currentTimeMillis() - v.second < 120_000) { }) }
+                        add(Toggle("Pause sharing", "To try things out: the TVs that follow keep how this TV was when you paused, and get everything changed meanwhile when you turn it off",
+                            { ps.paused }, { ps.paused = it }))
+                        if (fl.isNotEmpty()) add(Act("Stop every TV following this one", "They need a new code to follow it again", "Stop") {
+                            dialog = MenuDialog("Stop every TV following this one?", listOf("Stop" to { ps.dropFollowers(); toast(ctx, "No TV follows this one now") }, "Cancel" to { }))
+                        })
+                    }
+                    "follow" -> {
+                        add(Act("Main TV", ps.status.value.ifBlank { "Connecting…" }, ps.peerName, ok = if (ps.status.value.startsWith("Up to date")) true else null) {
+                            dialog = MenuDialog(ps.peerName, listOf("Follow another TV" to { follow() }, "Stop following" to { ps.unfollow(); toast(ctx, "This TV no longer follows ${ps.peerName}") }))
+                        })
+                        add(Adjust("Sync", "Automatic: what you change on the main TV shows here a moment later. Manual: only when you press Sync now",
+                            { if (ps.mode == "manual") "Manual" else "Automatic" }, { ps.mode = if (ps.mode == "manual") "auto" else "manual" }))
+                        add(Act("Sync now", "Last synced ${ago(ps.lastAt)}", if (ps.waiting.value) "Changes waiting" else "Sync", ok = if (ps.waiting.value) null else true) {
+                            io { ps.syncNow()?.let { "Couldn't sync: $it" } ?: "Synced from ${ps.peerName}" }
+                        })
+                        add(Note("What this TV takes from ${ps.peerName.ifBlank { "the main TV" }}"))
+                        val g = ps.groups
+                        val desc = mapOf(
+                            "look" to "Theme, glass, colours, glow, corners, icon pack, the settings button",
+                            "dock" to "The dock's order, hidden apps, its size and place, and icons you made",
+                            "home" to "Carousel, titles, clock and weather, menu, Continue Watching, Library layout, background",
+                            "channels" to "Each app's rows, the music player and the island",
+                            "saver" to "The screensaver: what it shows and how",
+                            "catalogs" to "Your add-ons and the catalogs chosen from them",
+                            "lists" to "Titles saved in Glassio's Library, and likes",
+                        )
+                        com.glasslauncher.tv.data.PeerSync.GROUPS.forEach { (k, n) ->
+                            add(Toggle(n, desc[k].orEmpty(), { k in g }, { on -> ps.groups = if (on) g + k else g - k }))
+                        }
+                        add(Note("Also, if your TVs are in the same home (off unless you turn them on)"))
+                        val extra = mapOf(
+                            "keys" to "Your TMDB key, Unsplash key and Home Assistant (address, token, webhook). They go only to TVs you paired, over your home network",
+                            "hue" to "The Hue bridge Glassio is paired with (each TV keeps its own lights and room)",
+                            "cameras" to "Your cameras, the corner camera and multi-view, and the doorbell",
+                            "remote" to "Glassio's remote buttons and Hold Home (for TVs with the same kind of remote)",
+                            "lock" to "Which apps are locked, and the code",
+                        )
+                        com.glasslauncher.tv.data.PeerSync.EXTRAS.forEach { (k, n) ->
+                            add(Toggle(n, extra[k].orEmpty(), { k in g }, { on -> ps.groups = if (on) g + k else g - k }))
+                        }
+                        add(Note("Never synced: Nuvio, Stremio, Trakt and Simkl sign-ins. Each of them hands one TV a sign-in that the next use replaces: shared, the two TVs would sign each other out. Sign in on each TV once."))
+                        add(Toggle("Show a note when synced", "A short note on screen when a change from ${ps.peerName.ifBlank { "the main TV" }} arrives", { ps.notify }, { ps.notify = it }))
+                        add(Note("One way only: what you change here in a synced part is replaced by the main TV's next change. Apps not installed on this TV are left out of its dock."))
+                    }
+                }
+            }
+        },
         Category("System") {
             val devOn = runCatching { AndroidSettings.Global.getInt(ctx.contentResolver, AndroidSettings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1 }.getOrDefault(false)
             val adbOn = runCatching { AndroidSettings.Global.getInt(ctx.contentResolver, AndroidSettings.Global.ADB_ENABLED, 0) == 1 }.getOrDefault(false)
@@ -2072,7 +2169,7 @@ private fun videoName(u: String): String = runCatching {
 private val CATEGORY_BREAKS = setOf("Library", "Cameras", "Performance")
 
 val CATEGORY_ORDER = listOf("Connections", "Catalogs", "Continue Watching", "Library", "Carousel", "Dock & icons", "Channels", "Menu & themes",
-    "Cameras", "Background & glass", "Screensaver", "Music", "Hue lights", "Remote mapping", "Performance", "Manage from phone", "System", "About")
+    "Cameras", "Background & glass", "Screensaver", "Music", "Hue lights", "Remote mapping", "Performance", "Manage from phone", "Sync", "System", "About")
 
 /**
  * Settings pages scroll like a TV list: the selected row settles at the same height (a third of the way down)

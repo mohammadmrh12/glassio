@@ -35,6 +35,22 @@ class Settings(private val ctx: Context) {
         s(k, "").split('\n').map { it.trim() }.filter { it.isNotEmpty() }
     private fun putList(k: String, v: List<String>) = putS(k, v.joinToString("\n"))
 
+    /**
+     * Settings → Sync: the main TV's values written in one go (and the ones it doesn't have back to their default), then
+     * every screen redraws with them. Main thread.
+     */
+    fun applyRemote(put: Map<String, Any>, remove: Set<String>) {
+        val ed = sp.edit()
+        remove.forEach { ed.remove(it) }
+        @Suppress("UNCHECKED_CAST")
+        put.forEach { (k, v) -> when (v) { is Boolean -> ed.putBoolean(k, v); is Int -> ed.putInt(k, v); is Long -> ed.putLong(k, v)
+            is Float -> ed.putFloat(k, v); is String -> ed.putString(k, v); is Set<*> -> ed.putStringSet(k, v as Set<String>) } }
+        ed.apply()
+        com.glasslauncher.tv.ui.Glow.amount = glowSize
+        I18n.lang = lang
+        touch()
+    }
+
     // ---- Hero / carousel
     var heroAutoplay: Boolean get() = b("heroAutoplay", true); set(v) = putB("heroAutoplay", v)
     /** auto | performance | balanced | quality | custom */

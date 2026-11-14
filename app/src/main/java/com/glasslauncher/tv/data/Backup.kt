@@ -18,7 +18,8 @@ import java.io.File
  * The file is private to whoever holds it: it contains your sign-ins.
  */
 object Backup {
-    private val SKIP = setOf("glass_home_key")
+    // (Settings → Sync's pairing belongs to this TV: restored on another, it would follow without being asked.)
+    private val SKIP = setOf("glass_home_key", "glass_peer")
 
     /** What a backup carries to another TV, and what to know first (Settings → System and the phone page). */
     const val MOVES = "Moves: every setting (theme, dock order and hidden apps, icon pack, channels, music, Hue, cameras, remote mapping), " +
