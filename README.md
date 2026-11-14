@@ -2,6 +2,7 @@
 
 <p align="center">
   <a href="https://www.reddit.com/r/glassio_/"><img src="https://img.shields.io/badge/Reddit-r%2Fglassio__-FF4500?style=for-the-badge&logo=reddit&logoColor=white" alt="Join r/glassio_ on Reddit"></a>
+  <a href="#install-with-downloader--the-easiest-way"><img src="https://img.shields.io/badge/Downloader-2097981-F37A22?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMSAzaDJ2MTBsMy41LTMuNSAxLjQgMS40TDEyIDE2LjggNi4xIDEwLjlsMS40LTEuNEwxMSAxM3pNNSAxOWgxNHYySDV6Ii8+PC9zdmc+" alt="Downloader code 2097981"></a>
   <a href="https://github.com/mohammadmrh12/glassio/releases/latest"><img src="https://img.shields.io/github/v/release/mohammadmrh12/glassio?style=for-the-badge&label=Download&color=6E5BFF" alt="Download the latest release"></a>
   <a href="https://github.com/mohammadmrh12/glassio/discussions"><img src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
 </p>
@@ -53,11 +54,31 @@ Latest: **3.6.0** — sync between your TVs, Nuvio profiles, a new settings butt
 
 ## Get started
 
-| | |
-|:--:|---|
-| **1 · Download** | Get `Glassio-x.y.z.apk` from **[the latest release](https://github.com/mohammadmrh12/glassio/releases/latest)**. |
-| **2 · Install** | With the **Downloader** app (type the release link), a USB stick, or from a computer: `adb install -r Glassio-x.y.z.apk` |
-| **3 · Open** | Open **Glassio** from the TV's apps. A short setup walks you through accounts, catalogs and the look. |
+<a href="https://aftv.news/2097981"><img src="docs/brand/downloader_code.png" width="100%" alt="Downloader code 2097981: open Downloader, type 2097981, press Go"></a>
+
+### Install with Downloader — the easiest way
+
+1. On the TV, install **Downloader** (by AFTVnews) from the Google Play Store or the Amazon Appstore.
+2. Open Downloader, type **`2097981`** in the box and press **Go** — Glassio's download starts.
+3. The first time, the TV asks to let Downloader install apps: turn on **Allow from this source**, then go back.
+   *Fire TV*: Settings → My Fire TV → Developer options → **Install unknown apps** → Downloader → On.
+4. Press **Install**, then **Open**. Downloader can delete the file afterwards to free space.
+
+Updates come inside Glassio itself, so you need Downloader only once.
+
+<details>
+<summary><b>Other ways to install</b> — from a computer, a USB stick or the release page</summary>
+
+- **Release page**: download `Glassio-x.y.z.apk` from [the latest release](https://github.com/mohammadmrh12/glassio/releases/latest).
+- **From a computer** (TV access on, same network):
+  ```sh
+  adb connect <tv-ip>:5555
+  adb install -r Glassio-x.y.z.apk
+  ```
+- **USB stick**: copy the APK on it and open it with a file manager on the TV.
+</details>
+
+The first time Glassio opens, a short setup walks you through accounts, catalogs and the look.
 
 ### Make Glassio your Home button
 

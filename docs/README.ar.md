@@ -2,6 +2,7 @@
 
 <p align="center">
   <a href="https://www.reddit.com/r/glassio_/"><img src="https://img.shields.io/badge/Reddit-r%2Fglassio__-FF4500?style=for-the-badge&logo=reddit&logoColor=white" alt="انضم لـ r/glassio_ على ريدت"></a>
+  <a href="#التثبيت"><img src="https://img.shields.io/badge/Downloader-2097981-F37A22?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMSAzaDJ2MTBsMy41LTMuNSAxLjQgMS40TDEyIDE2LjggNi4xIDEwLjlsMS40LTEuNEwxMSAxM3pNNSAxOWgxNHYySDV6Ii8+PC9zdmc+" alt="Downloader code 2097981"></a>
   <a href="https://github.com/mohammadmrh12/glassio/releases/latest"><img src="https://img.shields.io/github/v/release/mohammadmrh12/glassio?style=for-the-badge&label=Download&color=6E5BFF" alt="Download the latest release"></a>
   <a href="https://github.com/mohammadmrh12/glassio/discussions"><img src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
 </p>
@@ -46,10 +47,22 @@ Home Assistant، وسنك بين تلفزيوناتك.
   وإعدادات أداء للتلفزيونات الضعيفة.
 
 ## التثبيت
-1. نزّل `Glassio-x.y.z.apk` من صفحة [Releases](https://github.com/mohammadmrh12/glassio/releases).
-2. ثبّته على التلفزيون عن طريق تطبيق Downloader، أو فلاشة، أو من الكمبيوتر:
-   `adb connect <ip>:5555` ثم `adb install -r Glassio-x.y.z.apk`
-3. افتح Glassio من التطبيقات. أول مرة تطلع شاشة الإعداد: الحسابات والكتلوكات والشكل.
+
+<a href="https://aftv.news/2097981"><img src="brand/downloader_code.png" width="100%" alt="كود داونلودر 2097981"></a>
+
+### بالداونلودر — أسهل طريقة (الكود: **2097981**)
+1. نزّل تطبيق **Downloader** (من AFTVnews) على التلفزيون من Google Play أو Amazon Appstore.
+2. افتحه، واكتب **`2097981`** بالمربع ودوس **Go** — يبدي تحميل Glassio.
+3. أول مرة التلفزيون يطلب تسمح لداونلودر يثبّت تطبيقات: شغّل **Allow from this source** وارجع.
+   *فاير تي في*: Settings ← My Fire TV ← Developer options ← **Install unknown apps** ← Downloader ← On.
+4. دوس **Install** وبعدين **Open**. داونلودر يگدر يمسح الملف بعدها حتى يفرّغ مساحة.
+
+التحديثات بعدها تجي من داخل Glassio نفسه، فداونلودر تحتاجه مرة وحدة بس.
+
+**طرق ثانية:** نزّل `Glassio-x.y.z.apk` من [آخر ريليس](https://github.com/mohammadmrh12/glassio/releases/latest) وثبّته بفلاشة،
+أو من الكمبيوتر: `adb connect <ip>:5555` ثم `adb install -r Glassio-x.y.z.apk`.
+
+أول مرة تفتح Glassio تطلع شاشة الإعداد: الحسابات والكتلوكات والشكل.
 
 ## خليه اللانشر الأساسي (زر الهوم)
 كوكل تي في دائماً يوجّه زر الهوم للانشر مالته، فاللانشر يستخدم خدمة إمكانية الوصول:
