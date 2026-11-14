@@ -42,7 +42,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 61
+    const val ID = 62
 
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null)
 
@@ -55,6 +55,17 @@ object WhatsNew {
     ), "Thank you for using Glassio ♥", qr = GITHUB)
 
     val PAGES = listOf(
+        Page("What's new in Glassio 3.6: Sync between your TVs", listOf(
+            "One TV is the main one, the others follow it over your home network: what you change on it shows on them a moment later.",
+            "Add a TV on the main one shows a code; on the other TV choose Follows another TV, pick it and type the code.",
+            "Automatic, or Manual (only when you press Sync now). Choose what each TV takes: look, dock, home, channels, screensaver, add-ons, library.",
+            "Keys (TMDB, Home Assistant), Hue, cameras, remote buttons and the app lock only if you turn them on. Sign-ins never move.",
+        ), "Settings → Sync: this TV's role and name, what it takes, Pause sharing on the main TV."),
+        Page("Your Nuvio profile, and the settings button", listOf(
+            "Glassio can use another of your Nuvio account's profiles: Continue Watching, the Library and add-ons follow it.",
+            "The settings button at the top: sliders, a gear, dots, lines, a person or \"hello\", in a square, a circle or no frame.",
+            "Backups say exactly what moves to another TV, and ask before replacing everything.",
+        ), "Settings → Connections → Nuvio profile · Settings → Menu & themes → Settings button · Settings → System → Backup"),
         Page("What's new in Glassio 3.5: Channels", listOf(
             "Select an app in the dock (YouTube, Shahid, Prime Video…) and its rows (Continue watching, Recommended…) take the carousel's place.",
             "▲ goes into the rows, ▲ / ▼ moves between them (one or two at a time, the others come in), OK opens the card.",
