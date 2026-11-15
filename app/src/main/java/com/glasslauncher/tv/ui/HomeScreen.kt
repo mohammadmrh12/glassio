@@ -308,6 +308,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             }
             if (pair == null) pair = withContext(Dispatchers.Default) { ChannelPages.grey(tag, w, h, settings.blurRadius) }
             val (page, glass) = pair
+            // (What showed meanwhile, see "bridge" below: the new background fades in from it, not the carousel.)
+            val bridged = if (first) ((if (blurMode) ChannelPages.peekLast(tag) else null) ?: ChannelPages.peekGrey(tag)) else null
             ChannelPages.remember(tag, pair)
             if (!first && shownBackdrop === page) return@LaunchedEffect
             // (Faded from the music page only when it was what showed: from Nuvio's carousel the song's blurred
@@ -315,6 +317,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             val music = MusicUi.stageCur.value?.takeIf { first && musicWas[0] }
             mix.snapTo(0f)
             if (music != null) { val m = music.glass ?: music.back; prevBackdrop = m; prevImgs = Triple(m, m, m) }
+            else if (bridged != null) { prevImgs = Triple(bridged.second.blurred, bridged.second.sharp, bridged.second.heavy); prevBackdrop = bridged.first }
             else { prevImgs = backImgs; prevBackdrop = shownBackdrop }
             backImgs = Triple(glass.blurred, glass.sharp, glass.heavy)
             slideDir = 0
@@ -701,8 +704,17 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         LaunchedEffect(songPlaying, stageWanted) { MusicUi.pauseDim.animateTo(if (stageWanted && !songPlaying) 0.6f else 0f, tween(if (songPlaying) 140 else 180, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
         val stagePic = MusicUi.stageCur.value?.glass?.takeIf { stageWanted }
         val stagePrevPic = MusicUi.stagePrev.value?.glass?.takeIf { stagePic != null }
+        // Another page coming while its own background is still being made (the music apps' grey, an app's rows):
+        // the page and the glass show the grey one (or the rows' last background) meanwhile, never the carousel's
+        // picture (it flashed in the icons and the dock for a moment).
+        val bridge = if (stagePic == null && otherPageNow && !ChannelsUi.pageOn.value) {
+            val tag = ChannelPages.size(ctx, settings).third
+            (if (rowsNow && settings.channelsBg == "blur") ChannelPages.peekLast(tag) else null) ?: ChannelPages.peekGrey(tag)
+        } else null
         // (Counted as the page itself: the carousel page's dark shades aren't drawn over it, the music page has none.)
-        val env = if (stagePic != null) GlassEnv(stagePic, stagePic, stagePic, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
+        val env = if (bridge != null) GlassEnv(bridge.second.blurred, bridge.second.sharp, bridge.second.heavy, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
+            null, null, null, veil, blur = blur, blurDp = settings.blurRadius * 0.45f)
+        else if (stagePic != null) GlassEnv(stagePic, stagePic, stagePic, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
             stagePrevPic, stagePrevPic, if (stagePrevPic != null) MusicUi.stageMix.asState() else null, MusicUi.pauseDim.asState(),
             sharpIsPage = true, blur = blur, blurDp = settings.blurRadius * 0.45f)
         else GlassEnv(backImgs?.first, pageSharp ?: backImgs?.second, backImgs?.third, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
@@ -729,7 +741,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // (The music apps and an idle player have their own grey page: the dark one under them, never the song's
             // picture.)
             val greyPage = MusicUi.appsShowing || (idleNow && !stageWanted)
-            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted || (otherPage && !greyPage && (musicWas[0] || !rowsNow)) }
+            // (An app's rows have their own background: the song's page only bridges until they are up.)
+            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted || (otherPage && !greyPage && !ChannelsUi.pageOn.value && !ChannelsUi.shown.value && (musicWas[0] || !rowsNow)) }
             val veilCovers = (stageBack?.let { it.glass ?: it.back } ?: backImgs?.third) != null
             // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
             // painted every pixel four times there and the Library's scrolling lost frames.
@@ -743,7 +756,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     if (sp != null) Image(if (sp.page) sp.back else (sp.glass ?: sp.back), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     Image(stageBack.glass ?: stageBack.back, null, Modifier.fillMaxSize().graphicsLayer { alpha = if (sp != null) MusicUi.stageMix.value else 1f }, contentScale = ContentScale.Crop)
                 }
-                else if (otherPage) Box(Modifier.fillMaxSize().background(Color(0xFF141416)))
+                // (Once the page's own background is up (the rows' blurred card, the grey page) it shows below.)
+                else if (otherPage && !ChannelsUi.pageOn.value) {
+                    if (bridge != null) Image(bridge.first, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    else Box(Modifier.fillMaxSize().background(Color(0xFF141416)))
+                }
                 else if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
                     if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH)
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
