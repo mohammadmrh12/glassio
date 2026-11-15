@@ -280,6 +280,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { ChannelsUi.pageOn.value = false } }
     // Whether the music page showed just before the rows came (the rows fade from it then).
     val musicWas = remember { booleanArrayOf(false) }
+    // The app whose rows' background shows.
+    val rowsPkg = remember { arrayOfNulls<String>(1) }
     LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
@@ -301,16 +303,20 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // The card's picture isn't loaded yet (it comes in a moment, and this starts again): the page
                     // stays as it is meanwhile, no grey flash before the blur. A page with nothing on it yet (back
                     // from the screensaver: black for a moment) takes the last background shown at once.
-                    if (!first) return@LaunchedEffect
+                    // (Another app's rows: the grey meanwhile, not the last app's colour.)
+                    if (!first && ChannelsUi.stagePkg.value == rowsPkg[0]) return@LaunchedEffect
+                    if (first) {
                     val last = ChannelPages.peekLast(tag)
                     if (shownBackdrop == null && last != null) pair = last else delay(700)
+                    }
                 }
             }
             if (pair == null) pair = withContext(Dispatchers.Default) { ChannelPages.grey(tag, w, h, settings.blurRadius) }
             val (page, glass) = pair
             // (What showed meanwhile, see "bridge" below: the new background fades in from it, not the carousel.)
-            val bridged = if (first) ((if (blurMode) ChannelPages.peekLast(tag) else null) ?: ChannelPages.peekGrey(tag)) else null
+            val bridged = if (first) ((if (blurMode) art?.let { ChannelPages.peekArt(it.first, tag) } else null) ?: ChannelPages.peekGrey(tag)) else null
             ChannelPages.remember(tag, pair)
+            rowsPkg[0] = ChannelsUi.stagePkg.value
             if (!first && shownBackdrop === page) return@LaunchedEffect
             // (Faded from the music page only when it was what showed: from Nuvio's carousel the song's blurred
             // artwork flashed for a moment on the way to the rows.)
@@ -689,6 +695,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val stageWanted = stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value &&
             (!rowsNow || musicWas[0])
         if (!rowsNow) musicWas[0] = stageWanted
+        // The hero has this page itself: the player, or an app's idle player (its icon and Play, on the grey page).
+        val heroOwn = stageWanted || (songShown == null && settings.musicOn && MusicUi.dockApp.value != null && !rowsNow && !MusicUi.carouselApp.value)
         // A page that isn't the carousel is on, or coming (see the backdrop below).
         val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null)
         // (Made ready whenever a song is on, shown or not: thrown away when its page went (another app selected, the
@@ -709,11 +717,16 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // picture (it flashed in the icons and the dock for a moment).
         val bridge = if (stagePic == null && otherPageNow && !ChannelsUi.pageOn.value) {
             val tag = ChannelPages.size(ctx, settings).third
-            (if (rowsNow && settings.channelsBg == "blur") ChannelPages.peekLast(tag) else null) ?: ChannelPages.peekGrey(tag)
+            // (The rows' own first card when its blur is made already; else the grey. Another app's last blur showed
+            // its colour for a moment.)
+            (if (rowsNow && settings.channelsBg == "blur") ChannelsUi.art.value?.let { ChannelPages.peekArt(it.first, tag) } else null) ?: ChannelPages.peekGrey(tag)
         } else null
         // (Counted as the page itself: the carousel page's dark shades aren't drawn over it, the music page has none.)
-        val env = if (bridge != null) GlassEnv(bridge.second.blurred, bridge.second.sharp, bridge.second.heavy, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
-            null, null, null, veil, blur = blur, blurDp = settings.blurRadius * 0.45f)
+        // (Drawn as the page will be once it is up, page picture and shades alike: drawn otherwise, the dock's glass
+        // was darker for a moment and then jumped lighter.)
+        val bridgeSharp = bridge?.let { if (PageGlass.on.value) GlassHalf.peek(it.first) else null }
+        val env = if (bridge != null) GlassEnv(bridge.second.blurred, bridgeSharp ?: bridge.second.sharp, bridge.second.heavy, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
+            null, null, null, veil, sharpIsPage = bridgeSharp != null, pageNoSideShade = settings.slideAnim != "fade", blur = blur, blurDp = settings.blurRadius * 0.45f)
         else if (stagePic != null) GlassEnv(stagePic, stagePic, stagePic, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
             stagePrevPic, stagePrevPic, if (stagePrevPic != null) MusicUi.stageMix.asState() else null, MusicUi.pauseDim.asState(),
             sharpIsPage = true, blur = blur, blurDp = settings.blurRadius * 0.45f)
@@ -758,7 +771,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 }
                 // (Once the page's own background is up (the rows' blurred card, the grey page) it shows below.)
                 else if (otherPage && !ChannelsUi.pageOn.value) {
-                    if (bridge != null) Image(bridge.first, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    // (Drawn as the page is once it is up, its shade included: drawn plain it was lighter, then
+                    // darkened when the rows came.)
+                    if (bridge != null) { if (settings.slideAnim != "fade") SlideBackdrop(null, bridge.first, mix, 0, SLIDE_PUSH) else FadeBackdrop(null, bridge.first, mix) }
                     else Box(Modifier.fillMaxSize().background(Color(0xFF141416)))
                 }
                 else if (settings.slideAnim != "fade") SlideBackdrop(prevBackdrop, shownBackdrop, mix, slideDir,
@@ -969,7 +984,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     LaunchedEffect(appsShow) {
                         if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
                     }
-                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !stageWanted), quickHide = chanPage || appsPage || (otherPageNow && !stageWanted), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !heroOwn), quickHide = chanPage || appsPage || (otherPageNow && !heroOwn), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
@@ -992,7 +1007,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         onDown = { if (runCatching { tileFocus[stageNow.first]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
                         onUp = toMenu) }
                     // The Music icon selected: the music apps, faded in and out like the rows.
-                    val appsA by animateFloatAsState(if (appsShow) 1f else 0f, tween(if (appsShow) 220 else 240), label = "musicApps")
+                    val appsA by animateFloatAsState(if (appsShow) 1f else 0f, tween(if (appsShow) 140 else 240), label = "musicApps")
                     if (appsShow || appsA > 0.01f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = appsA }) {
                         MusicAppsStage(app, s, metrics, radius, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
                             onDown = { if (runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
@@ -1702,7 +1717,17 @@ private fun HeroSection(
 
     // (Hidden at once: another page's background is already up then, and the title fading out over it showed the
     // carousel for a moment on the way to an app's rows or the music page.)
-    val alpha by animateFloatAsState(if (hidden) 0f else 1f, if (hidden && quickHide) androidx.compose.animation.core.snap() else tween(if (hidden) 150 else 220), label = "heroAlpha")
+    // Back on the carousel from another page (an app's rows, the grey page): the title waits for its picture (it
+    // showed over the rows' background for a moment, then the picture came in under it). Not longer than 1.5 s.
+    val heroSong = MusicUi.songFor(MusicUi.heldTrack())
+    val heroMusic = (MusicUi.stageOn(settings, heroSong) && !MusicUi.carouselApp.value) || (heroSong == null && settings.musicOn && MusicUi.dockApp.value != null)
+    val waitRaw = !hidden && !heroMusic && settings.bgMode == "carousel" && shownUrl.value?.startsWith("glassio:") == true
+    var waitOver by remember { mutableStateOf(false) }
+    LaunchedEffect(waitRaw) { waitOver = false; if (waitRaw) { delay(1500); waitOver = true } }
+    val waitPic = waitRaw && !waitOver
+    val alphaA by animateFloatAsState(if (hidden || waitPic) 0f else 1f, if (hidden && quickHide) androidx.compose.animation.core.snap() else tween(if (hidden) 150 else 220), label = "heroAlpha")
+    // (Hidden for another page in the same frame its background comes: animated, the title stayed one frame more.)
+    val alpha = if (hidden && quickHide) 0f else alphaA
     // A trailer playing: the dots step aside with the dock (back when it stops or ends).
     val dotsOn = items.size > 1 && settings.dotsMode != "hidden" && (!settings.dotsAutoHide || focused) && !(Trailers.started.value && settings.trailerHideDock && settings.trailerSize != "popup" && !Trailers.dockAsked.value)
     val dotsAlpha by animateFloatAsState(if (dotsOn) 1f else 0f, tween(300), label = "dotsAlpha")
