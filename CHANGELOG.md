@@ -2,6 +2,20 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 3.7.1 — SmartTube and TizenTube as music, smoother page changes, the music player in every music app
+
+- **SmartTube and TizenTube** are followed as music while they play: their player in the dock (also in the background,
+  with the video's title, channel and picture), among the Music icon's apps, and their rows when they play nothing.
+- **Music apps**: an app's own song shows its player, also when you chose its rows; its rows come back once it stops.
+  With its rows hidden, its player (or its icon and Play when nothing plays). The island never shows over the player,
+  and after Stop another app's paused song doesn't come up in its place. The page takes the artwork of the song shown.
+- **The Music icon**: the player on the song's page while a song is on; the music apps on their grey page once it stops.
+- **Page changes**: from the carousel to an app's rows, the music apps or a player (and back) the carousel no longer
+  flashes, in the page or in the glass of the dock and icons; rows keep their blurred-card background and start from
+  their own card's blur; back on the carousel the title comes with its picture.
+- **Channels**: Continue watching shows what was watched last first, read again each time you come back to Glassio.
+- **Trailers**: one below 480p is passed over for the next; with none sharp enough the picture stays.
+
 ## 3.7.0 — your picture as the settings button, Menu & themes in groups, hide an app's rows
 
 - **The settings button** (Settings → Menu & themes): *Hello*, the handwriting *hello* in its pill again, *Menu*, or
