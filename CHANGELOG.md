@@ -2,6 +2,18 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 3.7.3 — safety and steadiness
+
+- **Bluetooth in the menu** now lists devices on Android 8 to 10 too.
+- **Doorbell pop-up**: an optional token (Settings → Cameras), so only Home Assistant can show it. Off by default:
+  nothing changes until you turn it on.
+- **Nuvio control from Home Assistant** refuses any request without its token.
+- **Downloads from a link** (phone page): up to 1.5 GB for a video, 40 MB for a picture, and they stop before the TV
+  runs out of space. The phone page also stays responsive while a big file uploads.
+- **Backups with or without sign-ins** (Settings → System → *Sign-ins in backups*): off, the accounts and keys stay on
+  each TV, and restoring such a backup keeps this TV's own.
+- **Sync**: the pairing code and the sync key come from a secure random source (paired TVs stay paired).
+
 ## 3.7.2 — Bluetooth in the menu, smoother music, rows brightness
 
 - **Bluetooth in the menu** (Settings → Menu & themes → In the menu): your paired devices with their state and battery;
