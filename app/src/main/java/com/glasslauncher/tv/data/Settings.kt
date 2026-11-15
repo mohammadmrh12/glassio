@@ -624,6 +624,12 @@ class Settings(private val ctx: Context) {
     var musicLastPkg: String get() = s("musicLastPkg", ""); set(v) = putS("musicLastPkg", v)
     /** Music apps that show their rows (like other apps) when selected in the dock, instead of their player. */
     var channelsMusicRowApps: List<String> get() = list("channelsMusicRowApps"); set(v) = putList("channelsMusicRowApps", v)
+    /** How bright the blurred card behind the rows is, in % (100: as it was). */
+    var channelsBlurBri: Int get() = i("channelsBlurBri", 100); set(v) = putI("channelsBlurBri", v.coerceIn(50, 150))
+    /** A music app selected with nothing playing: its player (its icon and Play). Off: its rows, or the carousel. */
+    var musicIdleOn: Boolean get() = b("musicIdleOn", true); set(v) = putB("musicIdleOn", v)
+    /** Music apps without that idle player (when it is on for the others). */
+    var musicIdleOffApps: List<String> get() = list("musicIdleOffApps"); set(v) = putList("musicIdleOffApps", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */

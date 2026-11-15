@@ -1256,10 +1256,12 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("Cards in a row", "How many cards fit across a row at first (posters are narrower: more of them show)", { "${st.channelsCards}" }, { st.channelsCards += it }))
                     add(Adjust("Background", "Behind the rows: the Library's grey page, or the selected card's picture blurred (like the music page)",
                         { if (st.channelsBg == "blur") "Blurred card" else "Grey" }, { st.channelsBg = cycle(listOf("grey", "blur"), st.channelsBg, it) }))
+                    if (st.channelsBg == "blur") add(Adjust("  · Brightness", "How bright the blurred card is behind the rows", { "${st.channelsBlurBri} %" }, { st.channelsBlurBri += it * 10 }))
                     add(Adjust("Glow", "A very soft light around the selected card, like in the Library", { when (st.channelsGlow) { "color" -> "In its own colour"; "white" -> "White"; else -> "Off" } },
                         { st.channelsGlow = cycle(listOf("off", "color", "white"), st.channelsGlow, it) }))
                     if (st.channelsGlow != "off") add(Adjust("  · Glow size", "How far and how strong it is", { pct(st.channelsGlowSize) }, { st.channelsGlowSize = ((st.channelsGlowSize * 10).roundToInt() + it) / 10f }))
                     addAll(musicRowsChoice(ctx, st) { tvRev.intValue++ })
+                    addAll(musicIdleChoice(ctx, st) { tvRev.intValue++ })
                     add(Toggle("Hue lights", "The lights take the colour of the card you're on (Hue lights must be set up)", { st.channelsHue }, { st.channelsHue = it }))
                     if (st.channelsHue) add(Adjust("  · Brightness", "How bright the lights are with the card's colour (shared with the Library's posters)", { "${st.huePostersBri} %" }, { st.huePostersBri = st.huePostersBri + it * 5 }))
                     add(Adjust("App name", "The app's name over the rows: white, or in its icon's colour", { if (st.channelsLabel == "icon") "Icon colour" else "White" },
@@ -2251,6 +2253,19 @@ private fun musicRowsChoice(ctx: android.content.Context, st: com.glasslauncher.
     apps.forEach { (pkg, name) ->
         add(Toggle("$name: rows", "On: its rows. Off: its player (also with nothing playing)", { pkg in st.channelsMusicRowApps }, { on ->
             st.channelsMusicRowApps = if (on) (st.channelsMusicRowApps - pkg) + pkg else st.channelsMusicRowApps - pkg; changed()
+        }))
+    }
+}
+
+/** Settings → Channels: a music app selected with nothing playing shows its idle player (its icon and Play), or not. */
+private fun musicIdleChoice(ctx: android.content.Context, st: com.glasslauncher.tv.data.Settings, changed: () -> Unit): List<SRow> = buildList {
+    val apps = installedMusicApps(ctx).filter { MusicUi.isMusicApp(ctx, it.first) || it.first in com.glasslauncher.tv.data.NowPlaying.YOUTUBE_CLIENTS }
+    if (apps.isEmpty()) return@buildList
+    add(Toggle("Nothing playing: the app's player", "A music app selected in the dock with nothing playing: its icon and Play. Off: its rows, or the carousel (its player still comes while its song is on)",
+        { st.musicIdleOn }, { st.musicIdleOn = it; changed() }))
+    if (st.musicIdleOn) apps.forEach { (pkg, name) ->
+        add(Toggle("  · $name", "Its player with nothing playing", { pkg !in st.musicIdleOffApps }, { on ->
+            st.musicIdleOffApps = if (on) st.musicIdleOffApps - pkg else st.musicIdleOffApps + pkg; changed()
         }))
     }
 }

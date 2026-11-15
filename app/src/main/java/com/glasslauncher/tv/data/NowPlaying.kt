@@ -180,8 +180,19 @@ object NowPlaying {
             val v = userShuffle ?: r
             if (shuffled.value != v) shuffled.value = v
         }
+        artWaiting = false
         val t = controller?.let { trackOf(it) }
         t?.let { seenAt[it.pkg] = android.os.SystemClock.uptimeMillis() }
+        // A new song whose artwork is still coming from its link (SoundCloud and others): the last song stays a moment
+        // (up to 1.5 s) and the new one comes with its picture, all at once like Spotify's, not first with Glassio's
+        // stand-in picture and then again with its own.
+        val old = track.value
+        if (t != null && artWaiting && old != null && old.pkg == t.pkg && old.title != t.title) {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (waitFor != t.title) { waitFor = t.title; waitUntil = now + 1500 }
+            if (now < waitUntil) { mainHandler.removeCallbacks(waitDone); mainHandler.postDelayed(waitDone, waitUntil - now); return }
+        }
+        waitFor = null
         // Play / Pause pressed here: an update still saying the old state (it often comes first) doesn't undo it.
         val want = pendingPlaying
         track.value = if (t != null && want != null && android.os.SystemClock.uptimeMillis() < pendingUntil && t.playing != want) t.copy(playing = want)
@@ -221,6 +232,13 @@ object NowPlaying {
         }, "glass-ytinfo").apply { isDaemon = true }.start()
         return null
     }
+
+    /** The song whose artwork is awaited, and until when (see publish). */
+    @Volatile private var artWaiting = false
+    @Volatile private var waitFor: String? = null
+    @Volatile private var waitUntil = 0L
+    private val mainHandler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+    private val waitDone = Runnable { publish() }
 
     private val seenAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
     /** [pkg] had a song a moment ago (between two videos an app's session is empty for a second or two). */
@@ -268,6 +286,7 @@ object NowPlaying {
         if (uri != null) {
             linkArt[uri]?.let { return it }
             loadArt(c.packageName, uri)
+            if (uri !in artFailed && c.sessionToken == controller?.sessionToken) artWaiting = true
         }
         return PlaceholderArt.of(title)
     }
