@@ -969,7 +969,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     LaunchedEffect(appsShow) {
                         if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
                     }
-                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !stageWanted), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !stageWanted), quickHide = chanPage || appsPage || (otherPageNow && !stageWanted), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
@@ -1388,7 +1388,7 @@ private fun FadeBackdrop(prev: ImageBitmap?, cur: ImageBitmap?, mix: androidx.co
 
 @Composable
 private fun HeroSection(
-    app: GlassApp, s: Float, hidden: Boolean, paused: Boolean, metrics: DockMetrics, dockShown: androidx.compose.runtime.State<Float> = androidx.compose.runtime.mutableFloatStateOf(1f),
+    app: GlassApp, s: Float, hidden: Boolean, quickHide: Boolean = false, paused: Boolean, metrics: DockMetrics, dockShown: androidx.compose.runtime.State<Float> = androidx.compose.runtime.mutableFloatStateOf(1f),
     heroFocus: FocusRequester, firstTile: FocusRequester, onBackdrop: (String?) -> Unit,
     shownUrl: androidx.compose.runtime.State<String?> = androidx.compose.runtime.mutableStateOf(null),
     onCustomUp: () -> Unit = {},
@@ -1700,7 +1700,9 @@ private fun HeroSection(
         if (p != null && !p.overlay && p.key == autoKey[0]) Trailers.stop()
     }
 
-    val alpha by animateFloatAsState(if (hidden) 0f else 1f, tween(if (hidden) 150 else 220), label = "heroAlpha")
+    // (Hidden at once: another page's background is already up then, and the title fading out over it showed the
+    // carousel for a moment on the way to an app's rows or the music page.)
+    val alpha by animateFloatAsState(if (hidden) 0f else 1f, if (hidden && quickHide) androidx.compose.animation.core.snap() else tween(if (hidden) 150 else 220), label = "heroAlpha")
     // A trailer playing: the dots step aside with the dock (back when it stops or ends).
     val dotsOn = items.size > 1 && settings.dotsMode != "hidden" && (!settings.dotsAutoHide || focused) && !(Trailers.started.value && settings.trailerHideDock && settings.trailerSize != "popup" && !Trailers.dockAsked.value)
     val dotsAlpha by animateFloatAsState(if (dotsOn) 1f else 0f, tween(300), label = "dotsAlpha")
