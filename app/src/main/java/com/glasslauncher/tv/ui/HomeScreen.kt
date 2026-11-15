@@ -701,7 +701,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null)
         // (Made ready whenever a song is on, shown or not: thrown away when its page went (another app selected, the
         // Music icon) and made again on the way back, the carousel showed meanwhile.)
-        val stageArt = songNow?.art
+        // (The song shown, when it's another app's than the last one heard: the page took the other app's artwork.)
+        val stageArt = (songShown ?: songNow)?.art
         // Worked out off the main thread, and faded from song to song with the page (MusicUi.stageTo).
         // (Keyed by how the artwork looks: the app sends a new picture object with every update.) A song whose
         // artwork hasn't come yet keeps the last picture (the dock's glass flashed the carousel poster).
@@ -934,7 +935,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // (also with nothing playing), the music apps (the Music icon), or the carousel (Nuvio / Stremio and
                     // apps without rows). Worked out once the selection rests a moment, and all changed together: cleared
                     // at once, the carousel (or the music page) flashed between two of them.
-                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
+                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
                         if (dockPkg == null) {
                             // (Down into the open dock's second row: what shows above stays, its background too.)
                             delay(150)
@@ -984,7 +985,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     LaunchedEffect(appsShow) {
                         if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
                     }
-                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !heroOwn), quickHide = chanPage || appsPage || (otherPageNow && !heroOwn), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage, quickHide = chanPage || appsPage || (otherPageNow && !heroOwn), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
@@ -1054,8 +1055,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // The music island at the top of the home screen (Settings → Music), when Music mode isn't showing.
                 // Over the channels' rows too (the music page gives way to them): kept built and faded in and out with
                 // the rows (built each time they came, it appeared late and went at once).
-                val homeIsland = settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)) && MusicUi.dockApp.value == null
-                val chanIsland = ChannelsUi.shown.value || MusicUi.appsPage.value || (MusicUi.carouselApp.value && settings.musicMode)
+                val homeIsland = settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)) && MusicUi.dockApp.value == null && !(stageWanted && !ChannelsUi.shown.value)
+                val chanIsland0 = ChannelsUi.shown.value || MusicUi.appsPage.value || (MusicUi.carouselApp.value && settings.musicMode)
+                // (Never over the player itself: the Music icon's or a music app's own player showed it twice.)
+                val playerUp = stageWanted && !ChannelsUi.shown.value
+                val chanIsland = chanIsland0 && !playerUp
                 val islandA by animateFloatAsState(if (homeIsland || chanIsland) 1f else 0f, tween(if (chanIsland) 260 else 200), label = "chanIsland")
                 LaunchedEffect(chanIsland, homeIsland) { if (!chanIsland && !homeIsland) MusicUi.islandOpen.value = false }
                 if (settings.musicOn && !MusicUi.forced.value && (homeIsland || settings.musicMode))
@@ -1403,7 +1407,7 @@ private fun FadeBackdrop(prev: ImageBitmap?, cur: ImageBitmap?, mix: androidx.co
 
 @Composable
 private fun HeroSection(
-    app: GlassApp, s: Float, hidden: Boolean, quickHide: Boolean = false, paused: Boolean, metrics: DockMetrics, dockShown: androidx.compose.runtime.State<Float> = androidx.compose.runtime.mutableFloatStateOf(1f),
+    app: GlassApp, s: Float, hidden: Boolean, keepHidden: Boolean = hidden, quickHide: Boolean = false, paused: Boolean, metrics: DockMetrics, dockShown: androidx.compose.runtime.State<Float> = androidx.compose.runtime.mutableFloatStateOf(1f),
     heroFocus: FocusRequester, firstTile: FocusRequester, onBackdrop: (String?) -> Unit,
     shownUrl: androidx.compose.runtime.State<String?> = androidx.compose.runtime.mutableStateOf(null),
     onCustomUp: () -> Unit = {},
@@ -1753,10 +1757,13 @@ private fun HeroSection(
         // went at once, and the carousel showed for a moment).
         val musicKept = remember { booleanArrayOf(false) }
         val idleKept = remember { mutableStateOf<String?>(null) }
-        if (!hidden) { musicKept[0] = musicStageNow; idleKept.value = MusicUi.dockApp.value }
-        val musicStage = if (hidden) musicKept[0] else musicStageNow
+        // (Only while hidden under the dock, a folder, the rows or the music apps. Hidden because another page is up,
+        // nothing is kept: kept, the app picked the song shown, the page above went by it, and the player and an
+        // app's idle player never came back.)
+        if (!keepHidden) { musicKept[0] = musicStageNow; idleKept.value = MusicUi.dockApp.value }
+        val musicStage = if (keepHidden) musicKept[0] else musicStageNow
         // (Set before the player below is drawn: set after, another app's paused song showed for a frame or two.)
-        MusicUi.idleKept = if (hidden) idleKept.value else null
+        MusicUi.idleKept = if (keepHidden) idleKept.value else null
         // Opened from the dock's Music icon: it stays until Back or the music stops.
         LaunchedEffect(song == null) { if (song == null) MusicUi.forced.value = false }
         BackHandler(enabled = MusicUi.forced.value && musicStage) { MusicUi.forced.value = false }
@@ -3203,7 +3210,7 @@ private fun MusicAppsStage(app: GlassApp, s: Float, metrics: DockMetrics, radius
     val scope = rememberCoroutineScope()
     val st = app.settings
     // (The same list as Settings → Music / Channels.)
-    val apps = remember { installedMusicApps(ctx).filter { MusicUi.isMusicApp(ctx, it.first) || it.first == st.musicLastPkg } }
+    val apps = remember { installedMusicApps(ctx).filter { MusicUi.isMusicApp(ctx, it.first) || it.first in com.glasslauncher.tv.data.NowPlaying.YOUTUBE_CLIENTS || it.first == st.musicLastPkg } }
     val entries = remember(apps) { apps.map { (pkg, name) -> app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == pkg }
         ?: AppEntry(pkg, name, android.content.ComponentName(pkg, ""), true) } }
     val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
