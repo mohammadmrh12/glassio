@@ -285,6 +285,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val musicWas = remember { booleanArrayOf(false) }
     // The app whose rows' background shows.
     val rowsPkg = remember { arrayOfNulls<String>(1) }
+    // The rows' page with its side shade drawn in (the music page fades in over it as it looked).
+    val rowsShaded = remember { arrayOfNulls<Pair<ImageBitmap, ImageBitmap>>(1) }
     LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
@@ -333,6 +335,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             shownBackdrop = page
             shownUrl.value = "glassio:channels"
             ChannelsUi.pageOn.value = true
+            if (settings.slideAnim != "fade" && rowsShaded[0]?.first !== page) scope.launch(Dispatchers.Default) {
+                runCatching { withSideShade(page) }.getOrNull()?.let { rowsShaded[0] = page to it }
+            }
             try { mix.animateTo(1f, tween(if (first) 240 else 260)) } finally {
                 prevImgs = null; prevBackdrop = null
                 withContext(kotlinx.coroutines.NonCancellable) { mix.snapTo(1f) }
@@ -343,7 +348,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         if (ChannelsUi.pageOn.value) {
             ChannelsUi.pageOn.value = false
             val page = shownBackdrop
-            if (page != null && MusicUi.stageCur.value != null) scope.launch { MusicUi.fadeFrom(page) }
+            // (With its side shade, as it showed: drawn without it, the page brightened for a moment before the music
+            // page came in over it.)
+            val shaded = rowsShaded[0]?.takeIf { it.first === page }?.second ?: page
+            val rowsBlur = backImgs?.first
+            if (page != null && MusicUi.stageCur.value != null) scope.launch { MusicUi.fadeFrom(shaded!!, rowsBlur) }
         }
         BakeCache.max = when (settings.memTier) { 0 -> 2; 2 -> 4; else -> 3 }
         backdropScale = settings.pageScale
@@ -699,7 +708,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             (!rowsNow || musicWas[0])
         if (!rowsNow) musicWas[0] = stageWanted
         // The hero has this page itself: the player, or an app's idle player (its icon and Play, on the grey page).
-        val heroOwn = stageWanted || (songShown == null && settings.musicOn && MusicUi.dockApp.value != null && !rowsNow && !MusicUi.carouselApp.value)
+        // (A music app's own player too, playing or idle: right after Play on its idle player the page waited a moment
+        // for the music page, the hero was hidden meanwhile and the selection fell to the first app.)
+        val heroOwn = stageWanted || (settings.musicOn && MusicUi.dockApp.value != null && !rowsNow && !MusicUi.carouselApp.value)
         // A page that isn't the carousel is on, or coming (see the backdrop below).
         val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null)
         // (Made ready whenever a song is on, shown or not: thrown away when its page went (another app selected, the
@@ -732,10 +743,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // (Drawn as the page will be once it is up, page picture and shades alike: drawn otherwise, the dock's glass
         // was darker for a moment and then jumped lighter.)
         val bridgeSharp = bridge?.let { if (PageGlass.on.value) GlassHalf.peek(it.first) else null }
+        val stagePrevBlur = MusicUi.stagePrev.value?.blur?.takeIf { stagePic != null }
         val env = if (bridge != null) GlassEnv(bridge.second.blurred, bridgeSharp ?: bridge.second.sharp, bridge.second.heavy, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
             null, null, null, veil, sharpIsPage = bridgeSharp != null, pageNoSideShade = settings.slideAnim != "fade", blur = blur, blurDp = settings.blurRadius * 0.45f)
         else if (stagePic != null) GlassEnv(stagePic, stagePic, stagePic, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
-            stagePrevPic, stagePrevPic, if (stagePrevPic != null) MusicUi.stageMix.asState() else null, MusicUi.pauseDim.asState(),
+            stagePrevBlur ?: stagePrevPic, stagePrevPic, if (stagePrevPic != null) MusicUi.stageMix.asState() else null, MusicUi.pauseDim.asState(),
             sharpIsPage = true, blur = blur, blurDp = settings.blurRadius * 0.45f)
         else GlassEnv(backImgs?.first, pageSharp ?: backImgs?.second, backImgs?.third, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
             prevImgs?.first, if (prevImgs != null) (GlassHalf.peek(prevBackdrop) ?: prevImgs?.second) else null, mix.asState(), veil, sharpIsPage = pageSharp != null,
@@ -937,13 +949,15 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // moment after the app is selected (moving along the dock doesn't flash them), and stay while the
                     // selection is inside them.
                     val dockPkg = ChannelsUi.dockPkg.value
-                    // (A music app's own song starting or stopping: its player or its rows.)
+                    // (A music app's own song starting or stopping: its player or its rows. Only with the selection in the dock:
+                    // Play on an idle player (the selection in it) started the song, the idle player went, and the app's
+                    // player was dropped as if nothing were selected — the carousel came and the selection with it.)
                     val trackPkgNow = MusicUi.heldTrack()?.pkg
                     // What stands in the carousel's place for the app selected in the dock: its rows, a music app's player
                     // (also with nothing playing), the music apps (the Music icon), or the carousel (Nuvio / Stremio and
                     // apps without rows). Worked out once the selection rests a moment, and all changed together: cleared
                     // at once, the carousel (or the music page) flashed between two of them.
-                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, settings.musicIdleOn, settings.musicIdleOffApps, trackPkgNow, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
+                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, settings.musicIdleOn, settings.musicIdleOffApps, trackPkgNow.takeIf { dockPkg != null }, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
                         if (dockPkg == null) {
                             // (Down into the open dock's second row: what shows above stays, its background too.)
                             delay(150)
@@ -952,7 +966,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             // (Also with an app's menu open (hold OK), or its icon picker: what shows stays behind it.)
                             if (!expanded && pop == null && pickerFor == null) {
                                 if (!ChannelsUi.focused) ChannelsUi.stagePkg.value = null
-                                if (!MusicUi.stageFocused) MusicUi.dockApp.value = null
+                                // (Kept while the selection is in the player, or nowhere for a moment: Play on an idle player swaps
+                                // it for the app's player, the selection goes with the idle one, and the app's player was dropped
+                                // as if another place had been chosen — the carousel came, and the selection with it.)
+                                if (!MusicUi.stageFocused && !DockFocus.hero && (DockFocus.top || DockFocus.dock)) MusicUi.dockApp.value = null
                                 // (Up into the Music icon's player: still the Music icon's, Stop / pause come back to it.)
                                 if (!MusicUi.appsFocused && !MusicUi.stageFocused) MusicUi.appsOn.value = false
                             }
@@ -996,7 +1013,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     LaunchedEffect(appsShow) {
                         if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
                     }
-                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage, quickHide = chanPage || appsPage || (otherPageNow && !heroOwn), paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage, quickHide = (chanPage || appsPage || (otherPageNow && !heroOwn)) && !musicWas[0], paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
@@ -3156,6 +3173,15 @@ object NavGate {
 }
 
 /** The channels' blurred-card background: the picture blurred, large, on black and darkened (like the music page). */
+/** A page with the side shade drawn in (the Slide animation draws it over the page instead). */
+private fun withSideShade(page: ImageBitmap): ImageBitmap {
+    val src = page.asAndroidBitmap()
+    val out = src.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+    android.graphics.Canvas(out).drawBitmap(Scrims.side.asAndroidBitmap(), null, android.graphics.RectF(0f, 0f, out.width.toFloat(), out.height.toFloat()),
+        android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.DITHER_FLAG))
+    return out.asImageBitmap().also { GlassHalf.of(it) }
+}
+
 private fun channelArtPage(src: android.graphics.Bitmap, w: Int, h: Int): ImageBitmap {
     val art = if (src.config == android.graphics.Bitmap.Config.HARDWARE) src.copy(android.graphics.Bitmap.Config.ARGB_8888, false) else src
     val blur = blurredBackdrop(art, 70).asAndroidBitmap()

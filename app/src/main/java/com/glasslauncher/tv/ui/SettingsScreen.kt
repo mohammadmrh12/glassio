@@ -662,6 +662,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         { st.menuInputs }, { st.menuInputs = it; if (it) scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }))
                     add(Toggle("Recent apps", "Opens the app switcher (like holding Home)", { st.menuRecents }, { st.menuRecents = it }))
                     add(Toggle("Wi-Fi", "", { st.menuWifi }, { st.menuWifi = it }))
+                    add(Toggle("Bluetooth", "The TV's Bluetooth: remotes, headphones, speakers and controllers", { st.menuBluetooth }, { st.menuBluetooth = it }))
                     add(Toggle("Android settings", "", { st.menuAndroid }, { st.menuAndroid = it }))
                 }
 

@@ -7,10 +7,10 @@ import androidx.compose.runtime.mutableIntStateOf
  * Every launcher option lives here. Reads touch a Compose state counter, so any composable that
  * reads a property recomposes automatically when a setter bumps it.
  */
-val MENU_KEYS = listOf("library", "sliders", "gear", "wifi", "theme", "camera", "saver", "background", "recents", "inputs", "trailer")
+val MENU_KEYS = listOf("library", "sliders", "gear", "wifi", "bluetooth", "theme", "camera", "saver", "background", "recents", "inputs", "trailer")
 /** The menu's order on a new TV. */
-val MENU_DEFAULT = listOf("inputs", "library", "camera", "sliders", "recents", "gear", "wifi", "saver", "trailer", "theme", "background")
-val MENU_NAMES = mapOf("library" to "Library", "sliders" to "Glassio settings", "gear" to "Android settings", "wifi" to "Wi-Fi",
+val MENU_DEFAULT = listOf("inputs", "library", "camera", "sliders", "recents", "gear", "wifi", "bluetooth", "saver", "trailer", "theme", "background")
+val MENU_NAMES = mapOf("library" to "Library", "sliders" to "Glassio settings", "gear" to "Android settings", "wifi" to "Wi-Fi", "bluetooth" to "Bluetooth",
     "theme" to "Themes", "camera" to "Camera", "saver" to "Screensaver", "background" to "Background", "recents" to "Recent apps", "inputs" to "Inputs", "trailer" to "Trailer")
 
 class Settings(private val ctx: Context) {
@@ -170,6 +170,8 @@ class Settings(private val ctx: Context) {
         set(v) = putList("menuOrder", v)
     var menuAndroid: Boolean get() = b("menuAndroid", true); set(v) = putB("menuAndroid", v)
     var menuWifi: Boolean get() = b("menuWifi", false); set(v) = putB("menuWifi", v)
+    /** Bluetooth in the menu: the TV's Bluetooth settings (remotes, headphones, speakers). */
+    var menuBluetooth: Boolean get() = b("menuBluetooth", false); set(v) = putB("menuBluetooth", v)
     /** "Recent apps" in the menu: the app switcher (like holding Home). */
     var menuRecents: Boolean get() = b("menuRecents", false); set(v) = putB("menuRecents", v)
     /** Recent apps through ADB when the TV allows it (exact list); off: the apps Glassio saw on screen, no ADB. */

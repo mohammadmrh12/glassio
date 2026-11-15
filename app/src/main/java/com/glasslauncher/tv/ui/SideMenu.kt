@@ -350,6 +350,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         add(Triple("sliders", "Glassio settings") { onSettings() })
                         if (st.menuAndroid) add(Triple("gear", "Android settings") { open(ctx, android.provider.Settings.ACTION_SETTINGS) })
                         if (st.menuWifi) add(Triple("wifi", "Wi-Fi") { open(ctx, android.provider.Settings.ACTION_WIFI_SETTINGS) })
+                        if (st.menuBluetooth) add(Triple("bluetooth", "Bluetooth") { open(ctx, android.provider.Settings.ACTION_BLUETOOTH_SETTINGS) })
                         if (st.menuInputs) add(Triple("inputs", "Inputs") { target = 0; inputsPage = true })
                         if (st.menuRecents) add(Triple("recents", "Recent apps") { onClose(); runCatching { ctx.startActivity(Intent(ctx, com.glasslauncher.tv.RecentsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } })
                         if (st.menuThemes) add(Triple("theme", "Themes") { target = 0; themes = true })
@@ -506,6 +507,12 @@ private fun DrawScope.glyph(kind: String, c: Color) {
             val o = Offset(w / 2, w * 0.84f)
             for (r in listOf(0.30f, 0.56f, 0.82f)) drawArc(c, -135f, 90f, false, Offset(o.x - w * r, o.y - w * r), Size(w * r * 2, w * r * 2), style = st)
             drawCircle(c, w * 0.07f, o)
+        }
+        "bluetooth" -> {
+            // The Bluetooth rune.
+            val p = Path().apply { moveTo(w * 0.28f, w * 0.32f); lineTo(w * 0.70f, w * 0.68f); lineTo(w * 0.50f, w * 0.88f); lineTo(w * 0.50f, w * 0.12f)
+                lineTo(w * 0.70f, w * 0.32f); lineTo(w * 0.28f, w * 0.68f) }
+            drawPath(p, c, style = st)
         }
         "background" -> {
             drawRoundRect(c, Offset(w * 0.06f, w * 0.16f), Size(w * 0.88f, w * 0.68f), CornerRadius(w * 0.12f), style = st)

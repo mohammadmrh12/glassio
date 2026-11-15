@@ -83,7 +83,9 @@ object MusicUi {
         when (st.bgMode) { "image" -> st.bgImage.isBlank(); "video" -> st.bgVideo.isBlank(); "aerial", "photos" -> false; else -> true }
 
     /** The music page's background for one song: the artwork blurred (the page) and its small copy for the glass. */
-    class StagePics(val back: androidx.compose.ui.graphics.ImageBitmap, val glass: androidx.compose.ui.graphics.ImageBitmap?, val page: Boolean = false)
+    class StagePics(val back: androidx.compose.ui.graphics.ImageBitmap, val glass: androidx.compose.ui.graphics.ImageBitmap?, val page: Boolean = false,
+        /** A page's own blurred copy for the glass (the rows'): the dock's glass went lighter for a moment with the page itself. */
+        val blur: androidx.compose.ui.graphics.ImageBitmap? = null)
     /** The song's pictures now, the last song's while the new one fades in over it, and that fade (0..1). */
     val stageCur = mutableStateOf<StagePics?>(null)
     val stagePrev = mutableStateOf<StagePics?>(null)
@@ -172,10 +174,10 @@ object MusicUi {
     }
 
     /** The music page coming back over another page (the channels' background): faded in, the glass with it. */
-    suspend fun fadeFrom(page: androidx.compose.ui.graphics.ImageBitmap) {
+    suspend fun fadeFrom(page: androidx.compose.ui.graphics.ImageBitmap, blur: androidx.compose.ui.graphics.ImageBitmap? = null) {
         if (stageCur.value == null) return
         stageMix.snapTo(0f)
-        stagePrev.value = StagePics(page, page, page = true)
+        stagePrev.value = StagePics(page, page, page = true, blur = blur)
         try { stageMix.animateTo(1f, androidx.compose.animation.core.tween(240)) }
         finally { kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { stageMix.snapTo(1f); stagePrev.value = null } }
     }
@@ -729,7 +731,7 @@ private fun MusicIdle(app: GlassApp, s: Float, pkg: String, heroFocus: FocusRequ
             val light = st.dockStyle == "bow" && look == "theme"
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
                 MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile) },
-                    onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg) }) { playGlyph(it, false) }
+                    onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg); MusicUi.focusRev.intValue++ }) { playGlyph(it, false) }
                 MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile); right = FocusRequester.Cancel }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
