@@ -711,7 +711,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // Paused: the page and its glass dim.
         val songPlaying = songNow?.playing == true
         LaunchedEffect(songPlaying, stageWanted) { MusicUi.pauseDim.animateTo(if (stageWanted && !songPlaying) 0.6f else 0f, tween(if (songPlaying) 140 else 180, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
-        val stagePic = MusicUi.stageCur.value?.glass?.takeIf { stageWanted }
+        // From the music page to an app's rows: the music page stays until the rows' background is up (it went when
+        // the rows came, and the grey page showed for a moment between the two).
+        val musicToRows = rowsNow && musicWas[0] && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value
+        val stagePic = MusicUi.stageCur.value?.glass?.takeIf { stageWanted || musicToRows }
         val stagePrevPic = MusicUi.stagePrev.value?.glass?.takeIf { stagePic != null }
         // Another page coming while its own background is still being made (the music apps' grey, an app's rows):
         // the page and the glass show the grey one (or the rows' last background) meanwhile, never the carousel's
@@ -756,7 +759,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // picture.)
             val greyPage = MusicUi.appsShowing || (idleNow && !stageWanted)
             // (An app's rows have their own background: the song's page only bridges until they are up.)
-            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted || (otherPage && !greyPage && !ChannelsUi.pageOn.value && !ChannelsUi.shown.value && (musicWas[0] || !rowsNow)) }
+            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted || (otherPage && !greyPage && !ChannelsUi.pageOn.value && (musicToRows || (!ChannelsUi.shown.value && !rowsNow))) }
             val veilCovers = (stageBack?.let { it.glass ?: it.back } ?: backImgs?.third) != null
             // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
             // painted every pixel four times there and the Library's scrolling lost frames.
@@ -931,11 +934,13 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // moment after the app is selected (moving along the dock doesn't flash them), and stay while the
                     // selection is inside them.
                     val dockPkg = ChannelsUi.dockPkg.value
+                    // (A music app's own song starting or stopping: its player or its rows.)
+                    val trackPkgNow = MusicUi.heldTrack()?.pkg
                     // What stands in the carousel's place for the app selected in the dock: its rows, a music app's player
                     // (also with nothing playing), the music apps (the Music icon), or the carousel (Nuvio / Stremio and
                     // apps without rows). Worked out once the selection rests a moment, and all changed together: cleared
                     // at once, the carousel (or the music page) flashed between two of them.
-                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
+                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, trackPkgNow, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
                         if (dockPkg == null) {
                             // (Down into the open dock's second row: what shows above stays, its background too.)
                             delay(150)

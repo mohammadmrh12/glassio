@@ -147,8 +147,10 @@ object NowPlaying {
         val best = list.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
             ?: list.firstOrNull { it.sessionToken != controller?.sessionToken && it.playbackState?.state.let { s -> s == PlaybackState.STATE_BUFFERING || s == PlaybackState.STATE_CONNECTING } }
             ?: list.firstOrNull { it.sessionToken == controller?.sessionToken }
-            ?: list.maxByOrNull { lastPlayed[it.packageName] ?: 0L }?.takeIf { (lastPlayed[it.packageName] ?: 0L) > 0L }
-            ?: list.firstOrNull().takeIf { controller == null }
+            // (Not after Stop here: the song stopped went, and another app's paused song came up in its place.)
+            ?: list.maxByOrNull { lastPlayed[it.packageName] ?: 0L }?.takeIf { !afterStop && (lastPlayed[it.packageName] ?: 0L) > 0L }
+            ?: list.firstOrNull().takeIf { controller == null && !afterStop }
+        if (list.any { it.playbackState?.state == PlaybackState.STATE_PLAYING }) afterStop = false
         list.forEach { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) lastPlayed[it.packageName] = android.os.SystemClock.uptimeMillis() }
         // Every music app is listened to (not only the one followed): one that starts playing takes over at once.
         // (YouTube, SmartTube, TizenTube too while they don't play yet: their session often comes before their song, and
@@ -337,11 +339,14 @@ object NowPlaying {
         // Paused first (Spotify and others ignore "stop" and played on), then stopped; the player stays away until
         // something plays again.
         stoppedToken = c.sessionToken
+        afterStop = true
         stoppedAt = android.os.SystemClock.uptimeMillis()
         runCatching { c.transportControls.pause() }
         runCatching { c.transportControls.stop() }
         track.value = null
     }
+    /** Stopped here, and nothing has played since: no other app's paused song takes its place. */
+    @Volatile private var afterStop = false
     /** When Stop was pressed here (the player then goes at once, not after the short hold of MusicUi.heldTrack). */
     @Volatile var stoppedAt = 0L
     /** When each app last played (which one comes back when the one followed goes away). */

@@ -207,7 +207,8 @@ object MusicUi {
     fun isMusicApp(ctx: android.content.Context, pkg: String) = pkg in NowPlaying.MUSIC_APPS || (!NowPlaying.sometimesMusic(pkg) && NowPlaying.audioApp(ctx, pkg))
     fun playerFor(ctx: android.content.Context, st: com.glasslauncher.tv.data.Settings, pkg: String) =
         // (Its rows chosen instead, but none to show (hidden from its menu, or empty): its player, not the carousel.)
-        st.musicOn && (pkg !in st.channelsMusicRowApps || com.glasslauncher.tv.data.Channels.rowsFor(st, pkg).isEmpty()) && (isMusicApp(ctx, pkg) ||
+        // (Its rows chosen, but its own song is on: its player while it is (playing or paused); the rows once it stopped.)
+        st.musicOn && (pkg !in st.channelsMusicRowApps || com.glasslauncher.tv.data.Channels.rowsFor(st, pkg).isEmpty() || NowPlaying.track.value?.pkg == pkg) && (isMusicApp(ctx, pkg) ||
             // TizenTube, SmartTube…: their player while their song is on (playing or paused), else their rows (when they
             // publish some), else their player.
             pkg in NowPlaying.YOUTUBE_CLIENTS && (NowPlaying.track.value?.pkg == pkg || NowPlaying.hadSong(pkg) || com.glasslauncher.tv.data.Channels.rowsFor(st, pkg).isEmpty()))
