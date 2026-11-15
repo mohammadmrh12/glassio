@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,6 +86,8 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     var trailerPage by remember { mutableStateOf(false) }
     var trailerRow by remember { mutableIntStateOf(0) }
     var inputsPage by remember { mutableStateOf(false) }
+    var btPage by remember { mutableStateOf(false) }
+    var btRow by remember { mutableIntStateOf(0) }
     // The music player (▶ in the menu, or the dock's Music icon).
     var musicPage by remember { mutableStateOf(MusicUi.openInMenu.value.also { MusicUi.openInMenu.value = false } && st.musicOn) }
     var inputsRow by remember { mutableIntStateOf(0) }
@@ -100,10 +103,10 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     LaunchedEffect(Unit) { enter.animateTo(1f, tween(260, easing = EASE)) }
     var inside by remember { mutableStateOf(false) }
     // Take focus from the settings button (or wherever it is): retry until a row has it.
-    LaunchedEffect(themes, bgPage, camPage, saverPage, trailerPage, inputsPage, musicPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
+    LaunchedEffect(themes, bgPage, camPage, saverPage, trailerPage, inputsPage, btPage, musicPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
     var themesRow by remember { mutableIntStateOf(0) }
     var bgRow by remember { mutableIntStateOf(0) }
-    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (musicPage) { musicPage = false } else onClose() }
+    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (btPage) { target = btRow; btPage = false } else if (musicPage) { musicPage = false } else onClose() }
 
     val time by produceState(clockText(st.clock24h), st.clock24h) { while (true) { value = clockText(st.clock24h); delay(5_000) } }
     val date by produceState(longDate(), Unit) { while (true) { value = longDate(); delay(60_000) } }
@@ -199,6 +202,45 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         val apps = installedMusicApps(ctx)
                         if (apps.isEmpty()) toast(ctx, "No music app on this TV") else { onClose(); openMusicApp(ctx, apps.first().first) }
                     })
+                } else if (btPage) {
+                    // The paired devices: OK connects or disconnects one (through the TV's own shell).
+                    val devs by com.glasslauncher.tv.data.Bluetooth.list.collectAsState()
+                    val problem by com.glasslauncher.tv.data.Bluetooth.problem.collectAsState()
+                    val busy by com.glasslauncher.tv.data.Bluetooth.busy.collectAsState()
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.Bluetooth.refresh(app) }; delay(4000) } }
+                    Text("Bluetooth", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
+                        modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
+                    val back = { target = btRow; btPage = false }
+                    val opts = buildList<Triple<String, String, () -> Unit>> {
+                        devs.forEach { d ->
+                            val state = when {
+                                busy == d.address -> if (d.connected) "Disconnecting…" else "Connecting…"
+                                d.connected -> "Connected" + (if (d.battery in 0..100) " · ${d.battery} %" else "")
+                                else -> "Off"
+                            }
+                            add(Triple(d.name, state) {
+                                if (busy != null) Unit
+                                else if (d.connected && d.remote) toast(ctx, "The remote stays connected")
+                                else scope.launch(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.Bluetooth.toggle(app, d) }
+                            })
+                        }
+                        add(Triple("Pair a new device", "") {
+                            onClose()
+                            // The TV's own pairing page (only the TV's shell may open it), else its settings.
+                            kotlin.concurrent.thread {
+                                if (com.glasslauncher.tv.data.LocalShell.run(app, "am start -a com.google.android.intent.action.CONNECT_INPUT").isFailure)
+                                    android.os.Handler(android.os.Looper.getMainLooper()).post { open(ctx, android.provider.Settings.ACTION_BLUETOOTH_SETTINGS) }
+                            }
+                        })
+                    }
+                    problem?.let { Text(it, color = soft, fontSize = (8.5f * s).sp, modifier = Modifier.padding(horizontal = (10 * s).dp, vertical = (4 * s).dp)) }
+                    opts.forEachIndexed { i, (label, value, act) ->
+                        MenuRow(s, light, label, value, modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
+                            first = i == 0, last = i == opts.lastIndex, onLeft = back,
+                            glyph = { c -> glyph(if (i == opts.lastIndex) "bluetooth" else if (value.startsWith("Connected")) "dotOn" else "dotOff", c) },
+                            onClick = { target = i; act() })
+                    }
                 } else if (inputsPage) {
                     // The TV's inputs as tiles like the dock's icons (their dock icon when one was chosen).
                     val inputs by com.glasslauncher.tv.data.Inputs.list.collectAsState()
@@ -350,7 +392,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         add(Triple("sliders", "Glassio settings") { onSettings() })
                         if (st.menuAndroid) add(Triple("gear", "Android settings") { open(ctx, android.provider.Settings.ACTION_SETTINGS) })
                         if (st.menuWifi) add(Triple("wifi", "Wi-Fi") { open(ctx, android.provider.Settings.ACTION_WIFI_SETTINGS) })
-                        if (st.menuBluetooth) add(Triple("bluetooth", "Bluetooth") { open(ctx, android.provider.Settings.ACTION_BLUETOOTH_SETTINGS) })
+                        if (st.menuBluetooth) add(Triple("bluetooth", "Bluetooth") { target = 0; btPage = true })
                         if (st.menuInputs) add(Triple("inputs", "Inputs") { target = 0; inputsPage = true })
                         if (st.menuRecents) add(Triple("recents", "Recent apps") { onClose(); runCatching { ctx.startActivity(Intent(ctx, com.glasslauncher.tv.RecentsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } })
                         if (st.menuThemes) add(Triple("theme", "Themes") { target = 0; themes = true })
@@ -362,6 +404,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     bgRow = rows.indexOfFirst { it.first == "background" }.coerceAtLeast(0)
                     camRow = rows.indexOfFirst { it.first == "camera" }.coerceAtLeast(0)
                     saverRow = rows.indexOfFirst { it.first == "saver" }.coerceAtLeast(0)
+                    btRow = rows.indexOfFirst { it.first == "bluetooth" }.coerceAtLeast(0)
                     trailerRow = rows.indexOfFirst { it.first == "trailer" }.coerceAtLeast(0)
                     themesRow = rows.indexOfFirst { it.first == "theme" }.coerceAtLeast(0)
                     rows.forEachIndexed { i, (icon, label, act) ->

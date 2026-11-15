@@ -24,3 +24,6 @@
 -dontwarn java.beans.**
 -dontwarn javax.script.**
 -dontwarn jdk.dynalink.**
+
+# Run by the TV shell (app_process) for Bluetooth: its entry point must keep its name.
+-keep class com.glasslauncher.tv.bt.BtShell { public static void main(java.lang.String[]); }
