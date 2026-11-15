@@ -31,7 +31,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **3.7.1** — SmartTube and TizenTube as music, smoother page changes, the music player in every music app. What changed in every version:
+Latest: **3.7.2** — Bluetooth in the menu, smoother music, rows brightness. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),

@@ -2,6 +2,18 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 3.7.2 — Bluetooth in the menu, smoother music, rows brightness
+
+- **Bluetooth in the menu** (Settings → Menu & themes → In the menu): your paired devices with their state and battery;
+  OK connects or disconnects one (needs TV access, ADB), and *Pair a new device* opens the TV's own pairing page.
+- **Music**: a new song comes with its own artwork (SoundCloud and other apps that send a link: no stand-in picture
+  first); Play on an app's idle player keeps the selection on the player; the Music icon keeps SmartTube's player
+  between two videos.
+- **Smoother changes** between a music player and an app's rows: no lighter or darker moment, and an app's rows open on
+  their own blurred card at once.
+- **Channels**: *Brightness* of the blurred card behind the rows, and *Nothing playing: the app's player* — the idle
+  player (an app's icon and Play) for every music app, or only some.
+
 ## 3.7.1 — SmartTube and TizenTube as music, smoother page changes, the music player in every music app
 
 - **SmartTube and TizenTube** are followed as music while they play: their player in the dock (also in the background,
