@@ -34,7 +34,7 @@ object NotifyServer {
                 Glog.i("Doorbell: listening on $PORT")
                 while (running && app.settings.doorbellOn) {
                     val c = runCatching { s.accept() }.getOrNull() ?: break
-                    Thread { handle(app, c) }.start()
+                    Thread({ handle(app, c) }, "glass-notify-req").apply { isDaemon = true }.start()
                 }
                 runCatching { s.close() }
                 server = null
@@ -51,8 +51,14 @@ object NotifyServer {
             val first = head.lineSequence().firstOrNull().orEmpty().split(' ')
             val method = first.getOrNull(0).orEmpty(); val path = first.getOrNull(1).orEmpty().substringBefore('?')
             val len = Regex("(?i)content-length:\\s*(\\d+)").find(head)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            // The optional token (Settings → Cameras): in a header, or in the link itself.
+            val want = app.settings.doorbellToken
+            val given = Regex("(?i)x-glassio-token:\\s*(\\S+)").find(head)?.groupValues?.get(1)
+                ?: first.getOrNull(1).orEmpty().substringAfter('?', "").split('&').firstOrNull { it.startsWith("token=") }?.substringAfter('=').orEmpty()
+            val allowed = want.isBlank() || java.security.MessageDigest.isEqual(given.toByteArray(), want.toByteArray())
             val body = ByteArray(len.coerceIn(0, 256 * 1024)).also { b -> var r = 0; while (r < b.size) { val n = inp.read(b, r, b.size - r); if (n < 0) break; r += n } }
             val (code, out) = when {
+                method == "POST" && !allowed -> 403 to """{"ok":false,"error":"token"}"""
                 method == "POST" && (path == "/notify" || path == "/") -> runCatching {
                     // Glassio already showed this ring itself (watching Home Assistant): don't show it twice.
                     if (System.currentTimeMillis() - lastShown > 8_000) show(app, JSONObject(String(body, Charsets.UTF_8)))

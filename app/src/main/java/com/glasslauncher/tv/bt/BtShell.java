@@ -24,7 +24,8 @@ public final class BtShell {
                     boolean on = call(d, "isConnected") instanceof Boolean && (Boolean) call(d, "isConnected");
                     Object bat = call(d, "getBatteryLevel");
                     int kind = d.getBluetoothClass() != null ? d.getBluetoothClass().getMajorDeviceClass() : 0;
-                    String name = d.getAlias() != null ? d.getAlias() : d.getName();
+                    String alias = android.os.Build.VERSION.SDK_INT >= 30 ? d.getAlias() : null;
+                    String name = alias != null ? alias : d.getName();
                     System.out.println(d.getAddress() + "|" + (name == null ? "" : name.replace('|', ' ')) + "|" + on + "|" + (bat == null ? -1 : bat) + "|" + kind);
                 }
                 System.out.println("OK");

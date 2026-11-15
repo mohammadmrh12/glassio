@@ -505,6 +505,8 @@ class Settings(private val ctx: Context) {
     var doorbellOn: Boolean get() = b("doorbellOn", true); set(v) = putB("doorbellOn", v)
     var doorbellScale: Float get() = f("doorbellScale", 1.0f); set(v) = putF("doorbellScale", v.coerceIn(0.6f, 1.6f))
     var doorbellText: Boolean get() = b("doorbellText", true); set(v) = putB("doorbellText", v)
+    /** Optional: the doorbell pop-up only for requests carrying this (header X-Glassio-Token, or ?token=). Empty: anyone at home. */
+    var doorbellToken: String get() = s("doorbellToken", ""); set(v) = putS("doorbellToken", v.trim())
     var doorbellTitle: String get() = s("doorbellTitle", "الباب الأمامي"); set(v) = putS("doorbellTitle", v)
     var doorbellMessage: String get() = s("doorbellMessage", "يوجد شخص عند الباب"); set(v) = putS("doorbellMessage", v)
     /** The doorbell's camera: a saved camera's link, or "" = the one Home Assistant sends. */

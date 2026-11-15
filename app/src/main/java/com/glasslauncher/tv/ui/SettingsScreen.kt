@@ -969,6 +969,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Toggle("Doorbell pop-up", "Home Assistant sends to http://<this TV>:7979/notify (the same as PiPup): the camera shows in the corner over any app",
                     { st.doorbellOn }, { st.doorbellOn = it }))
                 if (st.doorbellOn) {
+                    add(Act("  · Token (optional)", if (st.doorbellToken.isBlank()) "Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)"
+                        else "On: only requests with X-Glassio-Token: ${st.doorbellToken}", if (st.doorbellToken.isBlank()) "Make one" else "Remove") {
+                        st.doorbellToken = if (st.doorbellToken.isBlank()) com.glasslauncher.tv.net.Net.token() else ""; tvRev.intValue++
+                    })
                     add(Adjust("  · Size", "", { pct(st.doorbellScale) }, { st.doorbellScale = ((st.doorbellScale * 10).roundToInt() + it) / 10f }))
                     add(Adjust("  · Camera", "From Home Assistant: the one its automation sends; or one of your cameras here",
                         { camList.firstOrNull { it.url == st.doorbellCamera }?.name ?: "From Home Assistant" },

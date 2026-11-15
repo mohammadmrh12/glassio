@@ -140,7 +140,8 @@ object PeerSync {
     val lastAt: Long get() = sp.getLong("lastAt", 0L)
     /** The main TV's own sync key (pairing hands it out; a new one drops every follower). */
     private val myKey: String get() = sp.getString("key", "").orEmpty().ifBlank { newKey() }
-    private fun newKey(): String = (1..24).map { "abcdefghjkmnpqrstuvwxyz23456789".random() }.joinToString("").also { sp.edit().putString("key", it).apply() }
+    private val rnd = java.security.SecureRandom()
+    private fun newKey(): String = (1..24).map { "abcdefghjkmnpqrstuvwxyz23456789".let { a -> a[rnd.nextInt(a.length)] } }.joinToString("").also { sp.edit().putString("key", it).apply() }
 
     /** Redraws Settings → Sync as things change. */
     val rev = androidx.compose.runtime.mutableIntStateOf(0)
@@ -156,7 +157,7 @@ object PeerSync {
     @Volatile private var pairMisses = 0
     fun openPairing(): String {
         pairMisses = 0
-        pairCode = (1000..9999).random().toString(); pairUntil = System.currentTimeMillis() + 5 * 60_000L
+        pairCode = (1000 + rnd.nextInt(9000)).toString(); pairUntil = System.currentTimeMillis() + 5 * 60_000L
         return pairCode
     }
     fun closePairing() { pairUntil = 0L }

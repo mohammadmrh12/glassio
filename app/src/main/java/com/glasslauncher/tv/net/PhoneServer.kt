@@ -132,6 +132,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         val video = f.extension.lowercase() in bg.videoExts
         require(len > 0) { "Empty file" }
         require(len <= (if (video) 1500 else 40) * 1024 * 1024) { if (video) "Videos up to 1.5 GB" else "Pictures up to 40 MB" }
+        require(len + 200L * 1024 * 1024 < (f.parentFile?.usableSpace ?: Long.MAX_VALUE)) { "Not enough space on the TV" }
         val part = java.io.File(f.parentFile, f.name + ".part")
         var left = len.toLong()
         part.outputStream().buffered(256 * 1024).use { o ->
@@ -162,7 +163,25 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
                 downloading = f.name
                 val part = java.io.File(f.parentFile, f.name + ".part")
                 check(c.responseCode in 200..299) { "HTTP ${c.responseCode}" }
-                c.inputStream.use { i -> part.outputStream().use { i.copyTo(it, 256 * 1024) } }
+                // Not bigger than an upload may be, and never filling the TV (a link to a huge file filled it).
+                val video = f.extension.lowercase() in bg.videoExts
+                val cap = (if (video) 1500L else 40L) * 1024 * 1024
+                val free = f.parentFile?.usableSpace ?: Long.MAX_VALUE
+                val size = c.contentLengthLong
+                check(size <= cap) { if (video) "Videos up to 1.5 GB" else "Pictures up to 40 MB" }
+                check(size < 0 || size + 200L * 1024 * 1024 < free) { "Not enough space on the TV" }
+                try {
+                    c.inputStream.use { i -> part.outputStream().buffered(256 * 1024).use { o ->
+                        val buf = ByteArray(256 * 1024); var total = 0L
+                        while (true) {
+                            val n = i.read(buf); if (n < 0) break
+                            total += n
+                            check(total <= cap) { if (video) "Videos up to 1.5 GB" else "Pictures up to 40 MB" }
+                            check(total + 200L * 1024 * 1024 < free) { "Not enough space on the TV" }
+                            o.write(buf, 0, n)
+                        }
+                    } }
+                } catch (e: Exception) { part.delete(); throw e }
                 f.delete(); part.renameTo(f)
                 if (use) useFile(f)
                 lastDownload = "Downloaded ${f.name}" + if (use) " and set as the background" else ""

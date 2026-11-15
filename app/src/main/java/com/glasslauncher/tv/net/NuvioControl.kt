@@ -37,9 +37,9 @@ object NuvioControl {
                 val s = runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(PORT), 8) } }
                     .getOrElse { Glog.w("Nuvio control: port $PORT busy (${it.message})"); Thread.sleep(30_000); null } ?: continue
                 Glog.i("Nuvio control: listening on $PORT")
-                while (running && st.nuvioPush) {
+                while (running && st.nuvioPush && st.nuvioToken.isNotBlank()) {
                     val c = runCatching { s.accept() }.getOrNull() ?: break
-                    Thread { handle(app, c) }.start()
+                    Thread({ handle(app, c) }, "glass-nuvio-req").apply { isDaemon = true }.start()
                 }
                 runCatching { s.close() }
             }
@@ -60,7 +60,7 @@ object NuvioControl {
             val j = runCatching { JSONObject(String(body, Charsets.UTF_8).ifBlank { "{}" }) }.getOrDefault(JSONObject())
             val (code, out) = when {
                 method == "GET" && path == "/state" -> 200 to state()
-                token != app.settings.nuvioToken -> 403 to """{"ok":false,"error":"token"}"""
+                app.settings.nuvioToken.isBlank() || !java.security.MessageDigest.isEqual(token.toByteArray(), app.settings.nuvioToken.toByteArray()) -> 403 to """{"ok":false,"error":"token"}"""
                 method != "POST" -> 404 to """{"ok":false}"""
                 else -> synchronized(busy) {
                     val t0 = System.currentTimeMillis()
