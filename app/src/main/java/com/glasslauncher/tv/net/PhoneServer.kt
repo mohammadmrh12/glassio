@@ -32,12 +32,20 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         return null
     }
 
+    private val busy = java.util.concurrent.atomic.AtomicInteger()
+    /** One upload at a time (two into the same file would mix). */
+    private val uploading = Any()
+
     fun stop() { running = false; runCatching { socket?.close() }; socket = null }
 
     private fun loop(s: ServerSocket) {
         while (running) {
             val c = try { s.accept() } catch (_: Exception) { break }
-            try { c.soTimeout = 15000; handle(c) } catch (_: Exception) { } finally { runCatching { c.close() } }
+            // Each request on its own (a big upload no longer held the page still until it ended); a few at once.
+            if (busy.incrementAndGet() > 6) { busy.decrementAndGet(); runCatching { c.close() }; continue }
+            Thread({
+                try { c.soTimeout = 15000; handle(c) } catch (_: Exception) { } finally { runCatching { c.close() }; busy.decrementAndGet() }
+            }, "glass-phone-req").apply { isDaemon = true; start() }
         }
     }
 
@@ -75,13 +83,13 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         if (method == "GET" && path == "/button") { respond(c, 200, "text/html", BUTTON_PAGE); return }
         if (method == "GET" && path == "/api/state") { respond(c, 200, "application/json", state().toString()); return }
         if (method == "GET" && path == "/api/backup") {
-            respond(c, 200, "application/json", com.glasslauncher.tv.data.Backup.export(app).toString(1),
+            respond(c, 200, "application/json", com.glasslauncher.tv.data.Backup.export(app, app.settings.backupSignIns).toString(1),
                 "Content-Disposition: attachment; filename=\"Glassio-backup.json\"\r\n"); return
         }
         if (method != "POST") { respond(c, 404, "text/plain", "Not found"); return }
         if (path == "/api/bg/upload") {
             // Straight to the backgrounds folder, never held in memory (videos can be hundreds of MB).
-            val msg = runCatching { bgUpload(query(q, "name"), query(q, "use") == "1", input, len) }
+            val msg = runCatching { synchronized(uploading) { bgUpload(query(q, "name"), query(q, "use") == "1", input, len) } }
             respond(c, 200, "application/json", msg.fold({ JSONObject().put("ok", true).put("message", it).toString() }, { err(it.message ?: "Upload failed") }))
             return
         }
@@ -146,7 +154,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
     }
 
     /** Downloads a picture or video link into the backgrounds folder (in the background), then uses it. */
-    private fun bgDownload(url: String, use: Boolean): String {
+    @Synchronized private fun bgDownload(url: String, use: Boolean): String {
         require(url.startsWith("http")) { "The link must start with http" }
         check(downloading.isEmpty()) { "Already downloading $downloading" }
         val guess = url.substringBefore('?').substringAfterLast('.', "").lowercase()

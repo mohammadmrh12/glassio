@@ -97,8 +97,8 @@ private fun PopMenu(state: PopState, s: Float, style: String, onDismiss: () -> U
     // or its release would choose the first row.
     var armed by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
-    var rowAt by remember { mutableStateOf(0) }
-    var thumbAt by remember { mutableStateOf(0) }
+    var rowAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var thumbAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val arrows = remember { setOf(androidx.compose.ui.input.key.Key.DirectionUp, androidx.compose.ui.input.key.Key.DirectionDown,
         androidx.compose.ui.input.key.Key.DirectionLeft, androidx.compose.ui.input.key.Key.DirectionRight) }
     val enter = remember { Animatable(0f) }

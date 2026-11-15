@@ -234,7 +234,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     val st = (ctx.applicationContext as com.glasslauncher.tv.GlassApp).settings
     var ready by remember { mutableStateOf(false) }
     var rendered by remember { mutableStateOf(false) }
-    var aspect by remember { mutableStateOf(16f / 9f) }
+    var aspect by remember { androidx.compose.runtime.mutableFloatStateOf(16f / 9f) }
     var view by remember { mutableStateOf<android.view.SurfaceView?>(null) }
     val dim = VideoFrames.dim
     val player = remember {
@@ -323,7 +323,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     androidx.compose.runtime.LaunchedEffect(nextRev) { if (nextRev != seenNext[0]) { seenNext[0] = nextRev; toNext(300) } }
     androidx.compose.runtime.LaunchedEffect(ready, playing, view) {
         val v = view ?: return@LaunchedEffect
-        if (!ready || !playing || android.os.Build.VERSION.SDK_INT < 24) return@LaunchedEffect
+        if (!ready || !playing) return@LaunchedEffect
         val myGen = VideoFrames.gen
         if (rendered) VideoFrames.showing.value = true
         // One copy at a time, into buffers used in turn: a new copy never lands in the picture on screen
@@ -428,7 +428,6 @@ private object Shades {
 class FrameRegion(val src: android.graphics.Rect?, val dst: android.graphics.RectF)
 
 suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean, region: () -> FrameRegion? = { null }) {
-    if (android.os.Build.VERSION.SDK_INT < 24) return
     val myGen = VideoFrames.gen
     val inFlight = java.util.concurrent.atomic.AtomicBoolean(false)
     val sharpBufs = Array(4) { android.graphics.Bitmap.createBitmap(720, 405, android.graphics.Bitmap.Config.ARGB_8888) }
@@ -464,7 +463,7 @@ suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean
             }
             runCatching {
                 val src = reg?.src
-                if (src != null && android.os.Build.VERSION.SDK_INT >= 26) android.view.PixelCopy.request(v, src, into, { r -> done(r) }, h)
+                if (src != null) android.view.PixelCopy.request(v, src, into, { r -> done(r) }, h)
                 else android.view.PixelCopy.request(v, into, { r -> done(r) }, h)
             }.onFailure { inFlight.set(false) }
         }

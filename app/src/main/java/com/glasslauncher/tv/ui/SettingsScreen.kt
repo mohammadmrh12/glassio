@@ -1697,7 +1697,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 link("Remote mapping", "Hold Home, Back and your own buttons"),
                 Adjust("Language", "The menu, the settings sections, the setup and the main rows (the rest stays English for now). Reopen the screen to see it",
                     { com.glasslauncher.tv.data.I18n.LANGS[st.lang] ?: "English" }, { st.lang = cycle(com.glasslauncher.tv.data.I18n.LANGS.keys.toList(), st.lang, it) }),
-                Act("Back up now", "Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private", "Back up") {
+                Toggle("Sign-ins in backups", "On: accounts and keys (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, the lock code) go into the backup too, to move them to another TV: keep the file private. Off: they stay on each TV",
+                    { st.backupSignIns }, { st.backupSignIns = it }),
+                Act("Back up now", if (st.backupSignIns) "Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private"
+                    else "Every setting, catalog, Library and Continue Watching (no sign-ins), saved to Download/Glassio on the TV (also from the phone page)", "Back up") {
                     scope.launch(Dispatchers.IO) { toast(ctx, runCatching { "Saved: " + com.glasslauncher.tv.data.Backup.saveToTv(ctx) }.getOrElse { "Backup failed: ${it.message}" }) }
                 },
                 Act("Restore backup", "The newest backup in Download/Glassio on the TV. Glassio restarts after", "Restore") {

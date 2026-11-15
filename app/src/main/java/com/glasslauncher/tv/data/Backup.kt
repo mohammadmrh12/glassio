@@ -30,15 +30,27 @@ object Backup {
         "out (sign in again there if it does). A remote's button mapping may need setting again for another remote. Keep the file private: it holds your sign-ins."
     const val FOLDER = "Glassio"
 
+    /** The sign-ins and keys in each settings file (left out of a backup made without them, and kept on restore). */
+    private val SECRETS = mapOf(
+        "glass" to setOf("tmdbToken", "unsplashKey", "haToken", "nuvioToken", "hueUser", "doorbellToken", "lockCode"),
+        "glass_nuvio" to setOf("access", "refresh", "client", "server", "serverKey", "email", "exp"),
+        "glass_stremio" to setOf("authKey", "email"),
+        "glass_trakt" to setOf("access", "refresh", "expires", "user"),
+        "glass_simkl" to setOf("token", "refresh", "client", "expires", "user"),
+    )
+    private fun secret(file: String, key: String) = SECRETS[file]?.contains(key) == true
+
     private fun prefNames(ctx: Context): List<String> =
         File(ctx.applicationInfo.dataDir, "shared_prefs").listFiles().orEmpty()
             .map { it.name.removeSuffix(".xml") }.filter { it.startsWith("glass") && it !in SKIP }.sorted()
 
-    fun export(ctx: Context): JSONObject {
+    /** [signIns] false: everything but the sign-ins and keys (a restore then keeps the ones on that TV). */
+    fun export(ctx: Context, signIns: Boolean = true): JSONObject {
         val all = JSONObject()
         for (name in prefNames(ctx)) {
             val o = JSONObject()
             for ((k, v) in ctx.getSharedPreferences(name, Context.MODE_PRIVATE).all) {
+                if (!signIns && secret(name, k)) continue
                 val e = when (v) {
                     is Boolean -> JSONObject().put("t", "b").put("v", v)
                     is Int -> JSONObject().put("t", "i").put("v", v)
@@ -53,18 +65,27 @@ object Backup {
             all.put(name, o)
         }
         return JSONObject().put("glassio", 1).put("version", com.glasslauncher.tv.BuildConfig.VERSION_NAME)
-            .put("made", System.currentTimeMillis()).put("device", android.os.Build.MODEL).put("prefs", all)
+            .put("made", System.currentTimeMillis()).put("device", android.os.Build.MODEL).put("signIns", signIns).put("prefs", all)
     }
 
     /** Replaces the settings files with the backup's. Returns how many files were restored. */
     fun restore(ctx: Context, j: JSONObject): Int {
         require(j.optInt("glassio") == 1) { "Not a Glassio backup" }
         val all = j.getJSONObject("prefs")
+        val signIns = j.optBoolean("signIns", true)
         var n = 0
         for (name in all.keys()) {
             if (!name.startsWith("glass") || name in SKIP) continue
             val o = all.getJSONObject(name)
-            val ed = ctx.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear()
+            val sp = ctx.getSharedPreferences(name, Context.MODE_PRIVATE)
+            // (A backup without sign-ins: this TV's own stay.)
+            val kept = if (signIns) emptyMap() else sp.all.filterKeys { secret(name, it) }
+            val ed = sp.edit().clear()
+            for ((k, v) in kept) when (v) {
+                is Boolean -> ed.putBoolean(k, v); is Int -> ed.putInt(k, v); is Long -> ed.putLong(k, v)
+                is Float -> ed.putFloat(k, v); is String -> ed.putString(k, v)
+                is Set<*> -> ed.putStringSet(k, v.map { it.toString() }.toSet())
+            }
             for (k in o.keys()) {
                 val e = o.optJSONObject(k) ?: continue
                 when (e.optString("t")) {
@@ -91,7 +112,7 @@ object Backup {
 
     /** Saves a backup in Download/Glassio on the TV (and a copy in Glassio's own files). Returns where. */
     fun saveToTv(ctx: Context): String {
-        val text = export(ctx).toString()
+        val text = export(ctx, Settings(ctx).backupSignIns).toString()
         File(ctx.filesDir, "backup-latest.json").writeText(text)
         val name = "Glassio-backup-${stamp()}.json"
         if (Build.VERSION.SDK_INT >= 29) {
@@ -102,7 +123,8 @@ object Backup {
             }
             val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv)
             if (uri != null) {
-                ctx.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+                val out = ctx.contentResolver.openOutputStream(uri) ?: error("Download isn't writable")
+                out.use { it.write(text.toByteArray()) }
                 return "Download/$FOLDER/$name"
             }
         }

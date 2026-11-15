@@ -210,7 +210,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             // and stretched over it: the TV can't blur behind a window, nor a video surface directly).
             val multiOpen = com.glasslauncher.tv.MultiCamOverlay.open.value
             val multiVeil by androidx.compose.animation.core.animateFloatAsState(if (multiOpen) 1f else 0f, androidx.compose.animation.core.tween(if (multiOpen) 180 else 150), label = "multiVeil")
-            if (multiVeil > 0.01f && android.os.Build.VERSION.SDK_INT >= 26) {
+            if (multiVeil > 0.01f) {
                 // Android 12+: a small copy blurred by the GPU; older TVs: a tiny copy stretched over the screen
                 // (stretching it that much is itself a soft blur).
                 val gpuBlur = android.os.Build.VERSION.SDK_INT >= 31
@@ -248,7 +248,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 onDispose { SaverFrames.dim.floatValue = 0f; com.glasslauncher.tv.ui.VideoFrames.dim.floatValue = 0f }
             }
             // Hue Sync on the screensaver: a small copy of its video every few seconds.
-            if (com.glasslauncher.tv.data.HueSync.ready(st) && st.hueSaver && android.os.Build.VERSION.SDK_INT >= 26) LaunchedEffect(Unit) {
+            if (com.glasslauncher.tv.data.HueSync.ready(st) && st.hueSaver) LaunchedEffect(Unit) {
                 val buf = android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888)
                 val h = android.os.Handler(android.os.Looper.getMainLooper())
                 while (true) {
@@ -282,7 +282,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 }
                 DisposableEffect(Unit) { onDispose { com.glasslauncher.tv.ui.VideoFrames.clear() } }
             }
-            if (glassClock && android.os.Build.VERSION.SDK_INT >= 24) LaunchedEffect(Unit) {
+            if (glassClock) LaunchedEffect(Unit) {
                 while (view[0] == null) delay(50)
                 val v = view[0]!!
                 val bufs = Array(3) { android.graphics.Bitmap.createBitmap(720, 405, android.graphics.Bitmap.Config.ARGB_8888) }

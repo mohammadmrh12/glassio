@@ -628,6 +628,8 @@ class Settings(private val ctx: Context) {
     var musicLastPkg: String get() = s("musicLastPkg", ""); set(v) = putS("musicLastPkg", v)
     /** Music apps that show their rows (like other apps) when selected in the dock, instead of their player. */
     var channelsMusicRowApps: List<String> get() = list("channelsMusicRowApps"); set(v) = putList("channelsMusicRowApps", v)
+    /** Backups carry the sign-ins and keys (to move them to another TV). Off: they stay on each TV. */
+    var backupSignIns: Boolean get() = b("backupSignIns", true); set(v) = putB("backupSignIns", v)
     /** How bright the blurred card behind the rows is, in % (100: as it was). */
     var channelsBlurBri: Int get() = i("channelsBlurBri", 100); set(v) = putI("channelsBlurBri", v.coerceIn(50, 150))
     /** A music app selected with nothing playing: its player (its icon and Play). Off: its rows, or the carousel. */

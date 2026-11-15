@@ -262,13 +262,13 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
     val mute = muteOverride ?: st.trailerMute
     val popup = mode == "popup"
     var rendered by remember { mutableStateOf(false) }
-    var aspect by remember { mutableStateOf(if (streams.height > 0) streams.width.toFloat() / streams.height else 16f / 9f) }
+    var aspect by remember { androidx.compose.runtime.mutableFloatStateOf(if (streams.height > 0) streams.width.toFloat() / streams.height else 16f / 9f) }
     var cues by remember { mutableStateOf("") }
     // The video's own size: the surface's pictures are in it (not in the size it has on screen).
     var vid by remember { mutableStateOf(streams.width to streams.height) }
     // Black bars inside the trailer's own picture (most trailers are wider than 16:9 and carry them): the share of
     // the height each one takes, found from the picture itself; -1 until known.
-    var bar by remember { mutableStateOf(-1f) }
+    var bar by remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
     val bars = remember { BarFinder() }
     val player = remember {
         val http = androidx.media3.datasource.DefaultHttpDataSource.Factory().setUserAgent(streams.userAgent)
@@ -391,7 +391,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
     LaunchedEffect(view) { if (!glass) return@LaunchedEffect; val v = view ?: return@LaunchedEffect; copyVideoFrames(v, { rendered }) { region[0] } }
     if (mode == "cinema") LaunchedEffect(view, rendered) {
         val v = view ?: return@LaunchedEffect
-        if (!rendered || android.os.Build.VERSION.SDK_INT < 26) return@LaunchedEffect
+        if (!rendered) return@LaunchedEffect
         val buf = android.graphics.Bitmap.createBitmap(160, 90, android.graphics.Bitmap.Config.ARGB_8888)
         findBars(bars, { pixelCopy(v, buf) }) { bar = it }
     }

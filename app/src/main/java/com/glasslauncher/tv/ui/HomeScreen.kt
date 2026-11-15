@@ -656,7 +656,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // doubled what the TV GPU drew per frame and the dock opened at about 30 fps.
         // It stays on while the Apps folder is open and as it closes: it went off under the folder, so going in and
         // coming out showed the sharp title picture for a moment before it blurred again.
-        var folderLeft by remember { mutableStateOf(0L) }
+        var folderLeft by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
         LaunchedEffect(folderOpen) { if (!folderOpen && folderLeft != 0L) { delay(500); folderLeft = 0L } }
         if (folderOpen) folderLeft = 1L
         // (Multi-view cameras over the home screen: the page behind them blurs too.)
