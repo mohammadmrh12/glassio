@@ -17,7 +17,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /** A newer release published on GitHub. */
-data class Release(val version: String, val notes: String, val apkUrl: String, val pageUrl: String, val size: Long)
+data class Release(val version: String, val notes: String, val apkUrl: String, val pageUrl: String, val size: Long, val beta: Boolean = false)
 
 /**
  * Updates from GitHub Releases (github.com/mohammadmrh12/glassio).
@@ -27,11 +27,37 @@ data class Release(val version: String, val notes: String, val apkUrl: String, v
  * silently and reopens Glass; if that is not allowed it falls back to Android's package installer, which
  * asks for confirmation.
  */
-class Updater(private val ctx: Context, private val scope: CoroutineScope) {
+class Updater(private val ctx: Context, private val scope: CoroutineScope, private val beta: () -> Boolean = { false }) {
     companion object {
         const val REPO = "mohammadmrh12/glassio"
         const val REPO_URL = "https://github.com/$REPO"
+        /** Stable: GitHub's latest release (never a pre-release). */
         private const val API = "https://api.github.com/repos/$REPO/releases/latest"
+        /** Beta: the newest of the last releases, pre-releases (betas) included. */
+        private const val API_ALL = "https://api.github.com/repos/$REPO/releases?per_page=15"
+
+        /**
+         * Is version [a] newer than [b]? "3.8.0-beta2" < "3.8.0" < "3.8.1-beta1": the numbers first, then a beta comes
+         * before the release with the same numbers.
+         */
+        fun newer(a: String, b: String): Boolean {
+            fun core(v: String) = v.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+            fun pre(v: String) = v.substringAfter('-', "").takeIf { it.isNotBlank() }
+            val x = core(a); val y = core(b)
+            for (i in 0 until maxOf(x.size, y.size)) {
+                val d = x.getOrElse(i) { 0 } - y.getOrElse(i) { 0 }
+                if (d != 0) return d > 0
+            }
+            val pa = pre(a); val pb = pre(b)
+            if (pa == null || pb == null) return pa == null && pb != null
+            val na = Regex("\\d+").findAll(pa).map { it.value.toInt() }.toList()
+            val nb = Regex("\\d+").findAll(pb).map { it.value.toInt() }.toList()
+            for (i in 0 until maxOf(na.size, nb.size)) {
+                val d = na.getOrElse(i) { 0 } - nb.getOrElse(i) { 0 }
+                if (d != 0) return d > 0
+            }
+            return false
+        }
     }
 
     val current: String = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "0"
@@ -49,7 +75,8 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope) {
 
     /** Returns a message for the Settings toast. */
     fun check(): String = try {
-        val c = URL(API).openConnection() as HttpURLConnection
+        val beta = beta()
+        val c = URL(if (beta) API_ALL else API).openConnection() as HttpURLConnection
         c.connectTimeout = 8000; c.readTimeout = 12000
         c.setRequestProperty("Accept", "application/vnd.github+json")
         c.setRequestProperty("User-Agent", "GlassLauncher/$current")
@@ -57,30 +84,28 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope) {
         if (code == 404) { c.disconnect(); "No release published yet" }
         else {
             check(code == 200) { "GitHub answered HTTP $code" }
-            val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() }); c.disconnect()
+            val text = c.inputStream.bufferedReader().use { it.readText() }; c.disconnect()
             lastCheck.value = System.currentTimeMillis()
-            val tag = j.optString("tag_name").removePrefix("v")
-            val assets = j.optJSONArray("assets")
-            var apk = ""; var size = 0L
-            if (assets != null) for (i in 0 until assets.length()) {
-                val a = assets.getJSONObject(i)
-                if (a.optString("name").endsWith(".apk")) { apk = a.optString("browser_download_url"); size = a.optLong("size"); break }
-            }
-            if (apk.isNotBlank() && newer(tag, current)) {
-                available.value = Release(tag, j.optString("body"), apk, j.optString("html_url"), size)
-                "Version $tag is available"
-            } else { available.value = null; "Glassio is up to date ($current)" }
+            val list = if (beta) org.json.JSONArray(text).let { a -> (0 until a.length()).map { a.getJSONObject(it) } } else listOf(JSONObject(text))
+            // The newest one with an APK (a draft is never offered).
+            val best = list.filter { !it.optBoolean("draft") }.mapNotNull { j -> toRelease(j)?.let { j to it } }
+                .maxWithOrNull { p, q -> if (newer(p.second.version, q.second.version)) 1 else if (newer(q.second.version, p.second.version)) -1 else 0 }
+            if (best != null && newer(best.second.version, current)) {
+                available.value = best.second
+                (if (best.first.optBoolean("prerelease")) "Beta ${best.second.version}" else "Version ${best.second.version}") + " is available"
+            } else { available.value = null; "Glassio is up to date ($current)" + if (beta) " · Beta updates on" else "" }
         }
     } catch (e: Exception) { "Could not check: ${e.message}" }
 
-    private fun newer(a: String, b: String): Boolean {
-        val x = a.split('.', '-').mapNotNull { it.toIntOrNull() }
-        val y = b.split('.', '-').mapNotNull { it.toIntOrNull() }
-        for (i in 0 until maxOf(x.size, y.size)) {
-            val d = (x.getOrElse(i) { 0 }) - (y.getOrElse(i) { 0 })
-            if (d != 0) return d > 0
+    private fun toRelease(j: JSONObject): Release? {
+        val tag = j.optString("tag_name").removePrefix("v")
+        val assets = j.optJSONArray("assets") ?: return null
+        for (i in 0 until assets.length()) {
+            val a = assets.getJSONObject(i)
+            if (a.optString("name").endsWith(".apk"))
+                return Release(tag, j.optString("body"), a.optString("browser_download_url"), j.optString("html_url"), a.optLong("size"), j.optBoolean("prerelease"))
         }
-        return false
+        return null
     }
 
     fun install() {
@@ -140,7 +165,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope) {
         return out
     }
 
-    private fun installWithPackageInstaller(apk: File) {
+    fun installWithPackageInstaller(apk: File, own: Boolean = true) {
         val pi = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
@@ -151,7 +176,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope) {
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
             s.commit(PendingIntent.getBroadcast(ctx, 7, intent, flags).intentSender)
         }
-        status.value = "Confirm the update on screen"
+        if (own) status.value = "Confirm the update on screen"
     }
     // (The installer's own failures come to InstallResultReceiver, which shows them.)
 }

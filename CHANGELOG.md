@@ -2,6 +2,28 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 3.8.0 — a big update, out with GTA VI
+
+- **Dock**: *Apps in a row* (how many fit), *Dock from edge to edge* as a strip that loops with the selected app in the
+  middle, *Dock glass* on or off, and with the dock in the middle the home screen stays on your background
+  (Settings → Dock & icons).
+- **Inputs icon**: your HDMI inputs above it, like the Music icon's apps: change an input's icon (hold OK), choose
+  which inputs show and their order.
+- **Icon packs** install straight from Glassio (GitHub / F-Droid), with quicker Suggested icons.
+- **Hide a title**: hold OK on Play → *Hide this title*. Settings → Carousel → *Hidden titles* brings it back.
+- **Continue Watching** can open a title in the app it was watched in (*Open where it was watched*).
+- **Music**: long song names scroll in the island a few times, then rest; over your own picture or video the song's
+  artwork shows only on its player, and the glass fades to it with the player.
+- **Multi-view cameras**: sharper, smoother to open and close; a screensaver trailer pauses under them.
+- **Updates: Stable or Beta** (Settings → About → Updates). Beta gets new features first.
+- **Support Glassio** with a PlayStation gift card (PSN, USA), typed and sent from the TV (Settings → About).
+- **Faster and lighter**: nothing redraws while the home screen is still; lighter video, aerial and photo backgrounds;
+  smoother slides and Library rows; the first screensaver trailer shows in about 2 seconds.
+- **Glass and glow**: no seams with a light blur, an even glow on every side of the icons (no thin white line), the
+  large clock blurred once over still pictures.
+- Also: a left shade switch, subreddit photos, a confirmation before disconnecting Bluetooth, Settings no longer
+  reopens on About, and a new What's new tour.
+
 ## 3.7.3 — safety and steadiness
 
 - **Bluetooth in the menu** now lists devices on Android 8 to 10 too.

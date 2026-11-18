@@ -235,6 +235,12 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             app.settings.tmdbToken = t; app.catalogs.clearEnrichment()
             if (t.isBlank()) "TMDB token removed" else "TMDB token saved and working"
         }
+        "/api/reddit" -> {
+            j.optString("subs").takeIf { it.isNotBlank() }?.let { app.settings.photoSubreddit = it }
+            j.optString("id").takeIf { it.isNotBlank() }?.let { app.settings.redditAppId = it }
+            app.settings.photoSource = "reddit"; app.settings.bgMode = "photos"
+            "Saved: the background now shows r/" + app.settings.photoSubreddit.replace(",", ", r/")
+        }
         "/api/unsplash" -> {
             app.settings.unsplashKey = j.optString("key")
             if (app.settings.unsplashKey.isNotBlank()) { app.settings.photoSource = "unsplash"; app.settings.bgMode = "photos" }
@@ -457,6 +463,10 @@ button.x{color:var(--red)}button.p{background:var(--blue);color:#fff;border-radi
 <div class="it"><div class="t"><b>Unsplash</b><small>Photos as the background</small></div></div>
 <div class="it f"><input type="text" id="uk" placeholder="Access Key"></div>
 <button class="act" onclick="send('/api/unsplash',{key:v('uk')},'uk')">Save Unsplash key</button>
+<div class="it"><div class="t"><b>Subreddit wallpapers</b><small>Subreddits (comma separated) and your Reddit app id</small></div></div>
+<div class="it f"><input type="text" id="rs" placeholder="EarthPorn, wallpapers"></div>
+<div class="it f"><input type="text" id="ri" placeholder="Reddit app id"></div>
+<button class="act" onclick="send('/api/reddit',{subs:v('rs'),id:v('ri')},'ri')">Save</button>
 </div><p class="foot">TMDB: themoviedb.org &rarr; Settings &rarr; API, the long Read Access Token (not the short API Key). Unsplash: unsplash.com/developers &rarr; New application.</p></section>
 
 <section data-k="home assistant doorbell webhook"><h2>Home Assistant</h2><div class="list">

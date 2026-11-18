@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -85,6 +86,9 @@ data class GlassEnv(
     val blur: androidx.compose.runtime.State<Float>? = null,
     /** The "Glass blur" setting as a blur radius in dp: frosted glass (and the large clock) blur the sharp picture by this. */
     val blurDp: Float = 0f,
+    /** The page is a picture of its own over a video background (the music player): the glass shows that picture,
+     *  not the video's live copies (the dock showed the video under the player). */
+    val ignoreVideo: Boolean = false,
 )
 
 const val SLIDE_PUSH = 1
@@ -170,7 +174,9 @@ fun blurredBackdrop(src: Bitmap, strength: Int): ImageBitmap {
     // Twice the old size with twice the blur radius: the same softness, but scaled up on screen it no longer
     // shows blocks and steps (the frosted glass looked pixelated next to the clear one).
     val w0 = (320 - strength * 3).coerceIn(48, 320)
-    val w = (w0 * 2).coerceAtMost(560)
+    // A light blur needs a finer copy: scaled up ×3 a 560 px copy blurred by a pixel or two showed its pixels as
+    // steps. The radius below grows with it, so the softness stays the same.
+    val w = (w0 * 2).coerceAtMost(if (strength < 24) src.width.coerceIn(560, 960) else 560)
     val h = max(8, w * src.height / max(1, src.width))
     val small = Bitmap.createScaledBitmap(src, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
     val r = if (strength <= 0) 0 else ((1 + strength / 20).coerceAtMost(4) * w / w0)
@@ -282,19 +288,26 @@ private fun DrawScope.drawBackdropRegion(bmp: ImageBitmap, rootW: Int, rootH: In
     // [shift]: the picture is moved right by this many screen pixels (Slide animation).
     val sx = (pos.x - shift - ox) / scale; val sy = (pos.y - oy) / scale
     if (sx + size.width / scale <= 0f || sx >= bw) { if (scrims) drawScrims(rootW, rootH, pos, true); return }
-    val sw = size.width / scale; val sh = size.height / scale
-    val l = sx.coerceIn(0f, bw - 1f); val t = sy.coerceIn(0f, bh - 1f)
-    val r = (sx + sw).coerceIn(l + 1f, bw); val b = (sy + sh).coerceIn(t + 1f, bh)
-    drawImage(
-        bmp,
-        srcOffset = IntOffset(l.toInt(), t.toInt()),
-        srcSize = IntSize((r - l).roundToInt().coerceAtLeast(1), (b - t).roundToInt().coerceAtLeast(1)),
-        dstOffset = IntOffset(((l - sx) * scale).roundToInt(), ((t - sy) * scale).roundToInt()),
-        dstSize = IntSize(((r - l) * scale).roundToInt().coerceAtLeast(1), ((b - t) * scale).roundToInt().coerceAtLeast(1)),
-        alpha = alpha,
-        colorFilter = colorFilter,
-        filterQuality = if (scale <= 1.01f) FilterQuality.None else FilterQuality.Low,
-    )
+    // The whole picture placed exactly where the page has it (a float transform, clipped to this surface). Cutting
+    // out the part behind it in whole source pixels rounded its size and place: with small copies scaled up ×3 or
+    // more each surface was off by up to a few screen pixels and stretched a little, so the glass of the dock and of
+    // each icon didn't line up with the page or with each other. Hidden under a strong blur, it showed as steps and
+    // seams with a light one, worse on small icons. Only the visible part is drawn by the GPU either way.
+    val k = scale
+    clipRect(0f, 0f, size.width, size.height) {
+        withTransform({
+            this.translate(ox + shift - pos.x, oy - pos.y); this.scale(k, k, Offset.Zero)
+        }) {
+            drawImage(
+                bmp,
+                srcOffset = IntOffset.Zero, srcSize = IntSize(bmp.width, bmp.height),
+                dstOffset = IntOffset.Zero, dstSize = IntSize(bmp.width, bmp.height),
+                alpha = alpha,
+                colorFilter = colorFilter,
+                filterQuality = if (k <= 1.01f) FilterQuality.None else FilterQuality.Low,
+            )
+        }
+    }
     if (scrims) drawScrims(rootW, rootH, pos, true)
 }
 
@@ -325,7 +338,11 @@ object Scrims {
         }
         return b.copy(Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap()
     }
-    val side: ImageBitmap by lazy { paint(true) }
+    private val sideImg: ImageBitmap by lazy { paint(true) }
+    private val none: ImageBitmap by lazy { ImageBitmap(4, 4) }
+    /** Settings → Background & glass → Left shade, off (with your own background): no side shade anywhere. */
+    @Volatile var sideOff = false
+    val side: ImageBitmap get() = if (sideOff) none else sideImg
     val bottom: ImageBitmap by lazy { paint(false) }
 }
 
@@ -359,7 +376,10 @@ fun LiquidSurface(
     val ref = LocalGlassEnvRef.current
     val density = LocalDensity.current
     // Video behind: the glass changes every copy, a cached texture would only be drawn twice.
-    val videoBehind = VideoFrames.showing.value
+    // (Read through the ref, as a derived value: read straight from LocalGlassEnv, every glass surface on screen —
+    // the dock, each icon, the island — was composed again with every new picture, at the start of every slide.)
+    val ignoreVideo by remember(ref) { androidx.compose.runtime.derivedStateOf { ref.value.ignoreVideo } }
+    val videoBehind = VideoFrames.showing.value && !ignoreVideo
     val pos = remember { mutableStateOf(Offset.Zero) }
     // The last measured place, kept even while frozen, so the glass catches up when the page settles.
     val raw = remember { arrayOf(Offset.Zero) }
@@ -472,13 +492,13 @@ fun LiquidSurface(
             val b = n.bmp
             if (b == null) { drawRect(Color(0xFF1A1A22)); tintIn(tint); return@Canvas }
             // A video behind: the glass shows its live frames (sharp or frosted), with the page's shades.
-            val liveFrame = if (clearPic) VideoFrames.sharp.value ?: VideoFrames.soft.value else VideoFrames.soft.value ?: VideoFrames.sharp.value
+            val liveFrame = if (n.env.ignoreVideo) null else if (clearPic) VideoFrames.sharp.value ?: VideoFrames.soft.value else VideoFrames.soft.value ?: VideoFrames.sharp.value
             if (liveFrame != null) {
                 // The page's shades (pre-painted pictures) drawn over the live copy, as on the page itself.
                 drawBackdropRegion(liveFrame, n.env.rootW, n.env.rootH, pos.value, scrims = DebugHide.intValue and 128 == 0)
             } else picture(n, b, 0f)
             // Shuffle: the background fades through black between videos, the glass with it.
-            val d = VideoFrames.dim.floatValue
+            val d = if (n.env.ignoreVideo) 0f else VideoFrames.dim.floatValue
             if (d > 0.003f) drawRect(Color.Black.copy(alpha = d))
             if (n.veilPic == null) veil(n)
             tintIn(tint)

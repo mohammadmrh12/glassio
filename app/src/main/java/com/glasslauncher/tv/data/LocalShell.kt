@@ -120,6 +120,17 @@ object LocalShell {
         } finally { pool.shutdownNow() }
     }
 
+    /** Blocking: copies [f] to [remote] on the TV over the open connection. */
+    @Synchronized
+    fun push(ctx: Context, f: File, remote: String) {
+        repeat(2) { attempt ->
+            val r = runCatching { (conn ?: open(ctx, 5555).also { conn = it }).push(f, remote) }
+            if (r.isSuccess) return
+            runCatching { conn?.close() }; conn = null
+            if (attempt == 1) throw r.exceptionOrNull()!!
+        }
+    }
+
     /** Blocking; call off the main thread. Keeps one connection open and reconnects if it drops. */
     @Synchronized
     fun run(ctx: Context, command: String, port: Int = 5555): Result<String> {

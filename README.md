@@ -32,7 +32,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **3.7.3** — safety and steadiness: doorbell token, backups without sign-ins, capped downloads. What changed in every version:
+Latest: **3.8.0** — a big update, out with GTA VI: new dock layouts, an Inputs icon, hide a title, Stable or Beta updates, faster and lighter. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
@@ -280,6 +280,9 @@ Call `rest_command.glassio_doorbell` when the doorbell rings. `camera` is one of
 Glassio checks for a new release when it starts and every 12 hours. An **Update** pill appears next to the clock: press
 **OK** on it and it downloads and installs right there (or **About → Install update**). With TV access it's silent and
 Glassio reopens by itself. Every release is signed with the same key, so it installs over the last one and keeps your settings.
+
+**Stable or Beta** (Settings → About → Updates): Stable gets tested versions only; Beta also gets the pre-releases,
+with new features first. Switch back any time.
 
 ## Something wrong?
 

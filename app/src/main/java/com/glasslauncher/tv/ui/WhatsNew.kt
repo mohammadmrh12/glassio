@@ -42,60 +42,87 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 63
+    const val ID = 64
 
-    class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null)
+    /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
+    class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
 
     const val GITHUB = "https://github.com/mohammadmrh12/glassio"
 
-    /** Always the last page of the tour, whatever the version: where Glassio lives, and how to support it. */
+    /** Where Glassio lives (a QR code to its GitHub page). */
     private val GITHUB_PAGE = Page("Glassio on GitHub", listOf(
         "Glassio is free and open source. Scan the code to see every version, report a problem or ask for a feature.",
-        "Support Glassio: a ⭐ on GitHub and sharing it with friends keeps it going. Thank you!",
-    ), "Thank you for using Glassio ♥", qr = GITHUB)
+        "A ⭐ on GitHub and sharing Glassio with friends keeps it going.",
+    ), "github.com/mohammadmrh12/glassio", qr = GITHUB)
 
-    // What's new in this version first, then everything Glassio does in a few short pages, then the GitHub page.
-    val PAGES = listOf(
-        Page("What's new in Glassio 3.7", listOf(
-            "Your own picture as the settings button, sent from your phone with a QR code. Also Hello, hello and Menu.",
-            "Menu & themes in clear groups: the top bar, the look and the menu.",
-            "Hold OK on an app with channels to hide its rows. Sync can share performance too, or leave it to each TV.",
-        ), "Settings → Menu & themes · Settings → Sync"),
-        Page("Glassio: home screen", listOf(
-            "A carousel of your Nuvio and Stremio catalogs, with trailers and subtitles in your language.",
-            "Channels: select YouTube, Shahid, Netflix… in the dock and its rows take the carousel's place.",
-            "Liquid glass in six themes and a glass colour; icon packs and the Apple TV icons in the dock.",
-        ), "Settings → Carousel · Channels · Menu & themes · Dock & icons"),
-        Page("Glassio: watch and listen", listOf(
-            "Continue Watching and your Library from Nuvio, Stremio, Trakt and Simkl, kept the same everywhere.",
-            "Music mode, the dynamic island and the Music icon, for any music app.",
-            "A 4K / HDR screensaver of aerial videos, trailers or posters, with a large glass clock.",
-        ), "Settings → Connections · Library · Music · Screensaver"),
-        Page("Glassio: your home and your TVs", listOf(
-            "Sync: one main TV, the others follow it over your home network.",
-            "Hue lights in the screen's colours, cameras, the doorbell and Home Assistant.",
-            "Any remote button, HDMI inputs, app lock, backups and managing from your phone.",
-        ), "Settings → Sync · Hue lights · Cameras · Remote mapping · System"),
+    /** Always the last page when this build can send support: a PSN gift card, typed and sent from here. */
+    private val SUPPORT_PAGE = Page("Support Glassio", listOf(
+        "Glassio is free, with no ads, made in my spare time.",
+        "If you enjoy it, a PlayStation gift card (PSN, USA) helps a lot. Maybe for GTA VI 😉",
+        "Press OK, type the code and press Send: it comes straight to me. Thank you!",
+    ), "Also in Settings → About → PlayStation gift card", support = true)
+
+    // A welcome first, then what's new in this version, then GitHub and support.
+    val PAGES = listOfNotNull(
+        Page("A big update, out with GTA VI", listOf(
+            "This Glassio update comes out on the same day as GTA VI.",
+            "We hope you enjoy them both: Glassio and the game! 🎮",
+            "Press ▶ to see what's new.",
+        ), "Thank you for using Glassio ♥"),
+        Page("New: the dock", listOf(
+            "Apps in a row: choose how many, or a strip from edge to edge that loops with the selected app in the middle.",
+            "Dock glass can be switched off. An Inputs icon shows your HDMI inputs above it.",
+            "Install icon packs straight from Glassio, and an even glow on every side of the icons.",
+        ), "Settings → Dock & icons"),
+        Page("New: watch and listen", listOf(
+            "Hold OK on Play → Hide this title: it leaves the carousel. Bring it back in Settings → Carousel.",
+            "Continue Watching can open a title in the app it was watched in.",
+            "Long song names scroll in the island. Multi-view cameras are sharper, and a trailer pauses under them.",
+        ), "Settings → Carousel · Continue Watching · Music · Cameras"),
+        Page("New: faster and smoother", listOf(
+            "Nothing redraws while the home screen is still: less heat and power.",
+            "Lighter video, aerial and photo backgrounds, smoother slides and Library rows.",
+            "The first screensaver trailer shows much sooner.",
+        ), "Settings → Performance"),
+        Page("New: Stable or Beta updates", listOf(
+            "Stable: tested versions only, as before.",
+            "Beta: new features first, a little less tested. Switch back any time.",
+        ), "Settings → About → Updates"),
         GITHUB_PAGE,
+        SUPPORT_PAGE.takeIf { com.glasslauncher.tv.data.Support.ready },
     )
 
     val open = mutableStateOf(false)
     val page = mutableIntStateOf(0)
+    /** On a support page: 0 = Send a gift card, 1 = Done. */
+    val choice = mutableIntStateOf(0)
+    /** Set when "Send a gift card" is picked: the home screen opens the support window. */
+    val support = mutableStateOf(false)
 
-    fun show() { page.intValue = 0; open.value = true }
+    fun show() { page.intValue = 0; choice.intValue = 0; open.value = true }
 
     /** The remote while the tour shows (true = used). */
     fun onKey(app: GlassApp, code: Int, down: Boolean): Boolean {
         if (!open.value) return false
         if (code == KeyEvent.KEYCODE_HOME) return false
         if (!down) return true
+        val p = PAGES[page.intValue]
         when (code) {
-            // ▶ only turns the page: on the last one (the GitHub QR code) it does nothing, so the page isn't closed by
-            // accident; OK closes it.
-            KeyEvent.KEYCODE_DPAD_RIGHT -> if (page.intValue < PAGES.lastIndex) page.intValue++
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
-                if (page.intValue < PAGES.lastIndex) page.intValue++ else close(app)
-            KeyEvent.KEYCODE_DPAD_LEFT -> if (page.intValue > 0) page.intValue--
+            // ▶ only turns the page: on the last one it does nothing (or moves to Done on the support page), so the
+            // tour isn't closed by accident; OK closes it.
+            KeyEvent.KEYCODE_DPAD_RIGHT -> when {
+                p.support && choice.intValue == 0 -> choice.intValue = 1
+                page.intValue < PAGES.lastIndex -> { page.intValue++; choice.intValue = 0 }
+            }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> when {
+                p.support && choice.intValue == 0 -> { close(app); support.value = true }
+                page.intValue < PAGES.lastIndex -> { page.intValue++; choice.intValue = 0 }
+                else -> close(app)
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> when {
+                p.support && choice.intValue == 1 -> choice.intValue = 0
+                page.intValue > 0 -> { page.intValue--; choice.intValue = 0 }
+            }
             KeyEvent.KEYCODE_BACK -> close(app)
         }
         return true
@@ -112,7 +139,11 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
     val light = style == "bow"
     val ink = if (light) Color(0xFF111114) else Color.White
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
-        GlassPanel(Modifier.width((560 * s).dp), radius = (26 * s).dp, style = style, darken = 0.25f) {
+        // Darker than the shade around it, whatever the glass style or blur (clear glass at a light blur read as a
+        // see-through box over a bright poster).
+        // Clear (sharp) glass styles show frosted here: text over a sharp poster was hard to read.
+        val panelStyle = if (style == "water" || style == "water_still") "liquid" else style
+        GlassPanel(Modifier.width((560 * s).dp), radius = (26 * s).dp, style = panelStyle, darken = if (light) 0.25f else 0.72f) {
             Column(Modifier.fillMaxWidth().padding(horizontal = (30 * s).dp, vertical = (26 * s).dp)) {
                 val i = WhatsNew.page.intValue
                 AnimatedContent(i, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "tour") { n ->
@@ -158,11 +189,23 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    Text(if (i == WhatsNew.PAGES.lastIndex) "OK  Done" else "OK  Next  ▶", color = if (light) Color.White else Color.Black,
-                        fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(ink.copy(alpha = 0.92f)).padding(horizontal = (14 * s).dp, vertical = (6 * s).dp))
+                    if (WhatsNew.PAGES[i].support) {
+                        val c = WhatsNew.choice.intValue
+                        Row(horizontalArrangement = Arrangement.spacedBy((8 * s).dp)) {
+                            TourPill("🎁  Send a gift card", c == 0, ink, light, s)
+                            TourPill("Done", c == 1, ink, light, s)
+                        }
+                    } else TourPill(if (i == WhatsNew.PAGES.lastIndex) "OK  Done" else "OK  Next  ▶", true, ink, light, s)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TourPill(text: String, on: Boolean, ink: Color, light: Boolean, s: Float) {
+    Text(text, color = if (on) (if (light) Color.White else Color.Black) else ink.copy(alpha = 0.8f),
+        fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(ink.copy(alpha = if (on) 0.92f else 0.12f))
+            .padding(horizontal = (14 * s).dp, vertical = (6 * s).dp))
 }

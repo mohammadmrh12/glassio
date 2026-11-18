@@ -46,7 +46,8 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         val r = dm.density * 12
         val line = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         cams.take(n).forEachIndexed { i, c ->
-            val tex = TextureView(ctx)
+            // (Opaque: the video covers the card, nothing behind it needs blending.)
+            val tex = TextureView(ctx).apply { isOpaque = true }
             val status = TextView(ctx).apply { setTextColor(0xB3FFFFFF.toInt()); textSize = 10f; text = "Connecting…" }
             val card = FrameLayout(ctx).apply {
                 setBackgroundColor(Color.BLACK)
@@ -90,7 +91,12 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         // allows window blur); elsewhere it is only dimmed.
         // (Not "bottom" inside apply {}: that would be the layout's own bottom edge.)
         val atBottom = bottom
+        // The dim behind is a plain view faded with its own opacity: dimming the window itself meant updating the
+        // window on every frame of the fade, which made opening and closing stutter.
+        val dim = View(ctx).apply { setBackgroundColor(0x73000000); alpha = 0f }
+        shade = dim
         val box = FrameLayout(ctx).apply {
+            addView(dim, FrameLayout.LayoutParams(-1, -1))
             addView(line, FrameLayout.LayoutParams(-2, -2, if (atBottom) Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL else Gravity.CENTER).apply {
                 if (atBottom) bottomMargin = (dm.heightPixels * 0.06f).toInt()
             })
@@ -98,77 +104,49 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         val blurOk = android.os.Build.VERSION.SDK_INT >= 31 && wm.isCrossWindowBlurEnabled
         val lp = WindowManager.LayoutParams(-1, -1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_DIM_BEHIND or (if (blurOk) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0),
+                (if (blurOk) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0),
             PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.FILL
-            dimAmount = 0f
-            if (blurOk) blurBehindRadius = 0
+            // Set once (not eased frame by frame: each change re-laid out the window).
+            if (blurOk) blurBehindRadius = (30 * dm.density).toInt()
         }
         runCatching { wm.addView(box, lp) }.onFailure { players.forEach { it.release() }; players.clear(); return }
         root = box; row = line; params = lp; this.blurOk = blurOk
         open.value = true
-        veil(1f, 180)
-        // Comes up from below (or fades in, in the middle).
-        if (bottom) { line.translationY = cardH * 0.5f; line.alpha = 0f; line.animate().translationY(0f).alpha(1f).setDuration(220).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start() }
-        else { line.alpha = 0f; line.scaleX = 0.94f; line.scaleY = 0.94f; line.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start() }
+        dim.animate().alpha(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator(1.5f)).start()
+        // Comes up from below (or fades in, in the middle), drawn as one layer while it moves.
+        if (bottom) { line.translationY = cardH * 0.5f; line.alpha = 0f; line.animate().translationY(0f).alpha(1f).setDuration(240).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).withLayer().start() }
+        else { line.alpha = 0f; line.scaleX = 0.94f; line.scaleY = 0.94f; line.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).withLayer().start() }
         handler.removeCallbacks(autoClose)
         if (seconds > 0) handler.postDelayed(autoClose, seconds * 1000L)
     }
 
     private var params: WindowManager.LayoutParams? = null
     private var blurOk = false
-    private var veilAnim: android.animation.ValueAnimator? = null
-
-    /** The blur and dim behind, eased to [to] (0..1) over [ms]. */
-    private fun veil(to: Float, ms: Long, then: (() -> Unit)? = null) {
-        val box = root ?: run { then?.invoke(); return }
-        val lp = params ?: return
-        val from = lp.dimAmount / 0.45f
-        veilAnim?.cancel()
-        veilAnim = android.animation.ValueAnimator.ofFloat(from, to).apply {
-            duration = ms
-            interpolator = android.view.animation.DecelerateInterpolator(1.5f)
-            addUpdateListener { a ->
-                val v = a.animatedValue as Float
-                lp.dimAmount = 0.45f * v
-                if (blurOk && android.os.Build.VERSION.SDK_INT >= 31) lp.blurBehindRadius = (60 * ctx.resources.displayMetrics.density / 2 * v).toInt()
-                runCatching { wm.updateViewLayout(box, lp) }
-            }
-            if (then != null) addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) { then() }
-            })
-            start()
-        }
-    }
+    private var shade: View? = null
 
     fun close() {
         handler.removeCallbacks(autoClose)
         val box = root ?: return
         val line = row
-        root = null; row = null
+        val dim = shade
+        root = null; row = null; shade = null
         open.value = false
-        // The blur goes with the cameras (the window stays until both are done).
+        // The videos stop first: four live videos fading out with the row was most of the work of each frame.
+        players.forEach { runCatching { it.playWhenReady = false } }
         val lp = params
-        if (lp != null) {
-            veilAnim?.cancel()
-            veilAnim = android.animation.ValueAnimator.ofFloat(lp.dimAmount / 0.45f, 0f).apply {
-                duration = 160
-                addUpdateListener { a ->
-                    val v = a.animatedValue as Float
-                    lp.dimAmount = 0.45f * v
-                    if (blurOk && android.os.Build.VERSION.SDK_INT >= 31) lp.blurBehindRadius = (60 * ctx.resources.displayMetrics.density / 2 * v).toInt()
-                    runCatching { wm.updateViewLayout(box, lp) }
-                }
-                start()
-            }
-        }
+        if (lp != null && blurOk && android.os.Build.VERSION.SDK_INT >= 31) { lp.blurBehindRadius = 0; runCatching { wm.updateViewLayout(box, lp) } }
         val done = Runnable {
-            veilAnim?.cancel(); params = null
-            players.forEach { runCatching { it.release() } }; players.clear()
+            params = null
             runCatching { wm.removeView(box) }
+            // Released one at a time after the window is gone (all at once held the screen for a moment).
+            val list = players.toList(); players.clear()
+            list.forEachIndexed { i, p -> handler.postDelayed({ runCatching { p.release() } }, 40L * i) }
         }
-        if (line != null && bottom) line.animate().translationY(line.height * 0.5f).alpha(0f).setDuration(180).withEndAction(done).start()
-        else if (line != null) line.animate().alpha(0f).setDuration(150).withEndAction(done).start()
+        dim?.animate()?.alpha(0f)?.setDuration(180)?.setInterpolator(android.view.animation.AccelerateInterpolator(1.2f))?.start()
+        val ease = android.view.animation.PathInterpolator(0.4f, 0f, 1f, 1f)
+        if (line != null && bottom) line.animate().translationY(line.height * 0.35f).alpha(0f).setDuration(200).setInterpolator(ease).withLayer().withEndAction(done).start()
+        else if (line != null) line.animate().alpha(0f).scaleX(0.96f).scaleY(0.96f).setDuration(180).setInterpolator(ease).withLayer().withEndAction(done).start()
         else done.run()
     }
 

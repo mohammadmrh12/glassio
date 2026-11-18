@@ -169,47 +169,59 @@ object VideoFrames {
  * to [w] × [h] with filtering, so on screen it is smooth with no blocks or steps (~2 ms on the TV).
  */
 private class Softener(val w: Int, val h: Int) {
-    private val sw = 160; private val sh = 90
-    private val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
-    private val small = android.graphics.Bitmap.createBitmap(sw, sh, android.graphics.Bitmap.Config.ARGB_8888)
-    private val mid = android.graphics.Bitmap.createBitmap(240, 135, android.graphics.Bitmap.Config.ARGB_8888)
-    private val px = IntArray(sw * sh)
-    private val tmp = IntArray(sw * sh)
-    private fun scale(src: android.graphics.Bitmap, dst: android.graphics.Bitmap) =
-        android.graphics.Canvas(dst).drawBitmap(src, null, android.graphics.Rect(0, 0, dst.width, dst.height), paint)
+    // A strong blur works at 160 px (cheap); a light one at 240 px with twice the radius (a little crisper): blurred
+    // by a pixel at 160 px and scaled up twelve times, its pixels showed as steps in the glass.
+    private val coarse = Pass(160, 90, 1)
+    private val fine = Pass(240, 136, 2)
+    fun make(src: android.graphics.Bitmap, out: android.graphics.Bitmap, fromLarge: Boolean = false) =
+        (if (VideoFrames.softRadius <= 2) fine else coarse).make(src, out)
 
-    fun make(src: android.graphics.Bitmap, out: android.graphics.Bitmap, fromLarge: Boolean = false) {
-        // Down in two filtered steps (one big step skips pixels and flickers), blurred, then up in two steps.
-        if (fromLarge) { scale(src, mid); scale(mid, small) } else { scale(src, mid); scale(mid, small) }
-        small.getPixels(px, 0, sw, 0, 0, sw, sh)
-        repeat(3) { blurH(px, tmp); blurV(tmp, px) }
-        small.setPixels(px, 0, sw, 0, 0, sw, sh)
-        scale(small, mid); scale(mid, out)
-    }
+    private class Pass(val sw: Int, val sh: Int, val k: Int) {
+        private val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+        private val small = android.graphics.Bitmap.createBitmap(sw, sh, android.graphics.Bitmap.Config.ARGB_8888)
+        private val mid = android.graphics.Bitmap.createBitmap(sw * 3 / 2, sh * 3 / 2, android.graphics.Bitmap.Config.ARGB_8888)
+        private val px = IntArray(sw * sh)
+        private val tmp = IntArray(sw * sh)
+        private fun scale(src: android.graphics.Bitmap, dst: android.graphics.Bitmap) =
+            android.graphics.Canvas(dst).drawBitmap(src, null, android.graphics.Rect(0, 0, dst.width, dst.height), paint)
 
-    private val r get() = VideoFrames.softRadius
-    private fun blurH(src: IntArray, dst: IntArray) {
-        val div = 2 * r + 1
-        for (y in 0 until sh) {
-            val row = y * sw
-            var sr = 0; var sg = 0; var sb = 0
-            for (i in -r..r) { val c = src[row + i.coerceIn(0, sw - 1)]; sr += (c shr 16) and 255; sg += (c shr 8) and 255; sb += c and 255 }
-            for (x in 0 until sw) {
-                dst[row + x] = (0xFF shl 24) or ((sr / div) shl 16) or ((sg / div) shl 8) or (sb / div)
-                val o = src[row + (x - r).coerceAtLeast(0)]; val n = src[row + (x + r + 1).coerceAtMost(sw - 1)]
-                sr += ((n shr 16) and 255) - ((o shr 16) and 255); sg += ((n shr 8) and 255) - ((o shr 8) and 255); sb += (n and 255) - (o and 255)
+        fun make(src: android.graphics.Bitmap, out: android.graphics.Bitmap) {
+            // Down in two filtered steps (one big step skips pixels and flickers), blurred, then up in two steps.
+            if (src.width >= mid.width * 3 / 2) { scale(src, mid); scale(mid, small) } else scale(src, small)
+            small.getPixels(px, 0, sw, 0, 0, sw, sh)
+            repeat(3) { blurH(px, tmp); blurV(tmp, px) }
+            small.setPixels(px, 0, sw, 0, 0, sw, sh)
+            if (out.width > mid.width) { scale(small, mid); scale(mid, out) } else scale(small, out)
+        }
+
+        private val r get() = VideoFrames.softRadius * k
+        // (Fixed-point multiply instead of a division per pixel, and the edges handled outside the inner loop: this
+        // runs ~10 times a second on every video background and screensaver; the plain version took a third of a core.)
+        private fun blurH(src: IntArray, dst: IntArray) {
+            val r = r; val mul = (1 shl 16) / (2 * r + 1); val last = sw - 1
+            for (y in 0 until sh) {
+                val row = y * sw
+                var sr = 0; var sg = 0; var sb = 0
+                for (i in -r..r) { val c = src[row + (if (i < 0) 0 else if (i > last) last else i)]; sr += (c shr 16) and 255; sg += (c shr 8) and 255; sb += c and 255 }
+                for (x in 0 until sw) {
+                    dst[row + x] = -0x1000000 or (((sr * mul) ushr 16) shl 16) or (((sg * mul) ushr 16) shl 8) or ((sb * mul) ushr 16)
+                    val oi = x - r; val ni = x + r + 1
+                    val o = src[row + (if (oi < 0) 0 else oi)]; val n = src[row + (if (ni > last) last else ni)]
+                    sr += ((n shr 16) and 255) - ((o shr 16) and 255); sg += ((n shr 8) and 255) - ((o shr 8) and 255); sb += (n and 255) - (o and 255)
+                }
             }
         }
-    }
-    private fun blurV(src: IntArray, dst: IntArray) {
-        val div = 2 * r + 1
-        for (x in 0 until sw) {
-            var sr = 0; var sg = 0; var sb = 0
-            for (i in -r..r) { val c = src[i.coerceIn(0, sh - 1) * sw + x]; sr += (c shr 16) and 255; sg += (c shr 8) and 255; sb += c and 255 }
-            for (y in 0 until sh) {
-                dst[y * sw + x] = (0xFF shl 24) or ((sr / div) shl 16) or ((sg / div) shl 8) or (sb / div)
-                val o = src[(y - r).coerceAtLeast(0) * sw + x]; val n = src[(y + r + 1).coerceAtMost(sh - 1) * sw + x]
-                sr += ((n shr 16) and 255) - ((o shr 16) and 255); sg += ((n shr 8) and 255) - ((o shr 8) and 255); sb += (n and 255) - (o and 255)
+        private fun blurV(src: IntArray, dst: IntArray) {
+            val r = r; val mul = (1 shl 16) / (2 * r + 1); val last = sh - 1
+            for (x in 0 until sw) {
+                var sr = 0; var sg = 0; var sb = 0
+                for (i in -r..r) { val c = src[(if (i < 0) 0 else if (i > last) last else i) * sw + x]; sr += (c shr 16) and 255; sg += (c shr 8) and 255; sb += c and 255 }
+                for (y in 0 until sh) {
+                    dst[y * sw + x] = -0x1000000 or (((sr * mul) ushr 16) shl 16) or (((sg * mul) ushr 16) shl 8) or ((sb * mul) ushr 16)
+                    val oi = y - r; val ni = y + r + 1
+                    val o = src[(if (oi < 0) 0 else oi) * sw + x]; val n = src[(if (ni > last) last else ni) * sw + x]
+                    sr += ((n shr 16) and 255) - ((o shr 16) and 255); sg += ((n shr 8) and 255) - ((o shr 8) and 255); sb += (n and 255) - (o and 255)
+                }
             }
         }
     }
@@ -324,7 +336,6 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     androidx.compose.runtime.LaunchedEffect(ready, playing, view) {
         val v = view ?: return@LaunchedEffect
         if (!ready || !playing) return@LaunchedEffect
-        val myGen = VideoFrames.gen
         if (rendered) VideoFrames.showing.value = true
         // One copy at a time, into buffers used in turn: a new copy never lands in the picture on screen
         // (that showed as flashes in the glass).
@@ -336,6 +347,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
         val smallBufs = Array(2) { android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888) }
         val softBufs = Array(4) { android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888) }
         val soften = Softener(320, 180)
+        val lastSoft = longArrayOf(0L)
         // The copies finish on their own thread: on the main thread they held up the home screen while you moved.
         val worker = android.os.HandlerThread("glass-video-copy").apply { start() }
         val h = android.os.Handler(worker.looper)
@@ -345,6 +357,11 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                 // Frosted glass only: 10 a second is plenty for a blurred picture (the clear glass needs 15).
                 kotlinx.coroutines.delay(if (VideoFrames.wantSharp) VideoFrames.interval else 100L)
                 if (!v.holder.surface.isValid || !rendered) continue
+                // (Read each time: the screensaver's own copies, ended, cleared the frames and moved on their number,
+                // and this background's copies were then dropped for good: the glass stood still after the
+                // screensaver until the next video. This video is still the background while this runs.)
+                val myGen = VideoFrames.gen
+                if (!VideoFrames.showing.value) VideoFrames.showing.value = true
                 if (!inFlight.compareAndSet(false, true)) continue
                 val i = k++ % 4
                 val wantSharp = VideoFrames.wantSharp; val wantSoft = VideoFrames.wantSoft
@@ -353,8 +370,8 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                     android.view.PixelCopy.request(v, dst, { r ->
                         try {
                             if (r != android.view.PixelCopy.SUCCESS || myGen != VideoFrames.gen) return@request
-                            val soft = if (wantSoft || !wantSharp) softBufs[i].also { soften.make(dst, it, fromLarge = wantSharp) } else null
-                            VideoFrames.publish(myGen, if (wantSharp) dst.asImageBitmap() else null, soft?.asImageBitmap())
+                            val soft = softCopy(soften, softBufs[i], dst, wantSharp, wantSoft, lastSoft)
+                            VideoFrames.publish(myGen, if (wantSharp) dst.asImageBitmap() else null, soft)
                         } finally { inFlight.set(false) }
                     }, h)
                 }.onFailure { inFlight.set(false) }
@@ -406,16 +423,18 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
 
 private object Shades {
     private var img: androidx.compose.ui.graphics.ImageBitmap? = null
-    fun get(): androidx.compose.ui.graphics.ImageBitmap = img ?: run {
+    private var imgNoSide: androidx.compose.ui.graphics.ImageBitmap? = null
+    fun get(): androidx.compose.ui.graphics.ImageBitmap = if (Scrims.sideOff) (imgNoSide ?: paint(false).also { imgNoSide = it }) else (img ?: paint(true).also { img = it })
+    private fun paint(side: Boolean): androidx.compose.ui.graphics.ImageBitmap = run {
         val w = 480; val h = 270
         val b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
         val c = android.graphics.Canvas(b)
         val p = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG)
         p.shader = android.graphics.LinearGradient(0f, 0f, w * 0.62f, 0f, 0xB0000000.toInt(), 0, android.graphics.Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w * 0.62f, h.toFloat(), p)
+        if (side) c.drawRect(0f, 0f, w * 0.62f, h.toFloat(), p)
         p.shader = android.graphics.LinearGradient(0f, h * 0.58f, 0f, h.toFloat(), 0, 0xCC000000.toInt(), android.graphics.Shader.TileMode.CLAMP)
         c.drawRect(0f, h * 0.58f, w.toFloat(), h.toFloat(), p)
-        b.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap().also { img = it }
+        b.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap()
     }
 }
 
@@ -428,12 +447,12 @@ private object Shades {
 class FrameRegion(val src: android.graphics.Rect?, val dst: android.graphics.RectF)
 
 suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean, region: () -> FrameRegion? = { null }) {
-    val myGen = VideoFrames.gen
     val inFlight = java.util.concurrent.atomic.AtomicBoolean(false)
     val sharpBufs = Array(4) { android.graphics.Bitmap.createBitmap(720, 405, android.graphics.Bitmap.Config.ARGB_8888) }
     val smallBufs = Array(2) { android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888) }
     val softBufs = Array(4) { android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888) }
     val soften = Softener(320, 180)
+    val lastSoft = longArrayOf(0L)
     val worker = android.os.HandlerThread("glass-trailer-copy").apply { start() }
     val h = android.os.Handler(worker.looper)
     var k = 0
@@ -441,6 +460,10 @@ suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean
         while (true) {
             kotlinx.coroutines.delay(if (VideoFrames.wantSharp) VideoFrames.interval else 100L)
             if (!v.holder.surface.isValid || !rendered()) continue
+            // (Read each time, like the video background: frames cleared by something else (a video background
+            // going, the screensaver ending) moved the number on, and every copy after it was dropped: the glass froze.)
+            val myGen = VideoFrames.gen
+            if (!VideoFrames.showing.value) VideoFrames.showing.value = true
             if (!inFlight.compareAndSet(false, true)) continue
             val i = k++ % 4
             val wantSharp = VideoFrames.wantSharp; val wantSoft = VideoFrames.wantSoft
@@ -456,8 +479,8 @@ suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean
                             drawColor(android.graphics.Color.BLACK)
                             drawBitmap(into, null, android.graphics.RectF(reg.dst.left * dst.width, reg.dst.top * dst.height, reg.dst.right * dst.width, reg.dst.bottom * dst.height), placePaint)
                         }
-                        val soft = if (wantSoft || !wantSharp) softBufs[i].also { soften.make(dst, it, fromLarge = wantSharp) } else null
-                        VideoFrames.publish(myGen, if (wantSharp) dst.asImageBitmap() else null, soft?.asImageBitmap())
+                        val soft = softCopy(soften, softBufs[i], dst, wantSharp, wantSoft, lastSoft)
+                        VideoFrames.publish(myGen, if (wantSharp) dst.asImageBitmap() else null, soft)
                     }
                 } finally { inFlight.set(false) }
             }
@@ -468,6 +491,21 @@ suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean
             }.onFailure { inFlight.set(false) }
         }
     } finally { worker.quitSafely() }
+}
+
+/**
+ * The frosted copy of [dst], at most ~10 a second: with the sharp copies coming 15-30 a second (the clock, clear
+ * glass, trailers) it was made for every one of them, and a blurred picture needs no more. In between, the last one
+ * stays. Null when no frosted glass shows.
+ */
+private fun softCopy(soften: Softener, buf: android.graphics.Bitmap, dst: android.graphics.Bitmap, wantSharp: Boolean, wantSoft: Boolean,
+                     last: LongArray): androidx.compose.ui.graphics.ImageBitmap? {
+    if (!wantSoft && wantSharp) return null
+    val now = android.os.SystemClock.uptimeMillis()
+    if (wantSharp && now - last[0] < 95) return VideoFrames.soft.value
+    last[0] = now
+    soften.make(dst, buf, fromLarge = wantSharp)
+    return buf.asImageBitmap()
 }
 
 private val placePaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)

@@ -397,8 +397,10 @@ private class PivotScroll(private val grid: androidx.compose.foundation.lazy.gri
     // Apple TV motion: one long, soft glide with no bounce. A new press while it's still moving keeps its speed,
     // so holding Down is one smooth run instead of a stop-start for every row (the default spring is short and
     // stops hard).
-    private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 240f, visibilityThreshold = 0.5f)
-    private val quick = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 650f, visibilityThreshold = 0.5f)
+    // (Stiffer than it was: at 240 each row took about 0.7 s to settle and moving up through the Library to the dock
+    // felt like it paused at every row.)
+    private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 420f, visibilityThreshold = 0.5f)
+    private val quick = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 750f, visibilityThreshold = 0.5f)
     @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
     override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float>
         get() = if (LibPace.held) quick else soft

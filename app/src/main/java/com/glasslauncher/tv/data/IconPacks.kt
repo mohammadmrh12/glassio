@@ -25,7 +25,13 @@ class IconPacks(private val ctx: Context) {
     )
 
     private class Loaded(val pkg: String, val res: Resources, val byComponent: Map<String, String>, val byPackage: Map<String, String>)
-    @Volatile private var loaded: Loaded? = null
+    // Every pack read is kept (a few): with several packs installed, the icon picker's tiles came from different packs
+    // in turn, and the one pack kept was read again (its whole list of apps) for nearly every tile — "Loading icons…"
+    // went on for minutes, or for ever.
+    private val loadedPacks = object : LinkedHashMap<String, Loaded>(8, 0.75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Loaded>?) = size > 10
+    }
+    private val failedPacks = HashSet<String>()
 
     fun installed(): List<IconPackInfo> {
         val out = linkedMapOf<String, IconPackInfo>()
@@ -40,13 +46,16 @@ class IconPacks(private val ctx: Context) {
 
     fun label(pkg: String): String = installed().firstOrNull { it.pkg == pkg }?.label ?: pkg
 
-    @Synchronized
     private fun ensure(pack: String): Loaded? {
-        loaded?.takeIf { it.pkg == pack }?.let { return it }
+        synchronized(loadedPacks) { loadedPacks[pack]?.let { return it }; if (pack in failedPacks) return null }
+        // (Read outside the lock: one big pack being read doesn't hold up the others.)
         val l = runCatching { parse(pack) }.getOrNull()
-        loaded = l
+        synchronized(loadedPacks) { if (l != null) loadedPacks[pack] = l else failedPacks += pack }
         return l
     }
+
+    /** A pack installed, updated or removed: read again. */
+    fun forget() { synchronized(loadedPacks) { loadedPacks.clear(); failedPacks.clear() }; synchronized(this) { namesCache.clear() } }
 
     /** Opens res/xml/<name> (compiled, what most packs ship) and assets/<name>.xml (often a template copy). */
     private fun parsers(pctx: Context, pack: String, name: String): List<Pair<XmlPullParser, InputStream?>> {
@@ -152,16 +161,25 @@ class IconPacks(private val ctx: Context) {
     }
 
     /** Icons in [pack] that fit this app: its mapped icon first, then icons whose name contains the app's name. */
+    /** The icons [pack] maps to this app itself (exact matches). */
+    fun mapped(pack: String, c: ComponentName): List<String> {
+        val l = ensure(pack) ?: return emptyList()
+        return listOfNotNull(l.byComponent["${c.packageName}/${c.className}"], l.byPackage[c.packageName]).distinct()
+    }
+
     fun suggestions(pack: String, c: ComponentName, label: String): List<String> {
         val l = ensure(pack) ?: return emptyList()
         val out = LinkedHashSet<String>()
         l.byComponent["${c.packageName}/${c.className}"]?.let(out::add)
         l.byPackage[c.packageName]?.let(out::add)
         val stop = setOf("com", "android", "google", "app", "apps", "tv", "the", "and", "leanback", "atve", "androidtv", "mobile")
-        val tokens = (label.lowercase().split(Regex("[^a-z0-9]+")) + c.packageName.lowercase().split('.'))
+        // (Not the package's first part: "space" of space.nuvio… matched every "space" icon in a big pack.)
+        val tokens = (label.lowercase().split(Regex("[^a-z0-9]+")) + c.packageName.lowercase().split('.').drop(1))
             .filter { it.length >= 3 && it !in stop }.distinct()
+        // (The pack's mapped icons only: every picture in a pack of 15,000 icons took far too long for suggestions.
+        // Search and the pack itself still show them all.)
         if (tokens.isNotEmpty()) {
-            drawableNames(pack).asSequence()
+            (l.byComponent.values.asSequence() + l.byPackage.values.asSequence()).distinct()
                 .filter { n -> val k = n.lowercase().replace("_", ""); tokens.any { k.contains(it) } }
                 .take(24).forEach { out += it }
         }

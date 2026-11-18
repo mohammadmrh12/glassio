@@ -96,9 +96,23 @@ object NuvioLaunch {
         return Intent(Intent.ACTION_VIEW, uri).setPackage(pkg).addFlags(flags)
     }
 
+    /** Where a title in Continue Watching was watched ("Nuvio Legacy", "Nuvio", "Stremio", "Trakt" …), by its key; set by the app. */
+    @Volatile var cwSource: (String) -> String? = { null }
+
+    /** The app a Continue Watching title opens in when it should open where it was watched; null: the usual one. */
+    fun sourceTarget(ctx: Context, source: String?): String? = when (source) {
+        "Nuvio Legacy" -> "legacy".takeIf { installed(ctx, LEGACY_PKG) }
+        // The Nuvio account: the official app or a fork that syncs with it, then Legacy.
+        "Nuvio" -> listOf("official", "arc", "reshaped", "legacy").firstOrNull { installed(ctx, TARGETS.getValue(it)) }
+        "Stremio" -> "stremio".takeIf { installed(ctx, STREMIO_PKG) }
+        else -> null  // Trakt, Simkl: no app of their own
+    }
+
     fun open(ctx: Context, s: Settings, http: Http, item: HeroItem) {
+        // Continue Watching (Settings → Continue Watching → Open where it was watched): that app.
+        val own = if (s.cwOpenSource) sourceTarget(ctx, cwSource(item.key)) else null
         try {
-            ctx.startActivity(intent(ctx, s, item.type, item.id))
+            ctx.startActivity(if (own != null) intentFor(own, item.type, item.id) else intent(ctx, s, item.type, item.id))
         } catch (e: Exception) {
             Glog.w("Open ${item.type} ${item.id} in ${packageName(ctx, s)}", e)
             Toast.makeText(ctx, "${NAMES[resolve(ctx, s)]} is not installed or can't open this title", Toast.LENGTH_LONG).show()

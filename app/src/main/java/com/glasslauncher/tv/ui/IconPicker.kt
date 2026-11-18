@@ -234,9 +234,28 @@ private fun FileGrid(s: Float, files: List<java.io.File>, labelled: Boolean, onP
 
 @Composable
 private fun suggested(app: GlassApp, e: AppEntry): List<PackIcon>? {
+    // Each pack's suggestions show as soon as that pack is read (all at once, the slowest pack held up the rest), in
+    // the packs' order; a pack that takes too long is left out.
     val v by produceState<List<PackIcon>?>(null, e.pkg) {
-        value = withContext(Dispatchers.IO) {
-            app.packs.installed().flatMap { p -> app.packs.suggestions(p.pkg, e.component, e.label).map { PackIcon(p.pkg, it) } }
+        val packs = withContext(Dispatchers.IO) { app.packs.installed() }
+        if (packs.isEmpty()) { value = emptyList(); return@produceState }
+        val got = arrayOfNulls<List<PackIcon>>(packs.size)
+        kotlinx.coroutines.coroutineScope {
+            packs.forEachIndexed { i, p ->
+                launch(Dispatchers.IO) {
+                    got[i] = kotlinx.coroutines.withTimeoutOrNull(15_000) {
+                        kotlinx.coroutines.runInterruptible { app.packs.suggestions(p.pkg, e.component, e.label).map { PackIcon(p.pkg, it) } }
+                    } ?: emptyList()
+                    val shown = got.filterNotNull().flatten()
+                    // (Empty until every pack answered: "No icon matches" only once that is sure.) Every pack's own icon for
+                    // this app first, then the ones that only match by name.
+                    if (shown.isNotEmpty() || got.all { it != null }) {
+                        val all = got.flatMap { it.orEmpty() }
+                        val exact = packs.flatMap { pk -> app.packs.mapped(pk.pkg, e.component).map { PackIcon(pk.pkg, it) } }.filter { it in all }
+                        value = (exact + all).distinct()
+                    }
+                }
+            }
         }
     }
     return v

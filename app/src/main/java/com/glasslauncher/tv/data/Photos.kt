@@ -20,7 +20,7 @@ import java.net.URLEncoder
 object Photos {
     data class Photo(val url: String, val title: String, val credit: String)
 
-    val SOURCES = listOf("bing" to "Bing photo of the day", "commons" to "Wikimedia (featured, 4K)", "unsplash" to "Unsplash", "mine" to "My pictures")
+    val SOURCES = listOf("bing" to "Bing photo of the day", "commons" to "Wikimedia (featured, 4K)", "unsplash" to "Unsplash", "reddit" to "Subreddit wallpapers", "mine" to "My pictures")
     val TOPICS = listOf("nature", "mountains", "forest", "waterfalls", "city", "architecture", "space")
     private const val UA = "Glassio/2.0 (Google TV launcher; https://github.com/mohammadmrh12/glassio)"
 
@@ -56,7 +56,7 @@ object Photos {
         while (true) {
             val st = app.settings
             if (st.bgMode != "photos") { Thread.sleep(2_000); continue }
-            val key = listOf(st.photoSource, st.photoTopic, st.unsplashKey.isNotBlank(), st.photoShuffle).joinToString("|")
+            val key = listOf(st.photoSource, st.photoTopic, st.unsplashKey.isNotBlank(), st.photoShuffle, st.photoSubreddit, st.redditAppId.isNotBlank()).joinToString("|")
             val now = System.currentTimeMillis()
             // A setting changed (not just the first list after Glassio started): a photo from the new choice now.
             val changed = key != listKey && listKey.isNotEmpty()
@@ -159,6 +159,7 @@ object Photos {
                 .also { if (it.isEmpty()) error("No pictures in the backgrounds folder yet") }
             "commons", "wallhaven" -> commons(st.photoTopic)
             "unsplash" -> unsplash(app, st.photoTopic, st.unsplashKey)
+            "reddit" -> reddit(st.photoSubreddit, st.redditAppId)
             else -> bing(app)
         }
     }
@@ -214,6 +215,59 @@ object Photos {
         }
         if (out.isEmpty()) error("Wikimedia found nothing for \"$topic\"")
         return out
+    }
+
+    /**
+     * The month's top wallpapers of one or more subreddits (comma separated): pictures only, landscape and at least
+     * 1920 px wide, nothing marked NSFW. Reddit lets apps in only with an app id of their own (free, reddit.com/prefs/apps,
+     * "installed app"); without one the public pages are tried, which Reddit often refuses.
+     */
+    private fun reddit(subs: String, appId: String): List<Photo> {
+        val names = subs.split(',', ' ', '+').map { it.trim().removePrefix("r/").removePrefix("/r/") }.filter { it.matches(Regex("[A-Za-z0-9_]{2,21}")) }
+        require(names.isNotEmpty()) { "Add a subreddit in Settings (for example EarthPorn)" }
+        val token = if (appId.isNotBlank()) redditToken(appId) else null
+        val out = ArrayList<Photo>()
+        for (sub in names) runCatching {
+            val url = if (token != null) "https://oauth.reddit.com/r/$sub/top?t=month&limit=100&raw_json=1" else "https://www.reddit.com/r/$sub/top.json?t=month&limit=100&raw_json=1"
+            val c = URL(url).openConnection() as HttpURLConnection
+            c.connectTimeout = 10_000; c.readTimeout = 20_000
+            c.setRequestProperty("User-Agent", "android:com.glasslauncher.tv:v3 (Glassio wallpapers)")
+            if (token != null) c.setRequestProperty("Authorization", "bearer $token")
+            val body = try { check(c.responseCode in 200..299) { "HTTP ${c.responseCode}" }; c.inputStream.bufferedReader().use { it.readText() } } finally { c.disconnect() }
+            check(body.trimStart().startsWith("{")) { "Reddit refused (add a Reddit app id in Settings)" }
+            val kids = JSONObject(body).optJSONObject("data")?.optJSONArray("children") ?: JSONArray()
+            for (k in 0 until kids.length()) {
+                val d = kids.optJSONObject(k)?.optJSONObject("data") ?: continue
+                if (d.optBoolean("over_18") || d.optBoolean("spoiler")) continue
+                val src = d.optJSONObject("preview")?.optJSONArray("images")?.optJSONObject(0)?.optJSONObject("source")
+                val w = src?.optInt("width") ?: 0; val h = src?.optInt("height") ?: 0
+                if (w < 1920 || w < h * 1.25f) continue
+                val link = d.optString("url").takeIf { Regex("\\.(jpe?g|png|webp)(\\?.*)?$", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+                    ?: src?.optString("url")?.takeIf { it.startsWith("http") } ?: continue
+                val title = d.optString("title").replace(Regex("\\s*[\\[(]\\s*\\d{3,5}\\s*[x×X]\\s*\\d{3,5}\\s*[\\])]"), "").trim().take(90)
+                out += Photo(link, title, "u/${d.optString("author")} · r/$sub")
+            }
+        }.onFailure { if (out.isEmpty() && sub == names.last()) throw it }
+        if (out.isEmpty()) error("No landscape wallpapers in r/${names.joinToString(", r/")} this month")
+        return out
+    }
+
+    @Volatile private var redditTok: Pair<String, Long>? = null
+    /** An app-only Reddit token for an installed app's id (no account needed). */
+    private fun redditToken(appId: String): String {
+        redditTok?.takeIf { it.second > System.currentTimeMillis() }?.let { return it.first }
+        val c = URL("https://www.reddit.com/api/v1/access_token").openConnection() as HttpURLConnection
+        c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 10_000; c.readTimeout = 20_000
+        c.setRequestProperty("User-Agent", "android:com.glasslauncher.tv:v3 (Glassio wallpapers)")
+        c.setRequestProperty("Authorization", "Basic " + android.util.Base64.encodeToString("$appId:".toByteArray(), android.util.Base64.NO_WRAP))
+        c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+        val device = java.util.UUID.randomUUID().toString().replace("-", "").take(30)
+        c.outputStream.use { it.write("grant_type=${enc("https://oauth.reddit.com/grants/installed_client")}&device_id=$device".toByteArray()) }
+        val body = try { check(c.responseCode in 200..299) { "Reddit refused the app id (HTTP ${c.responseCode})" }; c.inputStream.bufferedReader().use { it.readText() } } finally { c.disconnect() }
+        val o = JSONObject(body)
+        val t = o.optString("access_token").ifBlank { error("Reddit refused the app id") }
+        redditTok = t to System.currentTimeMillis() + (o.optLong("expires_in", 3600) - 120) * 1000
+        return t
     }
 
     /** Unsplash: 30 landscape photos on [topic] at 4K, with the place and the photographer. */

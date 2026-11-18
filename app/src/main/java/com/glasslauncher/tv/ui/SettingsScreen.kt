@@ -121,7 +121,9 @@ private fun openSystem(ctx: Context, action: String) {
 fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
     // Opened plainly (the menu, the settings button): back where you were last time, the same page and row.
     // Opened for a particular page (a link, Manage from phone): that page.
-    val resume = askedCat == 0 && (app.settings.settingsLastCat > 0 || app.settings.settingsLastRow >= 0)
+    // (Not back to About: it has no rows to come back to, and Settings kept opening on it.)
+    val resume = askedCat == 0 && (app.settings.settingsLastCat > 0 || app.settings.settingsLastRow >= 0) &&
+        app.settings.settingsLastCat != CATEGORY_ORDER.indexOf("About")
     val initialCat = if (resume) app.settings.settingsLastCat else askedCat
     val s = LocalScale.current
     val ctx = LocalContext.current
@@ -129,6 +131,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val traktCode by app.cw.traktCode.collectAsState()
     val syncStatus by app.sync.status.collectAsState()
+    val packState by com.glasslauncher.tv.data.IconPackStore.status.collectAsState()
     val nuvioUrl by app.library.nuvioUrl.collectAsState()
     // The QR dialog closes when this turns null (sign-in finished); the Nuvio code is in the QR itself.
     val nuvioShort = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
@@ -383,6 +386,15 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 }, { st.artChoice = cycle(listOf("main", "second", "best", "addon"), st.artChoice, it) }),
                 Note("One title: on the carousel hold OK (or press Menu) to switch to its next picture. Glassio remembers it."),
                 Act("Reset pictures picked per title", "", "") { st.clearArtPicks(); toast(ctx, "Every title is back to the Artwork setting") },
+                // Hold OK on Play → Hide this title. OK here lists them: picking one brings it back.
+                st.hiddenTitles().let { hid ->
+                    Act("Hidden titles", "Hold OK on Play → Hide this title. Pick one here to show it again", if (hid.isEmpty()) "None" else "${hid.size}") {
+                        if (hid.isEmpty()) { toast(ctx, "No hidden titles"); return@Act }
+                        dialog = MenuDialog("Hidden titles · pick one to show it again",
+                            listOf("Show all again (${hid.size})" to { st.clearHidden(); toast(ctx, "Every hidden title is back") }) +
+                            hid.asReversed().map { (k, n) -> (n.ifBlank { k }) to { st.setHidden(k, n, false); toast(ctx, "Back on the carousel · ${n.ifBlank { k }}") } })
+                    }
+                },
                 Act("Reload carousel now", "") { io { app.catalogs.refresh(); app.catalogs.status.value } },
             )
         },
@@ -423,6 +435,13 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     if (st.unsplashKey.isBlank()) "Not set" else "Saved") {
                     dialog = TextEntry("Unsplash Access Key", st.unsplashKey, "Access Key") { v -> st.unsplashKey = v }
                 },
+                Act("Subreddits", "Subreddit wallpapers: one or more, comma separated (EarthPorn, wallpapers, SkyPorn…)", st.photoSubreddit.ifBlank { "Not set" }) {
+                    dialog = TextEntry("Subreddits", st.photoSubreddit, "EarthPorn, wallpapers") { v -> st.photoSubreddit = v; st.photoSource = "reddit"; st.bgMode = "photos" }
+                },
+                Act("Reddit app id", "Reddit lets apps in only with an id: reddit.com/prefs/apps → create app → \"installed app\" (any name, redirect http://localhost) → the id under its name",
+                    if (st.redditAppId.isBlank()) "Not set" else "Saved") {
+                    dialog = TextEntry("Reddit app id", st.redditAppId, "the id under the app's name") { v -> st.redditAppId = v }
+                },
                 Adjust("Change every", "Photos, and your pictures with shuffle", {
                     when (val e = st.photoEvery) { 0 -> "Never"; in 1..59 -> "$e s"; in 60..3599 -> "${e / 60} min"; else -> "${e / 3600} h" }
                 }, { st.photoEvery = cycle(listOf(60, 300, 600, 1800, 3600, 21600, 0), st.photoEvery, it) }),
@@ -435,6 +454,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     com.glasslauncher.tv.data.Photos.next(); toast(ctx, "Next photo")
                 },
                 Note("Over your background (picture, photos, video, screensaver)"),
+                Toggle("Left shade", "The dark shade along the left side (it keeps the clock and text readable on bright pictures)", { !st.sideShadeOff }, { st.sideShadeOff = !it }),
                 Toggle("Large clock", "In the middle, like a phone's lock screen", { st.bgClock }, { st.bgClock = it }),
                 Adjust("Large clock style", "With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)", {
                     when (st.bgClockStyle) { "white" -> "White"; "still" -> "Still Glass"; else -> "With the theme" }
@@ -482,6 +502,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Toggle("Show Apps folder", "The folder with all your apps, in the dock. Hidden apps stay listed below", { st.showFolder }, { st.showFolder = it }))
                 add(Adjust("Dock size", "Smaller makes the dock and its icons narrower", { pct(st.dockScale) }, { st.dockScale = ((st.dockScale * 20).roundToInt() + it) / 20f }))
                 add(Toggle("Dock fits its apps", "With fewer apps than a full row, the dock shrinks around them", { st.dockFit }, { st.dockFit = it }))
+                add(Adjust("Apps in a row", "More apps make the icons smaller", { "${st.dockColumns}" }, { st.dockColumns += it }))
+                add(Toggle("Dock from edge to edge", "One strip with every app: the selected app stays in the middle and the strip moves", { st.dockStrip }, { st.dockStrip = it }))
+                add(Toggle("Dock glass", "Off: only the icons, no glass behind them", { !st.dockGlassOff }, { st.dockGlassOff = !it }))
                 add(Toggle("Hide the dock", "It stays below the screen until you go down to it (the dots go down too)", { st.dockHide }, { st.dockHide = it }))
                 add(Adjust("Dock position", "With your own picture, video or screensaver background",
                     { when (st.dockPos) { "center" -> "Middle"; "left" -> "Left (column)"; else -> "Bottom" } },
@@ -514,6 +537,21 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Note("Change one icon: on the home screen hold OK on the app → Change icon. Pick from an icon pack, the Apple TV icons, a photo on the TV, a link to a PNG, or send one from your phone (Manage from phone)."))
                 add(Note("Icon packs: install any Android TV / Projectivy icon pack from Google Play, then choose it above. Every app takes the pack's icon; you can still change single apps."))
                 add(Act("Find icon packs on Google Play", "Projectivy / Android TV icon packs", "") { openPlay(ctx, null, "projectivy icon pack") })
+                // Packs installed straight from their own pages (GitHub, F-Droid): Install, then pick it under Icon pack above.
+                add(Note("Install an icon pack"))
+                com.glasslauncher.tv.data.IconPackStore.PACKS.forEach { p ->
+                    val have = com.glasslauncher.tv.data.IconPackStore.installed(ctx, p.pkg)
+                    val doing = packState[p.pkg]
+                    add(Act(p.name, doing ?: p.about, if (doing != null && !doing.startsWith("Failed")) "…" else if (have) "Update" else "Install", ok = if (have) true else null) {
+                        scope.launch(Dispatchers.IO) {
+                            com.glasslauncher.tv.data.IconPackStore.install(ctx, p) { f -> app.updater.installWithPackageInstaller(f, own = false) }
+                            app.packs.forget()
+                            SettingsCache.packs.value = runCatching { app.packs.installed() }.getOrDefault(SettingsCache.packs.value.orEmpty())
+                            if (com.glasslauncher.tv.data.IconPackStore.installed(ctx, p.pkg)) toast(ctx, "${p.name} installed: choose it under Icon pack")
+                            tvRev.intValue++
+                        }
+                    })
+                }
                 add(Note("Many icons at once: copy <package>.png files (e.g. com.netflix.ninja.png) into the icon folder below, then Import."))
                 add(Note("On the home screen, hold OK on an app for App info, Move, Change icon and Hide."))
                 add(Note("Here: OK picks an app up, ◀ ▶ moves it, OK puts it down. Hold OK (or Menu) for its options."))
@@ -670,6 +708,20 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Note("TV inputs"))
                 add(Toggle("Inputs in the dock", "Each input as an icon: move, hide and change its icon like an app",
                     { st.inputsDock }, { st.inputsDock = it; scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx); app.apps.reload() } }))
+                add(Toggle("Inputs icon in the dock", "One Inputs icon (move, hide and change it like an app): its inputs show above the dock, like the Music icon's music apps. Hold OK on an input there: its icon, order, hide",
+                    { st.inputsIcon }, { st.inputsIcon = it; scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx); app.apps.reload() } }))
+                if (st.inputsIcon) {
+                    val ins = com.glasslauncher.tv.data.Inputs.forPage(st, withHidden = true)
+                    ins.forEach { inp ->
+                        val id = com.glasslauncher.tv.data.Inputs.PREFIX + inp.id
+                        add(Toggle("  · ${inp.label}", "On the Inputs icon's page (hold OK on it there to change its icon)", { id !in st.inputsHidden }, { on ->
+                            st.inputsHidden = if (on) st.inputsHidden - id else st.inputsHidden + id
+                        }))
+                    }
+                    if (ins.size > 1) add(Act("  · Order", ins.joinToString(" · ") { it.label }, "Change") {
+                        dialog = ReorderDialog("Inputs, first on the left", ins.map { (com.glasslauncher.tv.data.Inputs.PREFIX + it.id) to it.label }) { st.inputsOrder = it }
+                    })
+                }
                 add(Adjust("Inputs open in", "Glassio: shows the input itself (for TVs on plain Android, where the TV's app doesn't open it)",
                     { when (st.inputPlayer) { "tv" -> "The TV's app"; "glassio" -> "Glassio"; else -> "Automatic" } },
                     { st.inputPlayer = cycle(listOf("auto", "tv", "glassio"), st.inputPlayer, it) }))
@@ -719,6 +771,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 if (st.continueMode == "first") add(Adjust("Slides at the start", "How many titles in progress open the carousel", {
                     if (st.cwLead <= 0) "All" else "${st.cwLead}"
                 }, { st.cwLead = cycle(listOf(1, 2, 3, 4, 5, 0), st.cwLead, it) }))
+                add(Toggle("Open where it was watched", "A title here opens in its own app: Nuvio Legacy, Nuvio or Stremio (Trakt and Simkl titles: Open titles in)",
+                    { st.cwOpenSource }, { st.cwOpenSource = it }))
                 add(Toggle("Open on what I just watched", "Back from Nuvio, the carousel shows that title first", { st.continueJump }, { st.continueJump = it }))
                 add(Toggle("Progress bar", "Shows Continue · S1 · E3 · 42% under the title", { st.cwProgress }, { st.cwProgress = it }))
                 add(Toggle("Next up", "After you finish an episode, the next one waits here (from the Nuvio account and what Glassio saw)", { st.cwNextUp }, { st.cwNextUp = it; app.cw.pollNow() }))
@@ -1203,6 +1257,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         add(Adjust("  · Lower", "", { "${st.islandOffset.roundToInt()}" }, { st.islandOffset = st.islandOffset + it * 4f }))
                         add(Toggle("  · Artwork", "", { st.islandArt }, { st.islandArt = it }))
                         add(Toggle("  · Song and artist", "", { st.islandTitle }, { st.islandTitle = it }))
+                        if (st.islandTitle) add(Toggle("  · Scroll long names", "A song name too long for the island scrolls by (off: shortened with …)", { st.islandMarquee }, { st.islandMarquee = it }))
                         add(Toggle("  · Progress bar", "", { st.islandProgress }, { st.islandProgress = it }))
                         add(Adjust("  · Bars colour", "", { if (st.islandBars == "white") "White" else "From the artwork" }, { st.islandBars = cycle(listOf("art", "white"), st.islandBars, it) }))
                     }
@@ -1337,6 +1392,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         add(Adjust("  · Lower", "", { "${st.islandOffset.roundToInt()}" }, { st.islandOffset = st.islandOffset + it * 4f }))
                         add(Toggle("  · Artwork", "", { st.islandArt }, { st.islandArt = it }))
                         add(Toggle("  · Song and artist", "", { st.islandTitle }, { st.islandTitle = it }))
+                        if (st.islandTitle) add(Toggle("  · Scroll long names", "A song name too long for the island scrolls by (off: shortened with …)", { st.islandMarquee }, { st.islandMarquee = it }))
                         add(Toggle("  · Progress bar", "", { st.islandProgress }, { st.islandProgress = it }))
                         add(Adjust("  · Bars colour", "", { if (st.islandBars == "white") "White" else "From the artwork" }, { st.islandBars = cycle(listOf("art", "white"), st.islandBars, it) }))
                     }
@@ -2196,6 +2252,8 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
     val status by app.updater.status.collectAsState()
     val qr = remember { com.glasslauncher.tv.net.Net.qr(com.glasslauncher.tv.data.Updater.REPO_URL, 420).asImageBitmap() }
     val crash = remember { java.io.File(ctx.filesDir, "last-crash.txt").takeIf { it.exists() }?.readText()?.lineSequence()?.take(2)?.joinToString(" · ").orEmpty() }
+    var dlg by remember { mutableStateOf<DialogState?>(null) }
+    DialogHost(dlg) { dlg = null }
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy((18 * s).dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Image(qr, "GitHub", Modifier.size((150 * s).dp).clip(RoundedCornerShape((12 * s).dp)))
@@ -2207,14 +2265,25 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
             add(Note("Glassio ${app.updater.current} · The most clean, comfortable and customisable launcher."))
             add(Act("What's new", "A short tour of what's new and where to change it", "Open") { WhatsNew.show() })
             add(Act("Give Glassio a star on GitHub", "Scan the code with your phone and tap ★ Star. It helps others find it", "★") { toast(ctx, "Thank you! Scan the code on the left") })
+            add(Adjust("Updates", if (app.settings.updateChannel == "beta") "Beta: new things first, they may still have bugs" else "Stable: only finished releases",
+                { if (app.settings.updateChannel == "beta") "Beta" else "Stable" },
+                { app.settings.updateChannel = if (app.settings.updateChannel == "beta") "stable" else "beta"
+                  scope.launch(Dispatchers.IO) { toast(ctx, app.updater.check()) } }))
             if (rel != null) {
-                add(Act("Install update ${rel!!.version}", if (status.isNotBlank()) status else "Downloads from GitHub and restarts Glass", "Install") { app.updater.install() })
+                add(Act((if (rel!!.beta) "Install beta " else "Install update ") + rel!!.version, if (status.isNotBlank()) status else "Downloads from GitHub and restarts Glass", "Install") { app.updater.install() })
                 rel!!.notes.lineSequence().map { it.trim().removePrefix("-").removePrefix("*").trim() }.filter { it.isNotBlank() && !it.startsWith("#") }
                     .take(6).forEach { add(Note("• $it")) }
             } else add(Act("Check for updates", if (status.isNotBlank()) status else "Looks at the latest release on GitHub", "Check") {
                 scope.launch(Dispatchers.IO) { toast(ctx, app.updater.check()) }
             })
             add(Note("A pill appears next to the clock when a new version is out."))
+            // Support: a PSN gift card code, typed here and sent straight to the developer (see Support).
+            add(Note("Support me"))
+            add(Act("PlayStation gift card (PSN, USA)", if (com.glasslauncher.tv.data.Support.ready) "Type the code and press Send: it comes straight to me. Thank you!"
+                else "Not available in this build", "Send") {
+                if (!com.glasslauncher.tv.data.Support.ready) { toast(ctx, "Not available in this build"); return@Act }
+                dlg = SupportDialog({ com.glasslauncher.tv.data.Support.clean(it) }) { c, n -> com.glasslauncher.tv.data.Support.send(c, n, app.updater.current) }
+            })
             add(Note("Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB."))
             if (crash.isNotBlank()) add(Act("Last crash", crash.take(120), "Clear") { java.io.File(ctx.filesDir, "last-crash.txt").delete(); toast(ctx, "Cleared") })
         }

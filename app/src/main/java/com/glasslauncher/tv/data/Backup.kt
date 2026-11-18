@@ -32,7 +32,7 @@ object Backup {
 
     /** The sign-ins and keys in each settings file (left out of a backup made without them, and kept on restore). */
     private val SECRETS = mapOf(
-        "glass" to setOf("tmdbToken", "unsplashKey", "haToken", "nuvioToken", "hueUser", "doorbellToken", "lockCode"),
+        "glass" to setOf("tmdbToken", "unsplashKey", "redditAppId", "haToken", "nuvioToken", "hueUser", "doorbellToken", "lockCode"),
         "glass_nuvio" to setOf("access", "refresh", "client", "server", "serverKey", "email", "exp"),
         "glass_stremio" to setOf("authKey", "email"),
         "glass_trakt" to setOf("access", "refresh", "expires", "user"),

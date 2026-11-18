@@ -188,6 +188,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         apps = AppRepository(this, settings, packs, icons).also { it.start() }
         catalogs = CatalogRepository(this, settings, http).also { it.start(scope) }
         cw = com.glasslauncher.tv.data.ContinueWatching(this, settings, http, scope).also { it.start() }
+        com.glasslauncher.tv.data.NuvioLaunch.cwSource = { k -> cw.entries.value.firstOrNull { it.key == k }?.app }
+        com.glasslauncher.tv.ui.SaverPlan.start(this)
         weather = com.glasslauncher.tv.data.Weather(settings, http, scope).also { it.start() }
         library = com.glasslauncher.tv.data.Library(this, settings, http, cw.trakt, scope, cw.simkl)
         cw.nuvio = library.nuvio
@@ -217,7 +219,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             val s = if (settings.catalogsStremio && cw.stremio.connected) cw.stremio.addons() else emptyList()
             if (n == null && s == null) null else (n.orEmpty() + s.orEmpty())
         }
-        updater = com.glasslauncher.tv.data.Updater(this, scope).also { it.start() }
+        updater = com.glasslauncher.tv.data.Updater(this, scope) { settings.updateChannel == "beta" }.also { it.start() }
         // If Glass was closed while the TV screensaver was being started, put the screen timeout back.
         Thread { com.glasslauncher.tv.saver.SystemDream.restoreIfPending(this) }.apply { isDaemon = true }.start()
         icons.importDropFolder(apps.apps.value.map { it.pkg })

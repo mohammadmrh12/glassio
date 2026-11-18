@@ -5,3 +5,7 @@ local.properties
 *.apk
 .DS_Store
 releases/
+
+# Claude Code: private notes and local settings
+CLAUDE.local.md
+.claude/settings.local.json

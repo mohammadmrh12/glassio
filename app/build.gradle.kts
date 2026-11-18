@@ -13,8 +13,8 @@ android {
         applicationId = "com.glasslauncher.tv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 66
-        versionName = "3.7.3"
+        versionCode = 67
+        versionName = "3.8.0"
         // TV boxes are ARM: the depth model's native library only for those (keeps the download small).
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         // Trakt app (PKCE, no secret). Kept in local.properties, which is not committed.
@@ -24,6 +24,10 @@ android {
         buildConfigField("String", "TRAKT_CLIENT_ID", "\"${props.getProperty("TRAKT_CLIENT_ID", "")}\"")
         buildConfigField("String", "NUVIO_ANON_KEY", "\"${props.getProperty("NUVIO_ANON_KEY", "")}\"")
         buildConfigField("String", "SIMKL_CLIENT_ID", "\"${props.getProperty("SIMKL_CLIENT_ID", "")}\"")
+        // "Support me" (Settings → About): the private Google Form a gift card code is sent to. Empty: not offered.
+        buildConfigField("String", "SUPPORT_FORM", "\"${props.getProperty("SUPPORT_FORM", "")}\"")
+        buildConfigField("String", "SUPPORT_CODE_ENTRY", "\"${props.getProperty("SUPPORT_CODE_ENTRY", "")}\"")
+        buildConfigField("String", "SUPPORT_NOTE_ENTRY", "\"${props.getProperty("SUPPORT_NOTE_ENTRY", "")}\"")
     }
     buildTypes {
         release {

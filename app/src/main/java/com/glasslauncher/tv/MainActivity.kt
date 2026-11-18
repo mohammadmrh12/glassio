@@ -25,6 +25,8 @@ import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf(Screen.Home)
+    /** The screen on show (QA: dump_focus). */
+    val screenName get() = screen.name
     private var resumed by mutableStateOf(false)
     @Volatile private var lastInput = System.currentTimeMillis()
 

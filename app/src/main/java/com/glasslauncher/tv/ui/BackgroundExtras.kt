@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -200,7 +201,7 @@ object Depth {
         box3(a, w, h)
         val m = IntArray(w * h) { (((a[it] * a[it] * (3 - 2 * a[it])) * 255).toInt() shl 24) or 0xFFFFFF }
         val mask = Bitmap.createBitmap(m, w, h, Bitmap.Config.ARGB_8888)
-        val left = clockSide(clockScale) * 0.8f; val right = 1f - left; val bottom = (clockBottom(clockScale, off) + 0.04f).coerceAtMost(1f)
+        val left = clockSide(clockScale) * 0.8f; val right = 1f - left; val bottom = (clockBottom(clockScale, off) + 0.20f).coerceAtMost(1f)  // (Room for the clock moved down under the music island.)
         val l = (left * src.width).toInt(); val rr = (right * src.width).toInt(); val bt = (bottom * src.height).toInt()
         val out = Bitmap.createBitmap(rr - l, bt, Bitmap.Config.ARGB_8888)
         val cv = android.graphics.Canvas(out)
@@ -232,7 +233,11 @@ internal fun clockLook(st: Settings): String =
     // With the theme: the digits look like the dock in every theme (black on Black AMOLED, white on Black on white).
     if (st.bgClockStyle == "white") "white"
     // Still Glass whatever the theme (and no blur).
-    else if (st.bgClockStyle == "still") "water_still" else st.dockStyle
+    else if (st.bgClockStyle == "still") "water_still" else themeLook(st)
+
+/** The theme's look for things drawn like the dock's glass: Black AMOLED and Black on white keep the dock itself
+ *  clear (matte), but the clock and the island take the theme's black or white (they followed the clear dock). */
+internal fun themeLook(st: Settings): String = if (st.theme == "amoled" || st.theme == "bow") st.theme else st.dockStyle
 
 /** The large clock over your own background (date above, time below), with the depth cut-out drawn over it. */
 @Composable
@@ -245,12 +250,20 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
     val date by produceState(bigDate(), Unit) { while (true) { value = bigDate(); delay(60_000) } }
     val look = clockLook(st)
     val shade = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.28f), blurRadius = 18f))
+    // The music island at the top (the screensaver's, or the home screen's over your own background): the date and
+    // time move down below it while a song plays, so the two never overlap (further while it is open).
+    val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
+    val island = st.musicOn && st.musicIsland && song != null && (inSaver || (st.islandHome && MusicUi.dockApp.value == null))
+    val tall = if (MusicUi.islandOpen.value) 118f else 40f
+    val drop by androidx.compose.animation.core.animateFloatAsState(if (island) (st.islandOffset + tall * st.islandScale) * s else 0f,
+        androidx.compose.animation.core.spring(0.78f, 260f), label = "clockDrop")
+    // (Only the date and time move: the depth cut-out is the photo itself, and it slid down with the clock.)
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val h = maxHeight
         // Its own layer: drawn again only when it changes (the time, or the picture in glass digits), not with
         // every frame of the page around it. White digits are kept as a ready texture (their soft shadow is costly).
         Column(Modifier.fillMaxWidth().padding(top = h * clockTop(k, off))
-            .graphicsLayer { if (look == "white") compositingStrategy = CompositingStrategy.Offscreen },
+            .graphicsLayer { translationY = drop * density; if (look == "white") compositingStrategy = CompositingStrategy.Offscreen },
             horizontalAlignment = Alignment.CenterHorizontally) {
             val small = TextStyle(fontSize = (12 * s * k).sp, fontWeight = FontWeight.SemiBold)
             val big = TextStyle(fontSize = (118 * s * k).sp, lineHeight = (118 * s * k).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-2 * s * k).sp)
@@ -350,18 +363,28 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
         if (blurPx < 0.5f || android.os.Build.VERSION.SDK_INT < 31) null
         else android.graphics.RenderEffect.createBlurEffect(blurPx, blurPx, android.graphics.Shader.TileMode.CLAMP).asComposeRenderEffect()
     }
+    // A still picture (not a video): blurred once, in the background, and drawn as it is. Blurred live on the
+    // graphics chip, the blur was done again in every frame anything else on screen moved (the island's scrolling
+    // name, a progress bar): ~12 ms more per frame, and the home screen over a photo felt heavy.
+    val stillPic = if (!saver && blur != null && !VideoFrames.showing.value) env.sharp ?: env.bmp else null
+    val pre by androidx.compose.runtime.produceState<ImageBitmap?>(null, stillPic, blurPx) {
+        value = null
+        val src = stillPic ?: return@produceState
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { preBlurred(src, blurPx) }.getOrNull() }
+    }
+    val liveBlur = if (pre != null) null else blur
     val fill = if (look == "bow") Color(0xF2E8E4DC) else Color.Black.copy(alpha = 0.94f)
     // Drawn like the Still Glass: the full-size sharp picture behind (the page's own, or the video's copy), a little
     // magnified like the glass bends it, then cut to the digits; the theme's tint on top of it.
     Box(Modifier.size(size).onGloballyPositioned { posS.value = it.positionInRoot() }
         .graphicsLayer { if (glass) compositingStrategy = CompositingStrategy.Offscreen }) {
         // Opacity (Settings): the picture in the digits fades, the rim stays: clearer glass.
-        if (glass) Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = blur; alpha = opacity }) {
+        if (glass) Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = liveBlur; alpha = opacity }) {
             val pos = arrayOf(posS.value)
             val video = VideoFrames.showing.value
             // On the screensaver: live copies of its own video (com.glasslauncher.tv.saver.SaverFrames).
             val pic = if (saver) com.glasslauncher.tv.saver.SaverFrames.sharp.value
-                else (if (video) VideoFrames.sharp.value ?: VideoFrames.soft.value else null) ?: env.sharp ?: env.bmp
+                else (if (video) VideoFrames.sharp.value ?: VideoFrames.soft.value else null) ?: pre ?: env.sharp ?: env.bmp
             val rootW = if (env.rootW > 0) env.rootW else rootView.width
             val rootH = if (env.rootH > 0) env.rootH else rootView.height
             // No picture to show through (the screensaver's own videos): see-through glass, the video behind it
@@ -391,3 +414,41 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
 }
 
 private fun bigDate(): String = java.text.SimpleDateFormat("EEEE d MMMM", java.util.Locale.ENGLISH).format(java.util.Date())
+
+/**
+ * [src] blurred like a GPU blur of [radiusPx] (Skia's sigma = 0.577 × radius), at half size (scaled back up when
+ * drawn: at that blur the half size can't be seen). Three box passes approximate the Gaussian.
+ */
+private fun preBlurred(src: ImageBitmap, radiusPx: Float): ImageBitmap {
+    val a0 = src.asAndroidBitmap()
+    val a = if (a0.config == android.graphics.Bitmap.Config.HARDWARE) a0.copy(android.graphics.Bitmap.Config.ARGB_8888, false) else a0
+    val w = (a.width / 2).coerceAtLeast(8); val h = (a.height / 2).coerceAtLeast(8)
+    val small = android.graphics.Bitmap.createScaledBitmap(a, w, h, true).copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+    val sigma = (radiusPx * 0.57735f + 0.5f) / 2f
+    val r = sigma.roundToIntSafe().coerceIn(1, 40)
+    val px = IntArray(w * h); small.getPixels(px, 0, w, 0, 0, w, h)
+    val tmp = IntArray(w * h)
+    repeat(3) { boxPass(px, tmp, w, h, r, false); boxPass(tmp, px, w, h, r, true) }
+    small.setPixels(px, 0, w, 0, 0, w, h)
+    val out = small.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { small.recycle(); it.prepareToDraw() }
+    return out.asImageBitmap()
+}
+
+private fun Float.roundToIntSafe(): Int = kotlin.math.round(this).toInt()
+
+private fun boxPass(src: IntArray, dst: IntArray, w: Int, h: Int, r: Int, vertical: Boolean) {
+    val len = if (vertical) h else w
+    val lines = if (vertical) w else h
+    val div = 2 * r + 1
+    for (line in 0 until lines) {
+        var sr = 0; var sg = 0; var sb = 0
+        fun idx(i: Int) = if (vertical) i.coerceIn(0, len - 1) * w + line else line * w + i.coerceIn(0, len - 1)
+        for (i in -r..r) { val c = src[idx(i)]; sr += (c shr 16) and 255; sg += (c shr 8) and 255; sb += c and 255 }
+        for (i in 0 until len) {
+            dst[idx(i)] = (0xFF shl 24) or ((sr / div) shl 16) or ((sg / div) shl 8) or (sb / div)
+            val o = src[idx(i - r)]; val n = src[idx(i + r + 1)]
+            sr += ((n shr 16) and 255) - ((o shr 16) and 255); sg += ((n shr 8) and 255) - ((o shr 8) and 255); sb += (n and 255) - (o and 255)
+        }
+    }
+}
+

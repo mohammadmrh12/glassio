@@ -65,6 +65,7 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
             val pkg = Inputs.PREFIX + i.id
             found[pkg] = AppEntry(pkg, i.label, ComponentName(ctx.packageName, "input"), true)
         }
+        if (settings.inputsIcon) found[Inputs.DOCK_PKG] = AppEntry(Inputs.DOCK_PKG, "Inputs", ComponentName(ctx.packageName, "inputs"), true)
         if (settings.musicOn && settings.musicDock) found[com.glasslauncher.tv.ui.MusicUi.DOCK_PKG] =
             AppEntry(com.glasslauncher.tv.ui.MusicUi.DOCK_PKG, "Music", ComponentName(ctx.packageName, "music"), true)
         _apps.value = found.values.toList()
@@ -114,7 +115,7 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
         settings.hiddenApps = h
     }
 
-    fun launchIntent(e: AppEntry): Intent? = if (Inputs.isInput(e.pkg) || e.pkg == com.glasslauncher.tv.ui.MusicUi.DOCK_PKG) null else
+    fun launchIntent(e: AppEntry): Intent? = if (Inputs.isInput(e.pkg) || e.pkg == Inputs.DOCK_PKG || e.pkg == com.glasslauncher.tv.ui.MusicUi.DOCK_PKG) null else
         (pm.getLeanbackLaunchIntentForPackage(e.pkg) ?: pm.getLaunchIntentForPackage(e.pkg))
             ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
@@ -138,6 +139,8 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
                     android.graphics.BitmapFactory.decodeFile(custom.absolutePath) ?: error("bad custom icon")
                 } else if (Inputs.isInput(e.pkg)) {
                     Inputs.icon(e.label)
+                } else if (e.pkg == Inputs.DOCK_PKG) {
+                    Inputs.dockIcon()
                 } else if (e.pkg == com.glasslauncher.tv.ui.MusicUi.DOCK_PKG) {
                     com.glasslauncher.tv.ui.MusicUi.dockIcon()
                 } else {

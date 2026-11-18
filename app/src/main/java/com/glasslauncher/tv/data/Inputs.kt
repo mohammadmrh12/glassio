@@ -25,6 +25,33 @@ object Inputs {
     @Volatile var awayAt = 0L
 
     fun isInput(pkg: String) = pkg.startsWith(PREFIX)
+    /** The dock's Inputs icon (Settings → Menu & themes → TV inputs). */
+    const val DOCK_PKG = "inputs:all"
+
+    /** The Inputs icon's page: shown inputs in your order (hidden ones left out unless [withHidden]). */
+    fun forPage(st: com.glasslauncher.tv.data.Settings, withHidden: Boolean = false): List<Input> {
+        val order = st.inputsOrder
+        val hidden = st.inputsHidden.toSet()
+        return list.value.filter { withHidden || (PREFIX + it.id) !in hidden }
+            .sortedBy { order.indexOf(PREFIX + it.id).let { i -> if (i < 0) 999 else i } }
+    }
+
+    /** The Inputs icon's picture: a screen with a plug going into it. */
+    fun dockIcon(): android.graphics.Bitmap {
+        val w = 640; val h = 360
+        val b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(b)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 13f; strokeJoin = android.graphics.Paint.Join.ROUND; strokeCap = android.graphics.Paint.Cap.ROUND }
+        c.drawRoundRect(w * 0.30f, h * 0.18f, w * 0.70f, h * 0.62f, 18f, 18f, p)
+        c.drawLine(w * 0.42f, h * 0.76f, w * 0.58f, h * 0.76f, p)
+        c.drawLine(w * 0.50f, h * 0.62f, w * 0.50f, h * 0.76f, p)
+        // An arrow going in.
+        c.drawLine(w * 0.40f, h * 0.40f, w * 0.56f, h * 0.40f, p)
+        c.drawLine(w * 0.50f, h * 0.32f, w * 0.57f, h * 0.40f, p)
+        c.drawLine(w * 0.50f, h * 0.48f, w * 0.57f, h * 0.40f, p)
+        return b
+    }
 
     /** Blocking. Reads the inputs again (TV list, else CEC devices through the TV's debugging connection). */
     /**

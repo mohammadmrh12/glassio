@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -184,6 +185,8 @@ object MusicUi {
 
     val openInMenu = mutableStateOf(false)
     const val DOCK_PKG = "music:player"
+    /** The player with a song is drawn (see MusicStage). */
+    val songPageUp = mutableStateOf(false)
     /** The dock's Music icon: the music page shows (even with Music mode off) until Back or the music stops. */
     val forced = mutableStateOf(false)
     /** Bumped to put the selection on the music page's Play button. */
@@ -408,7 +411,7 @@ fun MusicIsland(app: GlassApp, s: Float) {
     val k = s * st.islandScale
     // Its look, as the dock's panel is drawn: with the theme (Black AMOLED black, Black on white white, Frosted
     // frosted, Clear clear, Still Glass still glass), or chosen.
-    val look = when (st.islandStyle) { "none" -> "none"; "black" -> "amoled"; "glass" -> "water_still"; else -> st.dockStyle }
+    val look = when (st.islandStyle) { "none" -> "none"; "black" -> "amoled"; "glass" -> "water_still"; else -> themeLook(st) }
     val ink = if (look == "bow") Color(0xFF111114) else Color.White
     val inkOn = if (look == "bow") Color.White else Color.Black
     // No background at all: the song and buttons float over the picture (with a soft shadow to stay readable).
@@ -437,7 +440,10 @@ fun MusicIsland(app: GlassApp, s: Float) {
       // The panel is its own layer under the content and takes its size every frame (as the background of the
       // morphing content itself it vanished while the island opened and closed).
       Box(Modifier.graphicsLayer { scaleX = 0.6f + 0.4f * enter.value; scaleY = scaleX; alpha = enter.value * shown; translationY = (attached).let { if (it) (st.islandOffset * s) * density else 0f } }) {
-        if (!bare) GlassPanel(Modifier.matchParentSize(), radius = r, style = look, refract = look.startsWith("water") || look == "liquid", cache = false) {}
+        // Kept in its own cached texture while it isn't changing size: re-bent on every frame, its glass cost the graphics
+        // chip a lot while only the name scrolled inside it.
+        val settled = grow < 0.002f || grow > 0.998f
+        if (!bare) GlassPanel(Modifier.matchParentSize(), radius = r, style = look, refract = look.startsWith("water") || look == "liquid", cache = settled) {}
         androidx.compose.animation.AnimatedContent(
             targetState = open,
             transitionSpec = {
@@ -460,8 +466,21 @@ fun MusicIsland(app: GlassApp, s: Float) {
                 }
                 Column(Modifier.weight(1f, fill = false)) {
                     if (st.islandTitle) {
-                        Text(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (tr.artist.isNotBlank()) Text(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        // A long name: shortened with "…", or scrolling by (Settings → Music → Island → Scroll long names).
+                        // Scrolls a few times when the song starts (or comes back), then rests at its start. Only while
+                        // it plays and the island shows: scrolling for ever (also paused, also faded away) kept the
+                        // whole home screen redrawing 60 times a second, about half of one processor core.
+                        if (st.islandMarquee && tr.playing && !away) androidx.compose.runtime.key(tr.title) {
+                            Text(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                // (Kept to the island's own small width, about its progress line: the whole name laid out
+                                // in one line made the island as wide as it could get.)
+                                modifier = Modifier.widthIn(max = (160 * k).dp).basicMarquee(iterations = 3, initialDelayMillis = 1500, repeatDelayMillis = 2500,
+                                    velocity = (28 * k).dp))
+                        }
+                        else Text(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = if (st.islandMarquee) Modifier.widthIn(max = (160 * k).dp) else Modifier)
+                        if (tr.artist.isNotBlank()) Text(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = if (st.islandMarquee) Modifier.widthIn(max = (160 * k).dp) else Modifier)
                     }
                     if (st.islandProgress) {
                         val p = progressOf(tr)
@@ -615,6 +634,8 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
     val held = MusicUi.songFor(MusicUi.heldTrack())
     if (held == null) { (MusicUi.dockApp.value ?: MusicUi.idleKept)?.let { MusicIdle(app, s, it, heroFocus, firstTile, onApps) }; return }
     val tr = held
+    // (The player with a song is on screen: over a video the glass takes its artwork from now, with the page.)
+    androidx.compose.runtime.DisposableEffect(Unit) { MusicUi.songPageUp.value = true; onDispose { MusicUi.songPageUp.value = false } }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val k = s * st.musicStageScale
     val scope = androidx.compose.runtime.rememberCoroutineScope()

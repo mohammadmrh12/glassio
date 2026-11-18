@@ -76,7 +76,7 @@ object PeerSync {
     fun groupOf(k: String): String? = when {
         k in NEVER -> null
         k in PERF -> "perf"
-        k == "tmdbToken" || k == "unsplashKey" || prefixed(k, "ha") -> "keys"
+        k == "tmdbToken" || k == "unsplashKey" || k == "redditAppId" || prefixed(k, "ha") -> "keys"
         k == "hueIp" || k == "hueUser" -> "hue"
         NEVER_PREFIX.any { prefixed(k, it) } -> null
         k == "cameras" || k == "cornerCamera" || prefixed(k, "camera") || prefixed(k, "multi") || prefixed(k, "doorbell") -> "cameras"

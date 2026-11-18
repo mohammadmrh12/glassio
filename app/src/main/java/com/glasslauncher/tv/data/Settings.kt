@@ -27,12 +27,31 @@ class Settings(private val ctx: Context) {
     // A value saved as another type (a list of one number set from a computer was stored as a number) is read as
     // text instead of crashing.
     private fun s(k: String, d: String): String { rev.intValue; return runCatching { sp.getString(k, d) ?: d }.getOrElse { sp.all[k]?.toString() ?: d } }
-    private fun putB(k: String, v: Boolean) { sp.edit().putBoolean(k, v).apply(); touch() }
-    private fun putI(k: String, v: Int) { sp.edit().putInt(k, v).apply(); touch() }
-    private fun putF(k: String, v: Float) { sp.edit().putFloat(k, v).apply(); touch() }
-    private fun putS(k: String, v: String) { sp.edit().putString(k, v).apply(); touch() }
-    private fun list(k: String): List<String> =
-        s(k, "").split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+    // A value written again unchanged changes nothing: every write redraws whatever read any setting (it bumps [rev]),
+    // and some were written over and over with the same value.
+    private fun putB(k: String, v: Boolean) { if (sp.contains(k) && sp.getBoolean(k, !v) == v) return; sp.edit().putBoolean(k, v).apply(); wrote(k) }
+    private fun putI(k: String, v: Int) { if (sp.contains(k) && runCatching { sp.getInt(k, v - 1) }.getOrNull() == v) return; sp.edit().putInt(k, v).apply(); wrote(k) }
+    private fun putF(k: String, v: Float) { if (sp.contains(k) && runCatching { sp.getFloat(k, v - 1f) }.getOrNull() == v) return; sp.edit().putFloat(k, v).apply(); wrote(k) }
+    private fun putS(k: String, v: String) { if (sp.contains(k) && runCatching { sp.getString(k, null) }.getOrNull() == v) return; sp.edit().putString(k, v).apply(); wrote(k) }
+    /** The last settings written (QA: dump_focus shows them, to find writes that redraw the screen). */
+    val recentWrites = java.util.concurrent.ConcurrentLinkedDeque<String>()
+    private fun wrote(k: String) {
+        recentWrites.addFirst("$k@${android.os.SystemClock.uptimeMillis() % 100000}")
+        while (recentWrites.size > 12) recentWrites.pollLast()
+        touch()
+    }
+    // Lists parsed once per stored value (read again for every slide and every title on screen, the long ones —
+    // artwork picks, likes, the dock — were split and trimmed on the main thread each time: ~10% of its time while
+    // the carousel moved).
+    private val parsed = java.util.concurrent.ConcurrentHashMap<String, Pair<String, List<String>>>()
+    private fun list(k: String): List<String> {
+        val raw = s(k, "")
+        parsed[k]?.let { if (it.first == raw) return it.second }
+        val l = raw.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+        parsed[k] = raw to l
+        return l
+    }
+    private val picks = java.util.concurrent.atomic.AtomicReference<Pair<List<String>, Map<String, String>>?>(null)
     private fun putList(k: String, v: List<String>) = putS(k, v.joinToString("\n"))
 
     /**
@@ -86,12 +105,29 @@ class Settings(private val ctx: Context) {
     /** Which picture a title uses: main | second | best (highest resolution) | addon (the add-on's own). */
     var artChoice: String get() = s("artChoice", "main"); set(v) = putS("artChoice", v)
     /** Per-title picture picked with a long press on the carousel: "key\turl" lines. */
-    fun artPick(key: String): String? = list("artPicks").firstOrNull { it.startsWith("$key\t") }?.substringAfter('\t')
+    fun artPick(key: String): String? {
+        val l = list("artPicks")
+        val c = picks.get()?.takeIf { it.first === l } ?: (l to l.associate { it.substringBefore('\t') to it.substringAfter('\t') }).also { picks.set(it) }
+        return c.second[key]
+    }
     fun setArtPick(key: String, url: String?) {
         val rest = list("artPicks").filterNot { it.startsWith("$key\t") }
         putList("artPicks", if (url == null) rest else (rest + "$key\t$url").takeLast(300))
     }
     fun clearArtPicks() = putList("artPicks", emptyList())
+    /** Titles hidden from the carousel (hold OK on Play → Hide): "key\tname" lines, newest last. */
+    fun hiddenTitles(): List<Pair<String, String>> = list("hiddenTitles").map { it.substringBefore('\t') to it.substringAfter('\t', "") }
+    private val hiddenSet = java.util.concurrent.atomic.AtomicReference<Pair<List<String>, Set<String>>?>(null)
+    /** The hidden keys, parsed once per stored value. */
+    fun hiddenKeys(): Set<String> {
+        val l = list("hiddenTitles")
+        return (hiddenSet.get()?.takeIf { it.first === l } ?: (l to l.map { it.substringBefore('\t') }.toSet()).also { hiddenSet.set(it) }).second
+    }
+    fun setHidden(key: String, name: String, on: Boolean) {
+        val rest = list("hiddenTitles").filterNot { it.substringBefore('\t') == key }
+        putList("hiddenTitles", if (on) (rest + "$key\t${name.replace('\t', ' ').replace('\n', ' ')}").takeLast(1000) else rest)
+    }
+    fun clearHidden() = putList("hiddenTitles", emptyList())
     /** Library, likes and Continue Watching kept the same on every connected account (Connections → Sync). */
     var syncAll: Boolean get() = b("syncAll", false); set(v) = putB("syncAll", v)
     /** Likes already on an account ("trakt", "simkl"), so they're sent once. */
@@ -422,6 +458,16 @@ class Settings(private val ctx: Context) {
     var dockHide: Boolean get() = b("dockHide", false); set(v) = putB("dockHide", v)
     /** With your own background (picture, video, screensaver): bottom | center | left (a column on the left). */
     var dockPos: String get() = s("dockPos", "bottom"); set(v) = putS("dockPos", v)
+    /** Updates: "stable" (releases) or "beta" (pre-releases too: new things first, may have bugs). */
+    var updateChannel: String get() = s("updateChannel", "stable"); set(v) = putS("updateChannel", v)
+    /** A title from Continue Watching opens in the app it was watched in (Nuvio Legacy, Nuvio, Stremio), not "Open titles in". */
+    var cwOpenSource: Boolean get() = b("cwOpenSource", false); set(v) = putB("cwOpenSource", v)
+    /** Apps in one row of the dock. */
+    var dockColumns: Int get() = i("dockColumns", 6); set(v) = putI("dockColumns", v.coerceIn(4, 10))
+    /** The dock as one strip from edge to edge: every app in it, the selected one in the middle, the strip moves. */
+    var dockStrip: Boolean get() = b("dockStrip", false); set(v) = putB("dockStrip", v)
+    /** No glass behind the dock: only the icons. */
+    var dockGlassOff: Boolean get() = b("dockGlassOff", false); set(v) = putB("dockGlassOff", v)
     /** Down from the dock's last row opens the Library. */
     var libraryDown: Boolean get() = b("libraryDown", true); set(v) = putB("libraryDown", v)
 
@@ -628,6 +674,18 @@ class Settings(private val ctx: Context) {
     var musicLastPkg: String get() = s("musicLastPkg", ""); set(v) = putS("musicLastPkg", v)
     /** Music apps that show their rows (like other apps) when selected in the dock, instead of their player. */
     var channelsMusicRowApps: List<String> get() = list("channelsMusicRowApps"); set(v) = putList("channelsMusicRowApps", v)
+    /** One Inputs icon in the dock: the TV's inputs above it (like the Music icon's music apps). */
+    var inputsIcon: Boolean get() = b("inputsIcon", false); set(v) = putB("inputsIcon", v)
+    /** Inputs left out of the Inputs icon's page, and its order (ids as "input:…"). */
+    var inputsHidden: List<String> get() = list("inputsHidden"); set(v) = putList("inputsHidden", v)
+    var inputsOrder: List<String> get() = list("inputsOrder"); set(v) = putList("inputsOrder", v)
+    /** The island: a song name too long for it scrolls by (else it is shortened with "…"). */
+    var islandMarquee: Boolean get() = b("islandMarquee", true); set(v) = putB("islandMarquee", v)
+    /** Photos from subreddits: their names (comma separated), and the Reddit app id that lets Glassio in. */
+    var photoSubreddit: String get() = s("photoSubreddit", "EarthPorn"); set(v) = putS("photoSubreddit", v.trim())
+    var redditAppId: String get() = s("redditAppId", ""); set(v) = putS("redditAppId", v.trim())
+    /** With your own background: no shade along the left side (the carousel keeps it, its text needs it). */
+    var sideShadeOff: Boolean get() = b("sideShadeOff", false); set(v) = putB("sideShadeOff", v)
     /** Backups carry the sign-ins and keys (to move them to another TV). Off: they stay on each TV. */
     var backupSignIns: Boolean get() = b("backupSignIns", true); set(v) = putB("backupSignIns", v)
     /** How bright the blurred card behind the rows is, in % (100: as it was). */

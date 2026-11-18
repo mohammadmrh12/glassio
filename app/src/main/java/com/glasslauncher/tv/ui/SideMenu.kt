@@ -208,6 +208,10 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     val problem by com.glasslauncher.tv.data.Bluetooth.problem.collectAsState()
                     val busy by com.glasslauncher.tv.data.Bluetooth.busy.collectAsState()
                     val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    // Disconnecting asks for a second OK: one press by mistake on the speakers the sound goes through
+                    // left the TV without sound and stuck (Reddit).
+                    var confirm by remember { mutableStateOf<String?>(null) }
+                    LaunchedEffect(confirm) { if (confirm != null) { delay(4000); confirm = null } }
                     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.Bluetooth.refresh(app) }; delay(4000) } }
                     Text("Bluetooth", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
@@ -216,13 +220,15 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         devs.forEach { d ->
                             val state = when {
                                 busy == d.address -> if (d.connected) "Disconnecting…" else "Connecting…"
+                                confirm == d.address -> "OK again to disconnect"
                                 d.connected -> "Connected" + (if (d.battery in 0..100) " · ${d.battery} %" else "")
                                 else -> "Off"
                             }
                             add(Triple(d.name, state) {
                                 if (busy != null) Unit
                                 else if (d.connected && d.remote) toast(ctx, "The remote stays connected")
-                                else scope.launch(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.Bluetooth.toggle(app, d) }
+                                else if (d.connected && confirm != d.address) confirm = d.address
+                                else { confirm = null; scope.launch(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.Bluetooth.toggle(app, d) } }
                             })
                         }
                         add(Triple("Pair a new device", "") {

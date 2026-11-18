@@ -182,12 +182,12 @@ private val DepthWorker = java.util.concurrent.Executors.newSingleThreadExecutor
 }.asCoroutineDispatcher()
 
 /** Every dock measurement in dp, from the screen width and the "Dock size" setting (1.0 = full width). */
-private class DockMetrics(val s: Float, screenW: Float, dockScale: Float) {
+private class DockMetrics(val s: Float, val screenW: Float, dockScale: Float, val cols: Int = DOCK_COLUMNS) {
     val padH = 18 * s * dockScale
     val gap = 14 * s * dockScale
-    private val fullCellW = (screenW - 2 * 24 * s - 2 * 18 * s - (DOCK_COLUMNS - 1) * 12 * s) / DOCK_COLUMNS
+    private val fullCellW = (screenW - 2 * 24 * s - 2 * 18 * s - (cols - 1) * 12 * s) / cols
     val cellW = fullCellW * dockScale
-    val dockW = DOCK_COLUMNS * cellW + (DOCK_COLUMNS - 1) * gap + 2 * padH
+    val dockW = cols * cellW + (cols - 1) * gap + 2 * padH
     val sideMargin = (screenW - dockW) / 2f
     val tileH = cellW / 1.6f
     val cellH = tileH
@@ -287,13 +287,16 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val rowsPkg = remember { arrayOfNulls<String>(1) }
     // The rows' page with its side shade drawn in (the music page fades in over it as it looked).
     val rowsShaded = remember { arrayOfNulls<Pair<ImageBitmap, ImageBitmap>>(1) }
-    LaunchedEffect(backdrop, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
+    // (Read here, before anything is drawn with it.)
+    Scrims.sideOff = settings.sideShadeOff && settings.bgMode != "carousel"
+    LaunchedEffect(backdrop, Scrims.sideOff, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
         // selected card's picture blurred), crossfaded together. Coming from the music page it fades from that page
         // (the carousel's picture under it used to show for a second while the new background was being made).
         // (Also the idle music player, nothing playing: on the grey page.)
-        if (ChannelsUi.shown.value || MusicUi.idleOn.value) {
+        // (Only over the carousel: with your own picture, like a video or the screensaver, the page stays see-through.)
+        if ((ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value) && settings.bgMode == "carousel") {
             val (w, h, tag) = ChannelPages.size(ctx, settings)
             val blurMode = settings.channelsBg == "blur" && ChannelsUi.shown.value
             val art = ChannelsUi.art.value?.takeIf { blurMode }
@@ -412,10 +415,15 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val src = fullBmp
         // Slide: the side shade must stay put while pictures move, so it is drawn on top instead of baked in.
         val slide = settings.slideAnim != "fade"
-        val bk = (if (slide) "$u|slide" else u) + "|" + settings.pageScale + "|" + settings.memTier
+        val bk = (if (slide) "$u|slide" else u) + "|" + settings.pageScale + "|" + settings.memTier + "|" + Scrims.sideOff
         val baked = BakeCache.get(bk, src) ?: withContext(Dispatchers.Default) { bakeBackdrop(src, (dm.widthPixels * settings.pageScale).toInt(), (dm.heightPixels * settings.pageScale).toInt(), !slide) }.also { BakeCache.put(bk, src, it) }
         if (GlassHalf.peek(baked) == null) withContext(Dispatchers.Default) { GlassHalf.of(baked) }
         if (com.glasslauncher.tv.data.Glog.timing) com.glasslauncher.tv.data.Glog.i("Slide ready in ${android.os.SystemClock.uptimeMillis() - t0} ms (${u.substringAfterLast('/')})")
+        // The new pictures sent to the graphics chip ahead (in the background), a frame or two before they show:
+        // uploaded only when first drawn, the switch frame took 30-100 ms (a catch with every new photo / video /
+        // slide, worse with the large clock's glass reading the new picture too).
+        listOfNotNull(baked, GlassHalf.peek(baked), next?.first, next?.second, next?.third).forEach { b -> runCatching { b.prepareToDraw() } }
+        repeat(2) { androidx.compose.runtime.withFrameNanos { } }
         // Page and glass fade in the same frames with the same timing, so the bar never runs ahead.
         prevImgs = backImgs
         prevBackdrop = shownBackdrop
@@ -467,6 +475,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             c >= 0 -> { settingsCat = c; onScreen(Screen.Settings); app.requestSettings.intValue = -1 }
         }
     }
+    // Settings left any way (the Home button too, not only Back): next time it opens plainly, not on that page again.
+    LaunchedEffect(screen) { if (screen != Screen.Settings) settingsCat = 0 }
     // The Apps folder from a remote button or another screen: the menu, a pop-up or another screen (Settings, the
     // Library) are closed first. Left open under it, the menu kept the remote (the next OK picked a theme there),
     // and from Settings the folder opened where it couldn't be seen (nothing was selected any more).
@@ -570,7 +580,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 if (ev.type == KeyEventType.KeyDown) {
                     val delta = when (ev.key) {
                         Key.DirectionLeft -> -1; Key.DirectionRight -> 1
-                        Key.DirectionUp -> -DOCK_COLUMNS; else -> DOCK_COLUMNS
+                        Key.DirectionUp -> -DockFocus.cols; else -> DockFocus.cols
                     }
                     if (p == FOLDER) {
                         val n = app.apps.ordered().size
@@ -704,7 +714,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // dropped at once, the carousel's picture showed under it for a moment.)
         // (Rows chosen for the selected app, read at once: "shown" comes a frame later, and the music page flashed.)
         val rowsNow = ChannelsUi.stagePkg.value != null || ChannelsUi.shown.value
-        val stageWanted = stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value &&
+        // The dock in the middle of the screen (your own background): nothing comes up above it (it covered the dock).
+        val dockMid = settings.bgMode != "carousel" && settings.dockPos == "center"
+        val stageWanted = !dockMid && stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value && !InputsUi.on.value &&
             (!rowsNow || musicWas[0])
         if (!rowsNow) musicWas[0] = stageWanted
         // The hero has this page itself: the player, or an app's idle player (its icon and Play, on the grey page).
@@ -712,7 +724,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // for the music page, the hero was hidden meanwhile and the selection fell to the first app.)
         val heroOwn = stageWanted || (settings.musicOn && MusicUi.dockApp.value != null && !rowsNow && !MusicUi.carouselApp.value)
         // A page that isn't the carousel is on, or coming (see the backdrop below).
-        val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null)
+        val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null || InputsUi.on.value)
         // (Made ready whenever a song is on, shown or not: thrown away when its page went (another app selected, the
         // Music icon) and made again on the way back, the carousel showed meanwhile.)
         // (The song shown, when it's another app's than the last one heard: the page took the other app's artwork.)
@@ -727,13 +739,27 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         LaunchedEffect(songPlaying, stageWanted) { MusicUi.pauseDim.animateTo(if (stageWanted && !songPlaying) 0.6f else 0f, tween(if (songPlaying) 140 else 180, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
         // From the music page to an app's rows: the music page stays until the rows' background is up (it went when
         // the rows came, and the grey page showed for a moment between the two).
-        val musicToRows = rowsNow && musicWas[0] && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value
-        val stagePic = MusicUi.stageCur.value?.glass?.takeIf { stageWanted || musicToRows }
+        // (Over your own picture, video or the screensaver, the song's page is only its player with a song: an idle
+        // player and an app's rows show your background, and so does the glass. The song's artwork was left in the
+        // dock (and over the whole screen with a picture) after the player, until another app was chosen.)
+        val ownBg = settings.bgMode != "carousel"
+        val songPage = stageWanted && (!ownBg || songShown != null)
+        val musicToRows = rowsNow && musicWas[0] && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value && !ownBg
+        // (Over your own background: once the player is drawn, so the glass changes with the page, not ahead of it.)
+        val stagePicNow = MusicUi.stageCur.value?.glass?.takeIf { (songPage && (!ownBg || MusicUi.songPageUp.value)) || musicToRows }
+        // Over a video: the glass goes from the video to the artwork (and back) with the page, not at once ahead of it.
+        val artIn by animateFloatAsState(if (ownBg && stagePicNow != null) 1f else 0f, tween(220), label = "artGlass")
+        val lastArt = remember { arrayOfNulls<ImageBitmap>(1) }
+        if (stagePicNow != null) lastArt[0] = stagePicNow
+        // (Also on the first frame of each way, before the fade has moved: the glass jumped to the artwork at once,
+        // ahead of the page, and back to the video at once on the way out.)
+        val artFade = ownBg && VideoFrames.showing.value && (if (stagePicNow != null) artIn < 0.999f else artIn > 0.001f)
+        val stagePic = stagePicNow ?: lastArt[0]?.takeIf { artFade }
         val stagePrevPic = MusicUi.stagePrev.value?.glass?.takeIf { stagePic != null }
         // Another page coming while its own background is still being made (the music apps' grey, an app's rows):
         // the page and the glass show the grey one (or the rows' last background) meanwhile, never the carousel's
         // picture (it flashed in the icons and the dock for a moment).
-        val bridge = if (stagePic == null && otherPageNow && !ChannelsUi.pageOn.value) {
+        val bridge = if (stagePic == null && otherPageNow && !ChannelsUi.pageOn.value && settings.bgMode == "carousel") {
             val tag = ChannelPages.size(ctx, settings).third
             // (The rows' own first card when its blur is made already; else the grey. Another app's last blur showed
             // its colour for a moment.)
@@ -744,17 +770,21 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // was darker for a moment and then jumped lighter.)
         val bridgeSharp = bridge?.let { if (PageGlass.on.value) GlassHalf.peek(it.first) else null }
         val stagePrevBlur = MusicUi.stagePrev.value?.blur?.takeIf { stagePic != null }
+        val videoPrev = if (artFade) VideoFrames.soft.value ?: VideoFrames.sharp.value else null
+        val artMix = androidx.compose.runtime.rememberUpdatedState(artIn)
         val env = if (bridge != null) GlassEnv(bridge.second.blurred, bridgeSharp ?: bridge.second.sharp, bridge.second.heavy, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
             null, null, null, veil, sharpIsPage = bridgeSharp != null, pageNoSideShade = settings.slideAnim != "fade", blur = blur, blurDp = settings.blurRadius * 0.45f)
         else if (stagePic != null) GlassEnv(stagePic, stagePic, stagePic, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
-            stagePrevBlur ?: stagePrevPic, stagePrevPic, if (stagePrevPic != null) MusicUi.stageMix.asState() else null, MusicUi.pauseDim.asState(),
-            sharpIsPage = true, blur = blur, blurDp = settings.blurRadius * 0.45f)
+            // (The video as the old picture: not counted as the page, so it keeps the page's shades like the live glass
+            // does: counted as the page it was lighter, and the glass jumped brighter as the fade began.)
+            stagePrevBlur ?: stagePrevPic ?: videoPrev, stagePrevPic, if (stagePrevPic != null) MusicUi.stageMix.asState() else if (videoPrev != null) artMix else null, MusicUi.pauseDim.asState(),
+            sharpIsPage = true, blur = blur, blurDp = settings.blurRadius * 0.45f, ignoreVideo = true)
         else GlassEnv(backImgs?.first, pageSharp ?: backImgs?.second, backImgs?.third, rootW, rootH, settings.glassTint, settings.refraction, 1f, wobble.asState(),
             prevImgs?.first, if (prevImgs != null) (GlassHalf.peek(prevBackdrop) ?: prevImgs?.second) else null, mix.asState(), veil, sharpIsPage = pageSharp != null,
             slide = slideDir, slideKind = if (settings.slideAnim == "apple") SLIDE_APPLE else SLIDE_PUSH,
             pageNoSideShade = settings.slideAnim != "fade", blur = blur, blurDp = settings.blurRadius * 0.45f)
         val radius = settings.cornerRadius
-        val metrics = remember(s, maxWidth, settings.dockScale) { DockMetrics(s, maxWidth.value, settings.dockScale) }
+        val metrics = remember(s, maxWidth, settings.dockScale, settings.dockColumns) { DockMetrics(s, maxWidth.value, settings.dockScale, settings.dockColumns) }
 
         val envRef = androidx.compose.runtime.rememberUpdatedState(env)
         CompositionLocalProvider(LocalGlassEnv provides env, LocalGlassEnvRef provides envRef, LocalScale provides s) {
@@ -772,9 +802,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             val otherPage = otherPageNow
             // (The music apps and an idle player have their own grey page: the dark one under them, never the song's
             // picture.)
-            val greyPage = MusicUi.appsShowing || (idleNow && !stageWanted)
+            val greyPage = MusicUi.appsShowing || InputsUi.on.value || (idleNow && !stageWanted)
             // (An app's rows have their own background: the song's page only bridges until they are up.)
-            val stageBack = MusicUi.stageCur.value?.takeIf { stageWanted || (otherPage && !greyPage && !ChannelsUi.pageOn.value && (musicToRows || (!ChannelsUi.shown.value && !rowsNow))) }
+            val stageBack = MusicUi.stageCur.value?.takeIf { songPage || (otherPage && settings.bgMode == "carousel" && !greyPage && !ChannelsUi.pageOn.value && (musicToRows || (!ChannelsUi.shown.value && !rowsNow))) }
             val veilCovers = (stageBack?.let { it.glass ?: it.back } ?: backImgs?.third) != null
             // Under the Library (once it covers the whole screen) the title picture isn't drawn either: the TV GPU
             // painted every pixel four times there and the Library's scrolling lost frames.
@@ -789,7 +819,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     Image(stageBack.glass ?: stageBack.back, null, Modifier.fillMaxSize().graphicsLayer { alpha = if (sp != null) MusicUi.stageMix.value else 1f }, contentScale = ContentScale.Crop)
                 }
                 // (Once the page's own background is up (the rows' blurred card, the grey page) it shows below.)
-                else if (otherPage && !ChannelsUi.pageOn.value) {
+                else if (otherPage && !ChannelsUi.pageOn.value && settings.bgMode == "carousel") {
                     // (Drawn as the page is once it is up, its shade included: drawn plain it was lighter, then
                     // darkened when the rows came.)
                     if (bridge != null) { if (settings.slideAnim != "fade") SlideBackdrop(null, bridge.first, mix, 0, SLIDE_PUSH) else FadeBackdrop(null, bridge.first, mix) }
@@ -899,7 +929,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // Down from the dock: the page scrolls up into the Library like the Apple TV home page (the home screen
             // moves up and out, the Library comes up from below); Up from its top row scrolls back to the dock.
             val libScroll = animateFloatAsState(if (screen == Screen.Library && libFromDock) 1f else 0f,
-                tween(440, easing = androidx.compose.animation.core.CubicBezierEasing(0.35f, 0.0f, 0.15f, 1f)), label = "libScroll")
+                // (Moving from the first frame: the old curve started slowly and the page seemed to wait before it went.)
+                tween(400, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0.0f, 0.0f, 1f)), label = "libScroll")
             LaunchedEffect(screen) {
                 if (screen != Screen.Library && libFromDock) { androidx.compose.runtime.snapshotFlow { libScroll.value }.first { it < 0.01f }; libFromDock = false }
             }
@@ -957,7 +988,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // (also with nothing playing), the music apps (the Music icon), or the carousel (Nuvio / Stremio and
                     // apps without rows). Worked out once the selection rests a moment, and all changed together: cleared
                     // at once, the carousel (or the music page) flashed between two of them.
-                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, settings.musicIdleOn, settings.musicIdleOffApps, trackPkgNow.takeIf { dockPkg != null }, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
+                    LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, settings.musicIdleOn, settings.musicIdleOffApps, dockMid, trackPkgNow.takeIf { dockPkg != null }, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null) {
                         if (dockPkg == null) {
                             // (Down into the open dock's second row: what shows above stays, its background too.)
                             delay(150)
@@ -972,13 +1003,15 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                                 if (!MusicUi.stageFocused && !DockFocus.hero && (DockFocus.top || DockFocus.dock)) MusicUi.dockApp.value = null
                                 // (Up into the Music icon's player: still the Music icon's, Stop / pause come back to it.)
                                 if (!MusicUi.appsFocused && !MusicUi.stageFocused) MusicUi.appsOn.value = false
+                                if (!InputsUi.focused && !InputsUi.held()) InputsUi.on.value = false
                             }
                             return@LaunchedEffect
                         }
-                        val musicIcon = settings.musicOn && dockPkg == MusicUi.DOCK_PKG
-                        val musicApp = !musicIcon && MusicUi.playerFor(ctx, settings, dockPkg)
-                        val rows = settings.channelsOn && !musicIcon && !musicApp && com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).isNotEmpty()
-                        delay(if (musicIcon || musicApp || rows) 240 else 90)
+                        val inputsIcon = !dockMid && settings.inputsIcon && dockPkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG
+                        val musicIcon = !dockMid && settings.musicOn && dockPkg == MusicUi.DOCK_PKG
+                        val musicApp = !dockMid && !musicIcon && MusicUi.playerFor(ctx, settings, dockPkg)
+                        val rows = !dockMid && settings.channelsOn && !musicIcon && !musicApp && com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).isNotEmpty()
+                        delay(if (musicIcon || musicApp || rows || inputsIcon) 240 else 90)
                         // Another app selected: the player the Music icon opened gives way (its rows stayed away).
                         if (dockPkg != MusicUi.DOCK_PKG) MusicUi.forced.value = false
                         MusicUi.carouselApp.value = com.glasslauncher.tv.data.Channels.keepsCarousel(dockPkg)
@@ -989,6 +1022,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         ChannelsUi.stagePkg.value = dockPkg.takeIf { rows }
                         MusicUi.dockApp.value = dockPkg.takeIf { musicApp }
                         MusicUi.appsOn.value = musicIcon
+                        InputsUi.on.value = inputsIcon
                     }
                     LaunchedEffect(settings.channelsOn) { if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(ctx) }
                     val chanPkg = ChannelsUi.stagePkg.value
@@ -1007,13 +1041,17 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         // music apps came up in between.)
                         (heldHere ?: songNowHere).let { t -> !(t != null && MusicUi.stageOn(settings, t)) }
                     val appsShow = appsPage && !expanded
+                    // The Inputs icon: its inputs, on the same grey page.
+                    val inputsPage = InputsUi.on.value && settings.inputsIcon && !folderOpen && screen == Screen.Home
+                    val inputsShow = inputsPage && !expanded
+                    androidx.compose.runtime.SideEffect { InputsUi.page.value = inputsPage }
                     androidx.compose.runtime.SideEffect { MusicUi.appsVisible.value = appsShow; MusicUi.appsPage.value = appsPage }
                     // Paused or stopped on the Music icon: the player gives way to the music apps, the selection goes back
                     // to the icon (it was left in the player going away, then went to the first app).
                     LaunchedEffect(appsShow) {
                         if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
                     }
-                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage, quickHide = (chanPage || appsPage || (otherPageNow && !heroOwn)) && !musicWas[0], paused = screen != Screen.Home || pop != null || chanPage || appsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage, quickHide = (chanPage || appsPage || inputsPage || (otherPageNow && !heroOwn)) && !musicWas[0] && settings.bgMode == "carousel", paused = screen != Screen.Home || pop != null || WhatsNew.open.value || chanPage || appsPage || inputsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         heroFocus = heroFocus, firstTile = firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
@@ -1042,6 +1080,13 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             onDown = { if (runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
                             onUp = toMenu)
                     }
+                    val inputsA by animateFloatAsState(if (inputsShow) 1f else 0f, tween(if (inputsShow) 140 else 240), label = "inputsPage")
+                    if (inputsShow || inputsA > 0.01f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = inputsA }) {
+                        InputsStage(app, s, metrics, radius, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
+                            onDown = { if (runCatching { tileFocus[com.glasslauncher.tv.data.Inputs.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                            onUp = toMenu,
+                            onPickIcon = { e -> pickerFor = e })
+                    }
                 }
                 if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, menuOpen = menuOpen, onSettings = { onScreen(Screen.Settings) },
                     // Opens at once, also right after closing: the focus now goes back to Play (not to this button) when
@@ -1052,6 +1097,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 Dock(
                     vertical = customPos == "left", centered = customPos == "center",
                     onLibrary = { libFromDock = true; onScreen(Screen.Library) },
+                    onRight = { if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true } else runCatching { gearReq.requestFocus() } },
                     app = app, s = s, metrics = metrics, screenH = screenHdp, radius = radius,
                     expanded = expanded, onExpanded = { expanded = it },
                     movingPkg = movingPkg, onMoveKey = onMoveKey, firstTile = firstTile, heroFocus = heroFocus,
@@ -1084,7 +1130,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // Over the channels' rows too (the music page gives way to them): kept built and faded in and out with
                 // the rows (built each time they came, it appeared late and went at once).
                 val homeIsland = settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)) && MusicUi.dockApp.value == null && !(stageWanted && !ChannelsUi.shown.value)
-                val chanIsland0 = ChannelsUi.shown.value || MusicUi.appsPage.value || (MusicUi.carouselApp.value && settings.musicMode)
+                val chanIsland0 = ChannelsUi.shown.value || MusicUi.appsPage.value || InputsUi.page.value || (MusicUi.carouselApp.value && settings.musicMode)
                 // (Never over the player itself: the Music icon's or a music app's own player showed it twice.)
                 val playerUp = stageWanted && !ChannelsUi.shown.value
                 val chanIsland = chanIsland0 && !playerUp
@@ -1165,7 +1211,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     app, e,
                     onPhone = { settingsCat = PHONE_CATEGORY; onScreen(Screen.Settings) },
                     onClose = {
-                        val back = tileFocus[e.pkg] ?: firstTile
+                        // (An input on the Inputs icon's page: back to it there.)
+                        val back = (if (InputsUi.page.value) InputsUi.tiles[e.pkg] else null) ?: tileFocus[e.pkg] ?: firstTile
+                        if (InputsUi.page.value) InputsUi.holdUntil = android.os.SystemClock.uptimeMillis() + 1500
                         pickerFor = null
                         scope.launch { delay(200); runCatching { back.requestFocus() } }
                     },
@@ -1179,6 +1227,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 if (settings.setupDone && settings.tourSeen < WhatsNew.ID) { delay(1500); WhatsNew.show() }
             }
             WhatsNewHost(app, s)
+            // The tour's last page: "Send a gift card" opens the support window straight away.
+            LaunchedEffect(WhatsNew.support.value) {
+                if (WhatsNew.support.value) {
+                    delay(150)
+                    dialog = SupportDialog({ com.glasslauncher.tv.data.Support.clean(it) }) { c, n -> com.glasslauncher.tv.data.Support.send(c, n, app.updater.current) }
+                    WhatsNew.support.value = false // last: it restarts this effect
+                }
+            }
             PopMenuHost(pop, s, settings.menuStyle) {
                 pop = null
                 // Back to what it was opened on (unless a choice moved the focus on, e.g. Move or another dialog).
@@ -1336,7 +1392,7 @@ private fun bakeBackdrop(src: ImageBitmap, w: Int, h: Int, hScrim: Boolean = tru
     if (backdropSharpen && bmp.width < w * 0.9f) runCatching { sharpen(out) }
     val p = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG)
     p.shader = android.graphics.LinearGradient(0f, 0f, w * 0.62f, 0f, 0xE0000000.toInt(), 0x00000000, android.graphics.Shader.TileMode.CLAMP)
-    if (hScrim) c.drawRect(0f, 0f, w * 0.62f, h.toFloat(), p)
+    if (hScrim && !Scrims.sideOff) c.drawRect(0f, 0f, w * 0.62f, h.toFloat(), p)
     p.shader = android.graphics.LinearGradient(0f, h * 0.58f, 0f, h.toFloat(), 0x00000000, 0xCC000000.toInt(), android.graphics.Shader.TileMode.CLAMP)
     c.drawRect(0f, h * 0.58f, w.toFloat(), h.toFloat(), p)
     // Fully covered: marked opaque, so it is drawn without blending.
@@ -1355,7 +1411,7 @@ private fun immutable(b: android.graphics.Bitmap): android.graphics.Bitmap {
 }
 
 /** Which tile of the (bottom) dock is selected: one in a lower row is out of sight while the dock is folded. */
-private object DockFocus {
+internal object DockFocus {
     @Volatile var idx = -1
     /** The carousel (or what stands in for it) holds the selection. */
     @Volatile var hero = false
@@ -1364,7 +1420,9 @@ private object DockFocus {
     /** Something in the dock holds it. */
     @Volatile var dock = false
     fun on(i: Int, f: Boolean) { if (f) idx = i else if (idx == i) idx = -1 }
-    val lowerRow get() = idx >= DOCK_COLUMNS
+    /** Apps in one dock row (Settings → Dock & icons); the strip dock has one row. */
+    @Volatile var cols = DOCK_COLUMNS
+    val lowerRow get() = cols > 0 && idx >= cols
 }
 
 /** Which way the next slide moves (set by the remote / auto-play just before the index changes). */
@@ -1460,13 +1518,18 @@ private fun HeroSection(
         freshKeys = if (!newFirst || catalogItems.isEmpty()) emptyList()
             else withContext(Dispatchers.Default) { com.glasslauncher.tv.data.NewTitles.update(ctx, catalogItems.map { it.key }) }
     }
-    val items = remember(catalogItems, cwItems, mode, lead, shuffleRev, newFirst, freshKeys) {
-        val cw = if (mode == "off") emptyList() else cwItems
+    // Titles hidden with a long press on Play (Settings → Carousel → Hidden titles brings them back).
+    val hiddenKeys = settings.hiddenKeys()
+    // The shuffle button's order, kept while titles are hidden (hiding one doesn't mix the rest again).
+    val mixed = remember(catalogItems, shuffleRev) {
+        if (shuffleRev > 0) catalogItems.shuffled(kotlin.random.Random(shuffleRev * 7919L + System.nanoTime() % 1000)) else catalogItems
+    }
+    val items = remember(mixed, cwItems, mode, lead, newFirst, freshKeys, hiddenKeys) {
+        val cw = (if (mode == "off") emptyList() else cwItems).let { l -> if (hiddenKeys.isEmpty()) l else l.filterNot { it.key in hiddenKeys } }
         val keys = cw.map { it.key }.toSet()
         // The catalog titles: shuffled by the shuffle button, then the ones a catalog has just added in front
         // (newest first). Continue Watching keeps its own place below.
-        var cat = catalogItems
-        if (shuffleRev > 0) cat = cat.shuffled(kotlin.random.Random(shuffleRev * 7919L + System.nanoTime() % 1000))
+        var cat = if (hiddenKeys.isEmpty()) mixed else mixed.filterNot { it.key in hiddenKeys }
         if (newFirst) {
             val fresh = freshKeys
             if (fresh.isNotEmpty()) {
@@ -1616,7 +1679,7 @@ private fun HeroSection(
                     val r = loader.execute(imgReq(ctx, if (pageCopy(settings)) sized(u, "w1280") else u).prep())
                     val b = (r as? SuccessResult)?.image?.toBitmap()?.asImageBitmap() ?: return@launch
                     val slide = settings.slideAnim != "fade"
-                    val bk = (if (slide) "$u|slide" else u) + "|" + settings.pageScale + "|" + settings.memTier
+                    val bk = (if (slide) "$u|slide" else u) + "|" + settings.pageScale + "|" + settings.memTier + "|" + Scrims.sideOff
                     if (BakeCache.get(bk, b) == null) {
                         val dm = ctx.resources.displayMetrics
                         val baked = withContext(prepDispatcher) { bakeBackdrop(b, (dm.widthPixels * settings.pageScale).toInt(), (dm.heightPixels * settings.pageScale).toInt(), !slide) }
@@ -1798,7 +1861,16 @@ private fun HeroSection(
         val focusDone = remember { intArrayOf(MusicUi.focusRev.intValue) }
         LaunchedEffect(MusicUi.focusRev.intValue, musicStage) {
             val rev = MusicUi.focusRev.intValue
-            if (rev != focusDone[0] && musicStage) { focusDone[0] = rev; delay(150); runCatching { heroFocus.requestFocus() } }
+            if (rev != focusDone[0] && musicStage) {
+                focusDone[0] = rev
+                // (Tried again until the player has it: with your own background the player came while the music
+                // apps were still going, the first try was lost and the selection went nowhere, then to the first app.)
+                repeat(25) {
+                    delay(if (it == 0) 150 else 100)
+                    if (MusicUi.stageFocused || DockFocus.top) return@LaunchedEffect
+                    runCatching { heroFocus.requestFocus() }
+                }
+            }
         }
         // The player went (the app stopped, e.g. YouTube when you leave it) with the selection in it: the selection
         // comes back to the carousel (or the dock), not left nowhere.
@@ -1863,6 +1935,12 @@ private fun HeroSection(
                         if (pictures.size > 1) PopOption("Change artwork", thumbs = PopThumbs("Artwork · ${shown.name}", pictures,
                             pictures.indexOf(shown.background).coerceAtLeast(0)) { url -> settings.setArtPick(shown.key, url) })
                         else PopOption("Change artwork", "—") { toast(ctx, "No other pictures for ${shown.name} (add a TMDB token for more)") },
+                        // Not for you: off the carousel for good (Settings → Carousel → Hidden titles brings it back).
+                        if (items.size > 1) PopOption("Hide this title") {
+                            app.navAt = System.currentTimeMillis()
+                            settings.setHidden(shown.key, shown.name, true)
+                            toast(ctx, "Hidden · ${shown.name}  (Settings → Carousel → Hidden titles)")
+                        } else null,
                     ), PopAnchors.play, PopState.Side.Right))
                 },
                 modifier = Modifier.align(Alignment.TopStart),
@@ -2509,6 +2587,8 @@ private fun Dock(
     /** In the middle of the screen (your own background only): no margin under it. */
     centered: Boolean = false,
     onLibrary: () -> Unit = {},
+    /** The column on the left: Right opens the menu. */
+    onRight: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val settings = app.settings
@@ -2520,17 +2600,28 @@ private fun Dock(
         val p = settings.folderPos.let { if (it < 0 || it > apps.size) apps.size else it }
         apps.toMutableList<AppEntry?>().apply { if (showFolder) add(p, null) }
     }
-    val rows = remember(items) { items.chunked(DOCK_COLUMNS) }
+    val perRow = metrics.cols
+    val rows = remember(items, perRow) { items.chunked(perRow) }
     // Fewer apps than a full row: the dock wraps them (the tiles keep their size).
-    val cols = if (settings.dockFit) items.size.coerceIn(1, DOCK_COLUMNS) else DOCK_COLUMNS
-    val side = metrics.sideMargin + (DOCK_COLUMNS - cols) * (metrics.cellW + metrics.gap) / 2f
+    val cols = if (settings.dockFit) items.size.coerceIn(1, perRow) else perRow
+    val side = metrics.sideMargin + (perRow - cols) * (metrics.cellW + metrics.gap) / 2f
     // Down from the last row opens the Library.
     val edge: (androidx.compose.ui.focus.FocusDirection) -> Boolean = { d ->
         if (d == androidx.compose.ui.focus.FocusDirection.Down && settings.libraryDown) { onLibrary(); true } else false
     }
+    val strip = settings.dockStrip && !vertical
+    androidx.compose.runtime.SideEffect { DockFocus.cols = if (strip || vertical) 0 else perRow }
     if (vertical) {
         VerticalDock(app, s, metrics, screenH, radius, items, movingPkg, onMoveKey, firstTile, heroFocus, folderFocus, tileFocus, onMove,
-            onMenu, onFolder, onFolderMenu, modifier, edge, onExpanded)
+            onMenu, onFolder, onFolderMenu, modifier.onPreviewKeyEvent { ev ->
+                // Right from the column: the menu (nothing else is to its right).
+                if (ev.key == Key.DirectionRight && movingPkg == null) { if (ev.type == KeyEventType.KeyDown) onRight(); true } else false
+            }, edge, onExpanded)
+        return
+    }
+    if (strip) {
+        StripDock(app, s, metrics, radius, items, movingPkg, onMoveKey, firstTile, heroFocus, folderFocus, tileFocus, onMove,
+            onMenu, onFolder, onFolderMenu, modifier.padding(bottom = if (centered) 0.dp else metrics.bottomMargin.dp), edge, onExpanded, onCover)
         return
     }
     // Move mode: a moved tile is laid out again in its new slot and loses focus, which then fell to the
@@ -2550,7 +2641,8 @@ private fun Dock(
     val scroll = rememberScrollState()
     LaunchedEffect(expanded) { if (!expanded) scroll.animateScrollTo(0) }
 
-    GlassPanel(
+    DockGlass(
+        off = settings.dockGlassOff,
         modifier = modifier.padding(horizontal = side.dp).padding(bottom = if (centered) 0.dp else metrics.bottomMargin.dp).fillMaxWidth().layout { m, c ->
             val px = hState.value.roundToPx()
             val p = m.measure(c.copy(minHeight = px, maxHeight = px))
@@ -2583,11 +2675,11 @@ private fun Dock(
                 androidx.compose.runtime.CompositionLocalProvider(LocalEdge provides (if (r == rows.lastIndex) edge else { _ -> false })) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.gap.dp)) {
                     row.forEachIndexed { c, e ->
-                        val idx = r * DOCK_COLUMNS + c
+                        val idx = r * perRow + c
                         val edges = gridEdges(c, row.size, r, rows.size, allowUp = true)
                         val base = Modifier.weight(1f)
                             .then(if (idx == 0) Modifier.focusRequester(firstTile) else Modifier)
-                            .then(if (r == 0) Modifier.focusProperties { up = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value && e?.pkg == MusicUi.DOCK_PKG) MusicUi.appsEntry else heroFocus } else Modifier)
+                            .then(if (r == 0) Modifier.focusProperties { up = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value && e?.pkg == MusicUi.DOCK_PKG) MusicUi.appsEntry else if (InputsUi.page.value && e?.pkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG) InputsUi.entry else heroFocus } else Modifier)
                         if (e == null) {
                             key(FOLDER) {
                                 FolderTile(
@@ -2639,7 +2731,8 @@ private fun VerticalDock(
     val cellH = cellW / 1.6f
     val fullH = metrics.padTop + items.size * cellH + (items.size - 1).coerceAtLeast(0) * metrics.gap + metrics.padBottom + 8 * s
     val h = minOf(fullH, screenH * 0.84f)
-    GlassPanel(
+    DockGlass(
+        off = app.settings.dockGlassOff,
         modifier = modifier.padding(start = (28 * s).dp).width((cellW + 2 * metrics.padH).dp).height(h.dp),
         radius = (radius * s).dp, style = app.settings.dockStyle, refract = true, cache = true,
     ) {
@@ -2665,6 +2758,105 @@ private fun VerticalDock(
                             modifier = base.focusRequester(tileFocus.getOrPut(e.pkg) { FocusRequester() })
                                     .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
                             onFocus = { f -> if (f) { onExpanded(false); onMove() } }, onMoveKey = onMoveKey,
+                            onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
+                            onLong = { onMenu(e) }, edges = edges)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The dock's glass, or nothing behind the icons (Settings → Dock & icons → Dock glass off). */
+@Composable
+private fun DockGlass(off: Boolean, modifier: Modifier, radius: Dp, style: String, refract: Boolean, cache: Boolean, content: @Composable BoxScope.() -> Unit) {
+    if (off) Box(modifier, content = content)
+    else GlassPanel(modifier = modifier, radius = radius, style = style, refract = refract, cache = cache, content = content)
+}
+
+/**
+ * The dock as one strip from edge to edge: every app in one row, the selected one stays in the middle and the strip
+ * moves under it.
+ */
+@Composable
+private fun StripDock(
+    app: GlassApp, s: Float, metrics: DockMetrics, radius: Int, items: List<AppEntry?>,
+    movingPkg: String?, onMoveKey: (KeyEvent) -> Boolean, firstTile: FocusRequester, heroFocus: FocusRequester,
+    folderFocus: FocusRequester, tileFocus: HashMap<String, FocusRequester>, onMove: () -> Unit,
+    onMenu: (AppEntry) -> Unit, onFolder: () -> Unit, onFolderMenu: () -> Unit, modifier: Modifier,
+    edge: (androidx.compose.ui.focus.FocusDirection) -> Boolean,
+    onExpanded: (Boolean) -> Unit,
+    onCover: (androidx.compose.ui.geometry.Rect) -> Unit,
+) {
+    val ctx = LocalContext.current
+    val settings = app.settings
+    val n = items.size.coerceAtLeast(1)
+    // The selected app always in the middle, the others on both sides, all the way round: past the last app comes
+    // the first again (with the first selected the left side was empty).
+    // [pos] counts every step (it doesn't wrap), so the strip always slides the short way.
+    var sel by remember { mutableIntStateOf(0) }
+    var pos by remember { mutableIntStateOf(0) }
+    val shift by animateFloatAsState(pos.toFloat(), spring(0.9f, 420f), label = "stripShift")
+    val step = metrics.cellW + metrics.gap
+    // Only whole apps on screen, as many on the left as on the right (an odd number that fits): the ones further
+    // out fade as they slide past the edge (a sliver of an app showed at one side, and one side had one more).
+    val fit = run {
+        var k = ((metrics.screenW - 2 * 24 * s + metrics.gap) / step).toInt().coerceAtLeast(1)
+        if (k % 2 == 0) k--
+        k.coerceAtLeast(1)
+    }
+    val halfOn = if (n > fit) (fit - 1) / 2f else Float.MAX_VALUE
+    val focus = remember(items) { items.map { e -> if (e == null) folderFocus else tileFocus.getOrPut(e.pkg) { FocusRequester() } } }
+    val onSel: (Int) -> Unit = { i ->
+        if (i != sel) {
+            // The shortest way round from the last one.
+            var d = (i - sel) % n; if (d > n / 2) d -= n; if (d < -(n - 1) / 2) d += n
+            pos += d; sel = i
+        }
+    }
+    LaunchedEffect(items, movingPkg) {
+        val p = movingPkg ?: return@LaunchedEffect
+        delay(30)
+        runCatching { (if (p == FOLDER) folderFocus else tileFocus[p])?.requestFocus() }
+    }
+    LaunchedEffect(Unit) { onCover(androidx.compose.ui.geometry.Rect.Zero) }
+    DockGlass(
+        off = settings.dockGlassOff,
+        modifier = modifier.fillMaxWidth().height(metrics.collapsedH.dp),
+        radius = 0.dp, style = settings.dockStyle, refract = false, cache = true,
+    ) {
+        Box(Modifier.fillMaxSize().padding(top = metrics.padTop.dp, bottom = metrics.padBottom.dp)) {
+            items.forEachIndexed { i, e ->
+                // Where this app sits from the middle, in steps (between -n/2 and n/2: the far ones go round).
+                fun place(): Float {
+                    var d = (i - shift) % n
+                    if (d < -n / 2f) d += n
+                    if (d >= n / 2f) d -= n
+                    return d
+                }
+                val edges = setOf(androidx.compose.ui.focus.FocusDirection.Down)
+                val base = Modifier.width(metrics.cellW.dp).fillMaxHeight()
+                    .offset { androidx.compose.ui.unit.IntOffset(((metrics.screenW / 2f - metrics.cellW / 2f + place() * step) * density).toInt(), 0) }
+                    .graphicsLayer { alpha = (halfOn + 1f - kotlin.math.abs(place())).coerceIn(0f, 1f) }
+                    .then(if (i == 0) Modifier.focusRequester(firstTile) else Modifier)
+                    .focusProperties {
+                        left = focus[(i - 1 + n) % n]; right = focus[(i + 1) % n]
+                        up = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value && e?.pkg == MusicUi.DOCK_PKG) MusicUi.appsEntry else if (InputsUi.page.value && e?.pkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG) InputsUi.entry else heroFocus
+                    }
+                androidx.compose.runtime.CompositionLocalProvider(LocalEdge provides edge) {
+                    if (e == null) key(FOLDER) {
+                        FolderTile(app, s, radius, moving = movingPkg == FOLDER, modifier = base.focusRequester(folderFocus).onGloballyPositioned { PopAnchors.tiles[FOLDER] = it.boundsInRoot() },
+                            onFocus = { f -> DockFocus.on(i, f); if (f) { onSel(i); onExpanded(false); onMove() } }, onMoveKey = onMoveKey, onClick = onFolder, onLong = onFolderMenu, edges = edges)
+                    } else key(e.pkg) {
+                        androidx.compose.runtime.DisposableEffect(e.pkg) { onDispose { if (ChannelsUi.dockPkg.value == e.pkg) ChannelsUi.dockPkg.value = null } }
+                        DockTile(entry = e, app = app, s = s, radius = radius, moving = movingPkg == e.pkg,
+                            modifier = base.focusRequester(focus[i])
+                                .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
+                            onFocus = { f ->
+                                DockFocus.on(i, f); if (f) { onSel(i); onExpanded(false); onMove(); ChannelsUi.back = null }
+                                if (f) ChannelsUi.dockPkg.value = e.pkg else if (ChannelsUi.dockPkg.value == e.pkg) ChannelsUi.dockPkg.value = null
+                            },
+                            onMoveKey = onMoveKey,
                             onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
                             onLong = { onMenu(e) }, edges = edges)
                     }
@@ -2875,7 +3067,9 @@ private fun TileFrame(
         Box(
             Modifier.fillMaxWidth().aspectRatio(1.6f)
                 .offset { androidx.compose.ui.unit.IntOffset((nudge.value.x * density).toInt(), rise.roundToPx() + (nudge.value.y * density).toInt()) }
-                .drawBehind { with(Glow) { glow(gColor, glowA.value, grow = scale) } }
+                // (The glow's hole has the tile's own corners: with smaller tiles (more apps in a row) its corners were
+                // sharper than the tile's, and a dark gap showed at each corner of the selected icon.)
+                .drawBehind { with(Glow) { glow(gColor, glowA.value, grow = scale, corner = r.toPx()) } }
                 .graphicsLayer {
                     scaleX = scale; scaleY = scale
                     shadowElevation = shadow.toPx()
@@ -3267,7 +3461,11 @@ private fun MusicAppsStage(app: GlassApp, s: Float, metrics: DockMetrics, radius
             // Its song is the one here: its player (playing on).
             if (!t.playing) com.glasslauncher.tv.data.NowPlaying.play()
             MusicUi.forced.value = true; MusicUi.focusRev.intValue++
-        } else MusicUi.startIn(ctx, pkg, st.musicLastPkg)
+        } else {
+            // (The selection goes to the player once its song is on: it fell out of these tiles when they went, and
+            // landed on the home screen.)
+            MusicUi.startIn(ctx, pkg, st.musicLastPkg); MusicUi.focusRev.intValue++
+        }
     }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val top = (if (!st.topAutoHide && st.showClock) 64 else 30) * s
@@ -3316,6 +3514,88 @@ private fun MusicAppsStage(app: GlassApp, s: Float, metrics: DockMetrics, radius
                 }
                 Text(line, color = Color.White.copy(alpha = 0.6f), fontSize = (10 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = (700 * s).dp))
+            }
+        }
+    }
+}
+
+
+/** The dock's Inputs icon: its page of the TV's inputs above the dock (like the Music icon's music apps). */
+object InputsUi {
+    val on = androidx.compose.runtime.mutableStateOf(false)
+    /** Its page is up (not behind the open dock, the folder or another screen). */
+    val page = androidx.compose.runtime.mutableStateOf(false)
+    @Volatile var focused = false
+    val entry = FocusRequester()
+    /** Each input's tile (the icon picker gives the selection back to it). */
+    val tiles = java.util.concurrent.ConcurrentHashMap<String, FocusRequester>()
+    /** Until then the page stays though nothing in it is selected (the icon picker opening and closing over it). */
+    @Volatile var holdUntil = 0L
+    fun held() = android.os.SystemClock.uptimeMillis() < holdUntil
+}
+
+/**
+ * The Inputs icon's page: the TV's inputs drawn like the dock's tiles, in a row above it. OK switches to one; hold OK
+ * changes its icon (which ones show, and their order: Settings → Menu & themes). ▼ / Back: the Inputs icon; ▲: the menu.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun InputsStage(app: GlassApp, s: Float, metrics: DockMetrics, radius: Int, bottom: Float, onDown: () -> Unit, onUp: () -> Unit,
+    onPickIcon: (AppEntry) -> Unit) {
+    val ctx = LocalContext.current
+    val st = app.settings
+    val all by com.glasslauncher.tv.data.Inputs.list.collectAsState()
+    LaunchedEffect(Unit) { kotlinx.coroutines.withContext(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }
+    val shown = remember(all, st.inputsHidden, st.inputsOrder) { com.glasslauncher.tv.data.Inputs.forPage(st) }
+    val entries = remember(shown) { shown.map { AppEntry(com.glasslauncher.tv.data.Inputs.PREFIX + it.id, it.label, android.content.ComponentName(ctx.packageName, "input"), true) } }
+    val reqs = remember(entries.size) { List(entries.size) { FocusRequester() } }
+    entries.forEachIndexed { i, e -> InputsUi.tiles[e.pkg] = reqs[i] }
+    var sel by remember { mutableIntStateOf(-1) }
+    val start = remember { intArrayOf(0) }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val top = (if (!st.topAutoHide && st.showClock) 64 else 30) * s
+        val room = maxHeight.value - bottom - top
+        Box(Modifier.padding(top = top.dp).fillMaxWidth().height(room.dp), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.onFocusChanged { InputsUi.focused = it.hasFocus }) {
+                Text("Inputs", color = Color.White.copy(alpha = 0.85f), fontSize = (12 * s).sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height((14 * s).dp))
+                if (entries.isEmpty()) {
+                    Text(if (all.isEmpty()) "No inputs found. On a TV they come from its own list; on a box like the Google TV Streamer from HDMI-CEC (TV access: Glassio settings → System)."
+                        else "Every input is hidden: show them in Settings → Menu & themes → TV inputs",
+                        color = Color.White.copy(alpha = 0.6f), fontSize = (10 * s).sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.widthIn(max = (520 * s).dp).focusRequester(InputsUi.entry)
+                            .onPreviewKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionDown || ev.key == Key.Back)) { onDown(); true } else false }
+                            .focusable())
+                    return@Column
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(metrics.gap.dp),
+                    modifier = Modifier.focusRequester(InputsUi.entry)
+                        .focusProperties { enter = { reqs[start[0].coerceIn(0, reqs.lastIndex)] } }
+                        .onPreviewKeyEvent { ev ->
+                            val down = ev.type == KeyEventType.KeyDown
+                            when (ev.key) {
+                                Key.DirectionDown -> { if (down) onDown(); true }
+                                Key.DirectionUp -> { if (down) onUp(); true }
+                                Key.Back -> { if (ev.type == KeyEventType.KeyUp) onDown(); true }
+                                Key.DirectionLeft -> sel <= 0
+                                Key.DirectionRight -> sel >= entries.lastIndex
+                                else -> false
+                            }
+                        }
+                        .focusGroup()) {
+                    entries.forEachIndexed { i, e ->
+                        DockTile(e, app, s, radius, moving = false,
+                            modifier = Modifier.width(metrics.cellW.dp).height(metrics.tileH.dp).focusRequester(reqs[i]),
+                            onFocus = { f -> if (f) { sel = i; start[0] = i } else if (sel == i) sel = -1 },
+                            onMoveKey = { false },
+                            onClick = { com.glasslauncher.tv.data.Inputs.open(ctx, e.pkg) },
+                            onLong = { InputsUi.holdUntil = android.os.SystemClock.uptimeMillis() + 3000; onPickIcon(e) })
+                    }
+                }
+                // The room of the music apps' line under their tiles (left empty: no hint here), so both pages sit at
+                // the same height (without it the inputs sat lower than the music apps).
+                Spacer(Modifier.height((14 * s).dp))
+                Text(" ", fontSize = (10 * s).sp, maxLines = 1)
             }
         }
     }

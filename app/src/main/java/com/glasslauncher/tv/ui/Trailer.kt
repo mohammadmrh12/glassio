@@ -25,12 +25,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.glasslauncher.tv.GlassApp
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.asCoroutineDispatcher
 import com.glasslauncher.tv.data.Glog
 import com.glasslauncher.tv.data.Http
@@ -256,7 +259,9 @@ private fun popupPlace(s: Float, scale: Float, aspect: Float): Pair<IntOffset, P
 @Composable
 private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: com.glasslauncher.tv.data.TrailerSource.Streams, mode: String, dockInset: Float,
                           /** The screensaver's own: its sound setting, no home-screen glass, and it is told when the trailer ends or fails. */
-                          muteOverride: Boolean? = null, volumeOverride: Int? = null, glass: Boolean = true, onEnded: (() -> Unit)? = null, onFailed: (() -> Unit)? = null) {
+                          muteOverride: Boolean? = null, volumeOverride: Int? = null, glass: Boolean = true, onEnded: (() -> Unit)? = null, onFailed: (() -> Unit)? = null,
+                          /** Live copies for the glass without the home screen's trailer state (the screensaver's music island). */
+                          frames: Boolean = glass) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val st = app.settings
     val mute = muteOverride ?: st.trailerMute
@@ -306,7 +311,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         val l = object : androidx.media3.common.Player.Listener {
             override fun onRenderedFirstFrame() {
                 if (!rendered) Glog.i("Trailer ${req.ytId}: on screen in ${android.os.SystemClock.uptimeMillis() - t0} ms (${streams.height}p)")
-                rendered = true; if (glass) { Trailers.started.value = true; if (!popup) VideoFrames.showing.value = true } }
+                rendered = true; if (glass) Trailers.started.value = true; if (frames && !popup) VideoFrames.showing.value = true }
             override fun onVideoSizeChanged(v: androidx.media3.common.VideoSize) { if (v.width > 0 && v.height > 0) { aspect = v.width * v.pixelWidthHeightRatio / v.height; vid = v.width to v.height } }
             override fun onPlaybackStateChanged(state: Int) {
                 val now = android.os.SystemClock.uptimeMillis()
@@ -323,10 +328,12 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         player.addListener(l)
         onDispose {
             player.removeListener(l); runCatching { player.release() }
-            if (!popup && glass) VideoFrames.clear()
+            if (!popup && frames) VideoFrames.clear()
         }
     }
-    LaunchedEffect(Trailers.held.value) { player.playWhenReady = req.overlay || !Trailers.held.value }
+    // The screensaver's trailer pauses while the multi-view cameras are up (it plays on when they go).
+    val camsUp = onEnded != null && com.glasslauncher.tv.MultiCamOverlay.open.value
+    LaunchedEffect(Trailers.held.value, camsUp) { player.playWhenReady = !camsUp && (req.overlay || !Trailers.held.value) }
     // Subtitles: loaded here and shown by the trailer's time.
     if (st.trailerSubs) LaunchedEffect(Unit) {
         val got = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.TrailerSubs.load(streams.subs, st.trailerSubLang) }
@@ -388,7 +395,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
     var view by remember { mutableStateOf<android.view.SurfaceView?>(null) }
     // Where the picture is on screen (cropped, or with bars), so the glass shows exactly what is behind it.
     val region = remember { arrayOfNulls<FrameRegion>(1) }
-    LaunchedEffect(view) { if (!glass) return@LaunchedEffect; val v = view ?: return@LaunchedEffect; copyVideoFrames(v, { rendered }) { region[0] } }
+    LaunchedEffect(view) { if (!frames) return@LaunchedEffect; val v = view ?: return@LaunchedEffect; copyVideoFrames(v, { rendered }) { region[0] } }
     if (mode == "cinema") LaunchedEffect(view, rendered) {
         val v = view ?: return@LaunchedEffect
         if (!rendered) return@LaunchedEffect
@@ -437,6 +444,24 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         if (cues.isNotBlank()) androidx.compose.material3.Text(cues, style = subStyle,
             // Above the dock while it shows, at the bottom while it is away.
             modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(start = (120 * s).dp, end = (120 * s).dp, bottom = (44 * s + dockInset).dp))
+        // Under the multi-view cameras (screensaver): the paused picture blurred and dimmed (subtitles too), like the
+        // other screensavers.
+        val veilA by androidx.compose.animation.core.animateFloatAsState(if (camsUp) 1f else 0f, tween(if (camsUp) 220 else 180), label = "camsVeil")
+        val still = remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+        LaunchedEffect(camsUp) {
+            if (!camsUp) return@LaunchedEffect
+            val v = view ?: return@LaunchedEffect
+            val b = android.graphics.Bitmap.createBitmap(480, 270, android.graphics.Bitmap.Config.ARGB_8888)
+            pixelCopy(v, b)?.let { still.value = it.asImageBitmap() }
+        }
+        if (veilA > 0.01f) {
+            still.value?.let { b ->
+                androidx.compose.foundation.Image(b, null, Modifier.fillMaxSize().graphicsLayer { alpha = veilA }
+                    .then(if (android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(24.dp) else Modifier),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            }
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = veilA }.background(Color.Black.copy(alpha = 0.3f)))
+        }
     }
 }
 
@@ -517,13 +542,55 @@ private class BarFinder {
  * logo and details like the carousel for a few seconds. OK opens the title in Nuvio, held OK a menu like Play's,
  * ◀ ▶ the next or the one before.
  */
+/**
+ * The trailer screensaver's first trailer, found ahead (its streams resolved) while the home screen is idle: the
+ * first trailer after the screensaver started took ~4 s (finding the trailer and its streams, then buffering), now
+ * only the buffering. Picked again after each screensaver and every hour (the stream links expire).
+ */
+object SaverPlan {
+    @Volatile var key: String? = null
+    @Volatile private var at = 0L
+    private val busy = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun start(app: GlassApp) {
+        app.scope.launch {
+            kotlinx.coroutines.delay(20_000)
+            while (true) {
+                if (key == null || android.os.SystemClock.elapsedRealtime() - at > 3_600_000L) prepare(app)
+                kotlinx.coroutines.delay(if (key == null) 60_000L else 5 * 60_000L)
+            }
+        }
+    }
+
+    /** Used: the next one is found a little later. */
+    fun used(app: GlassApp) { key = null; app.scope.launch { kotlinx.coroutines.delay(30_000); prepare(app) } }
+
+    suspend fun prepare(app: GlassApp) {
+        if (app.settings.saverMode != "trailer" || !busy.compareAndSet(false, true)) return
+        try {
+            val pool = app.catalogs.items.value.filter { it.id.startsWith("tt") }.shuffled()
+            for (it in pool.take(6)) {
+                val got = kotlinx.coroutines.withContext(Trailers.background) { runCatching { Trailers.prepare(app, it.type, it.id, it.name, it.year, true) }.getOrNull() }
+                if (got?.second != null) { key = it.key; at = android.os.SystemClock.elapsedRealtime(); Glog.i("Screensaver trailer ready: ${it.name}"); return }
+            }
+        } finally { busy.set(false) }
+    }
+}
+
 @Composable
 fun SaverTrailers(app: GlassApp) {
     val st = app.settings
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val raw by app.catalogs.items.collectAsState()
     val enriched by app.catalogs.enrichedItems.collectAsState()
-    val pool = remember(raw.size) { raw.filter { it.id.startsWith("tt") }.shuffled() }
+    // (The one found ahead first: SaverPlan.)
+    val pool = remember(raw.size) {
+        val l = raw.filter { it.id.startsWith("tt") }.shuffled()
+        val k = SaverPlan.key
+        val first = l.indexOfFirst { it.key == k }
+        if (first > 0) listOf(l[first]) + l.filterIndexed { i, _ -> i != first } else l
+    }
+    DisposableEffect(Unit) { onDispose { SaverPlan.used(app) } }
     val full = true
     // Where we are in the list, and what plays.
     var at by remember { mutableIntStateOf(0) }
@@ -626,7 +693,8 @@ fun SaverTrailers(app: GlassApp) {
         if (c != null) androidx.compose.runtime.key(c.second.rev) {
             val streams = c.second.streams
             if (streams != null) NativeTrailer(app, s, c.second, streams, if (st.saverTrailerSize == "original") "original" else "cinema", subsUp,
-                muteOverride = muted, volumeOverride = volume, glass = false, onEnded = { go(1) }, onFailed = { go(dir) })
+                // (The music island's glass follows the trailer: without copies it stood on the home screen's last picture.)
+                muteOverride = muted, volumeOverride = volume, glass = false, frames = com.glasslauncher.tv.saver.saverIslandGlass(st), onEnded = { go(1) }, onFailed = { go(dir) })
         }
         // The first trailer is still being found (a few seconds the first time): the title's picture meanwhile,
         // instead of a black screen.

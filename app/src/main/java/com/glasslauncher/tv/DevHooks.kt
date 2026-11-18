@@ -69,6 +69,10 @@ object DevHooks {
         i.getStringExtra("open_legacy")?.let { v -> com.glasslauncher.tv.data.NuvioLaunch.openIn(app, "legacy",
             com.glasslauncher.tv.data.HeroItem(v.substringAfter(':'), v.substringAfter(':'), v.substringBefore(':'), "", "", "", "", "", "", "", emptyList(), "")) }
         if (i.getBooleanExtra("show_tour", false)) com.glasslauncher.tv.ui.WhatsNew.show()
+        // Next picture / video / photo of your own background (QA: --ez next_bg true).
+        if (i.getBooleanExtra("next_bg", false)) com.glasslauncher.tv.ui.CustomBackground.nextNow(app.settings)
+        // Multi-view cameras on / off (QA: --ez multi_cams true).
+        if (i.getBooleanExtra("multi_cams", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(true)
         if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
         // Home Assistant cameras: lists them and asks for the first one's live link (log only).
@@ -99,7 +103,7 @@ object DevHooks {
             if (i.getBooleanExtra("fake_song", false)) {
                 val b = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)
                 android.graphics.Canvas(b).drawPaint(android.graphics.Paint().apply { shader = android.graphics.LinearGradient(0f, 0f, 300f, 300f, 0xFF7B61FF.toInt(), 0xFFFF6FA8.toInt(), android.graphics.Shader.TileMode.CLAMP) })
-                com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", "Test song", "Test artist", "Album",
+                com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", i.getStringExtra("fake_title") ?: "Test song", "Test artist", "Album",
                     if (i.getBooleanExtra("fake_noart", false)) com.glasslauncher.tv.data.PlaceholderArt.of("Test song") else b,
                     200_000, 60_000, android.os.SystemClock.elapsedRealtime(), 1f, true)
             } else com.glasslauncher.tv.data.NowPlaying.track.value = null
@@ -123,6 +127,16 @@ object DevHooks {
         i.getStringExtra("show_app")?.let { p -> st.hiddenApps = st.hiddenApps.filterNot { it == p } }
         i.getStringExtra("hide_app")?.let { p -> if (p !in st.hiddenApps) st.hiddenApps = st.hiddenApps + p }
         // The hidden apps in full (the settings dump cuts long values).
+        if (i.getBooleanExtra("dump_look", false)) android.util.Log.i("GlassPrefs", "theme=${st.theme} dock=${st.dockStyle} tile=${st.tileStyle} clock=${st.bgClockStyle} island=${st.islandStyle} bg=${st.bgMode} saver=${st.saverMode} saverClock=${st.saverBigClock} blur=${st.blurRadius} clockGlass=${st.bgClockGlass} order=${st.dockOrder.joinToString(",")}")
+        // Where the selection is (QA: --ez dump_focus true), one line in the log under GlassFocus.
+        if (i.getBooleanExtra("dump_focus", false)) {
+            val f = com.glasslauncher.tv.ui.DockFocus
+            android.util.Log.i("GlassFocus", "screen=${a.screenName} hero=${f.hero} top=${f.top} dock=${f.dock} idx=${f.idx} cols=${f.cols} " +
+                "musicStage=${com.glasslauncher.tv.ui.MusicUi.stageFocused} musicApps=${com.glasslauncher.tv.ui.MusicUi.appsFocused} " +
+                "inputs=${com.glasslauncher.tv.ui.InputsUi.focused} rows=${com.glasslauncher.tv.ui.ChannelsUi.focused} " +
+                "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} cams=${MultiCamOverlay.open.value} " +
+                "writes=${app.settings.recentWrites.joinToString(",")}")
+        }
         if (i.getBooleanExtra("dump_hidden", false)) android.util.Log.i("GlassPrefs", "hiddenApps(all)=" + st.hiddenApps.joinToString(","))
         i.getStringExtra("icon_pack")?.let { p ->
             if (p == "none") st.iconPack = "" else if (app.packs.installed().any { it.pkg == p }) st.iconPack = p

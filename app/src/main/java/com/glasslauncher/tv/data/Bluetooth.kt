@@ -19,7 +19,7 @@ object Bluetooth {
     val busy = MutableStateFlow<String?>(null)
 
     private fun shell(ctx: Context, args: String): Result<String> =
-        LocalShell.run(ctx, "CLASSPATH='${ctx.applicationInfo.sourceDir}' app_process /system/bin com.glasslauncher.tv.bt.BtShell $args")
+        LocalShell.run(ctx, "timeout 12 env CLASSPATH='${ctx.applicationInfo.sourceDir}' app_process /system/bin com.glasslauncher.tv.bt.BtShell $args")
 
     /** Blocking. */
     fun refresh(ctx: Context) {

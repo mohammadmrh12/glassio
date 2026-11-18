@@ -263,9 +263,15 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 }
             }
             // The music island in a glass look: live copies of this video for its glass (see MusicIsland).
-            val islandGlass = st.musicOn && st.musicIsland && st.islandStyle != "none" &&
-                (if (st.islandStyle == "theme") st.dockStyle !in setOf("amoled", "bow") else st.islandStyle == "glass")
+            val islandGlass = saverIslandGlass(st)
             if (islandGlass) {
+                // (The home screen's choice of copies back afterwards: left at the island's, the home screen's clock and
+                // glass waited for copies that were no longer made.)
+                DisposableEffect(Unit) {
+                    val iv = com.glasslauncher.tv.ui.VideoFrames
+                    val was = Triple(iv.wantSharp, iv.wantSoft, iv.softRadius)
+                    onDispose { iv.wantSharp = was.first; iv.wantSoft = was.second; iv.softRadius = was.third }
+                }
                 LaunchedEffect(Unit) {
                     while (view[0] == null) delay(50)
                     val iv = com.glasslauncher.tv.ui.VideoFrames
@@ -386,18 +392,9 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
         if (st.saverBigClock) androidx.compose.animation.AnimatedVisibility(SaverControl.clockShown.value,
             enter = androidx.compose.animation.slideInVertically(tween(520)) { -it } + androidx.compose.animation.fadeIn(tween(420)),
             exit = androidx.compose.animation.slideOutVertically(tween(420)) { -it } + androidx.compose.animation.fadeOut(tween(320))) {
-            // Moves down below the music island while a song plays, so the two never overlap.
-            val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
-            val island = st.musicOn && st.musicIsland && song != null
+            // (Moves down below the music island while a song plays: see BigClock.)
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-                val k = maxWidth.value / 960f
-                // (Further while the island is open with its buttons.)
-                val tall = if (com.glasslauncher.tv.ui.MusicUi.islandOpen.value) 118f else 40f
-                val drop by androidx.compose.animation.core.animateFloatAsState(if (island) (st.islandOffset + tall * st.islandScale) * k else 0f,
-                    androidx.compose.animation.core.spring(0.78f, 260f), label = "drop")
-                Box(Modifier.fillMaxSize().graphicsLayer { translationY = drop * density }) {
-                    com.glasslauncher.tv.ui.BigClock(st, k, inSaver = true)
-                }
+                com.glasslauncher.tv.ui.BigClock(st, maxWidth.value / 960f, inSaver = true)
             }
         }
         // Closing: to black (ScreensaverActivity.exit).
@@ -591,3 +588,7 @@ private fun softBlur(b: android.graphics.Bitmap, r: Int = 4) {
     repeat(3) { pass(px, tmp, true); pass(tmp, px, false) }
     b.setPixels(px, 0, w, 0, 0, w, h)
 }
+
+/** The music island over the screensaver in a glass look: it needs live copies of the video. */
+internal fun saverIslandGlass(st: com.glasslauncher.tv.data.Settings): Boolean = st.musicOn && st.musicIsland && st.islandStyle != "none" &&
+    (if (st.islandStyle == "theme") com.glasslauncher.tv.ui.themeLook(st) !in setOf("amoled", "bow") else st.islandStyle == "glass")

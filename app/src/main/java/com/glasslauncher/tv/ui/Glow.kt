@@ -42,23 +42,53 @@ object Glow {
     /** Settings → Glow size (0.3 … 1.6). */
     @Volatile var amount = 0.7f
 
-    fun DrawScope.glow(color: Color, a: Float, tallShape: Boolean = false, grow: Float = 1f, corner: Float = -1f, amt: Float = amount) {
+    /** Glow pictures made for one element size (half size, blurred), so the halo is the same width on every side. */
+    private val shaped = LruCache<String, ImageBitmap>(24)
+
+    /**
+     * The glow made for exactly this shape: a rounded rectangle of [w] × [h] with [corner], blurred out by [pad].
+     * (The one stretched picture was made for one shape: on other sizes its halo came out thicker on some sides than
+     * on others, weak along the edges.)
+     */
+    private fun shapedPic(w: Float, h: Float, pad: Float, corner: Float): ImageBitmap {
+        val key = "${(w / 2).toInt()}x${(h / 2).toInt()}x${(pad / 2).toInt()}x${(corner / 2).toInt()}"
+        shaped.get(key)?.let { return it }
+        val k = 0.5f
+        val pw = (pad * k); val iw = w * k; val ih = h * k
+        val b = Bitmap.createBitmap((iw + 2 * pw).toInt().coerceAtLeast(2), (ih + 2 * pw).toInt().coerceAtLeast(2), Bitmap.Config.ARGB_8888)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; maskFilter = BlurMaskFilter((pw * 0.7f).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL) }
+        Canvas(b).drawRoundRect(RectF(pw, pw, pw + iw, pw + ih), corner * k, corner * k, p)
+        return b.asImageBitmap().also { it.prepareToDraw(); shaped.put(key, it) }
+    }
+
+    /**
+     * [maxReach]: the most the halo may spread (px), e.g. the room around an icon inside the dock (the dock clips
+     * what goes past its edge: the halo was cut above and below and looked uneven).
+     */
+    fun DrawScope.glow(color: Color, a: Float, tallShape: Boolean = false, grow: Float = 1f, corner: Float = -1f, amt: Float = amount,
+                       maxReach: Float = Float.MAX_VALUE) {
         if (a <= 0.01f) return
-        val img = pic(tallShape)
-        val w = size.width * grow; val h = size.height * grow
+        val w0 = size.width; val h0 = size.height
         // The picture's blurred edge spreads out from the element; its reach is set by the size, measured from the
         // shorter side so wide cards don't get a huge halo.
-        val padX = minOf(w, h) * PAD * 0.8f * amt; val padY = padX
-        val left = (size.width - w) / 2 - padX; val top = (size.height - h) / 2 - padY
-        // Only around the edges: the inside is left out, so glass tiles aren't tinted from behind.
+        val pad = minOf(minOf(w0, h0) * PAD * 0.8f * amt, maxReach / grow).coerceAtLeast(2f)
+        val cr = if (corner >= 0f) corner else w0 * 0.09f
+        val img = shapedPic(w0, h0, pad, cr)
+        val w = w0 * grow; val h = h0 * grow; val pg = pad * grow
+        val left = (w0 - w) / 2 - pg; val top = (h0 - h) / 2 - pg
+        // Only around the edges: the inside is left out, so glass tiles aren't tinted from behind. The hole is a
+        // little inside the element's edge: right on it, the soft edges of both left a hairline of the page between
+        // them (a thin light line at the side, seen when the picture behind changed).
+        val inset = 1.5f
         val hole = androidx.compose.ui.graphics.Path().apply {
-            addRoundRect(androidx.compose.ui.geometry.RoundRect((size.width - w) / 2, (size.height - h) / 2, (size.width + w) / 2, (size.height + h) / 2,
-                androidx.compose.ui.geometry.CornerRadius(if (corner >= 0f) corner * grow else w * 0.09f)))
+            addRoundRect(androidx.compose.ui.geometry.RoundRect((w0 - w) / 2 + inset, (h0 - h) / 2 + inset, (w0 + w) / 2 - inset, (h0 + h) / 2 - inset,
+                androidx.compose.ui.geometry.CornerRadius((cr * grow - inset).coerceAtLeast(0f))))
         }
         clipPath(hole, androidx.compose.ui.graphics.ClipOp.Difference) {
             drawImage(img, srcOffset = IntOffset.Zero, srcSize = IntSize(img.width, img.height),
-                dstOffset = IntOffset(left.toInt(), top.toInt()), dstSize = IntSize((w + 2 * padX).toInt(), (h + 2 * padY).toInt()),
-                alpha = (0.35f + 0.25f * amt).coerceAtMost(0.8f) * a, colorFilter = ColorFilter.tint(color, BlendMode.SrcIn))
+                dstOffset = IntOffset(left.toInt(), top.toInt()), dstSize = IntSize((w + 2 * pg).toInt(), (h + 2 * pg).toInt()),
+                alpha = (0.45f + 0.3f * amt).coerceAtMost(0.9f) * a, colorFilter = ColorFilter.tint(color, BlendMode.SrcIn),
+                filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
         }
     }
 

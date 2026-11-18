@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.launch
 
 fun toast(ctx: Context, msg: String) {
     Handler(Looper.getMainLooper()).post { Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show() }
@@ -68,6 +69,11 @@ class ThumbItem(val label: String, val sub: String, val thumb: Any?, val checked
 /** Put a list in order: OK picks a row up, ▲ ▼ carry it, OK puts it down. [onDone] gets the keys in the new order. */
 class ReorderDialog(val title: String, val items: List<Pair<String, String>>, val onDone: (List<String>) -> Unit) : DialogState
 class QrCodeDialog(val title: String, val url: String, val code: kotlinx.coroutines.flow.StateFlow<String?>, val note: String) : DialogState
+/**
+ * "Support me": a gift card code and an optional note in one window, sent from there. [clean] gives the code in its
+ * proper form or null; [send] (blocking, called off the main thread) says whether it arrived.
+ */
+class SupportDialog(val clean: (String) -> String?, val send: (String, String) -> Boolean) : DialogState
 
 @Composable
 fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
@@ -80,6 +86,7 @@ fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
             is ThumbDialog -> ThumbDialogView(state, onDismiss)
             is ReorderDialog -> ReorderDialogView(state, onDismiss)
             is KeyCaptureDialog -> KeyCaptureView(state, onDismiss)
+            is SupportDialog -> SupportDialogView(state, onDismiss)
         }
     }
 }
@@ -325,3 +332,94 @@ private fun ThumbDialogView(d: ThumbDialog, onDismiss: () -> Unit) {
 }
 
 private suspend fun delay100() = kotlinx.coroutines.delay(100)
+
+/**
+ * One window for a gift card: what it is for, the code, an optional note, Send. The window sits at the top of the
+ * screen so the TV's keyboard (bottom half) never covers it, and the keyboard opens only when OK is pressed on a
+ * field (opening by itself, it jumped over the window the moment it appeared). It stays open while sending and says
+ * how it went.
+ */
+@Composable
+private fun SupportDialogView(d: SupportDialog, onDismiss: () -> Unit) {
+    var code by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var editing by remember { mutableStateOf(0) }  // 0 none, 1 code, 2 note
+    var status by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var sent by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val codeRow = remember { FocusRequester() }
+    val noteRow = remember { FocusRequester() }
+    val sendBtn = remember { FocusRequester() }
+    val field = remember { FocusRequester() }
+    val ok = d.clean(code)
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        // At the top of the screen: the TV's keyboard takes the bottom half.
+        val dv = androidx.compose.ui.platform.LocalView.current
+        LaunchedEffect(Unit) { (dv.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setGravity(android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL) }
+        androidx.compose.foundation.layout.Box(Modifier.padding(top = 24.dp),
+            contentAlignment = Alignment.TopCenter) {
+            DialogSurface(width = 460) {
+                Text("Support Glassio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                Text("With a PlayStation gift card (PSN, US store). Type its 12-character code: it goes straight to me, nobody else sees it. Thank you!",
+                    color = Color.White.copy(alpha = 0.65f), fontSize = 11.sp)
+                Spacer(Modifier.height(12.dp))
+                @Composable fun FieldRow(label: String, value: String, placeholder: String, which: Int, req: FocusRequester, upper: Boolean, onValue: (String) -> Unit) {
+                    var focused by remember { mutableStateOf(false) }
+                    Text(label, color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp, modifier = Modifier.padding(start = 2.dp, bottom = 4.dp))
+                    if (editing == which) {
+                        BasicTextField(
+                            value = value, onValueChange = { onValue(if (upper) it.uppercase().take(16) else it.take(140)) }, singleLine = true,
+                            textStyle = TextStyle(color = Color.White, fontSize = 15.sp), cursorBrush = SolidColor(Color.White),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done,
+                                capitalization = if (upper) androidx.compose.ui.text.input.KeyboardCapitalization.Characters else androidx.compose.ui.text.input.KeyboardCapitalization.Sentences),
+                            keyboardActions = KeyboardActions(onDone = {
+                                editing = 0
+                                scope.launch { kotlinx.coroutines.delay(60); runCatching { (if (which == 1 && d.clean(code) != null) noteRow else if (which == 2) sendBtn else req).requestFocus() } }
+                            }),
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.16f))
+                                .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(11.dp).focusRequester(field),
+                        )
+                        LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
+                    } else {
+                        Text(value.ifBlank { placeholder }, color = if (focused) Color(0xFF111114) else Color.White.copy(alpha = if (value.isBlank()) 0.45f else 1f), fontSize = 15.sp,
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                .background(if (focused) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.10f))
+                                .focusRequester(req).onFocusChanged { focused = it.isFocused }
+                                .clickable { if (!busy && !sent) editing = which }
+                                .padding(11.dp))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                FieldRow("Gift card code", code, "Press OK to type it (XXXX-XXXX-XXXX)", 1, codeRow, true) { code = it; status = "" }
+                FieldRow("Your name or a message (optional)", note, "Press OK to type", 2, noteRow, false) { note = it }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DialogButton(if (sent) "Close" else if (busy) "Sending…" else "Send", Modifier.focusRequester(sendBtn)) {
+                        if (sent) { onDismiss(); return@DialogButton }
+                        if (busy) return@DialogButton
+                        val c = d.clean(code)
+                        if (c == null) { status = if (code.isBlank()) "Type the code first" else "That isn't a PSN code: 12 letters and digits"; return@DialogButton }
+                        busy = true; status = "Sending…"
+                        scope.launch {
+                            val done = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { d.send(c, note) }
+                            busy = false
+                            if (done) { sent = true; status = "Sent. Thank you so much for your support!" }
+                            else status = "Couldn't send it. Check the internet and try again"
+                        }
+                    }
+                    if (!sent) DialogButton("Cancel", onClick = onDismiss)
+                }
+                if (status.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(status, color = if (sent) Color(0xFF7BE495) else Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
+                } else if (code.isNotBlank() && ok == null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("${code.count { it.isLetterOrDigit() }} of 12 characters", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(80); runCatching { codeRow.requestFocus() } }
+}
+
