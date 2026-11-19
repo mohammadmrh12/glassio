@@ -23,7 +23,7 @@ jobs:
           pretty=$(python3 -c "print(f'{int(\"$total\"):,}')")
           mkdir out && cd out
           git init -q -b badges
-          printf '{"schemaVersion":1,"label":"Total","message":"%s","color":"F5823A"}\n' "$pretty" > downloads.json
+          printf '{"schemaVersion":1,"label":"Total Downloads","message":"%s","color":"F5823A"}\n' "$pretty" > downloads.json
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add downloads.json
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Download count: $pretty"
           git push -f -q "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" badges
