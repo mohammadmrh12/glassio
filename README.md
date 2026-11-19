@@ -3,9 +3,9 @@
 <p align="center">
 <a href="https://www.reddit.com/r/glassio_/"><img src="https://img.shields.io/badge/Reddit-r%2Fglassio__-FF4500?style=for-the-badge&logo=reddit&logoColor=white" alt="Join r/glassio_ on Reddit"></a><br>
 <a href="#install"><img src="https://img.shields.io/badge/Downloader-8383651-F37A22?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMSAzaDJ2MTBsMy41LTMuNSAxLjQgMS40TDEyIDE2LjggNi4xIDEwLjlsMS40LTEuNEwxMSAxM3pNNSAxOWgxNHYySDV6Ii8+PC9zdmc+" alt="Downloader code 8383651"></a><br>
+<a href="https://github.com/mohammadmrh12/glassio/discussions"><img src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a><br>
 <a href="https://github.com/mohammadmrh12/glassio/releases/latest"><img src="https://img.shields.io/github/v/release/mohammadmrh12/glassio?style=for-the-badge&label=Download&color=6E5BFF" alt="Download the latest release"></a><br>
-<a href="https://github.com/mohammadmrh12/glassio/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmohammadmrh12%2Fglassio%2Fbadges%2Fdownloads.json&style=for-the-badge&cacheSeconds=1800" alt="Total downloads across all releases"></a><br>
-<a href="https://github.com/mohammadmrh12/glassio/discussions"><img src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
+<a href="https://github.com/mohammadmrh12/glassio/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmohammadmrh12%2Fglassio%2Fbadges%2Fdownloads.json&style=for-the-badge&cacheSeconds=1800" alt="Total downloads across all releases"></a>
 </p>
 
 **An Apple TV–style home screen for Google TV / Android TV**: real liquid glass, a carousel of your Nuvio and Stremio
