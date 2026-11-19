@@ -1,0 +1,29 @@
+# Total downloads of every release, as a full number (shields.io shortens it to "4.1k").
+# Written every 6 hours to downloads.json on the `badges` branch; the README badge reads it.
+name: Download count
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count and write the badge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          total=$(gh api --paginate "repos/$REPO/releases" --jq '[.[].assets[].download_count] | add // 0' | awk '{s+=$1} END {print s+0}')
+          pretty=$(python3 -c "print(f'{int(\"$total\"):,}')")
+          mkdir out && cd out
+          git init -q -b badges
+          printf '{"schemaVersion":1,"label":"Total","message":"%s","color":"F5823A"}\n' "$pretty" > downloads.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add downloads.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Download count: $pretty"
+          git push -f -q "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" badges
