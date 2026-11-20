@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.saver
 
+import com.glasslauncher.tv.data.Bg
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
@@ -22,7 +23,7 @@ object VideoThumbs {
     fun pathOrMake(ctx: Context, url: String): String? {
         val f = file(ctx, url)
         if (f.isFile && f.length() > 0) return f.absolutePath
-        if (working.add(url)) Thread({ try { make(ctx, url, f) } finally { working.remove(url) } }, "glass-thumb").apply { isDaemon = true }.start()
+        if (working.add(url)) Bg.io("glass-thumb") { try { make(ctx, url, f) } finally { working.remove(url) } }
         return null
     }
 

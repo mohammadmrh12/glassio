@@ -1,0 +1,15 @@
+# Glassio's report relay (see README.md). No secret lives in this file or anywhere in the repository:
+# the GitHub App's id, installation id and private key are set with `wrangler secret put` (setup.sh does it).
+name = "glassio-report"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+REPO = "mohammadmrh12/glassio"
+
+# The namespace's id is yours: setup.sh creates it and writes it into wrangler.local.toml (not in git),
+# which is the file `wrangler deploy -c wrangler.local.toml` uses.
+[[kv_namespaces]]
+binding = "LIMITS"
+id = "KV_NAMESPACE_ID"

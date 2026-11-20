@@ -17,7 +17,8 @@ const val SETTINGS_BUTTON_ICON = "glassio.settingsbutton"
  * or from an upload through the phone page. All of them end up as PNG files in filesDir/icons.
  */
 class IconStore(private val ctx: Context) {
-    private val dir = File(ctx.filesDir, "icons").apply { mkdirs() }
+    // (Each profile has its own icons; the profile in use before profiles existed keeps this folder.)
+    private val dir = Profiles.dir(ctx, "icons")
     /** Folder a user can fill over USB/ADB/file manager: <pkg>.png|jpg|webp */
     val dropFolder: File get() = (ctx.getExternalFilesDir("icons") ?: File(ctx.filesDir, "drop")).apply { mkdirs() }
     val rev = mutableIntStateOf(0)
@@ -91,7 +92,7 @@ class IconStore(private val ctx: Context) {
                 base == pkg && ext in setOf("png", "jpg", "jpeg", "webp")
             } ?: continue
             if (match.lastModified() <= fileFor(pkg).lastModified()) continue
-            runCatching { setFromBytes(pkg, match.readBytes()); n++ }
+            runCatching { setFromBytes(pkg, match.readBytes()); n++ }.onFailure { Glog.w("Icons: importing a dropped icon", it) }
         }
         return n
     }

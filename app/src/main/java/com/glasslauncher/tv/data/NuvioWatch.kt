@@ -30,7 +30,7 @@ object NuvioWatch {
     @Volatile private var lastPidCheck = 0L
     @Volatile private var nuvioAlive = false
     @Volatile private var store: java.io.File? = null
-    private fun keep() { runCatching { store?.writeText("$pid\n${slots[0].orEmpty()}\n${slots[2].orEmpty()}\n") } }
+    private fun keep() { runCatching { store?.writeText("$pid\n${slots[0].orEmpty()}\n${slots[2].orEmpty()}\n") }.onFailure { Glog.w("Nuvio watch: saving", it) } }
 
     /** The title Glassio last opened in Nuvio Legacy (Nuvio doesn't log the title when you press Resume). */
     @Volatile private var openedId = ""
@@ -99,22 +99,22 @@ object NuvioWatch {
             if (l.size >= 3) synchronized(lock) { pid = l[0]; slots[0] = l[1].ifBlank { null }; slots[2] = l[2].ifBlank { null } }
         }
         // The window on screen now (the accessibility service only tells of the next change).
-        Thread {
+        Bg.io("glass-nuvio-focus") {
             LocalShell.run(app, "dumpsys window | grep -m1 mCurrentFocus; true").getOrNull()?.let { out ->
                 Regex("""u0 ([^ }]+)""").find(out)?.groupValues?.get(1)?.let { if (focus.isBlank()) { focus = it; dirty = true } }
             }
-        }.start()
+        }
         // The log, as one stream (reconnects if it drops).
-        Thread({
+        Bg.io("glass-nuvio-log") {
             while (running && st.nuvioPush) {
                 runCatching { LocalShell.stream(app, "logcat -v threadtime -s nuvio:I") { onLine(it) } }
                     .onFailure { Glog.w("Nuvio watch: log stream", it) }
                 if (running) Thread.sleep(5000)
             }
             running = false
-        }, "glass-nuvio-log").apply { isDaemon = true }.start()
+        }
         // Sends: a change at once (at most one a second), otherwise a heartbeat (15 s while Nuvio is open, 60 s otherwise).
-        Thread({
+        Bg.io("glass-nuvio-send") {
             while (running && st.nuvioPush) {
                 Thread.sleep(1000)
                 val now = System.currentTimeMillis()
@@ -131,7 +131,7 @@ object NuvioWatch {
                 val beat = if (front || nuvioAlive) 15_000 else 60_000
                 if ((dirty && now - lastSent >= 1000) || now - lastSent >= beat) { dirty = false; send(st) }
             }
-        }, "glass-nuvio-send").apply { isDaemon = true }.start()
+        }
         Glog.i("Nuvio watch on")
     }
 

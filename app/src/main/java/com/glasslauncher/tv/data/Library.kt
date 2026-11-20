@@ -20,7 +20,7 @@ class Library(
     private val scope: CoroutineScope,
     private val simkl: Simkl? = null,
 ) {
-    private val sp = ctx.getSharedPreferences("glass_library", Context.MODE_PRIVATE)
+    private val sp = Profiles.prefs(ctx, "glass_library")
     val saved = MutableStateFlow(load())
     val watchlist = MutableStateFlow<List<HeroItem>>(emptyList())
     /** Simkl's "Plan to watch". */

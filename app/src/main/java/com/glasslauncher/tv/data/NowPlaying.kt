@@ -211,7 +211,7 @@ object NowPlaying {
     private val ytAsked = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
     private fun ytInfo(id: String): Triple<String, String, Bitmap?>? {
         ytCache[id]?.let { return it }
-        if (ytAsked.add(id)) Thread({
+        if (ytAsked.add(id)) Bg.io("glass-ytinfo") {
             runCatching {
                 val c = java.net.URL("https://www.youtube.com/oembed?format=json&url=" + java.net.URLEncoder.encode("https://www.youtube.com/watch?v=$id", "UTF-8"))
                     .openConnection() as java.net.HttpURLConnection
@@ -229,7 +229,7 @@ object NowPlaying {
                 ytCache[id] = Triple(o.optString("title"), o.optString("author_name"), pic)
                 android.os.Handler(android.os.Looper.getMainLooper()).post { publish() }
             }.onFailure { Glog.w("YouTube info $id", it) }
-        }, "glass-ytinfo").apply { isDaemon = true }.start()
+        }
         return null
     }
 
@@ -300,7 +300,7 @@ object NowPlaying {
     private fun loadArt(pkg: String, uri: String) {
         if (uri in artFailed || !artLoading.add(uri)) return
         val ctx = lastCtx ?: return
-        Thread({
+        Bg.io("glass-art") {
             val b = runCatching {
                 val u = android.net.Uri.parse(uri)
                 val bytes = when (u.scheme?.lowercase()) {
@@ -321,7 +321,7 @@ object NowPlaying {
             artLoading.remove(uri)
             if (b != null) linkArt[uri] = b else artFailed += uri
             if (b != null) android.os.Handler(android.os.Looper.getMainLooper()).post { publish() }
-        }, "glass-art").apply { isDaemon = true }.start()
+        }
     }
 
     /** For testing: what each media session hands over (log "GlassMedia"). */
@@ -344,10 +344,10 @@ object NowPlaying {
         track.value?.let { t -> track.value = t.copy(playing = !playing, position = t.positionNow(), at = android.os.SystemClock.elapsedRealtime()) }
         // Sent off the main thread: Play waits on the system (it lets the app start in the background first) and
         // held the screen still for a moment on every resume.
-        Thread({ runCatching { if (playing) c.transportControls.pause() else c.transportControls.play() } }, "glass-play").start()
+        Bg.io("glass-play") { runCatching { if (playing) c.transportControls.pause() else c.transportControls.play() } }
     }
     /** Play (never pause): for an app just woken, which may not take it at first. */
-    fun play() { val c = controller ?: return; Thread({ runCatching { c.transportControls.play() } }, "glass-play").start() }
+    fun play() { val c = controller ?: return; Bg.io("glass-play") { runCatching { c.transportControls.play() } } }
     /** What the app itself reports now (not what Glassio shows ahead of it). */
     fun reallyPlaying(): Boolean = controller?.playbackState?.state == PlaybackState.STATE_PLAYING
     fun next() { controller?.transportControls?.skipToNext() }

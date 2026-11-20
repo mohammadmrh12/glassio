@@ -31,7 +31,7 @@ class ContinueWatching(
     private val http: Http,
     private val scope: CoroutineScope,
 ) {
-    private val sp = ctx.getSharedPreferences("glass_cw", Context.MODE_PRIVATE)
+    private val sp = Profiles.prefs(ctx, "glass_cw")
     val entries = MutableStateFlow(load())
     val items = MutableStateFlow<List<HeroItem>>(emptyList())
     /** Key of the title you were watching last; bumped when you leave the player (carousel jumps to it). */
@@ -64,7 +64,7 @@ class ContinueWatching(
         if (started) return
         started = true
         scope.launch(Dispatchers.IO) { rebuildItems() }
-        thread(name = "glass-cw-log", isDaemon = true) {
+        Bg.io("glass-cw-log") {
             while (true) {
                 if (settings.cwLegacy && settings.continueWanted) poll()
                 // Trakt: every 3 minutes, or right away (at most every 45 s) when Glass comes back to the front.
@@ -341,7 +341,7 @@ class ContinueWatching(
             val ref = refs(e.app).optString(key)
             when (e.app) {
                 "Simkl" -> ref.toLongOrNull()?.let { simkl.removePlayback(it) }
-                "Stremio" -> runCatching { val o = JSONObject(ref); stremio.dismiss(Stremio.Progress(o.optString("_id"), e.imdb, e.season, e.episode, e.percent, e.at, o)) }
+                "Stremio" -> runCatching { val o = JSONObject(ref); stremio.dismiss(Stremio.Progress(o.optString("_id"), e.imdb, e.season, e.episode, e.percent, e.at, o)) }.onFailure { Glog.w("Continue Watching: remove from Stremio", it) }
                 "Nuvio" -> nuvio?.deleteProgress(ref.ifBlank { if (e.episode > 0) "${e.imdb}_s${e.season}e${e.episode}" else e.imdb })
                 "Nuvio Legacy" -> nuvio?.takeIf { it.connected }?.deleteProgress(if (e.episode > 0) "${e.imdb}_s${e.season}e${e.episode}" else e.imdb)
             }

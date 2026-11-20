@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.ui
 
+import com.glasslauncher.tv.data.Bg
 import android.content.Context
 import android.view.TextureView
 import androidx.compose.foundation.background
@@ -78,7 +79,7 @@ object CustomBackground {
         if (ended) tries = 0
         if (aerials.size < 2 || ++tries > 4) { Glog.w("Screensaver background: no aerial video plays here"); return }
         val rest = aerials.drop(aerials.indexOf(aerial.value) + 1) + aerials.take(aerials.indexOf(aerial.value).coerceAtLeast(0))
-        Thread { firstLive(rest)?.let { aerial.value = it } }.apply { isDaemon = true }.start()
+        Bg.io("glass-aerial") { firstLive(rest)?.let { aerial.value = it } }
     }
     val videoExts = setOf("mp4", "mkv", "webm", "mov", "m4v")
 
@@ -111,9 +112,9 @@ object CustomBackground {
     private fun cachedFrame(ctx: Context, src: String): String? {
         val f = frameFile(ctx, src)
         if (f.length() > 0) return "file://" + f.absolutePath
-        if (working.add(src)) Thread {
+        if (working.add(src)) Bg.io("glass-video-frame") {
             try { if (frameOf(ctx, src) != null) frameRev.intValue++ } finally { working.remove(src) }
-        }.apply { isDaemon = true; priority = Thread.MIN_PRIORITY }.start()
+        }
         return null
     }
 

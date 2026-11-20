@@ -1,5 +1,7 @@
 package com.glasslauncher.tv.saver
 
+import com.glasslauncher.tv.data.Bg
+import kotlinx.coroutines.delay
 import android.content.Context
 import com.glasslauncher.tv.data.LocalShell
 
@@ -41,15 +43,15 @@ object SystemDream {
 
     /** Waits (up to ~40 s) for the screensaver to start, then restores the timeout. */
     fun awaitAndRestore(ctx: Context, onDreaming: () -> Unit) {
-        Thread {
+        Bg.io("glass-dream") {
             var started = false
             for (i in 0 until 40) {
-                Thread.sleep(1000)
+                delay(1000)
                 if (isDreaming(ctx)) { started = true; break }
             }
             restoreIfPending(ctx)
             if (started) onDreaming()
-        }.apply { isDaemon = true; name = "glass-dream" }.start()
+        }
     }
 
     fun restoreIfPending(ctx: Context) {

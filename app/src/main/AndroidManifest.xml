@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Android 17: reaching the home network (the phone page, Hue, cameras, other TVs, the TV's own adb). -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- "Open Glassio when the TV starts": the boot receiver opens Glassio (allowed once ADB grants the overlay right). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -40,6 +42,7 @@
         android:icon="@drawable/ic_launcher_glass"
         android:label="@string/app_name"
         android:theme="@style/Theme.Glass"
+        android:enableOnBackInvokedCallback="false"
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:hardwareAccelerated="true">

@@ -101,8 +101,9 @@ fun AppLockHost(app: GlassApp, s: Float, style: String) {
     androidx.compose.ui.window.Dialog(onDismissRequest = { AppLock.ask.value = null },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val view = androidx.compose.ui.platform.LocalView.current
-        LaunchedEffect(view) { (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setDimAmount(0f) }
-        androidx.compose.runtime.key(a) { CodePop(app, a, s, style) }
+        val overSettings = SettingsGlass.env.value != null
+        LaunchedEffect(view, overSettings) { (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setDimAmount(if (overSettings) SettingsGlass.DIM else 0f) }
+        androidx.compose.runtime.key(a) { OverSettings { CodePop(app, a, s, style) } }
     }
 }
 

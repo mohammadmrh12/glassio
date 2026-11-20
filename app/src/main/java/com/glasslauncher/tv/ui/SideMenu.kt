@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.ui
 
+import com.glasslauncher.tv.data.Bg
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -139,6 +140,18 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     ) {
         GlassPanel(Modifier.fillMaxWidth(), radius = (24 * s).dp, style = style, darken = 0.25f) {
             Column(Modifier.fillMaxWidth().padding((14 * s).dp)) {
+                // A greeting for the profile in use, with its picture (Settings → Menu & themes → Greeting). It goes with
+                // the settings button just above and never says the same thing twice: a button that already reads
+                // "Hello" leaves the name only, and a button that is the profile's picture leaves the words only.
+                val who = remember { com.glasslauncher.tv.data.Profiles.let { P -> P.known(ctx).firstOrNull { it.id == P.active(ctx) } } }
+                val greet = if (st.menuHello && who != null && who.name.isNotBlank()) menuGreeting(st.settingsIcon, com.glasslauncher.tv.data.I18n.tr("Hello"), who.name) else null
+                if (greet != null && who != null) {
+                    Row(Modifier.fillMaxWidth().padding(start = (6 * s).dp, end = (6 * s).dp, top = (2 * s).dp, bottom = (10 * s).dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (greet.second) { Face(app, who, Modifier.size((26 * s).dp), letter = (12 * s).sp); Spacer(Modifier.width((9 * s).dp)) }
+                        Text(greet.first, color = ink, fontSize = (15 * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
+                }
                 // Header: time and date, weather on the right.
                 if (st.menuClock || st.menuDate || st.menuWeather) Row(Modifier.fillMaxWidth().padding(start = (6 * s).dp, end = (6 * s).dp, top = (2 * s).dp), verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
@@ -234,7 +247,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         add(Triple("Pair a new device", "") {
                             onClose()
                             // The TV's own pairing page (only the TV's shell may open it), else its settings.
-                            kotlin.concurrent.thread {
+                            Bg.io("glass-bt-pair") {
                                 if (com.glasslauncher.tv.data.LocalShell.run(app, "am start -a com.google.android.intent.action.CONNECT_INPUT").isFailure)
                                     android.os.Handler(android.os.Looper.getMainLooper()).post { open(ctx, android.provider.Settings.ACTION_BLUETOOTH_SETTINGS) }
                             }
@@ -304,8 +317,8 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             onClick = {
                                 target = i
                                 when {
-                                    key == "image" && st.bgImage.isBlank() -> toast(ctx, "Choose a picture first: Glassio settings → Background & glass")
-                                    key == "video" && st.bgVideo.isBlank() -> toast(ctx, "Choose a video first: Glassio settings → Background & glass")
+                                    key == "image" && st.bgImage.isBlank() -> toast(ctx, "Choose a picture first: Glassio settings → Background & screensaver → My pictures & videos")
+                                    key == "video" && st.bgVideo.isBlank() -> toast(ctx, "Choose a video first: Glassio settings → Background & screensaver → My pictures & videos")
                                     else -> st.bgMode = key
                                 }
                             })
@@ -394,6 +407,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     }
                 } else if (!themes) {
                     val rows = buildList<Triple<String, String, () -> Unit>> {
+                        if (st.menuProfile && com.glasslauncher.tv.data.Profiles.known(ctx).size > 1) add(Triple("profile", "Profile") { onClose(); ProfilesUi.show(app) })
                         if (st.menuLibrary) add(Triple("library", "Library") { onLibrary() })
                         add(Triple("sliders", "Glassio settings") { onSettings() })
                         if (st.menuAndroid) add(Triple("gear", "Android settings") { open(ctx, android.provider.Settings.ACTION_SETTINGS) })
@@ -455,6 +469,14 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
         }
     }
 }
+
+/**
+ * What the menu's greeting says under a settings button showing [icon], and whether the profile's picture goes with
+ * it: "Hello, name" with the picture; the name alone under a button that already reads Hello; no picture under a
+ * button that is the picture.
+ */
+internal fun menuGreeting(icon: String, hello: String, name: String): Pair<String, Boolean> =
+    (if (icon == "hello" || icon == "helloScript") name.trim() else "$hello, ${name.trim()}") to (icon != "picture")
 
 @Composable
 private fun MenuRow(
@@ -604,6 +626,11 @@ private fun DrawScope.glyph(kind: String, c: Color) {
             drawLine(c, Offset(w * 0.22f, w * 0.43f), Offset(w * 0.62f, w * 0.43f), w * 0.09f, StrokeCap.Round)
             val p = Path().apply { moveTo(w * 0.50f, w * 0.31f); lineTo(w * 0.64f, w * 0.43f); lineTo(w * 0.50f, w * 0.55f) }
             drawPath(p, c, style = st)
+        }
+        "profile" -> {
+            // A head and shoulders.
+            drawCircle(c, w * 0.17f, Offset(w / 2, w * 0.32f), style = st)
+            drawArc(c, 180f, 180f, false, Offset(w * 0.16f, w * 0.58f), Size(w * 0.68f, w * 0.60f), style = st)
         }
         "dotOn" -> { drawCircle(c, w * 0.42f, Offset(w / 2, w / 2), style = st); drawCircle(c, w * 0.24f, Offset(w / 2, w / 2)) }
         "dotOff" -> drawCircle(c, w * 0.42f, Offset(w / 2, w / 2), style = st)

@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.net
 
+import com.glasslauncher.tv.data.Bg
 import com.glasslauncher.tv.GlassApp
 import com.glasslauncher.tv.data.Glog
 import com.glasslauncher.tv.data.LocalShell
@@ -30,7 +31,7 @@ object NuvioControl {
     fun start(app: GlassApp) {
         if (running) return
         running = true
-        Thread({
+        Bg.io("glass-nuvio-control") {
             while (running) {
                 val st = app.settings
                 if (!st.nuvioPush || st.nuvioToken.isBlank()) { Thread.sleep(5_000); continue }
@@ -39,11 +40,11 @@ object NuvioControl {
                 Glog.i("Nuvio control: listening on $PORT")
                 while (running && st.nuvioPush && st.nuvioToken.isNotBlank()) {
                     val c = runCatching { s.accept() }.getOrNull() ?: break
-                    Thread({ handle(app, c) }, "glass-nuvio-req").apply { isDaemon = true }.start()
+                    Bg.io("glass-nuvio-req") { handle(app, c) }
                 }
                 runCatching { s.close() }
             }
-        }, "glass-nuvio-control").apply { isDaemon = true }.start()
+        }
     }
 
     private fun handle(app: GlassApp, c: Socket) = runCatching {

@@ -77,12 +77,12 @@ object RemoteMap {
         if (st.hueIp.isBlank() || st.hueUser.isBlank()) {
             android.widget.Toast.makeText(app, "Connect your Hue Bridge first: Glassio settings → Hue lights", android.widget.Toast.LENGTH_SHORT).show(); return
         }
-        Thread({
+        Bg.io("glass-hue-key") {
             // Turned off by this button last time: on again (all of them). Asking the bridge whether any light was on
             // went wrong when the colour sync had lit some of them again in between (the next press turned them off).
             val wasOffHere = group in HueSync.heldOff
             val on = if (wasOffHere) true else Hue.groupAnyOn(st.hueIp, st.hueUser, group)
-            if (on == null) { toastMain(app, "The Hue Bridge didn't answer"); return@Thread }
+            if (on == null) { toastMain(app, "The Hue Bridge didn't answer"); return@io }
             if (on && !wasOffHere) {
                 // Off: the colour sync leaves the lights alone (sends nothing) until this button turns them on again.
                 HueSync.heldOff += group
@@ -95,7 +95,7 @@ object RemoteMap {
                 if (HueSync.heldOff.isEmpty() && com.glasslauncher.tv.KeyHub.homeInFront) HueSync.resume()
                 toastMain(app, label.ifBlank { "Hue" } + " lights on")
             }
-        }, "glass-hue-key").start()
+        }
     }
 
     private fun toastMain(app: GlassApp, text: String) = android.os.Handler(android.os.Looper.getMainLooper()).post {

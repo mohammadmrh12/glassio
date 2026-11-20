@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.ui
 
+import com.glasslauncher.tv.data.Bg
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,7 +84,7 @@ private val LocalGlow = androidx.compose.runtime.staticCompositionLocalOf { "off
 /** The app, when the Hue lights follow the selected poster (else null). */
 private val LocalHuePosters = androidx.compose.runtime.staticCompositionLocalOf<com.glasslauncher.tv.GlassApp?> { null }
 /** Hold OK on a title: its menu (open it in one of your apps, or remove it). */
-private val LocalItemMenu = androidx.compose.runtime.staticCompositionLocalOf<(HeroItem, () -> Unit) -> Unit> { { _, remove -> remove() } }
+private val LocalItemMenu = androidx.compose.runtime.staticCompositionLocalOf<(HeroItem, (() -> Unit)?) -> Unit> { { _, remove -> remove?.invoke() } }
 
 @Composable
 fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean = true, onClose: () -> Unit) {
@@ -94,13 +95,14 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
     }
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val menuFn: (HeroItem, () -> Unit) -> Unit = { item, remove ->
+    val menuFn: (HeroItem, (() -> Unit)?) -> Unit = { item, remove ->
         val opts = mutableListOf<Pair<String, () -> Unit>>()
         NuvioLaunch.installedTargets(ctx).forEach { (t, n) -> opts += "Open in $n" to { NuvioLaunch.openIn(ctx, t, item) } }
         val enriched = app.catalogs.enrichedItems.value[item.key] ?: item
         NuvioLaunch.platformApp(ctx, enriched.platform)?.let { pkg ->
             val label = runCatching { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(enriched.platform)
-            opts += "Open in $label" to { NuvioLaunch.openApp(ctx, pkg) }
+            // The title's own page there when its link is known or found; the app's home page otherwise.
+            opts += "Open in $label" to { com.glasslauncher.tv.data.PlatformLinks.openOr(ctx, app.settings, enriched) { NuvioLaunch.openApp(ctx, pkg) } }
         }
         // Its trailer, over the whole screen (Back stops it).
         if (item.id.startsWith("tt")) opts += "Trailer" to {
@@ -110,7 +112,9 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
                 else Trailers.play("lib:" + item.key, got.first, got.second, overlay = true)
             }
         }
-        opts += "Remove" to remove
+        // A title of a platform row isn't in the Library yet: it can be saved from here.
+        if (remove != null) opts += "Remove" to remove
+        else if (!app.library.has(item.key)) opts += "Save to the Library" to { app.library.toggle(item); toast(ctx, "Saved · ${item.name}") }
         ask = MenuDialog(item.name, opts)
     }
     val overlay = Trailers.playing.value?.overlay == true
@@ -146,6 +150,12 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val cwItems by app.cw.items.collectAsState()
     val cwEntries by app.cw.entries.collectAsState()
     LaunchedEffect(active) { if (active) withContext(Dispatchers.IO) { app.library.refreshWatchlist(); app.library.refreshNuvio(); app.library.refreshSimkl() } }
+    // Rows per streaming service (Settings → Library → Platform rows), after your own lists.
+    val platAll by app.platformRows.rows.collectAsState()
+    LaunchedEffect(active, st.libraryPlatforms, st.libraryPlatformRows, st.libraryColumns, st.watchCountry, st.tmdbToken) {
+        if (active) withContext(Dispatchers.IO) { runCatching { app.platformRows.refresh() }.onFailure { com.glasslauncher.tv.data.Glog.w("Platform rows", it) } }
+    }
+    val plat = if (st.libraryPlatforms == com.glasslauncher.tv.data.PlatformRows.OFF) emptyList() else platAll
     val savedKeys = remember(saved) { saved.map { it.key }.toSet() }
     // The same title in several lists shows once: saved here, then Nuvio, then Trakt.
     val nuvio = if (st.libraryNuvio) nuvioAll.filterNot { it.key in savedKeys } else emptyList()
@@ -155,12 +165,13 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val simkl = if (st.librarySimkl) simklAll.filterNot { it.key in savedKeys || it.key in nuvioKeys || it.key in traktKeys } else emptyList()
     // Posters loaded ahead (the Library is built a few seconds after the home screen): the first screens straight
     // into memory, so they're there the moment you go down; the rest only onto the TV's disk cache.
-    val preloadKeys = remember(saved, nuvio, trakt, simkl) { (saved + nuvio + trakt + simkl).map { it.key } }
+    val platItems = remember(plat) { plat.flatMap { it.items } }
+    val preloadKeys = remember(saved, nuvio, trakt, simkl, platItems) { (saved + nuvio + trakt + simkl + platItems).map { it.key } }
     LaunchedEffect(preloadKeys) {
         delay(1_500)
         val loader = coil3.SingletonImageLoader.get(ctx)
         withContext(Dispatchers.IO) {
-            (saved + nuvio + trakt + simkl).forEachIndexed { i, it ->
+            (saved + nuvio + trakt + simkl + platItems).forEachIndexed { i, it ->
                 val r = posterRequest(ctx, it, s)
                 runCatching { loader.execute(if (i < 40) r else r.newBuilder().memoryCachePolicy(coil3.request.CachePolicy.DISABLED).build()) }
             }
@@ -168,18 +179,29 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     }
     // Its own setting: switching Continue Watching off in the carousel leaves it here.
     val cw = if (st.libraryCw) cwItems else emptyList()
-    val hasAny = saved.isNotEmpty() || trakt.isNotEmpty() || nuvio.isNotEmpty() || simkl.isNotEmpty() || cw.isNotEmpty()
+    val hasAny = saved.isNotEmpty() || trakt.isNotEmpty() || nuvio.isNotEmpty() || simkl.isNotEmpty() || cw.isNotEmpty() || plat.isNotEmpty()
+    val ownEmpty = saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && simkl.isEmpty()
     // Opened with Down from the dock: Up from the top row goes back to the dock (like the Apple TV home page).
-    val firstList = when { cw.isNotEmpty() -> "c"; saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; else -> "k" }
+    val firstList = when { cw.isNotEmpty() -> "c"; saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; simkl.isNotEmpty() || plat.isEmpty() -> "k"; else -> "p0" }
     // Down from Continue Watching lands on the poster under the card's left edge (the first card → the first
     // poster). Left to the system it went by the card's centre, and a wide card over narrower posters (more in a
     // row) landed on the second one.
-    val posterFirst = when { saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; else -> "k" }
-    val posterFirstSize = when (posterFirst) { "s" -> saved.size; "n" -> nuvio.size; "t" -> trakt.size; else -> simkl.size }
+    val posterFirst = when { saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; simkl.isNotEmpty() || plat.isEmpty() -> "k"; else -> "p0" }
+    val posterFirstSize = when (posterFirst) { "s" -> saved.size; "n" -> nuvio.size; "t" -> trakt.size; "k" -> simkl.size; else -> plat[0].items.size }
     @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
     val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState(
         cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
     val cwRow = androidx.compose.foundation.lazy.rememberLazyListState()
+    // (Test: the page's movement frame by frame, see LibTrace. A row seen in two frames in a row tells how far it moved.)
+    if (LibTrace.on.value) LaunchedEffect(Unit) {
+        var last = emptyMap<Any, Int>(); var t = 0L
+        while (true) androidx.compose.runtime.withFrameNanos { now ->
+            val cur = grid.layoutInfo.visibleItemsInfo.associate { it.key to it.offset.y }
+            val dy = cur.firstNotNullOfOrNull { (k, y) -> last[k]?.let { it - y } } ?: 0
+            if (t != 0L) LibTrace.add(dy, ((now - t) / 1_000_000).toInt())
+            last = cur; t = now
+        }
+    }
     val topRow = remember { List(8) { FocusRequester() } }
     val topUpScope = rememberCoroutineScope()
     // Up from the first row of posters goes to the first Continue Watching card (the row back at its start).
@@ -231,6 +253,13 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     var libFocused by remember { mutableStateOf(false) }
     val lastMove = remember { longArrayOf(0L) }
     val scope = rememberCoroutineScope()
+    // The page's and the Continue Watching row's movement: one glide each, kept going while its target moves.
+    val pageGlide = remember(grid) { Glide(grid, scope) {
+        val info = grid.layoutInfo
+        info.visibleItemsInfo.lastOrNull()?.takeIf { it.index == info.totalItemsCount - 1 }
+            ?.let { (it.offset.y + it.size.height + info.afterContentPadding - info.viewportEndOffset).toFloat() }
+    } }
+    val rowGlide = remember(cwRow) { Glide(cwRow, scope) }
     // Back at the top once it has slid away (done at once, building the first rows again took ~100 ms right as the
     // home screen came back, and the slide caught).
     LaunchedEffect(active) { if (!active) { delay(900); runCatching { grid.scrollToItem(0); cwRow.scrollToItem(0) } } }
@@ -269,13 +298,26 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         .onPreviewKeyEvent { ev ->
             val vertical = ev.key == Key.DirectionDown || ev.key == Key.DirectionUp
             val dpad = vertical || ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight
-            if (dpad) LibPace.held = ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount > 0
-            if (!vertical || ev.type != KeyEventType.KeyDown || ev.nativeKeyEvent.repeatCount == 0) {
-                if (vertical && ev.type == KeyEventType.KeyDown) lastMove[0] = android.os.SystemClock.uptimeMillis()
+            if (!dpad) return@onPreviewKeyEvent false
+            val now = android.os.SystemClock.uptimeMillis()
+            if (ev.type != KeyEventType.KeyDown) {
+                // The finger is off: the page eases out onto the row the selection reached.
+                LibPace.held = false; LibPace.run = 0
+                pageGlide.release(); rowGlide.release()
                 return@onPreviewKeyEvent false
             }
-            val now = android.os.SystemClock.uptimeMillis()
-            if (now - lastMove[0] < 85) true else { lastMove[0] = now; false }
+            if (ev.nativeKeyEvent.repeatCount == 0) { LibPace.held = false; LibPace.run = 0; lastMove[0] = now; return@onPreviewKeyEvent false }
+            // Held: the selection steps on at a steady beat (the TV repeats the key every 50 ms: most repeats are
+            // dropped here), and the page moves under it at the speed of that beat, never stopping between steps.
+            // Down / Up: about three rows a second like the Apple TV app, five once the hold has gone on a while (a
+            // long Library). Left / Right: a card or poster every 150 ms. The beat lands on the TV's own repeats
+            // (every 200 ms on the Google TV Streamer, so there: a row every 400 ms, then every 200).
+            val beat = if (!vertical) 140L else if (LibPace.run < 5) 280L else 180L
+            if (now - lastMove[0] < beat) return@onPreviewKeyEvent true
+            LibPace.period = (now - lastMove[0]).coerceIn(100, 400)
+            if (LibTrace.on.value) android.util.Log.i("GlassLibTrace", "step ${now - lastMove[0]} ms, repeat ${ev.nativeKeyEvent.repeatCount}")
+            lastMove[0] = now; LibPace.held = true; LibPace.run++
+            false
         }
         .onFocusChanged { libFocused = it.hasFocus }) {
         // (No flat colour under it: the grey picture covers the whole page, and on the TV GPU every full-screen
@@ -287,7 +329,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
         androidx.compose.foundation.Image(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
         // TV scrolling: the selected row always sits at the same height. Moving left / right inside a row never
         // scrolls (the default "just bring it into view" nudged the page up and down with every poster).
-        val pivot = remember(grid) { PivotScroll(grid) }
+        val pivot = remember(grid) { PivotScroll(grid, pageGlide) }
         // Settings → Library: posters in a row, their size (smaller ones leave more room at the sides) and spacing.
         val cols = st.libraryColumns
         val gap = (22 * s * st.librarySpacing).dp
@@ -325,7 +367,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                     // Edge to edge: the first card isn't cut at the page's margin when it grows on focus.
                     val bleed = (64 * s).dp
                     val bleedPx = with(androidx.compose.ui.platform.LocalDensity.current) { bleed.toPx() }
-                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides remember(bleedPx) { RowScroll(bleedPx) }) {
+                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides remember(bleedPx) { RowScroll(bleedPx, rowGlide) }) {
                     androidx.compose.foundation.lazy.LazyRow(state = cwRow, horizontalArrangement = Arrangement.spacedBy((18 * s).dp),
                         contentPadding = PaddingValues(horizontal = bleed, vertical = (10 * s).dp),
                         modifier = up("c", 0).layout { m, c ->
@@ -387,24 +429,107 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                         onRemove = { app.library.removeFromSimkl(it); toast(ctx, "Removed from Simkl · ${it.name}") })
                 }
             }
+            plat.forEachIndexed { r, row ->
+                item(span = { GridItemSpan(maxLineSpan) }, key = "ph:" + row.service.key) { Section("On ${row.service.name}", s) }
+                itemsIndexed(row.items, key = { _, it -> "p:" + row.service.key + ":" + it.key }) { i, it ->
+                    Poster(it, s, st.libraryTitles, up("p$r", i).then(topReq("p$r", i)).then(if (r == 0 && i == 0 && ownEmpty && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                        onOpen = { NuvioLaunch.open(ctx, st, app.http, it) }, onRemove = null)
+                }
+            }
         }
         }
     }
 }
 
+/**
+ * One movement of a list towards a place that may keep moving, like the Apple TV app's pages.
+ *
+ * Compose's own "bring into view" starts a new animation for every step of the selection: holding Down made the page
+ * rush to each row and nearly stop on it before the next (its speed went from 117 px a frame down to 1 and up again
+ * five times a second: that was the stutter). Here the page has one speed that only ever changes smoothly:
+ * - [goal]: how far the list still has to go for the selection to rest in its place.
+ * - [lead]: how far to a target that travels towards the goal. A single press puts it on the goal at once; while a
+ *   key is held it moves at the steady speed of the key's beat, so it arrives as the next step comes and the page
+ *   never slows between rows.
+ * - The list follows the target like a weight on a damped spring (no bounce): it speeds up and slows down smoothly,
+ *   and a new step only moves the target, it never restarts the movement.
+ * Letting go ([release]) softens the spring: the page eases onto the row the selection reached.
+ */
+internal class Glide(
+    private val list: androidx.compose.foundation.gestures.ScrollableState, private val scope: kotlinx.coroutines.CoroutineScope,
+    /** How far the list can still go forward, once its end is in sight (else null): the page then eases into its end
+     *  instead of running into it at full speed. */
+    private val room: () -> Float? = { null },
+) {
+    private var goal = 0f
+    private var lead = 0f
+    private var rate = 0f
+    private var speed = 0f
+    private var stiff = SOFT
+    private var job: kotlinx.coroutines.Job? = null
+
+    /** The selection moved: the list should end [distance] px from where it is now. [held]: by a key held down, whose steps come every [periodMs]. */
+    fun aim(distance: Float, held: Boolean, periodMs: Long) {
+        goal = distance
+        if (held) { rate = kotlin.math.abs(goal - lead) / (periodMs / 1000f); stiff = TIGHT }
+        else { lead = goal; rate = 0f; if (job?.isActive != true) stiff = SOFT }
+        if (kotlin.math.abs(goal) < 0.5f && job?.isActive != true) return
+        if (job?.isActive != true) job = scope.launch { run() }
+    }
+
+    fun release() { stiff = SOFT }
+
+    private suspend fun run() {
+        try {
+            list.scroll {
+                var last = 0L
+                while (true) {
+                    val dt = androidx.compose.runtime.withFrameNanos { now ->
+                        // (A frame that came late moves the page by the time that really passed, so it lands where it
+                        // would have been: at most two frames' worth, a longer stall doesn't turn into a leap.)
+                        (if (last == 0L) 0.0167f else ((now - last) / 1e9f).coerceIn(0.004f, 0.034f)).also { last = now }
+                    }
+                    if (rate > 0f) {
+                        val gap = goal - lead; val step = rate * dt
+                        lead = if (kotlin.math.abs(gap) <= step) goal else lead + kotlin.math.sign(gap) * step
+                    } else lead = goal
+                    room()?.let { r -> if (goal > r) { goal = r.coerceAtLeast(0f); if (lead > goal) lead = goal } }
+                    // Critically damped: the quickest way there that never overshoots.
+                    speed += (stiff * lead - 2f * kotlin.math.sqrt(stiff) * speed) * dt
+                    val want = speed * dt
+                    val moved = scrollBy(want)
+                    goal -= moved; lead -= moved
+                    // The end of the list: nothing more to do in that direction.
+                    if (kotlin.math.abs(want - moved) > 0.5f) { goal = 0f; lead = 0f; speed = 0f }
+                    // (The last pixel and a half in one go: creeping there took another third of a second of 0-1 px frames.)
+                    if (kotlin.math.abs(goal) < 1.5f && kotlin.math.abs(lead) < 1.5f && kotlin.math.abs(speed) < 45f) { scrollBy(goal); break }
+                }
+            }
+        } finally { goal = 0f; lead = 0f; rate = 0f; speed = 0f }
+    }
+
+    private companion object {
+        /** A single press and the ease-out: about half a second, the top speed reached after 0.1 s (not in the first frame). */
+        const val SOFT = 95f
+        /** While held: close behind the moving target (a quarter of a row), so the selected row stays in view. */
+        const val TIGHT = 210f
+    }
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private class PivotScroll(private val grid: androidx.compose.foundation.lazy.grid.LazyGridState) : androidx.compose.foundation.gestures.BringIntoViewSpec {
-    // Apple TV motion: one long, soft glide with no bounce. A new press while it's still moving keeps its speed,
-    // so holding Down is one smooth run instead of a stop-start for every row (the default spring is short and
-    // stops hard).
-    // (Stiffer than it was: at 240 each row took about 0.7 s to settle and moving up through the Library to the dock
-    // felt like it paused at every row.)
+private class PivotScroll(private val grid: androidx.compose.foundation.lazy.grid.LazyGridState, private val glide: Glide) : androidx.compose.foundation.gestures.BringIntoViewSpec {
     private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 420f, visibilityThreshold = 0.5f)
-    private val quick = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 750f, visibilityThreshold = 0.5f)
     @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
-    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float>
-        get() = if (LibPace.held) quick else soft
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> get() = soft
+    /**
+     * Where the selected row belongs is worked out here; the moving is the [Glide]'s (see there), so this answers
+     * "nothing to scroll" and Compose's own animation never starts.
+     */
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        glide.aim(distance(offset, size, containerSize), LibPace.held, LibPace.period)
+        return 0f
+    }
+    private fun distance(offset: Float, size: Float, containerSize: Float): Float {
         // On the first screen the page stays at its very top, so the "Library" title is never cut (it was when the
         // first row was lifted to the pivot like the others).
         if (grid.firstVisibleItemIndex == 0) {
@@ -421,25 +546,50 @@ private class PivotScroll(private val grid: androidx.compose.foundation.lazy.gri
     }
 }
 
-/** A remote key held down in the Library (the page moves faster then). */
+/** A remote key held down in the Library, and the beat its steps come at (see the page's key handling and [Glide]). */
 internal object LibPace {
     @Volatile var held = false
+    /** Milliseconds between the last two steps of a held key. */
+    @Volatile var period = 300L
+    /** Steps taken in this hold so far. */
+    @Volatile var run = 0
     /** Up held all the way back to the dock: the rest of that hold is spent there (it went on to the menu). */
     @Volatile var swallowUp = false
 }
 
 /** The Continue Watching row: it moves only when the next card would go past the page's margin, by just enough. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private class RowScroll(private val margin: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+private class RowScroll(private val margin: Float, private val glide: Glide) : androidx.compose.foundation.gestures.BringIntoViewSpec {
     private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 300f, visibilityThreshold = 0.5f)
-    private val quick = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 700f, visibilityThreshold = 0.5f)
     @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
-    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float>
-        get() = if (LibPace.held) quick else soft
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = when {
-        offset < margin -> offset - margin
-        offset + size > containerSize - margin -> offset + size - (containerSize - margin)
-        else -> 0f
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> get() = soft
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        glide.aim(when {
+            offset < margin -> offset - margin
+            offset + size > containerSize - margin -> offset + size - (containerSize - margin)
+            else -> 0f
+        }, LibPace.held, LibPace.period)
+        return 0f
+    }
+}
+
+/**
+ * Test only (dev key: --ez lib_trace true, then false): how far the Library's page moved in every frame, and how
+ * long each frame was, written to the log (tag GlassLibTrace) when it is switched off. A screen recording can't
+ * show this: the TV's recorder drops most frames while the page moves.
+ */
+internal object LibTrace {
+    val on = mutableStateOf(false)
+    private val px = ArrayList<Int>(); private val ms = ArrayList<Int>()
+    @Synchronized fun add(dy: Int, dt: Int) { if (px.size < 4000) { px.add(dy); ms.add(dt) } }
+    @Synchronized fun dump() {
+        // From the first frame that moved to the last one.
+        val a = px.indexOfFirst { it != 0 }; val b = px.indexOfLast { it != 0 }
+        if (a < 0) { android.util.Log.i("GlassLibTrace", "no movement"); px.clear(); ms.clear(); return }
+        android.util.Log.i("GlassLibTrace", "frames=${b - a + 1}")
+        (a..b).chunked(60).forEach { c -> android.util.Log.i("GlassLibTrace", "px " + c.joinToString(" ") { "${px[it]}" }) }
+        (a..b).chunked(60).forEach { c -> android.util.Log.i("GlassLibTrace", "ms " + c.joinToString(" ") { "${ms[it]}" }) }
+        px.clear(); ms.clear()
     }
 }
 
@@ -450,7 +600,7 @@ private fun Section(title: String, s: Float) {
 }
 
 @Composable
-private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier, onOpen: () -> Unit, onRemove: (() -> Unit)?) {
     val ctx = LocalContext.current
     val removeNow = onRemove
     val itemMenu = LocalItemMenu.current
@@ -521,7 +671,7 @@ private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier
                 modifier = Modifier.padding((8 * s).dp))
             AsyncImage(req, item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
                 loaded = true
-                if ((glow == "color" || hueApp != null) && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("p:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
+                if ((glow == "color" || hueApp != null) && gc == null) { val b = r.result.image; Bg.io("glass-glow") { gc = Glow.colorOf("p:" + item.key, (b as? coil3.BitmapImage)?.bitmap) } }
             })
         }
         if (titles) Text(item.name, color = Color.White.copy(alpha = if (focused) 0.95f else 0.6f), fontSize = (9.5f * s).sp,
@@ -566,7 +716,7 @@ private fun CwCard(item: HeroItem, source: String, s: Float, wide: Boolean, show
             .border(if (focused) 1.5.dp else 0.dp, Color.White.copy(alpha = if (focused) 0.85f else 0f), shape),
     ) {
         AsyncImage(req, item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
-            if ((glow == "color" || hueApp != null) && gc == null) { val b = r.result.image; Thread { gc = Glow.colorOf("c:" + item.key, (b as? coil3.BitmapImage)?.bitmap) }.start() }
+            if ((glow == "color" || hueApp != null) && gc == null) { val b = r.result.image; Bg.io("glass-glow") { gc = Glow.colorOf("c:" + item.key, (b as? coil3.BitmapImage)?.bitmap) } }
         })
         // Soft shade at the bottom for the text (a small picture, painted once).
         androidx.compose.foundation.Image(CwShade.get(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)

@@ -42,7 +42,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 64
+    const val ID = 65
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -64,30 +64,29 @@ object WhatsNew {
 
     // A welcome first, then what's new in this version, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("A big update, out with GTA VI", listOf(
-            "This Glassio update comes out on the same day as GTA VI.",
-            "We hope you enjoy them both: Glassio and the game! 🎮",
+        Page("Glassio 4.0, a beta", listOf(
+            "You are on the Beta channel: new features first, a little less tested.",
+            "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
-        ), "Thank you for using Glassio ♥"),
-        Page("New: the dock", listOf(
-            "Apps in a row: choose how many, or a strip from edge to edge that loops with the selected app in the middle.",
-            "Dock glass can be switched off. An Inputs icon shows your HDMI inputs above it.",
-            "Install icon packs straight from Glassio, and an even glow on every side of the icons.",
-        ), "Settings → Dock & icons"),
-        Page("New: watch and listen", listOf(
-            "Hold OK on Play → Hide this title: it leaves the carousel. Bring it back in Settings → Carousel.",
-            "Continue Watching can open a title in the app it was watched in.",
-            "Long song names scroll in the island. Multi-view cameras are sharper, and a trailer pauses under them.",
-        ), "Settings → Carousel · Continue Watching · Music · Cameras"),
-        Page("New: faster and smoother", listOf(
-            "Nothing redraws while the home screen is still: less heat and power.",
-            "Lighter video, aerial and photo backgrounds, smoother slides and Library rows.",
-            "The first screensaver trailer shows much sooner.",
-        ), "Settings → Performance"),
-        Page("New: Stable or Beta updates", listOf(
-            "Stable: tested versions only, as before.",
-            "Beta: new features first, a little less tested. Switch back any time.",
-        ), "Settings → About → Updates"),
+        ), "Back to Stable any time: Settings → About → Updates"),
+        Page("New: profiles", listOf(
+            "One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.",
+            "Who is watching? at start or from the menu, with Nuvio's pictures. Your setup so far is your profile as it is.",
+        ), "Settings → Accounts & profiles"),
+        Page("New: your streaming apps", listOf(
+            "Catalogs for apps: select Netflix, Apple TV or Prime Video in the dock and the carousel shows its catalogs.",
+            "Play can open a title's own page in its streaming app.",
+            "Platform rows in the Library: what is on each service in your country.",
+        ), "Settings → Catalogs & add-ons · Continue Watching & Library"),
+        Page("New: Settings", listOf(
+            "11 sections instead of 19, every setting in one place, long lists on their own pages.",
+            "New: the settings this version added. Changed: everything you changed, with Back to default.",
+            "Search finds any setting, also inside those pages.",
+        ), "Settings: under the search"),
+        Page("New: smoother", listOf(
+            "The Library scrolls as one smooth movement, also with a button held down.",
+            "Screensaver trailers start once, and show the posters when there is nothing to play.",
+        ), "Settings → Background & screensaver"),
         GITHUB_PAGE,
         SUPPORT_PAGE.takeIf { com.glasslauncher.tv.data.Support.ready },
     )

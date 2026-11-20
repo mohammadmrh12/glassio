@@ -55,9 +55,9 @@ object Hue {
             override fun onServiceLost(i: android.net.nsd.NsdServiceInfo?) {}
             @Suppress("DEPRECATION")
             override fun onServiceFound(i: android.net.nsd.NsdServiceInfo) {
-                Thread {
+                Bg.io("glass-hue-find") {
                     // One resolve at a time (older Android refuses a second one while one runs).
-                    if (!resolving.tryAcquire(3, java.util.concurrent.TimeUnit.SECONDS)) return@Thread
+                    if (!resolving.tryAcquire(3, java.util.concurrent.TimeUnit.SECONDS)) return@io
                     runCatching {
                         nsd.resolveService(i, object : android.net.nsd.NsdManager.ResolveListener {
                             override fun onResolveFailed(s: android.net.nsd.NsdServiceInfo?, e: Int) { resolving.release() }
@@ -67,7 +67,7 @@ object Hue {
                             }
                         })
                     }.onFailure { resolving.release() }
-                }.start()
+                }
             }
         }
         return runCatching {
@@ -239,13 +239,37 @@ object Hue {
     }
 
     // ---- The bridge's newer API (for gradient strips: several colours along one light). HTTPS with the bridge's
-    // own certificate (signed by Philips, not by a public authority): accepted for the bridge's address only.
+    // own certificate (signed by Philips or by the bridge itself, never by a public authority, so the usual check
+    // can't pass). The certificate is pinned instead: the bridge's key as first seen is remembered, and from then on
+    // only that key is accepted at that address. (Any certificate used to be accepted for the bridge's address.)
+    /** Where the pin is kept (the app's settings; set once at start). Not set: no request goes out. */
+    @Volatile var pins: Settings? = null
+    enum class Pin { Trust, Learn, Refuse }
+    /**
+     * [stored] is "address pin" from the settings (or empty), [pin] the key the bridge shows now at [ip].
+     * Nothing stored, or stored for another address (the bridge was changed in Settings, or the router gave it a new
+     * address): learnt. The same address with another key: refused, until the bridge is forgotten or paired again.
+     */
+    fun pinVerdict(stored: String, ip: String, pin: String): Pin {
+        val (addr, known) = stored.split(' ').let { if (it.size == 2) it[0] to it[1] else "" to "" }
+        return when { known.isBlank() || addr != ip -> Pin.Learn; known == pin -> Pin.Trust; else -> Pin.Refuse }
+    }
+    private fun pinOf(c: java.security.cert.X509Certificate): String =
+        android.util.Base64.encodeToString(java.security.MessageDigest.getInstance("SHA-256").digest(c.publicKey.encoded), android.util.Base64.NO_WRAP)
     private val v2Ids = java.util.concurrent.ConcurrentHashMap<String, String>()
     private fun https(method: String, ip: String, user: String, path: String, body: String? = null): String {
         val c = URL("https://$ip$path").openConnection() as javax.net.ssl.HttpsURLConnection
         val trust = object : javax.net.ssl.X509TrustManager {
             override fun checkClientTrusted(a: Array<out java.security.cert.X509Certificate>?, t: String?) {}
-            override fun checkServerTrusted(a: Array<out java.security.cert.X509Certificate>?, t: String?) {}
+            override fun checkServerTrusted(a: Array<out java.security.cert.X509Certificate>?, t: String?) {
+                val st = pins ?: throw java.security.cert.CertificateException("Hue: no place to keep the bridge's certificate")
+                val pin = pinOf(a?.firstOrNull() ?: throw java.security.cert.CertificateException("Hue: the bridge sent no certificate"))
+                when (pinVerdict(st.huePin, ip, pin)) {
+                    Pin.Trust -> {}
+                    Pin.Learn -> { st.huePin = "$ip $pin"; Glog.i("Hue: the bridge's certificate at $ip is remembered") }
+                    Pin.Refuse -> throw java.security.cert.CertificateException("the bridge's certificate is not the one first seen (forget the bridge and pair it again if it was replaced)")
+                }
+            }
             override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
         }
         c.sslSocketFactory = javax.net.ssl.SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }.socketFactory
@@ -255,6 +279,10 @@ object Hue {
         if (body != null) { c.doOutput = true; c.setRequestProperty("Content-Type", "application/json"); c.outputStream.use { it.write(body.toByteArray()) } }
         return try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
     }
+    /** One harmless request over the bridge's secure connection (a test of the certificate pin): what came of it. */
+    fun secureCheck(ip: String, user: String): String = runCatching {
+        "ok, ${JSONObject(https("GET", ip, user, "/clip/v2/resource/bridge")).optJSONArray("data")?.length() ?: 0} bridge"
+    }.getOrElse { "refused: ${it.javaClass.simpleName}: ${it.message}" }
     private fun v2Id(ip: String, user: String, id: String): String? = v2Ids[id] ?: runCatching {
         val d = JSONObject(https("GET", ip, user, "/clip/v2/resource/light")).getJSONArray("data")
         for (i in 0 until d.length()) { val o = d.getJSONObject(i); v2Ids[o.optString("id_v1").substringAfterLast('/')] = o.getString("id") }
@@ -356,7 +384,7 @@ object HueSync {
         // Every light's new colour of one picture is sent at the same moment (one request each, side by side): sent
         // one after another, the last lights (a Bloom after the Play bars) changed a few tenths of a second late.
         val pool = Executors.newFixedThreadPool(4) { r -> Thread(r, "glass-hue-put").apply { isDaemon = true } }
-        Thread({
+        Bg.io("glass-hue-send") {
             while (true) {
                 if (pending.isEmpty()) { Thread.sleep(20); continue }
                 // A moment for the rest of the same picture's lights to be worked out.
@@ -375,7 +403,7 @@ object HueSync {
                 // The bridge takes about ten light commands a second.
                 if (jobs.isNotEmpty()) Thread.sleep((60L * jobs.size).coerceIn(95, 400))
             }
-        }, "glass-hue-send").apply { isDaemon = true }.start()
+        }
     }
 
     /** From a picture on screen: every chosen light gets its colour (from its part of the screen, or the picture's palette). */

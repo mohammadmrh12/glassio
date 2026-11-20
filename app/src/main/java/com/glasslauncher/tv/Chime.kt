@@ -1,5 +1,6 @@
 package com.glasslauncher.tv
 
+import com.glasslauncher.tv.data.Bg
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -9,7 +10,7 @@ import kotlin.math.sin
 
 /** A soft two-note doorbell chime ("ding-dong"), made on the fly: no sound file, no extra permission. */
 object Chime {
-    fun play() = Thread {
+    fun play() = Bg.io("glass-chime") {
         runCatching {
             val rate = 44100
             val notes = listOf(1318.5 to 0.0, 1046.5 to 0.42)   // E6, then C6
@@ -36,5 +37,5 @@ object Chime {
             Thread.sleep(1800)
             track.release()
         }.onFailure { com.glasslauncher.tv.data.Glog.w("Chime", it) }
-    }.start()
+    }
 }

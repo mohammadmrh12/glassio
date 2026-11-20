@@ -42,7 +42,7 @@ class Tmdb(private val http: Http) {
     private fun norm(s: String) = s.lowercase(Locale.ROOT).replace(Regex("\\(.*?\\)|\\[.*?\\]"), " ")
         .replace(Regex("[^\\p{L}\\p{N}]"), " ").replace(Regex("\\s+"), " ").trim()
 
-    fun enrich(item: HeroItem, token: String, lang: String): HeroItem? {
+    fun enrich(item: HeroItem, token: String, lang: String, region: String = "US"): HeroItem? {
         if (token.isBlank()) return null
         val isTv = item.type.equals("series", true) || item.type.equals("tv", true)
         val kind = if (isTv) "tv" else "movie"
@@ -116,7 +116,7 @@ class Tmdb(private val http: Http) {
         val rating = if (score > 0.1) String.format(Locale.US, "%.1f", score) else ""
         val date = if (isTv) d.optString("first_air_date") else d.optString("release_date")
         val year = if (date.matches(Regex("(19|20)\\d{2}.*"))) date.take(4) else ""
-        val platform = runCatching { provider(kind, tmdbId, token) }.getOrDefault("")
+        val platform = runCatching { provider(kind, tmdbId, token, region) }.getOrDefault("")
 
         return item.copy(
             background = backdrop.ifBlank { item.background },
@@ -133,8 +133,9 @@ class Tmdb(private val http: Http) {
         )
     }
 
-    private fun provider(kind: String, id: Int, token: String): String {
-        val us = get("https://api.themoviedb.org/3/$kind/$id/watch/providers", token).optJSONObject("results")?.optJSONObject("US") ?: return ""
+    /** The first service the title is on in [region] with a subscription, free or with ads ("" when none is listed there). */
+    private fun provider(kind: String, id: Int, token: String, region: String): String {
+        val us = get("https://api.themoviedb.org/3/$kind/$id/watch/providers", token).optJSONObject("results")?.optJSONObject(region) ?: return ""
         for (cat in listOf("flatrate", "free", "ads")) {
             val arr = us.optJSONArray(cat) ?: continue
             for (i in 0 until arr.length()) {

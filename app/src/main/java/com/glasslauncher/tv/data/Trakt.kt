@@ -93,7 +93,7 @@ class Trakt(ctx: Context) {
         runCatching {
             val (code, text) = call("GET", "/users/settings", auth = true)
             if (code == 200) sp.edit().putString("user", JSONObject(text).optJSONObject("user")?.optString("username").orEmpty()).apply()
-        }
+        }.onFailure { Glog.w("Trakt: account name", it) }
     }
 
     @Synchronized
@@ -208,5 +208,5 @@ class Trakt(ctx: Context) {
     }.getOrDefault(false)
 
     /** Removes a paused item on Trakt too, so it doesn't come back with the next sync. */
-    fun removePlayback(id: Long) { runCatching { call("DELETE", "/sync/playback/$id", auth = true) } }
+    fun removePlayback(id: Long) { runCatching { call("DELETE", "/sync/playback/$id", auth = true) }.onFailure { Glog.w("Trakt: remove from Continue Watching", it) } }
 }

@@ -49,7 +49,7 @@ object SystemSetup {
             if (svc !in parts) android.provider.Settings.Secure.putString(cr, "enabled_accessibility_services", (parts + svc).joinToString(":"))
             android.provider.Settings.Secure.putString(cr, "accessibility_enabled", "1")
             if (homeKeyOn(ctx)) return true
-        }
+        }.onFailure { Glog.w("System setup: accessibility service", it) }
         val cmd = "cur=\$(settings get secure enabled_accessibility_services); " +
             "case \"\$cur\" in *$svc*) ;; null|'') settings put secure enabled_accessibility_services $svc ;; " +
             "*) settings put secure enabled_accessibility_services \"\$cur:$svc\" ;; esac; " +
@@ -90,7 +90,7 @@ object SystemSetup {
             android.provider.Settings.Secure.putString(cr, "screensaver_components", dream)
             android.provider.Settings.Secure.putInt(cr, "screensaver_enabled", 1)
             android.provider.Settings.Secure.putInt(cr, "screensaver_activate_on_sleep", 1)
-        }
+        }.onFailure { Glog.w("System setup: screensaver", it) }
         LocalShell.run(ctx, "settings put secure screensaver_components $dream && settings put secure screensaver_enabled 1 && settings put secure screensaver_activate_on_sleep 1; " +
             "t=\$(settings get system screen_off_timeout); sl=\$(settings get secure sleep_timeout); case \$sl in ''|null|-1|0) sl=1800000;; esac; " +
             "if [ \"\$t\" -ge \"\$sl\" ] 2>/dev/null || [ \"\$t\" -ge 1800000 ] 2>/dev/null; then settings put system screen_off_timeout 300000; fi; " +

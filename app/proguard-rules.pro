@@ -16,7 +16,7 @@
 
 # NewPipe Extractor (trailers)
 -keep class org.mozilla.javascript.** { *; }
--keep class org.mozilla.classfile.ClassFileWriter
+-keep class org.mozilla.classfile.ClassFileWriter { <init>(...); }
 -dontwarn org.mozilla.javascript.tools.**
 -keep class org.schabi.newpipe.extractor.timeago.patterns.** { *; }
 -keep class org.schabi.newpipe.extractor.services.youtube.** { *; }

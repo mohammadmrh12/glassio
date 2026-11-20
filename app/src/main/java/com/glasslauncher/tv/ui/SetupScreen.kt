@@ -76,6 +76,31 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
     }
 
     val nuvio = app.library.nuvio
+    // Who is watching: asked after the sign-in when the Nuvio account has more than one profile. The choice is applied
+    // at the end (Glassio then opens as that profile, with the look chosen here).
+    val P = com.glasslauncher.tv.data.Profiles
+    var profs by remember { mutableStateOf<List<com.glasslauncher.tv.data.Profiles.Info>>(emptyList()) }
+    var who by remember { mutableIntStateOf(P.active(app)) }
+    var askWho by remember { mutableStateOf(P.startMode(app) == "ask") }
+    LaunchedEffect(rev, page) {
+        if (!nuvio.connected) { profs = emptyList(); return@LaunchedEffect }
+        val l = if (ProfilesUi.keepList) P.known(app) else withContext(Dispatchers.IO) { nuvio.profileInfos() }?.also { if (it.isNotEmpty()) P.remember(app, it) } ?: P.known(app)
+        profs = if (l.size > 1) l else emptyList()
+    }
+    fun finish() {
+        if (profs.size > 1) {
+            P.setStartMode(app, if (askWho) "ask" else "auto"); P.setAutoId(app, who)
+            profs.firstOrNull { it.id == who }?.let { p ->
+                if (P.choose(app, p.id)) {
+                    nuvio.setProfile(p.id, p.name)
+                    st.setupDone = true; st.tourSeen = WhatsNew.ID
+                    com.glasslauncher.tv.data.Bg.io("glass-restart") { delay(300); Backup.restart(app) }
+                    return
+                }
+            }
+        }
+        onDone()
+    }
     val trakt = app.cw.trakt
     val stremio = app.cw.stremio
     val simkl = app.cw.simkl
@@ -117,7 +142,7 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
         Modifier.fillMaxSize().background(Color(0xFF05060B))
             .onPreviewKeyEvent {
                 if (it.type == KeyEventType.KeyUp && it.key == Key.Back) {
-                    when { sign != null -> stop(); page > 0 -> page--; else -> onDone() }; true
+                    when { sign != null -> stop(); page == 4 && profs.isEmpty() -> page = 2; page > 0 -> page--; else -> onDone() }; true
                 } else false
             },
     ) {
@@ -187,9 +212,18 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             ), wrap = true)
                             if (signMsg.isNotBlank()) { Spacer(Modifier.height(12.dp)); Text(signMsg, color = Color(0xFFFF8F9B), fontSize = 14.sp) }
                             Spacer(Modifier.height(22.dp))
-                            Buttons(listOf("Next" to { page = 3 }), focusFirst = false)
+                            Buttons(listOf("Next" to { page = if (profs.size > 1) 3 else 4 }), focusFirst = false)
                         }
                         3 -> {
+                            Title("Who is watching?", "Each profile of your Nuvio account has its own Glassio. Pick the one this TV opens, or have it ask every time")
+                            Buttons(profs.map { p -> (if (!askWho && who == p.id) "✓ ${p.name}" else p.name) to { who = p.id; askWho = false } } +
+                                listOf((if (askWho) "✓ Ask every time" else "Ask every time") to { askWho = !askWho }), wrap = true,
+                                // Each profile with its picture, as in "Who is watching?".
+                                faces = profs.map<com.glasslauncher.tv.data.Profiles.Info, (@Composable () -> Unit)?> { p -> @Composable { Face(app, p, Modifier.size(34.dp), letter = 16.sp) } })
+                            Spacer(Modifier.height(22.dp))
+                            Buttons(listOf("Next" to { page = 4 }), focusFirst = false)
+                        }
+                        4 -> {
                             Title("System", "Home button, home app, screensaver and starting with the TV. Uses the TV's debugging connection (ADB)")
                             @Suppress("UNUSED_EXPRESSION") rev
                             var state by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
@@ -231,18 +265,20 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             ), wrap = true)
                             if (busy.isNotBlank()) { Spacer(Modifier.height(12.dp)); Text(busy, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, textAlign = TextAlign.Center) }
                             Spacer(Modifier.height(22.dp))
-                            Buttons(listOf("Next" to { page = 4 }), focusFirst = false)
+                            Buttons(listOf("Next" to { page = 5 }), focusFirst = false)
                         }
                         else -> {
                             Title("You're all set", "▲ opens the menu  ·  ▼ from the dock opens the Library  ·  Hold OK on an app for options")
-                            Buttons(listOf("Start" to onDone))
+                            Buttons(listOf("Start" to { finish() }))
                         }
                     }
                 }
             }
         }
         Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 26.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            repeat(5) { i ->
+            // (The profile page has its dot only when it is shown.)
+            val pages = if (profs.size > 1) listOf(0, 1, 2, 3, 4, 5) else listOf(0, 1, 2, 4, 5)
+            pages.forEach { i ->
                 val w by animateDpAsState(if (i == page) 26.dp else 8.dp, tween(260), label = "dot")
                 Box(Modifier.size(w, 8.dp).clip(CircleShape).background(Color.White.copy(alpha = if (i == page) 0.9f else 0.28f)))
             }
@@ -282,18 +318,18 @@ private fun Title(t: String, sub: String) {
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun Buttons(items: List<Pair<String, () -> Unit>>, wrap: Boolean = false, focusFirst: Boolean = true) {
+private fun Buttons(items: List<Pair<String, () -> Unit>>, wrap: Boolean = false, focusFirst: Boolean = true, faces: List<(@Composable () -> Unit)?> = emptyList()) {
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (focusFirst) for (d in listOf(80L, 300L)) { delay(d); runCatching { first.requestFocus() } } }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(14.dp),
         maxItemsInEachRow = if (wrap) 3 else Int.MAX_VALUE) {
-        items.forEachIndexed { i, (label, on) -> Pill(label, primary = i == 0 && !wrap, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier, onClick = on) }
+        items.forEachIndexed { i, (label, on) -> Pill(label, primary = i == 0 && !wrap, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier, face = faces.getOrNull(i), onClick = on) }
     }
 }
 
 /** A glass pill. Focus grows it on the GPU only (no new layout), so moving between them stays smooth. */
 @Composable
-private fun Pill(label: String, primary: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun Pill(label: String, primary: Boolean, modifier: Modifier, face: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     var f by remember { mutableStateOf(false) }
     val t = animateFloatAsState(if (f) 1f else 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "f")
     val shape = RoundedCornerShape(50)
@@ -307,11 +343,32 @@ private fun Pill(label: String, primary: Boolean, modifier: Modifier, onClick: (
             .clip(shape)
             .background(if (f) Color(0xFFF2F2F5) else Color.White.copy(alpha = if (primary) 0.16f else 0.08f))
             .border(1.dp, Color.White.copy(alpha = if (f) 0f else 0.22f), shape)
-            .padding(horizontal = 30.dp, vertical = 14.dp),
+            .padding(start = if (face != null) 10.dp else 30.dp, end = 30.dp, top = if (face != null) 8.dp else 14.dp, bottom = if (face != null) 8.dp else 14.dp),
     ) {
         val shown = if (label.startsWith("✓ ")) "✓ " + com.glasslauncher.tv.data.I18n.tr(label.removePrefix("✓ ")) else com.glasslauncher.tv.data.I18n.tr(label)
-        Text(shown, color = if (f) Color(0xFF0B0B10) else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+            if (face != null) { face(); Spacer(Modifier.width(12.dp)) }
+            Text(shown, color = if (f) Color(0xFF0B0B10) else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+        }
     }
+}
+
+/** The soft lights as a picture ([shade]: darkened by that much, as under the profiles). */
+internal fun orbsPicture(w: Int, h: Int, shade: Float = 0f): android.graphics.Bitmap {
+    val b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(b)
+    c.drawColor(0xFF05060B.toInt())
+    fun orb(col: Int, x: Float, y: Float, r: Float) {
+        val p = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG).apply {
+            shader = android.graphics.RadialGradient(x, y, r, intArrayOf(col and 0x00FFFFFF or (0x8C shl 24), col and 0x00FFFFFF), null, android.graphics.Shader.TileMode.CLAMP)
+        }
+        c.drawCircle(x, y, r, p)
+    }
+    orb(0xFF7B61FF.toInt(), w * 0.28f, h * 0.34f, w * 0.42f)
+    orb(0xFF3FA9F5.toInt(), w * 0.74f, h * 0.62f, w * 0.38f)
+    orb(0xFFFF6FA8.toInt(), w * 0.55f, h * 0.18f, w * 0.26f)
+    if (shade > 0f) c.drawColor(android.graphics.Color.argb((shade * 255).toInt(), 0, 0, 0))
+    return b
 }
 
 /**
@@ -319,23 +376,8 @@ private fun Pill(label: String, primary: Boolean, modifier: Modifier, onClick: (
  * small picture that drifts slowly: a single layer moves, nothing is redrawn while you go between the buttons.
  */
 @Composable
-private fun Orbs() {
-    val pic = remember {
-        val w = 480; val h = 270
-        val b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
-        val c = android.graphics.Canvas(b)
-        c.drawColor(0xFF05060B.toInt())
-        fun orb(col: Int, x: Float, y: Float, r: Float) {
-            val p = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG).apply {
-                shader = android.graphics.RadialGradient(x, y, r, intArrayOf(col and 0x00FFFFFF or (0x8C shl 24), col and 0x00FFFFFF), null, android.graphics.Shader.TileMode.CLAMP)
-            }
-            c.drawCircle(x, y, r, p)
-        }
-        orb(0xFF7B61FF.toInt(), w * 0.28f, h * 0.34f, w * 0.42f)
-        orb(0xFF3FA9F5.toInt(), w * 0.74f, h * 0.62f, w * 0.38f)
-        orb(0xFFFF6FA8.toInt(), w * 0.55f, h * 0.18f, w * 0.26f)
-        b.asImageBitmap().also { it.prepareToDraw() }
-    }
+internal fun Orbs() {
+    val pic = remember { orbsPicture(480, 270).asImageBitmap().also { it.prepareToDraw() } }
     val tr = rememberInfiniteTransition(label = "orbs")
     val t = tr.animateFloat(0f, 6.2832f, infiniteRepeatable(tween(30000, easing = LinearEasing)), label = "t")
     Image(pic, null, contentScale = androidx.compose.ui.layout.ContentScale.FillBounds, modifier = Modifier.fillMaxSize().graphicsLayer {

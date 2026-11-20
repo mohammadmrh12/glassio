@@ -55,7 +55,7 @@ class Weather(private val settings: Settings, private val http: Http, private va
     fun start() {
         scope.launch(Dispatchers.IO) {
             while (true) {
-                if (settings.weatherMode != "off" || (settings.menuMode != "off" && settings.menuWeather)) runCatching { refresh() }
+                if (settings.weatherMode != "off" || (settings.menuMode != "off" && settings.menuWeather)) runCatching { refresh() }.onFailure { Glog.w("Weather", it) }
                 delay(15 * 60_000L)
             }
         }

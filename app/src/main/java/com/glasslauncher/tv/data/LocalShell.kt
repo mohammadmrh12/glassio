@@ -155,12 +155,12 @@ object LocalShell {
 
     /** Opens the quick connection now (off the main thread), so the next [quick] needs no handshake. */
     fun warm(ctx: Context, port: Int = 5555) {
-        Thread {
+        Bg.io("glass-shell") {
             synchronized(quickLock) {
                 if (quick == null) runCatching { open(ctx, port).also { it.shell("true") } }
                     .onSuccess { quick = it }.onFailure { Glog.w("TV adb (quick)", it) }
             }
-        }.apply { isDaemon = true }.start()
+        }
     }
 
     /** Runs [command] on the quick connection, on its own thread (nothing waits for it). */
@@ -175,7 +175,7 @@ object LocalShell {
     }
 
     fun quick(ctx: Context, command: String, port: Int = 5555) {
-        Thread {
+        Bg.io("glass-shell") {
             synchronized(quickLock) {
                 val t0 = android.os.SystemClock.uptimeMillis()
                 repeat(2) { attempt ->
@@ -194,6 +194,6 @@ object LocalShell {
                     if (attempt == 1) Glog.w("TV adb (quick): $command", r.exceptionOrNull())
                 }
             }
-        }.apply { isDaemon = true }.start()
+        }
     }
 }

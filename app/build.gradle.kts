@@ -2,19 +2,18 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "com.glasslauncher.tv"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         applicationId = "com.glasslauncher.tv"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 67
-        versionName = "3.8.0"
+        targetSdk = 37
+        versionCode = 68
+        versionName = "4.0.0-beta1"
         // TV boxes are ARM: the depth model's native library only for those (keeps the download small).
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         // Trakt app (PKCE, no secret). Kept in local.properties, which is not committed.
@@ -28,6 +27,8 @@ android {
         buildConfigField("String", "SUPPORT_FORM", "\"${props.getProperty("SUPPORT_FORM", "")}\"")
         buildConfigField("String", "SUPPORT_CODE_ENTRY", "\"${props.getProperty("SUPPORT_CODE_ENTRY", "")}\"")
         buildConfigField("String", "SUPPORT_NOTE_ENTRY", "\"${props.getProperty("SUPPORT_NOTE_ENTRY", "")}\"")
+        // "Report a problem" (Settings → About): the relay that opens the GitHub issue (tools/report-worker). Empty: a QR code instead.
+        buildConfigField("String", "REPORT_URL", "\"${props.getProperty("REPORT_URL", "")}\"")
     }
     buildTypes {
         release {
@@ -55,31 +56,33 @@ kotlin {
 }
 
 dependencies {
-    implementation(platform("androidx.compose:compose-bom:2025.10.01"))
+    implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.activity:activity-compose:1.11.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
-    implementation("androidx.core:core-ktx:1.17.0")
-    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
-    implementation("io.coil-kt.coil3:coil-video:3.3.0")
-    implementation("androidx.media3:media3-exoplayer:1.8.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
+    implementation("androidx.core:core-ktx:1.19.1")
+    implementation("io.coil-kt.coil3:coil-compose:3.6.3")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
+    implementation("io.coil-kt.coil3:coil-video:3.6.3")
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
     // Shuffle in other apps' music players (their MediaSessionCompat).
-    implementation("androidx.media:media:1.7.0")
-    implementation("androidx.media3:media3-ui:1.8.0")
-    implementation("androidx.media3:media3-exoplayer-rtsp:1.8.0")
-    implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
-    implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.media:media:1.8.0")
+    implementation("androidx.media3:media3-ui:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-rtsp:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+    implementation("com.google.zxing:core:3.5.4")
     // Trailers played by Glassio's own player (no YouTube page): finds the trailer's video and sound streams.
-    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.27.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
-    implementation("dev.mobile:dadb:1.2.10")
+    implementation("dev.mobile:dadb:2.0.0")
     // Depth effect on photos: runs a small depth model (downloaded on first use) on the TV.
-    implementation("com.google.ai.edge.litert:litert:1.4.0")
+    // Kept on 1.x: LiteRT 2 pulls a beta Play library with WorkManager and Room (it crashed at start under R8) and
+    // adds 3 MB, for the one Interpreter call used here.
+    implementation("com.google.ai.edge.litert:litert:1.4.2")
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     testImplementation("junit:junit:4.13.2")
 }

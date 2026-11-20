@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.net
 
+import com.glasslauncher.tv.data.Bg
 import com.glasslauncher.tv.GlassApp
 import com.glasslauncher.tv.data.Glog
 import okhttp3.OkHttpClient
@@ -30,7 +31,7 @@ object HaWatch {
     fun start(app: GlassApp) {
         if (started) return
         started = true
-        Thread({ loop(app) }, "glass-ha").apply { isDaemon = true }.start()
+        Bg.io("glass-ha") { loop(app) }
     }
 
     /** Settings changed: drop the connection, the loop connects again with the new ones. */

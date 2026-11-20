@@ -178,7 +178,7 @@ class HomeKeyService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        runCatching { registerReceiver(screenReceiver, android.content.IntentFilter(Intent.ACTION_SCREEN_ON)) }
+        runCatching { registerReceiver(screenReceiver, android.content.IntentFilter(Intent.ACTION_SCREEN_ON)) }.onFailure { com.glasslauncher.tv.data.Glog.w("Home key service: screen receiver", it) }
         // Ask for key events explicitly; some TV builds ignore the flag from the XML alone.
         serviceInfo = serviceInfo.apply {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS

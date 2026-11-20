@@ -33,6 +33,9 @@ Tested on the Google TV Streamer (4K).
 Latest: **3.8.0** — a big update, out with GTA VI: new dock layouts, an Inputs icon, hide a title, Stable or Beta updates, faster and lighter. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
+Latest beta: **4.0.0-beta1** — profiles, your streaming apps' own catalogs and pages, new Settings, smoother Library
+([release](https://github.com/mohammadmrh12/glassio/releases/tag/v4.0.0-beta1); Settings → About → Updates → *Beta*).
+
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
   logos, backdrop galleries and Continue Watching; opens titles in Nuvio or Stremio.
 - **Liquid glass** — real refraction, six themes, a glass colour (black or petrol), bold text, round or sharp corners.

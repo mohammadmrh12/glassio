@@ -43,7 +43,7 @@ object Photos {
         app.settings.photoLast.split('\t').takeIf { it.size == 3 && it[0].isNotBlank() }?.let { p ->
             if (!p[0].startsWith("file://") || File(p[0].removePrefix("file://")).isFile) current.value = Photo(p[0], p[1], p[2])
         }
-        Thread({ loop(app) }, "glass-photos").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }.start()
+        Bg.io("glass-photos") { loop(app) }
     }
 
     private fun loop(app: GlassApp) {
@@ -93,7 +93,7 @@ object Photos {
                 if (shown) {
                     // The following photo is fetched now, so the next change is instant.
                     val following = list[order[(pos + 1) % order.size]]
-                    runCatching { local(app, following.url) }
+                    runCatching { local(app, following.url) }.onFailure { Glog.w("Photos: saving the next photo", it) }
                     trim(app)
                 }
             }

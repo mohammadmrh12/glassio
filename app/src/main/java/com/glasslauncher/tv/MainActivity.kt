@@ -40,8 +40,13 @@ class MainActivity : ComponentActivity() {
         if (old != null && old !== this && !old.isFinishing && !old.isDestroyed) runCatching { old.finishAndRemoveTask() }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideBars()
+        // Android 17: the home network (the phone page, Hue, cameras, other TVs) is behind a permission, asked once.
+        if (android.os.Build.VERSION.SDK_INT >= 37 && checkSelfPermission(LOCAL_NETWORK) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            runCatching { requestPermissions(arrayOf(LOCAL_NETWORK), 37) }
         val app = application as GlassApp
         handleExtras(intent)
+        // The TV has just started: who is watching (or straight to the automatic profile), once the setup is done.
+        if (savedInstanceState == null && app.settings.setupDone && com.glasslauncher.tv.data.Profiles.newBoot(this)) com.glasslauncher.tv.ui.ProfilesUi.wake(app)
         setContent {
             // A launcher never exits on Back; it just returns to its home view.
             BackHandler(enabled = true) { screen = Screen.Home }
@@ -91,6 +96,8 @@ class MainActivity : ComponentActivity() {
                         if (mv > 0.01f) androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
                             .graphicsLayer { alpha = mv }.background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.2f)))
                     }
+                    // "Who is watching?" over everything (the home screen, Settings, the setup).
+                    com.glasslauncher.tv.ui.ProfileChooserHost(app)
                     // Back from the screensaver: out of black (it closes faded to black, so nothing snaps).
                     if (com.glasslauncher.tv.ui.SaverGate.cover.floatValue > 0f) {
                         // Runs once the home screen draws again (a stopped activity doesn't compose).
@@ -172,6 +179,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
         /** The Glassio on screen (there is only ever one: see onCreate). */
         @Volatile private var live: java.lang.ref.WeakReference<MainActivity>? = null
     }
@@ -204,6 +212,8 @@ class MainActivity : ComponentActivity() {
         if (KeyHub.handle(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
         // The What's new tour takes the remote while it shows.
         if (com.glasslauncher.tv.ui.WhatsNew.onKey(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
+        // "Who is watching?" takes it too.
+        if (com.glasslauncher.tv.ui.ProfilesUi.onKey(application as GlassApp, event)) return true
         return super.dispatchKeyEvent(event)
     }
 

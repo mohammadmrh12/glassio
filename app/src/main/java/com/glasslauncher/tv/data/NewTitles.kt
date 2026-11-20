@@ -14,7 +14,7 @@ object NewTitles {
     private var seen: LinkedHashMap<String, Long>? = null
 
     @Synchronized private fun map(ctx: Context): LinkedHashMap<String, Long> = seen ?: run {
-        val p = ctx.applicationContext.getSharedPreferences("titles_seen", Context.MODE_PRIVATE).also { sp = it }
+        val p = Profiles.prefs(ctx, "titles_seen").also { sp = it }
         val m = LinkedHashMap<String, Long>()
         p.getString("seen", "").orEmpty().lineSequence().forEach { l ->
             val k = l.substringBefore('\t'); val t = l.substringAfter('\t', "").toLongOrNull()

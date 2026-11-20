@@ -29,7 +29,7 @@ class Http(ctx: Context) {
             try {
                 if (c.responseCode !in 200..299) throw IllegalStateException("HTTP ${c.responseCode}")
                 val body = c.inputStream.bufferedReader().use { it.readText() }
-                runCatching { f.writeText(body) }
+                runCatching { f.writeText(body) }.onFailure { Glog.w("Saving a response for later", it) }
                 return body
             } finally { c.disconnect() }
         } catch (e: Exception) {

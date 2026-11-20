@@ -2,6 +2,40 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.0.0-beta1 — profiles, your streaming apps, new Settings (beta)
+
+A beta: new features first, a little less tested. Get it with Settings → About → Updates → *Beta*.
+
+- **Profiles**: one Glassio per profile of your Nuvio account, each with its own look, dock, catalogs, Library and
+  Continue Watching (the TV's own settings stay shared). *Who is watching?* at start or from the menu, Nuvio's
+  profile pictures, a greeting at the top of the menu (Settings → Accounts & profiles). Your current setup becomes
+  your profile as it is: nothing is lost.
+- **Your streaming apps**:
+  - *Catalogs for apps*: with Netflix, Apple TV, Prime Video … selected in the dock, the carousel shows that app's
+    catalogs, with your titles in progress on that service first (off by default; Settings → Catalogs & add-ons, or
+    hold OK on the app → *Catalogs*).
+  - *Play opens the streaming app*: Play opens the title's own page in Netflix, Apple TV, Prime Video or Disney+
+    when one of them has it; choose which apps (off by default).
+  - *Platform rows* in the Library ("On Netflix", "On Apple TV" …) and a *Country* for what is offered where.
+- **New Settings**: 11 sections instead of 19, in groups, every setting in one place (with links where it is
+  needed elsewhere), long lists on their own pages. *New* gathers the settings this version added, *Changed* lists
+  every setting you changed with *Back to default*, and the search finds any setting, also inside those pages.
+- **Library**: scrolling is one smooth movement like the Apple TV app's, also with a button held down.
+- **Screensaver trailers**: the first trailer no longer starts over, and with nothing to play (no titles, no
+  trailer found, no internet) the posters show until a trailer is found again.
+- **Report a problem** (Settings → About): a few words typed on the TV, sent with what helps fix it (version, TV,
+  a few settings, the last log lines), cleaned of anything private and shown in full before it goes.
+- **New looks to choose**: carousel buttons that follow the theme, *Carousel shade* off, the Music & Inputs page
+  as Glassio's lights or the carousel's picture blurred, glass pop-ups over Settings.
+- **New defaults** for a new install: the edge-to-edge dock with 7 apps, the island, trailers as the screensaver
+  and more. Settings you already chose stay as they are.
+- **Fixes**: the selected icon's glass on the way back from the Library, the glass colour going off during slides,
+  the edge-to-edge dock keeping the selected app in the middle when apps are hidden or added (its glass now bends
+  at the rims), the left shade switch working at once, the selection no longer jumping to the section list in
+  Settings, New and Changed opening without a stutter, sharper clear glass and a lighter dock while sliding.
+- **Under the hood**: Android 17 ready (targetSdk 37), the latest libraries and build tools, background work on one
+  scope, the Hue bridge's certificate pinned.
+
 ## 3.8.0 — a big update, out with GTA VI
 
 - **Dock**: *Apps in a row* (how many fit), *Dock from edge to edge* as a strip that loops with the selected app in the
