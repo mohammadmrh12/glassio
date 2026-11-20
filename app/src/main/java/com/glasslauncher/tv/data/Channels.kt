@@ -95,12 +95,12 @@ object Channels {
         if (pending) return
         pending = true
         val app = ctx.applicationContext
-        Thread({
+        Bg.io("glass-channels") {
             Thread.sleep(400)
             pending = false
-            if (!hasAccess(app)) return@Thread
+            if (!hasAccess(app)) return@io
             read(app).onSuccess { l -> main.post { all.value = l } }.onFailure { Glog.w("Channels", it) }
-        }, "glass-channels").apply { isDaemon = true }.start()
+        }
     }
 
     /** Starts following the TV's channels (once the right is there). Safe to call again. */
@@ -111,7 +111,7 @@ object Channels {
             val obs = object : android.database.ContentObserver(main) { override fun onChange(selfChange: Boolean) { refresh(app) } }
             for (u in listOf(CHANNELS, PROGRAMS, WATCH_NEXT)) app.contentResolver.registerContentObserver(u, true, obs)
             started = true
-        }
+        }.onFailure { Glog.w("Channels: following changes", it) }
         refresh(app)
     }
 

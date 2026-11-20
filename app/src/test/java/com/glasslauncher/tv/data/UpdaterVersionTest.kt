@@ -18,4 +18,13 @@ class UpdaterVersionTest {
         assertTrue(Updater.newer("3.8.0-beta10", "3.8.0-beta2"))
         assertTrue(Updater.newer("3.8.1-beta1", "3.8.0"))
     }
+    @Test fun fourPointZero() {
+        // The beta after 3.8.0 is 4.0.0-beta1: newer than the last stable, older than its own release.
+        assertTrue(Updater.newer("4.0.0-beta1", "3.8.0"))
+        assertFalse(Updater.newer("3.8.0", "4.0.0-beta1"))
+        assertTrue(Updater.newer("4.0.0", "4.0.0-beta1"))
+        assertFalse(Updater.newer("4.0.0-beta1", "4.0.0"))
+        assertTrue(Updater.newer("4.0.1-beta1", "4.0.0"))
+        assertFalse(Updater.newer("4.0.0", "4.0.1-beta1"))
+    }
 }

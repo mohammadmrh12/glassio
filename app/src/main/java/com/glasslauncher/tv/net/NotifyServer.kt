@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.net
 
+import com.glasslauncher.tv.data.Bg
 import com.glasslauncher.tv.GlassApp
 import com.glasslauncher.tv.data.Glog
 import org.json.JSONObject
@@ -24,7 +25,7 @@ object NotifyServer {
     fun start(app: GlassApp) {
         if (running) return
         running = true
-        Thread({
+        Bg.io("glass-notify") {
             while (running) {
                 if (!app.settings.doorbellOn) { Thread.sleep(5_000); continue }
                 // The port can still be taken (PiPup installed): try again every half minute.
@@ -34,12 +35,12 @@ object NotifyServer {
                 Glog.i("Doorbell: listening on $PORT")
                 while (running && app.settings.doorbellOn) {
                     val c = runCatching { s.accept() }.getOrNull() ?: break
-                    Thread({ handle(app, c) }, "glass-notify-req").apply { isDaemon = true }.start()
+                    Bg.io("glass-notify-req") { handle(app, c) }
                 }
                 runCatching { s.close() }
                 server = null
             }
-        }, "glass-notify").apply { isDaemon = true }.start()
+        }
     }
 
     private fun handle(app: GlassApp, c: Socket) = runCatching {
@@ -92,7 +93,7 @@ object NotifyServer {
         val cam = chosen ?: byName
             ?: uri.takeIf { it.contains("://") }?.let { u -> saved.firstOrNull { it.url == u } ?: com.glasslauncher.tv.ui.Cam(j.optString("title").ifBlank { "Camera" }, u) }
             ?: saved.firstOrNull { it.url == st.cornerCamera } ?: saved.firstOrNull()
-            ?: error("No camera: add one in Settings → Cameras, or send its link")
+            ?: error("No camera: add one in Settings → Smart home → Cameras, or send its link")
         val seconds = j.optInt("duration", 0).takeIf { it > 0 } ?: st.doorbellSec
         val caption = if (st.doorbellText) (j.optString("title").ifBlank { st.doorbellTitle } to j.optString("message").ifBlank { st.doorbellMessage }) else null
         Glog.i("Doorbell: ${cam.name} for ${seconds}s")

@@ -99,6 +99,8 @@ object Backup {
             }
             ed.commit(); n++
         }
+        // A profile this TV has and the backup doesn't goes too (restoring replaces everything, nothing is merged).
+        for (name in prefNames(ctx)) if (Regex(".*_p\\d+").matches(name) && !all.has(name)) { ctx.deleteSharedPreferences(name); n++ }
         // From another TV: the performance settings were made for that TV (a 4 GB box's caches on a 2 GB TV made it
         // swap and stutter). This one goes back to Auto, which picks them for its own memory and graphics chip.
         if (j.optString("device") != android.os.Build.MODEL) {
@@ -141,11 +143,11 @@ object Backup {
                     ctx.contentResolver.openInputStream(uri)?.use { return JSONObject(it.readBytes().toString(Charsets.UTF_8)) }
                 }
             }
-        }
+        }.onFailure { Glog.w("Backups in Downloads", it) }
         runCatching {
             val out = LocalShell.run(ctx, "f=\$(ls -t /sdcard/Download/$FOLDER/Glassio-backup*.json /sdcard/Download/Glassio-backup*.json 2>/dev/null | head -1); [ -n \"\$f\" ] && cat \"\$f\"; true").getOrNull()
             if (!out.isNullOrBlank() && out.trimStart().startsWith("{")) return JSONObject(out.trim())
-        }
+        }.onFailure { Glog.w("Backups through the shell", it) }
         return File(ctx.filesDir, "backup-latest.json").takeIf { it.isFile }?.let { runCatching { JSONObject(it.readText()) }.getOrNull() }
     }
 

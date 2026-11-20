@@ -1,0 +1,10 @@
+{
+  "name": "glassio-report-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/report.test.js",
+    "dev": "wrangler dev --var DRY_RUN:1 --port 8799 --ip 0.0.0.0",
+    "deploy": "wrangler deploy -c wrangler.local.toml"
+  }
+}

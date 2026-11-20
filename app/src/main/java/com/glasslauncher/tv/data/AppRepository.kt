@@ -43,7 +43,7 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
             addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REMOVED)
             addAction(Intent.ACTION_PACKAGE_CHANGED); addDataScheme("package")
         }
-        runCatching { ctx.registerReceiver(receiver, f) }
+        runCatching { ctx.registerReceiver(receiver, f) }.onFailure { Glog.w("Apps: following installs", it) }
     }
 
     fun reload() {

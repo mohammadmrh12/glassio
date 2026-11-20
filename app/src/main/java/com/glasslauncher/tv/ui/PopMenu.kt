@@ -84,7 +84,11 @@ object PopAnchors {
 @Composable
 fun PopMenuHost(state: PopState?, s: Float, style: String, onDismiss: () -> Unit) {
     if (state == null) return
-    androidx.compose.runtime.key(state) { PopMenu(state, s, style, onDismiss) }
+    androidx.compose.runtime.key(state) { OverSettings {
+        // (Over Settings the rest of the screen dims a little, so the menu stands out.)
+        if (LocalOverSettings.current != null) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = SettingsGlass.DIM)))
+        PopMenu(state, s, style, onDismiss)
+    } }
 }
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)

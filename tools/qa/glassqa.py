@@ -8,11 +8,13 @@ on a real TV over adb.
 Commands
   install [apk]          wake the TV, then install (installing while Glassio's screensaver runs kills it, and the
                          TV goes to sleep)
-  keys K1 K2 ...         send keys: DPAD_UP, DPAD_DOWNx3 (repeat), wait:1.5, shot:name
+  keys K1 K2 ...         send keys: DPAD_UP, DPAD_DOWNx3 (repeat), hold:DOWN:3 (held 3 s), wait:1.5, shot:name
   shot NAME              screenshot -> build/qa/NAME.png (+ a 960 px copy)
   perf NAME K1 K2 ...    frame times while the keys run: share of slow frames, p50/p90/p99, GPU and main thread
   idle NAME [seconds]    frame times with nothing pressed (does anything redraw for nothing?)
   glide K1 ...           screen recording: when each movement starts and how long it takes to settle
+  libtrace K1 ...        the Library's page frame by frame while the keys run (e.g. hold:DOWN:4): px moved in each
+                         frame, pauses inside the movement, how evenly the speed changes
   live [x0 y0 x1 y1]     is the glass following a video? compares the glass area with the background over 5 shots
   focus                  where the selection is (dock / top / carousel / player / rows / inputs)
   res [seconds]          resources: Glassio's CPU (per thread too), memory (Java, native, graphics), threads, the
@@ -20,6 +22,10 @@ Commands
   watch NAME K1 K2 ...   resources sampled every second while the keys run (CPU, memory, frames)
   nav                    navigation smoke test: home, dock, menu, library, settings, back; a screenshot, the
                          selection and the app in front after each step, then a crash check
+  phases NAME K1 K2 ...  each frame split into its parts while the keys run: main thread, draw commands, GPU
+  lab WHAT [BITS ...]    a clean measurement of slides | dock | pages: music paused, automatic slides off, carousel
+                         background, the selection put in place first, everything put back after. BITS: dbg_hide
+                         values to try one after the other (parts of the screen left out, see DebugHide)
   profile K1 K2 ...      CPU profile (simpleperf) while the keys run: time per thread, then the main thread's
                          heaviest Glassio functions with real names (R8 mapping); full report in build/qa/
   pref key=value ...     change settings (needs the dev key from the TV)
@@ -68,9 +74,38 @@ def shot(name):
     return p
 
 
+HID_KEYS = {"DOWN": 81, "UP": 82, "RIGHT": 79, "LEFT": 80, "CENTER": 40}
+HID_KEYBOARD = [5, 1, 9, 6, 161, 1, 5, 7, 25, 224, 41, 231, 21, 0, 37, 1, 117, 1, 149, 8, 129, 2, 149, 1, 117, 8, 129, 1, 149, 6, 117, 8,
+                21, 0, 37, 101, 5, 7, 25, 0, 41, 101, 129, 0, 192]
+
+
+def hold(steps):
+    """Keys held down like a person's finger: a keyboard made for the moment (Android's `hid` tool) holds each key,
+    and the TV makes the repeats itself (repeatCount > 0, at its own rate). An injected key event never repeats, and
+    the shell may not write to the remote's own input device. steps: [("DOWN", 3.0), ("UP", 3.0), …]; the keyboard
+    takes about 1.5 s to appear before the first key."""
+    import json, tempfile
+    lines = [{"id": 1, "command": "register", "name": "Glassio QA keyboard", "vid": 4660, "pid": 22136, "bus": "usb", "descriptor": HID_KEYBOARD},
+             {"id": 1, "command": "delay", "duration": 1500}]
+    for name, sec in steps:
+        if name == "WAIT":
+            lines.append({"id": 1, "command": "delay", "duration": int(sec * 1000)}); continue
+        lines += [{"id": 1, "command": "report", "report": [0, 0, HID_KEYS[name], 0, 0, 0, 0, 0]},
+                  {"id": 1, "command": "delay", "duration": int(sec * 1000)},
+                  {"id": 1, "command": "report", "report": [0] * 8}, {"id": 1, "command": "delay", "duration": 200}]
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        f.write("\n".join(json.dumps(l) for l in lines) + "\n")
+    adb("push", f.name, "/data/local/tmp/qa_hold.json"); os.unlink(f.name)
+    sh("hid /data/local/tmp/qa_hold.json")
+
+
 def keys(seq):
     for k in seq:
-        if k.startswith("wait:"):
+        if k.startswith("hold:"):
+            # hold:DOWN:3  →  Down held for 3 s (hold:DOWN:3:UP:3 holds one after the other with the same keyboard)
+            p = k.split(":")[1:]
+            hold([(p[i], float(p[i + 1])) for i in range(0, len(p), 2)])
+        elif k.startswith("wait:"):
             time.sleep(float(k[5:]))
         elif k.startswith("shot:"):
             shot(k[5:])
@@ -183,6 +218,35 @@ def glide(seq):
     return runs
 
 
+# ---------------------------------------------------------------- the Library's movement, frame by frame
+def libtrace(seq):
+    """How far the Library's page moved in each frame while the keys run (Glassio's own trace: the TV's recorder
+    drops most frames while the page moves, so a recording can't show whether a movement is continuous)."""
+    home(); am("--ez open_library true"); time.sleep(3.5)
+    dev("--ez lib_trace true"); time.sleep(1.0)
+    adb("logcat", "-c")
+    keys(seq); time.sleep(1.2)
+    dev("--ez lib_trace false"); time.sleep(1.0)
+    px, ms = [], []
+    for l in adb("logcat", "-d", "-s", "GlassLibTrace").splitlines():
+        if "GlassLibTrace: px " in l: px += [int(x) for x in l.split("px ")[1].split()]
+        if "GlassLibTrace: ms " in l: ms += [int(x) for x in l.split("ms ")[1].split()]
+    home()
+    if not px:
+        print("no movement"); return
+    mv = [abs(v) for v in px]
+    still = [i for i, v in enumerate(px) if v == 0]
+    pauses = sum(1 for i in still if i == 0 or px[i - 1] != 0)
+    longest = cur = 0
+    for v in px:
+        cur = cur + 1 if v == 0 else 0; longest = max(longest, cur)
+    jerk = sum(abs(mv[i] - mv[i - 1]) for i in range(1, len(mv))) / max(1, len(mv) - 1)
+    print(f"{len(px)} frames in {sum(ms) / 1000:.2f} s · {sum(mv)} px ({sum(mv) / max(.001, sum(ms) / 1000):.0f} px/s) · standing still inside: "
+          f"{len(still)} frames in {pauses} pauses (longest {longest * 16.7:.0f} ms) · speed change per frame {jerk:.1f} px "
+          f"(mean speed {sum(mv) / len(mv):.1f}) · frames over 20 ms: {sum(1 for v in ms if v > 20)}, over 34 ms: {sum(1 for v in ms if v > 34)}")
+    print("px per frame:", " ".join(map(str, px)))
+
+
 # ---------------------------------------------------------------- glass follows the video?
 def live(box=None):
     from PIL import Image, ImageChops, ImageStat
@@ -275,6 +339,139 @@ def watch(label, seq):
         cpus = [c for c, _ in samples]; pss = [m for _, m in samples]
         print(f"{'':18s} CPU avg {sum(cpus) / len(cpus):.0f}% max {max(cpus):.0f}% · PSS {min(pss)}–{max(pss)} MB")
     return s, samples
+
+
+# ---------------------------------------------------------------- frames in parts, and the clean lab
+def dev(*extras):
+    """A dev hook that changes something: they all need the dev key (without it they are ignored, silently)."""
+    am(f"--es dev {devkey()}", *extras)
+
+
+def prefs():
+    adb("logcat", "-c"); dev("--ez dump_prefs true"); time.sleep(2)
+    return dict(l.split("GlassPrefs: ")[-1].split("=", 1) for l in adb("logcat", "-d", "-s", "GlassPrefs").splitlines()
+                if "GlassPrefs: " in l and "=" in l)
+
+
+def state():
+    return {a: b for a, b in (kv.split("=", 1) for kv in focus(quiet=True).split(" ") if "=" in kv)}
+
+
+def to_hero():
+    """The selection on the carousel. False when it could not be put there."""
+    for _ in range(14):
+        s = state()
+        if s.get("screen") == "Home" and s.get("hero") == "true":
+            return True
+        if s.get("screen") != "Home" or s.get("top") == "true": keys(["BACK", "wait:1"])
+        # (Up from the Music or Inputs icon, or an app with rows, goes to that page, not the carousel: another icon first.)
+        elif s.get("dock") == "true" and s.get("page", "Carousel") != "Carousel": keys(["DPAD_LEFT", "wait:1.2"])
+        elif s.get("dock") == "true": keys(["DPAD_UP", "wait:1"])
+        else: home()
+    return False
+
+
+def to_dock(idx=0):
+    """The selection on the dock's icon number idx (first row)."""
+    for _ in range(24):
+        s = state()
+        if s.get("screen") == "Home" and s.get("dock") == "true" and s.get("idx") == str(idx):
+            return True
+        if s.get("screen") != "Home" or s.get("top") == "true": keys(["BACK", "wait:1"])
+        elif s.get("hero") == "true": keys(["DPAD_DOWN", "wait:1.2"])
+        elif s.get("dock") == "true":
+            # One icon at a time towards it: Down from the carousel can land on any icon (the app whose catalogs
+            # show), and a dock from edge to edge goes round, so a run of Left doesn't end at the first one.
+            now = int(s.get("idx") or 0)
+            keys(["DPAD_LEFT" if now > idx else "DPAD_RIGHT", "wait:0.9"])
+        else: home()
+    return False
+
+
+def phases(label, seq):
+    """Frame times while the keys run, split up: the whole frame, the main thread, the render thread's draw commands
+    and the graphics chip (p50 / p90), and how many frames missed 16.7 ms and 33 ms."""
+    sh(f"dumpsys gfxinfo {PKG} reset")
+    keys(seq)
+    hdr, rows = None, []
+    for l in sh(f"dumpsys gfxinfo {PKG} framestats").splitlines():
+        if l.startswith("Flags,"):
+            hdr = l.split(",")
+        elif hdr and l[:1].isdigit() and l.count(",") > 10:
+            rows.append(dict(zip(hdr, l.split(","))))
+    rows = [r for r in rows if r.get("Flags") == "0"]
+    g = lambda r, a, b: (int(r[b]) - int(r[a])) / 1e6
+
+    def pc(a, b, q):
+        v = sorted(g(r, a, b) for r in rows)
+        return v[min(len(v) - 1, int(len(v) * q))] if v else 0.0
+    tot = [g(r, "IntendedVsync", "FrameCompleted") for r in rows]
+    out = {"label": label, "frames": len(rows), "over16": sum(t > 16.7 for t in tot), "over33": sum(t > 33.4 for t in tot),
+           "total50": pc("IntendedVsync", "FrameCompleted", .5), "total90": pc("IntendedVsync", "FrameCompleted", .9),
+           "ui50": pc("HandleInputStart", "SyncQueued", .5), "ui90": pc("HandleInputStart", "SyncQueued", .9),
+           "cmds50": pc("IssueDrawCommandsStart", "SwapBuffers", .5), "gpu50": pc("SwapBuffers", "FrameCompleted", .5),
+           "gpu90": pc("SwapBuffers", "FrameCompleted", .9)}
+    print(f"{label:22s} frames {out['frames']:3d}  over 16.7: {out['over16']:3d}  over 33: {out['over33']:3d} | whole {out['total50']:5.1f}/{out['total90']:5.1f}"
+          f"  main {out['ui50']:4.1f}/{out['ui90']:4.1f}  draw commands {out['cmds50']:4.1f}  GPU {out['gpu50']:4.1f}/{out['gpu90']:4.1f}", flush=True)
+    return out
+
+
+class Clean:
+    """A steady place to measure in: music paused, the carousel not changing by itself, the carousel's own background.
+    Everything is put back at the end (also after an error)."""
+
+    def __enter__(self):
+        if not awake():
+            wake()
+        home()
+        self.before = prefs()
+        self.music = "state=PLAYING" in sh("dumpsys media_session")
+        if self.music:
+            sh("input keyevent KEYCODE_MEDIA_PAUSE"); time.sleep(1.5)
+        self.back = {}
+        for k, v in (("heroAutoplay", "false"), ("bgMode", "carousel")):
+            if self.before.get(k) != v:
+                self.set(f"{k}={v}")
+        time.sleep(2)
+        return self
+
+    def set(self, kv):
+        k = kv.split("=")[0]
+        self.back.setdefault(k, self.before.get(k))
+        dev(f"--es pref '{kv}'"); time.sleep(1.2)
+
+    def __exit__(self, *a):
+        dev("--ei dbg_hide 0")
+        for k, v in self.back.items():
+            if v is not None:
+                dev(f"--es pref '{k}={v}'"); time.sleep(1.2)
+        if self.music:
+            sh("input keyevent KEYCODE_MEDIA_PLAY")
+        home()
+
+
+def lab(what, bits):
+    """slides: OK on the carousel's next button, three times. dock: steps along the dock. pages: along the dock over
+    apps with rows and the music icon (the page behind changes)."""
+    with Clean():
+        for b in bits or ["0"]:
+            if what == "slides":
+                ok = to_hero(); keys(["DPAD_RIGHTx4", "wait:2.5"])
+                seq = ["DPAD_CENTER", "wait:1.6"] * 3
+            elif what == "dock":
+                ok = to_dock(0); seq = ["DPAD_RIGHT", "wait:1.5", "DPAD_LEFT", "wait:1.5"] * 2
+            else:
+                ok = to_dock(1); seq = ["DPAD_RIGHT", "wait:1.6"] * 3 + ["DPAD_LEFTx3", "wait:1.6"]
+            if not ok:
+                print("the selection could not be put in place:", focus(quiet=True)[:90]); continue
+            dev(f"--ei dbg_hide {b}"); time.sleep(1.2)
+            # (A slide by itself: its own frames only.)
+            if what == "slides":
+                for i in range(3):
+                    phases(f"slide {i + 1} hide={b}", ["DPAD_CENTER", "wait:1.6"])
+            else:
+                phases(f"{what} hide={b}", seq)
+            dev("--ei dbg_hide 0")
 
 
 # ---------------------------------------------------------------- CPU profile
@@ -463,10 +660,13 @@ def main():
     elif c == "perf": perf(a[0], a[1:])
     elif c == "idle": perf(a[0] if a else "idle", [f"wait:{a[1] if len(a) > 1 else 3}"])
     elif c == "glide": glide(a)
+    elif c == "libtrace": libtrace(a or ["hold:DOWN:4"])
     elif c == "live": live(tuple(int(x) for x in a) if len(a) == 4 else None)
     elif c == "focus": focus()
     elif c == "res": res(int(a[0]) if a else 3)
     elif c == "profile": profile(a)
+    elif c == "phases": phases(a[0], a[1:])
+    elif c == "lab": lab(a[0] if a else "slides", a[1:])
     elif c == "watch": watch(a[0], a[1:])
     elif c == "nav": nav()
     elif c == "pref":

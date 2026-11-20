@@ -156,7 +156,7 @@ class Sync(
                 }
             }
 
-            if (added + removed > 0) { runCatching { library.refreshNuvio() }; runCatching { library.refreshWatchlist() }; runCatching { library.refreshSimkl() } }
+            if (added + removed > 0) { runCatching { library.refreshNuvio() }.onFailure { Glog.w("Library: Nuvio", it) }; runCatching { library.refreshWatchlist() }.onFailure { Glog.w("Library: watchlist", it) }; runCatching { library.refreshSimkl() }.onFailure { Glog.w("Library: Simkl", it) } }
             val with = read.filter { it.name != "Glassio" }.joinToString(", ") { it.name }
             val counts = if (added + removed + likes + paused == 0) "already the same everywhere"
                 else listOfNotNull("$added added".takeIf { added > 0 }, "$removed removed".takeIf { removed > 0 },

@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.net
 
+import com.glasslauncher.tv.data.Bg
 import com.glasslauncher.tv.GlassApp
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -25,7 +26,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             try {
                 val s = ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(port), 8) }
                 socket = s; running = true
-                Thread({ loop(s) }, "glass-phone-server").also { it.isDaemon = true; it.start() }
+                Bg.io("glass-phone-server") { loop(s) }
                 return port
             } catch (_: Exception) { }
         }
@@ -43,9 +44,9 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             val c = try { s.accept() } catch (_: Exception) { break }
             // Each request on its own (a big upload no longer held the page still until it ended); a few at once.
             if (busy.incrementAndGet() > 6) { busy.decrementAndGet(); runCatching { c.close() }; continue }
-            Thread({
+            Bg.io("glass-phone-req") {
                 try { c.soTimeout = 15000; handle(c) } catch (_: Exception) { } finally { runCatching { c.close() }; busy.decrementAndGet() }
-            }, "glass-phone-req").apply { isDaemon = true; start() }
+            }
         }
     }
 
@@ -160,7 +161,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         val guess = url.substringBefore('?').substringAfterLast('.', "").lowercase()
         val first = runCatching { bgFile(url) }.getOrNull()
         downloading = first?.name ?: "the link"
-        Thread({
+        Bg.io("glass-bg-download") {
             try {
                 var c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                 c.connectTimeout = 10000; c.readTimeout = 30000; c.instanceFollowRedirects = true
@@ -196,7 +197,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             } catch (e: Exception) {
                 lastDownload = "Download failed: ${e.message}"
             } finally { downloading = "" }
-        }, "glass-bg-download").apply { isDaemon = true; start() }
+        }
         return "Downloading to the TV… (this page shows when it's done)"
     }
     @Volatile private var lastDownload = ""
@@ -252,7 +253,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             app.settings.haUrl = u
             if (t.isNotBlank()) app.settings.haToken = t
             HaWatch.restart()
-            "Saved. Now pick the doorbell sensor on the TV: Settings → Cameras"
+            "Saved. Now pick the doorbell sensor on the TV: Settings → Smart home → Doorbell"
         }
         "/api/ha" -> { app.settings.haWebhook = j.optString("url"); app.settings.haOnLaunch = app.settings.haWebhook.startsWith("http"); "Home Assistant webhook saved" }
         "/api/aerial/add" -> {
@@ -263,7 +264,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         "/api/aerial/remove" -> { app.settings.aerialUrls = app.settings.aerialUrls - j.optString("url"); "Removed" }
         "/api/restore" -> {
             val n = com.glasslauncher.tv.data.Backup.restore(app, j)
-            Thread { Thread.sleep(1500); com.glasslauncher.tv.data.Backup.restart(app) }.start()
+            Bg.io("glass-restart") { Thread.sleep(1500); com.glasslauncher.tv.data.Backup.restart(app) }
             "Restored ($n parts). Glassio restarts, open this page again from the TV"
         }
         "/api/nuvio/server" -> {
@@ -276,15 +277,15 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             val nv = app.library.nuvio
             if (nv.signInWithPassword(j.optString("email"), j.optString("password"))) {
                 app.settings.libraryNuvio = true
-                Thread { runCatching { app.library.refreshNuvio(); app.cw.pollNow() } }.start()
+                Bg.io("glass-nuvio-refresh") { runCatching { app.library.refreshNuvio(); app.cw.pollNow() }.onFailure { com.glasslauncher.tv.data.Glog.w("Phone page: Nuvio refresh", it) } }
                 "Nuvio account connected" + (nv.email.takeIf { it.isNotBlank() }?.let { " as $it" } ?: "")
             } else error("Nuvio: ${nv.lastError}")
         }
         "/api/stremio/login" -> {
             val ok = app.cw.stremio.login(j.optString("email").trim(), j.optString("password"))
-            if (ok) { Thread { runCatching { app.cw.syncStremio() } }.start(); "Stremio connected as ${app.cw.stremio.email}" } else error("Stremio didn't accept that email and password")
+            if (ok) { Bg.io("glass-stremio-sync") { runCatching { app.cw.syncStremio() }.onFailure { com.glasslauncher.tv.data.Glog.w("Phone page: Stremio sync", it) } }; "Stremio connected as ${app.cw.stremio.email}" } else error("Stremio didn't accept that email and password")
         }
-        "/api/simkl/client" -> { app.cw.simkl.clientId = j.optString("id").trim(); "Simkl client ID saved. Sign in on the TV: Settings → Connections" }
+        "/api/simkl/client" -> { app.cw.simkl.clientId = j.optString("id").trim(); "Simkl client ID saved. Sign in on the TV: Settings → Accounts & profiles" }
         "/api/camera/add" -> {
             val name = j.optString("name").trim().replace("|", " ").ifBlank { "Camera" }; val url = j.optString("url").trim()
             require(url.startsWith("rtsp://") || url.startsWith("http")) { "Use an rtsp:// or http(s):// link" }
@@ -415,7 +416,7 @@ button.x{color:var(--red)}button.p{background:var(--blue);color:#fff;border-radi
 <button class="act" onclick="send('/api/stremio/login',{email:v('se'),password:v('sp')},'sp')">Sign in to Stremio</button>
 <div class="it f"><input type="text" id="sk" placeholder="Simkl client ID"></div>
 <button class="act" onclick="send('/api/simkl/client',{id:v('sk')},'sk')">Save Simkl client ID</button>
-</div><p class="foot">Nuvio, Trakt and Simkl sign in with a code on the TV: Settings &rarr; Connections.</p></section>
+</div><p class="foot">Nuvio, Trakt and Simkl sign in with a code on the TV: Settings &rarr; Accounts &amp; profiles.</p></section>
 
 <section data-k="nuvio server self-hosted supabase backend email sign in"><h2>Nuvio server</h2><div class="list">
 <div class="it"><div class="t"><b>Server</b></div><span id="nvs" class="dim"></span></div>

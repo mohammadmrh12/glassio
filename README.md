@@ -1,7 +1,7 @@
 <img src="docs/brand/readme_banner.png" width="100%" alt="Glassio">
 
 <p align="center">
-<a href="https://www.reddit.com/r/glassio_/"><img height="24" src="https://img.shields.io/badge/Reddit-r%2Fglassio__-FF4500?style=for-the-badge&logo=reddit&logoColor=white" alt="Join r/glassio_ on Reddit"></a>&nbsp;<a href="https://github.com/mohammadmrh12/glassio/discussions"><img height="24" src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a><br>
+<a href="https://github.com/mohammadmrh12/glassio/discussions"><img height="24" src="https://img.shields.io/badge/Discussions-GitHub-2EA2C4?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a><br>
 <a href="#install"><img height="24" src="https://img.shields.io/badge/Downloader-8383651-F37A22?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMSAzaDJ2MTBsMy41LTMuNSAxLjQgMS40TDEyIDE2LjggNi4xIDEwLjlsMS40LTEuNEwxMSAxM3pNNSAxOWgxNHYySDV6Ii8+PC9zdmc+" alt="Downloader code 8383651"></a>&nbsp;<a href="https://github.com/mohammadmrh12/glassio/releases/latest"><img height="24" src="https://img.shields.io/github/v/release/mohammadmrh12/glassio?style=for-the-badge&label=Download&color=6E5BFF" alt="Download the latest release"></a><br>
 <a href="https://github.com/mohammadmrh12/glassio/releases"><img height="24" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmohammadmrh12%2Fglassio%2Fbadges%2Fdownloads.json&style=for-the-badge&cacheSeconds=1800" alt="Total downloads across all releases"></a>
 </p>
@@ -30,7 +30,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **3.8.0** — a big update, out with GTA VI: new dock layouts, an Inputs icon, hide a title, Stable or Beta updates, faster and lighter. What changed in every version:
+Latest: **4.0.0** — profiles, your streaming apps' own catalogs and pages, new Settings, a smoother Library. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
@@ -290,7 +290,7 @@ with new features first. Switch back any time.
 | **No Continue Watching from Nuvio Legacy** | Finish *TV access (ADB)* in System. |
 | **Catalogs stay empty** | Catalogs → *Refresh catalogs*; check each add-on link opens on your phone. |
 | **Reinstalling** | System → **Back up now** first; *Restore backup* brings everything back. |
-| **Still stuck** | [Open an issue](https://github.com/mohammadmrh12/glassio/issues/new/choose) with `adb logcat -s Glassio`, or ask on [Reddit](https://www.reddit.com/r/glassio_/). |
+| **Still stuck** | [Open an issue](https://github.com/mohammadmrh12/glassio/issues/new/choose) with `adb logcat -s Glassio`, or ask in [Discussions](https://github.com/mohammadmrh12/glassio/discussions). |
 
 ---
 

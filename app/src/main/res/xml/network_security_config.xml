@@ -6,6 +6,8 @@
     </base-config>
     <domain-config>
         <domain includeSubdomains="false">sylvan.apple.com</domain>
+        <!-- Apple's own root is in no public transparency log (checked by default from Android 17). -->
+        <certificateTransparency enabled="false" />
         <trust-anchors>
             <certificates src="system" />
             <certificates src="@raw/apple_root_ca" />

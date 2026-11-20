@@ -340,10 +340,19 @@ object Scrims {
     }
     private val sideImg: ImageBitmap by lazy { paint(true) }
     private val none: ImageBitmap by lazy { ImageBitmap(4, 4) }
-    /** Settings → Background & glass → Left shade, off (with your own background): no side shade anywhere. */
-    @Volatile var sideOff = false
+    /**
+     * Settings → Background & glass → Left shade, off (with your own background): no side shade anywhere.
+     * Kept as state: what draws the shade (the page, the glass, the big clock) draws again when it changes. As a
+     * plain value the switch did nothing on the TV until the next picture came: the page already drawn stayed.
+     */
+    var sideOff by androidx.compose.runtime.mutableStateOf(false)
     val side: ImageBitmap get() = if (sideOff) none else sideImg
-    val bottom: ImageBitmap by lazy { paint(false) }
+    /** Settings → Carousel → Carousel shade, off: no bottom shade either (state, for the same reason). */
+    var bottomOff by androidx.compose.runtime.mutableStateOf(false)
+    private val bottomImg: ImageBitmap by lazy { paint(false) }
+    val bottom: ImageBitmap get() = if (bottomOff) none else bottomImg
+    /** What the pictures made with the shades are kept under: a picture baked with a shade is never shown without it. */
+    val key: String get() = "$sideOff$bottomOff"
 }
 
 /** A liquid-glass surface: blurred backdrop + rim refraction ([refraction] dp, 0 = flat frosted glass). */
@@ -381,10 +390,6 @@ fun LiquidSurface(
     val ignoreVideo by remember(ref) { androidx.compose.runtime.derivedStateOf { ref.value.ignoreVideo } }
     val videoBehind = VideoFrames.showing.value && !ignoreVideo
     val pos = remember { mutableStateOf(Offset.Zero) }
-    // The last measured place, kept even while frozen, so the glass catches up when the page settles.
-    val raw = remember { arrayOf(Offset.Zero) }
-    val motion = GlassMotion.rev.intValue
-    androidx.compose.runtime.LaunchedEffect(motion) { if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY) }
     var sz by remember { mutableStateOf(IntSize.Zero) }
     val refractor = remember { Refractor() }
     val rPx = with(density) { radius.toPx() }
@@ -422,7 +427,7 @@ fun LiquidSurface(
     Box(
         modifier
             .then(if (DebugHide.intValue and 262144 != 0) Modifier else Modifier.clip(RoundedCornerShape(radius)))
-            .onGloballyPositioned { raw[0] = it.positionInRoot(); if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY); if (it.size != sz) sz = it.size },
+            .onGloballyPositioned { pos.value = GlassPage.placeOf(it); if (it.size != sz) sz = it.size },
     ) {
         // Everything the layers below need, worked out from the environment as it is now (only while drawing).
         fun now() = GlassNow(ref.value, clearPic, videoBehind, slideInside)
@@ -565,9 +570,20 @@ fun LiquidSurface(
                 sh.setFloatUniform("curRight", if (f.curRight) 1f else 0f)
                 sh.setFloatUniform("dim", f.dim)
                 val page = n.isPage(b)
-                sh.setFloatUniform("side", if (!page || env.pageNoSideShade) 1f else 0f)
-                sh.setFloatUniform("bottom", if (!page) 1f else 0f)
-                drawPath(if (whole) ring.first else ring.second, androidx.compose.ui.graphics.ShaderBrush(sh))
+                sh.setFloatUniform("side", if ((!page || env.pageNoSideShade) && !Scrims.sideOff) 1f else 0f)
+                sh.setFloatUniform("bottom", if (!page && !Scrims.bottomOff) 1f else 0f)
+                val brush = androidx.compose.ui.graphics.ShaderBrush(sh)
+                val bb = max(1f, bPx); val w = size.width; val h = size.height
+                // (Bands only where the ring's inner corners are square anyway: the rim at least as wide as the corner.)
+                if (whole || bb < min(rPx, min(w, h) / 2f) || w <= 2 * bb || h <= 2 * bb) drawPath(if (whole) ring.first else ring.second, brush)
+                else {
+                    // The rim as four plain bands (the surface's own rounded clip shapes the outside): a ring-shaped
+                    // path was filled through a mask made again for every frame of the slide (2 ms of each).
+                    drawRect(brush, Offset(0f, 0f), androidx.compose.ui.geometry.Size(w, bb))
+                    drawRect(brush, Offset(0f, h - bb), androidx.compose.ui.geometry.Size(w, bb))
+                    drawRect(brush, Offset(0f, bb), androidx.compose.ui.geometry.Size(bb, h - 2 * bb))
+                    drawRect(brush, Offset(w - bb, bb), androidx.compose.ui.geometry.Size(bb, h - 2 * bb))
+                }
                 veil(n)
                 tintIn(tint)
             }
@@ -612,11 +628,15 @@ fun LiquidSurface(
         // While the page slides, glass that bends nothing (an icon that isn't selected) draws nothing of its own
         // and shows the dock's glass under it, already coloured: coloured again here, the icons went darker for
         // the length of every slide.
+        // (Only glass that sits on glass may leave it out: the strip dock itself bends nothing, and so do the carousel's
+        // buttons and any dock with refraction at 0. They sit on the page, and lost their colour for the length of
+        // every slide: the dock went a quarter brighter and back with each title.)
         val gTint = GlassTint.color.value
+        val onGlass = LocalOnGlass.current
         if (gTint.alpha > 0f && DebugHide.intValue and 256 == 0) Canvas(Modifier.matchParentSize()) {
             val n = now()
             val b = if (frosted && blurPx >= 0.5f) n.env.bmp ?: n.bmp else n.bmp
-            val seeThrough = Build.VERSION.SDK_INT >= 33 && n.sliding && b != null && n.isPage(b) && fPx < 0.5f && clearPic
+            val seeThrough = onGlass && Build.VERSION.SDK_INT >= 33 && n.sliding && b != null && n.isPage(b) && fPx < 0.5f && clearPic
             if (!seeThrough) drawRect(gTint)
         }
         content()
@@ -645,6 +665,29 @@ private class PageShaders {
     fun prev(b: ImageBitmap): PageShader = p?.takeIf { it.bmp === b } ?: PageShader(b).also { p = it }
 }
 
+/**
+ * The Settings screen is up: what its page looks like, for the glass of anything that opens over it.
+ *
+ * A pop-up or dialog on glass normally reads the home page (the carousel's picture). Over Settings that picture is
+ * not what is under it: clear glass showed the whole poster, sharp, inside the list (the writing couldn't be read).
+ * So every glass panel drawn over Settings is frosted, a little darker, and reads the Settings page (its blurred
+ * picture), whatever the theme; the two flat looks stay as they are. One rule, in [GlassPanel]: the hosts of what
+ * can open over Settings ([DialogHost], [PopMenuHost], [AppLockHost]) only say so with [OverSettings].
+ */
+object SettingsGlass {
+    val env = androidx.compose.runtime.mutableStateOf<GlassEnv?>(null)
+    /** How much the rest of the screen dims behind a pop-up over Settings. */
+    const val DIM = 0.42f
+}
+
+/** The Settings page's glass environment while something is drawn over Settings, else null (see [SettingsGlass]). */
+val LocalOverSettings = compositionLocalOf<GlassEnv?> { null }
+
+/** What opens over Settings when Settings is up: wrap a host's content in this. */
+@Composable
+fun OverSettings(content: @Composable () -> Unit) =
+    androidx.compose.runtime.CompositionLocalProvider(LocalOverSettings provides SettingsGlass.env.value, content = content)
+
 /** Large panel (dock, settings, folder) in one of the four looks: liquid | clear | amoled | bow. */
 @Composable
 fun GlassPanel(
@@ -657,6 +700,15 @@ fun GlassPanel(
     cache: Boolean = refract,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    // Over the Settings screen: frosted, a little darker, reading the Settings page (see [SettingsGlass]).
+    val over = LocalOverSettings.current
+    if (over != null && style != "amoled" && style != "bow") {
+        val ref = androidx.compose.runtime.rememberUpdatedState(over)
+        androidx.compose.runtime.CompositionLocalProvider(LocalOverSettings provides null, LocalGlassEnv provides over, LocalGlassEnvRef provides ref) {
+            GlassPanel(modifier, radius, "liquid", (darken + 0.10f).coerceAtMost(0.9f), refract, cache, content)
+        }
+        return
+    }
     @Suppress("NAME_SHADOWING") val radius = if (GlassShape.square.value) 0.dp else radius
     val env = rememberGlassStatic()
     val shape = RoundedCornerShape(radius)
@@ -685,11 +737,17 @@ fun GlassPanel(
                 tint = Color.Black.copy(alpha = (0.14f + darken).coerceAtMost(0.9f)), cache = cache,
             )
         }
-        content()
+        androidx.compose.runtime.CompositionLocalProvider(LocalOnGlass provides (style != "amoled" && style != "bow")) { content() }
         val rim = when (style) { "amoled" -> 0.08f; "bow" -> 0.6f; "water", "water_still" -> 0.16f; else -> 0.10f }
         Box(fill.border(if (style == "bow") 0.8.dp else 0.6.dp, Color.White.copy(alpha = rim), shape))
     }
 }
+
+/**
+ * True for what sits on a glass panel: the glass under it already carries the glass colour (Settings → Background &
+ * glass → Glass colour). See the colour's layer in [LiquidSurface] and the icons' plates.
+ */
+val LocalOnGlass = compositionLocalOf { false }
 
 /** Kept for the screens that only need the clip. */
 fun Modifier.roundClip(r: Dp) = this.clip(RoundedCornerShape(if (GlassShape.square.value) 0.dp else r))
@@ -889,17 +947,13 @@ fun GlassDots(count: Int, head: () -> Float, tail: () -> Float, s: Float, modifi
     val wDp = with(density) { ((count - 1) * gap + 2 * pad).toDp() }
     val hDp = with(density) { (ar * 2 + 10f).toDp() }
     val pos = remember { mutableStateOf(Offset.Zero) }
-    // The last measured place, kept even while frozen, so the glass catches up when the page settles.
-    val raw = remember { arrayOf(Offset.Zero) }
-    val motion = GlassMotion.rev.intValue
-    androidx.compose.runtime.LaunchedEffect(motion) { if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY) }
     val shaderOk = Build.VERSION.SDK_INT >= 33
     val cur = env.sharp?.takeIf { env.sharpIsPage }
     val prev = env.prevSharp?.takeIf { env.sharpIsPage }
     // DECAL bitmap shaders need Android 12+; the shader path itself needs 13, so only build them there.
     val curS = remember(cur) { if (Build.VERSION.SDK_INT >= 33) cur?.let { PageShader(it) } else null }
     val prevS = remember(prev) { if (Build.VERSION.SDK_INT >= 33) prev?.let { PageShader(it) } else null }
-    Canvas(modifier.width(wDp).height(hDp).onGloballyPositioned { raw[0] = it.positionInRoot(); if (!GlassMotion.frozen) pos.value = Offset(raw[0].x, raw[0].y + GlassMotion.shiftY) }) {
+    Canvas(modifier.width(wDp).height(hDp).onGloballyPositioned { pos.value = GlassPage.placeOf(it) }) {
         val h = head(); val t = tail()
         if (shaderOk && curS != null) {
             val p = pos.value
@@ -920,7 +974,7 @@ fun GlassDots(count: Int, head: () -> Float, tail: () -> Float, s: Float, modifi
             sh.setFloatUniform("edge", f?.edge ?: 0f)
             sh.setFloatUniform("curRight", if (f?.curRight == true) 1f else 0f)
             sh.setFloatUniform("dim", f?.dim ?: 0f)
-            sh.setFloatUniform("side", if (env.pageNoSideShade) 1f else 0f)
+            sh.setFloatUniform("side", if (env.pageNoSideShade && !Scrims.sideOff) 1f else 0f)
             sh.setFloatUniform("posX", p.x)
             sh.setFloatUniform("rootW", W)
             sh.setFloatUniform("count", count.toFloat())
@@ -944,19 +998,26 @@ fun GlassDots(count: Int, head: () -> Float, tail: () -> Float, s: Float, modifi
 }
 
 /**
- * While the whole page slides (Down from the dock into the Library), the glass keeps the picture it showed at
- * rest and just moves with the page: following the slide re-made every glass surface every frame (half the frame time).
+ * The home page as it is laid out, without the slide it makes to and from the Library: a glass surface on it reads
+ * the page's picture by its place *in the page* ([placeOf]), which is the same at rest, in every frame of the slide
+ * and while the page is scrolled out of view. (Its place on screen was used at first, frozen while the page slid
+ * and shifted by a screen while it was away: a surface made or moved during the slide, the selected icon's glass
+ * on the way back from the Library, kept a wrong place until the page settled, and showed another part of the picture.)
  */
-object GlassMotion {
-    @Volatile var frozen = false
-    /** While the home screen is scrolled up out of view (the Library is up), how far: the glass still samples
-     *  the picture where the dock really is, so it is right the moment it comes back. */
-    @Volatile var shiftY = 0f
-    /** Bumped when [frozen] or [shiftY] change: every glass surface then re-reads its place. */
-    val rev = androidx.compose.runtime.mutableIntStateOf(0)
-    fun set(frozen: Boolean, shift: Float) {
-        if (frozen == this.frozen && shift == shiftY) return
-        this.frozen = frozen; shiftY = shift; rev.intValue++
+object GlassPage {
+    /** The page's own coordinates, inside its sliding layer (set by the home screen). */
+    @Volatile var coords: androidx.compose.ui.layout.LayoutCoordinates? = null
+    fun placeOf(c: androidx.compose.ui.layout.LayoutCoordinates): Offset {
+        val page = coords
+        if (page != null && page.isAttached) {
+            // (Only a surface inside the page: the menus, the Library and the pop-ups keep their place on screen.)
+            var p: androidx.compose.ui.layout.LayoutCoordinates? = c; var n = 0
+            while (p != null && p !== page && n++ < 400) p = p.parentCoordinates
+            // (Whole pixels: worked out through the sliding layer, the place came back a hair different in every
+            // frame of the slide, and every glass surface was made again in each of them.)
+            if (p === page) runCatching { val o = page.localPositionOf(c, Offset.Zero); return Offset(Math.round(o.x).toFloat(), Math.round(o.y).toFloat()) }
+        }
+        return c.positionInRoot()
     }
 }
 

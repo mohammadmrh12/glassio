@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import org.json.JSONObject
-import kotlin.concurrent.thread
 
 /**
  * Opens a title inside a Nuvio app: Nuvio Legacy, the official Nuvio TV app, Nuvio Arc (fork) or
@@ -60,12 +59,18 @@ object NuvioLaunch {
         "osn" to "com.osn.go", "starz" to "com.bydeluxe.d3.android.program.starz", "mubi" to "com.mubi",
     )
 
-    /** The installed streaming app for [platform] (e.g. "Apple TV+"), or null. */
-    fun platformApp(ctx: Context, platform: String): String? {
+    /** Each service's word and its app ("netflix" → Netflix's package), for telling which app a catalog's name means. */
+    fun platformWords(): List<Pair<String, String>> = PLATFORMS
+
+    /** The streaming app's package for [platform] (e.g. "Apple TV+"), installed or not; null if unknown. */
+    fun platformPackage(platform: String): String? {
         val p = platform.lowercase()
         if (p.isBlank()) return null
-        return PLATFORMS.firstOrNull { p.contains(it.first) }?.second?.takeIf { installed(ctx, it) }
+        return PLATFORMS.firstOrNull { p.contains(it.first) }?.second
     }
+
+    /** The installed streaming app for [platform], or null. */
+    fun platformApp(ctx: Context, platform: String): String? = platformPackage(platform)?.takeIf { installed(ctx, it) }
 
     fun openApp(ctx: Context, pkg: String): Boolean = runCatching {
         val pm = ctx.packageManager
@@ -111,6 +116,13 @@ object NuvioLaunch {
     fun open(ctx: Context, s: Settings, http: Http, item: HeroItem) {
         // Continue Watching (Settings → Continue Watching → Open where it was watched): that app.
         val own = if (s.cwOpenSource) sourceTarget(ctx, cwSource(item.key)) else null
+        // Settings → Carousel → Play opens the streaming app: the title's page in Netflix, Apple TV… when one of the
+        // installed apps has it; anything else opens as before.
+        if (own == null && s.playInApp) PlatformLinks.openOr(ctx, s, item) { openUsual(ctx, s, http, item, null) }
+        else openUsual(ctx, s, http, item, own)
+    }
+
+    private fun openUsual(ctx: Context, s: Settings, http: Http, item: HeroItem, own: String?) {
         try {
             ctx.startActivity(if (own != null) intentFor(own, item.type, item.id) else intent(ctx, s, item.type, item.id))
         } catch (e: Exception) {
@@ -119,12 +131,12 @@ object NuvioLaunch {
             return
         }
         if (s.haOnLaunch && s.haWebhook.startsWith("http")) {
-            thread(name = "ha-hook") {
+            Bg.io("ha-hook") {
                 runCatching {
                     http.post(s.haWebhook, JSONObject()
                         .put("event", "launch").put("title", item.name).put("type", item.type)
                         .put("id", item.id).put("app", packageName(ctx, s)))
-                }
+                }.onFailure { Glog.w("Home Assistant webhook", it) }
             }
         }
     }

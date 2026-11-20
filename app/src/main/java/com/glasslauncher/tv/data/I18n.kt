@@ -26,6 +26,132 @@ object I18n {
     private val TABLE: Map<String, List<String>> = """
 Settings|الإعدادات|تنظیمات|Ayarlar|Réglages|Ajustes|Einstellungen|Настройки|Ajustes
 Connections|الاتصالات|اتصال‌ها|Bağlantılar|Connexions|Conexiones|Verbindungen|Подключения|Conexões
+Catalogs & add-ons|الكتلوكات والإضافات
+Add-ons|الإضافات
+Carousel catalogs|كتلوكات الكاروسيل
+Catalogs in the carousel|الكتلوكات بالكاروسيل
+In the carousel|بالكاروسيل
+Your add-ons|إضافاتك
+Add an add-on|ضيف إضافة
+Add-on|الإضافة
+No add-ons yet|ماكو إضافات بعد
+Add from my phone (QR)|ضيف من الموبايل (QR)
+Add add-on link|ضيف رابط إضافة
+Connect to Nuvio|اربط ويا Nuvio
+Remove add-on|احذف الإضافة
+From your Nuvio account|من حساب Nuvio مالتك
+Add-ons from my Nuvio account|إضافات حساب Nuvio مالتي
+Catalogs from Stremio's add-ons|كتلوكات إضافات Stremio
+Refresh catalogs|حدث الكتلوكات
+Select all catalogs|اختار كل الكتلوكات
+Select none|لا تختار شي
+Catalogs for apps|كتلوكات للتطبيقات
+Apps and their catalogs|التطبيقات وكتلوكاتها
+Continue Watching in app carousels|متابعة المشاهدة بكاروسيل التطبيقات
+Play opens the app|Play يفتح التطبيق
+Play opens the streaming app|Play يفتح تطبيق البث
+Find links with JustWatch|دور الروابط بـJustWatch
+Country|البلد
+Accounts & profiles|الحسابات والبروفايلات|حساب‌ها و پروفایل‌ها|Hesaplar ve profiller|Comptes et profils|Cuentas y perfiles|Konten & Profile|Аккаунты и профили|Contas e perfis
+Continue Watching & Library|المتابعة والمكتبة|ادامه تماشا و کتابخانه|İzlemeye devam ve Kitaplık|Reprendre et Bibliothèque|Seguir viendo y Biblioteca|Weiterschauen & Mediathek|Продолжить и Библиотека|Continuar e Biblioteca
+Look & menu|المظهر والمنيو|ظاهر و منو|Görünüm ve menü|Apparence et menu|Aspecto y menú|Aussehen & Menü|Вид и меню|Aparência e menu
+Background & screensaver|الخلفية والسكرين سيفر|پس‌زمینه و محافظ صفحه|Arka plan ve ekran koruyucu|Fond et économiseur|Fondo y salvapantallas|Hintergrund & Bildschirmschoner|Фон и заставка|Fundo e proteção de tela
+Music & app rows|الموسيقى وصفوف التطبيقات|موسیقی و ردیف برنامه‌ها|Müzik ve uygulama satırları|Musique et rangées d'apps|Música y filas de apps|Musik & App-Reihen|Музыка и ряды приложений|Música e filas de apps
+Smart home|البيت الذكي|خانه هوشمند|Akıllı ev|Maison connectée|Hogar inteligente|Smart Home|Умный дом|Casa inteligente
+Other accounts|حسابات ثانية
+Profiles|البروفايلات
+Profile|البروفايل
+At start|عند التشغيل
+Name|الاسم
+Picture|الصورة
+Keep accounts the same|خلي الحسابات متطابقة
+Where it comes from|منين تجي
+Sources|المصادر
+Clear the list|امسح القائمة
+Library look|شكل المكتبة
+Lists in the Library|القوائم بالمكتبة
++ saves to|زر + يحفظ بـ
+Library rows|صفوف المكتبة
+Platform rows|صفوف المنصات
+Services|الخدمات
+Slides|السلايدات
+What it shows|شنو يعرض
+Title & info|العنوان والمعلومات
+Buttons|الأزرار
+Dots|النقاط
+Pictures|الصور
+Trailers|التريلرات
+Place & size|المكان والحجم
+Dock glass|زجاج الدوك
+Glass style|ستايل الزجاج
+Arrange apps|رتب التطبيقات
+Icons|الأيقونات
+Install an icon pack|نصب باقة أيقونات
+Extra icons|أيقونات إضافية
+Inputs|المداخل
+Glass|الزجاج
+Shapes & text|الأشكال والخط
+Selection|التحديد
+Behind pages|ورا الصفحات
+Top bar|الشريط الفوقاني
+Clock & weather|الساعة والطقس
+Menu|المنيو
+Menu items|عناصر المنيو
+TV info|معلومات التلفزيون
+Photos|الصور (4K)
+Your pictures & videos|صورك وفيديواتك
+My pictures & videos|صوري وفيديواتي
+Screensaver videos as background|فيديوات السكرين سيفر كخلفية
+Over the background|فوق الخلفية
+Large clock|الساعة الكبيرة
+Info over photos|المعلومات فوق الصور
+Screensaver · When|السكرين سيفر · شوكت
+Screensaver · What plays|السكرين سيفر · شنو يشتغل
+Screensaver · Trailers|السكرين سيفر · التريلرات
+Screensaver · Videos|السكرين سيفر · الفيديوات
+Screensaver · Locked videos|السكرين سيفر · الفيديوات المقفولة
+Screensaver · On screen|السكرين سيفر · على الشاشة
+Screensaver · Also on it|السكرين سيفر · وياه هم
+Collections|المجموعات
+My videos|فيديواتي
+Music|الموسيقى
+Music apps|تطبيقات الموسيقى
+Music island|آيلند الموسيقى
+Island|الآيلند
+App rows (Channels)|صفوف التطبيقات (Channels)
+Apps with channels|التطبيقات اللي بيها صفوف
+Page background|خلفية الصفحة
+Hue lights|أضواء Hue
+Bridge|البريدج
+Lights & areas|الأضواء والمناطق
+Hue colours|ألوان Hue
+Hue follows the selection|Hue يتبع التحديد
+Hue · Afterwards|Hue · بعدين
+Corner camera|كاميرا الزاوية
+Multi-view|العرض المتعدد
+Doorbell|جرس الباب
+Pop-up look|شكل النافذة
+Home Assistant link|ربط Home Assistant
+Home button & start|زر Home والتشغيل
+Remote buttons|أزرار الريموت
+Other TVs & backups|التلفزيونات الثانية والنسخ الاحتياطية
+Sync between TVs|المزامنة بين التلفزيونات
+App lock|قفل التطبيقات
+TV|التلفزيون
+TV access (ADB)|صلاحية التلفزيون (ADB)
+New|جديد|جدید|Yeni|Nouveau|Nuevo|Neu|Новое|Novo
+Changed|المتغيّر|تغییرکرده|Değişen|Modifié|Cambiado|Geändert|Изменено|Alterado
+New settings|الإعدادات الجديدة
+Changed settings|الإعدادات المتغيّرة
+Default|الافتراضي
+back to|رجّعها لـ
+Back to default|رجّعها للافتراضي
+Go to it|روح الها
+Cancel|إلغاء
+On|مشغّل
+Off|مطفي
+Mark them all as seen|خليها كلها مشافة
+Every setting is as it comes|كل الإعدادات مثل ما تجي
 Catalogs|الكتالوجات|کاتالوگ‌ها|Kataloglar|Catalogues|Catálogos|Kataloge|Каталоги|Catálogos
 Continue Watching|متابعة المشاهدة|ادامه تماشا|İzlemeye devam et|Reprendre|Seguir viendo|Weiterschauen|Продолжить просмотр|Continuar assistindo
 Library|المكتبة|کتابخانه|Kitaplık|Bibliothèque|Biblioteca|Mediathek|Библиотека|Biblioteca

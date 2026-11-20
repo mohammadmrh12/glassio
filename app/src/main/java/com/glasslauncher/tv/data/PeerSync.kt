@@ -1,5 +1,9 @@
 package com.glasslauncher.tv.data
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
@@ -67,7 +71,7 @@ object PeerSync {
     )
     private val LOOK = setOf(
         "theme", "glass", "glassColor", "glassColorAmount", "glassTint", "blurRadius", "refraction", "tileStyle", "tileBacking", "tileLift",
-        "tileZoom", "dockStyle", "menuStyle", "panelStyle", "focusColor", "focusPlate", "glow", "glowSize", "cornerRadius", "squareCorners",
+        "tileZoom", "dockStyle", "menuStyle", "panelStyle", "focusColor", "focusPlate", "heroButtonLook", "carouselShade", "stagePageBg", "glow", "glowSize", "cornerRadius", "squareCorners",
         "boldText", "settingsAccent", "settingsIcon", "settingsFrame", "logoWhite", "edgeBounce", "transitionMs", "slideAnim", "iconPack", "lang",
     )
     private val LISTS = setOf("library", "likes", "artPicks", "artChoice")
@@ -91,6 +95,13 @@ object PeerSync {
         else -> "home"
     }
 
+    // ---- Profiles: a follower asks for the profile it has in use (&p=N) and gets that same profile as the main TV
+    // keeps it, whichever profile the main TV itself shows at the moment. What a follower has taken (the state's hash,
+    // the icons) is remembered per profile too.
+    private fun mine(): Int = Profiles.active(app)
+    /** A key of this TV's sync state for the profile in use ("applied", "applied_p2"…). */
+    private fun pk(k: String): String = Profiles.fileName(k, mine(), Profiles.home(app))
+
     // ---- This TV's sync state (its own file: not in backups, not synced)
     private lateinit var app: GlassApp
     private val sp: SharedPreferences by lazy { app.getSharedPreferences("glass_peer", Context.MODE_PRIVATE) }
@@ -112,7 +123,7 @@ object PeerSync {
         set(v) {
             // Performance turned off: this TV goes back to its own performance mode (what the main TV sent is undone).
             val perfOff = "perf" in groups && "perf" !in v
-            sp.edit().putStringSet("groups", v).remove("applied").apply(); rev.intValue++
+            sp.edit().putStringSet("groups", v).apply { sp.all.keys.filter { it.startsWith("applied") }.forEach { remove(it) } }.apply(); rev.intValue++
             if (perfOff) main.post { app.settings.applyMode(app.settings.perfMode) }
             wake()
         }
@@ -128,11 +139,16 @@ object PeerSync {
     var paused: Boolean
         get() = sp.getBoolean("paused", false)
         set(v) {
-            frozen = if (v) snapshot() else null
-            sp.edit().putBoolean("paused", v).putString("frozen", frozen?.toString()).apply(); rev.intValue++
+            frozen.clear()
+            val ed = sp.edit().putBoolean("paused", v)
+            sp.all.keys.filter { it.startsWith("frozen") }.forEach { ed.remove(it) }
+            // (Every profile as it is at this moment.)
+            if (v) Profiles.all(app).forEach { id -> snapshot(id).let { frozen[id] = it; ed.putString(fk(id), it.toString()) } }
+            ed.apply(); rev.intValue++
             synchronized(waiters) { (waiters as Object).notifyAll() }
         }
-    @Volatile private var frozen: JSONObject? = null
+    private val frozen = java.util.concurrent.ConcurrentHashMap<Int, JSONObject>()
+    private fun fk(id: Int) = Profiles.fileName("frozen", id, Profiles.home(app))
     val peerName: String get() = sp.getString("peerName", "").orEmpty()
     private val peerHost: String get() = sp.getString("peerHost", "").orEmpty()
     private val peerPort: Int get() = sp.getInt("peerPort", 0)
@@ -170,16 +186,17 @@ object PeerSync {
         restart()
     }
 
-    private var serverThread: Thread? = null
     private var server: ServerSocket? = null
-    private var followThread: Thread? = null
+    private var followJob: Job? = null
+    /** Wakes the follower out of its wait between two checks. */
+    private val wakeUp = Channel<Unit>(Channel.CONFLATED)
     @Volatile private var gen = 0
 
     private fun restart() {
         gen++
         runCatching { server?.close() }; server = null
         unregister()
-        followThread?.interrupt(); followThread = null
+        followJob?.cancel(); followJob = null
         status.value = ""; waiting.value = false
         when (role) {
             "main" -> startServer()
@@ -192,20 +209,22 @@ object PeerSync {
     private val waiters = Object()
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> synchronized(waiters) { (waiters as Object).notifyAll() } }
 
+    /** Every profile's settings and catalogs on this TV (a change in any of them wakes the followers waiting). */
+    private fun watched(): List<SharedPreferences> = Profiles.all(app).flatMap { id -> listOf(Profiles.prefs(app, "glass", id), Profiles.prefs(app, "glass_catalogs", id)) }.distinct()
+
     private fun startServer() {
         val my = gen
-        serverThread = Thread({
+        Bg.io("glass-sync-server") {
             val s = (PORT0..PORT0 + 9).firstNotNullOfOrNull { p -> runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(p), 16) } }.getOrNull() }
-                ?: run { Glog.w("Sync: no free port", null); return@Thread }
+                ?: run { Glog.w("Sync: no free port", null); return@io }
             server = s
-            app.getSharedPreferences("glass", Context.MODE_PRIVATE).registerOnSharedPreferenceChangeListener(prefListener)
-            app.getSharedPreferences("glass_catalogs", Context.MODE_PRIVATE).registerOnSharedPreferenceChangeListener(prefListener)
+            watched().forEach { it.registerOnSharedPreferenceChangeListener(prefListener) }
             register(s.localPort)
             while (gen == my && !s.isClosed) {
                 val c = runCatching { s.accept() }.getOrNull() ?: break
-                Thread({ runCatching { serve(c) }; runCatching { c.close() } }, "glass-sync-req").apply { isDaemon = true }.start()
+                Bg.io("glass-sync-req") { runCatching { serve(c) }.onFailure { Glog.w("Sync: request", it) }; runCatching { c.close() } }
             }
-        }, "glass-sync-server").apply { isDaemon = true; start() }
+        }
     }
 
     private fun serve(c: Socket) {
@@ -240,21 +259,23 @@ object PeerSync {
         }
         if (q["k"] != myKey) return json(403, JSONObject().put("error", "Not paired with this TV"))
         seen(q["name"], c)
+        // (A follower from before profiles sends none: the profile this TV has in use, as it always got.)
+        val prof = q["p"]?.toIntOrNull()?.takeIf { it > 0 } ?: mine()
         when (path) {
-            "/hash" -> json(200, JSONObject().put("h", hashOf(shared())))
+            "/hash" -> json(200, JSONObject().put("h", hashOf(shared(prof))))
             "/wait" -> {
                 // Answers as soon as something synced changes (or after 50 s, with the same state).
                 val since = q["h"].orEmpty(); val end = System.currentTimeMillis() + 50_000
-                var h = hashOf(shared())
+                var h = hashOf(shared(prof))
                 while (h == since && System.currentTimeMillis() < end && role == "main") {
                     synchronized(waiters) { (waiters as Object).wait(1500) }
-                    h = hashOf(shared())
+                    h = hashOf(shared(prof))
                 }
                 json(200, JSONObject().put("h", h))
             }
-            "/state" -> { val s = shared(); json(200, JSONObject(s.toString()).put("h", hashOf(s))) }
+            "/state" -> { val s = shared(prof); json(200, JSONObject(s.toString()).put("h", hashOf(s))) }
             "/icon" -> {
-                val f = app.icons.fileFor(q["pkg"].orEmpty())
+                val f = File(iconDir(prof), q["pkg"].orEmpty().replace(Regex("[^A-Za-z0-9._-]"), "_") + ".png")
                 if (f.isFile) send(200, "image/png", f.readBytes()) else json(404, JSONObject())
             }
             else -> json(404, JSONObject())
@@ -269,27 +290,34 @@ object PeerSync {
     }
 
     /** What the followers get: the state now, or the one from when sharing was paused. */
-    private fun shared(): JSONObject {
-        if (!paused) return snapshot()
-        frozen?.let { return it }
-        return (sp.getString("frozen", null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: snapshot()).also { frozen = it }
+    private fun shared(p: Int): JSONObject {
+        if (!paused) return snapshot(p)
+        frozen[p]?.let { return it }
+        return (sp.getString(fk(p), null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: snapshot(p)).also { frozen[p] = it }
     }
 
-    /** Everything that can sync, as the main TV has it now. */
-    private fun snapshot(): JSONObject {
+    /**
+     * Everything that can sync for profile [p], as the main TV has it now: the TV's own settings and that profile's.
+     * A profile this TV has never opened has nothing to give ("missing").
+     */
+    private fun snapshot(p: Int): JSONObject {
+        if (p !in Profiles.all(app)) return JSONObject().put("glassio", 1).put("name", name).put("missing", true).put("profile", p)
         val glass = JSONObject()
-        app.getSharedPreferences("glass", Context.MODE_PRIVATE).all.toSortedMap().forEach { (k, v) -> if (groupOf(k) != null) enc(v)?.let { glass.put(k, it) } }
+        val dev = app.getSharedPreferences("glass", Context.MODE_PRIVATE)
+        val own = Profiles.prefs(app, "glass", p)
+        val all = if (own === dev) dev.all else dev.all.filterKeys { Profiles.isDevice(it) } + own.all.filterKeys { !Profiles.isDevice(it) }
+        all.toSortedMap().forEach { (k, v) -> if (groupOf(k) != null) enc(v)?.let { glass.put(k, it) } }
         val cat = JSONObject()
-        app.getSharedPreferences("glass_catalogs", Context.MODE_PRIVATE).all.toSortedMap().forEach { (k, v) ->
+        Profiles.prefs(app, "glass_catalogs", p).all.toSortedMap().forEach { (k, v) ->
             // (The account's own add-ons come from each TV's own sign-in.)
             if (k != "account_addons") enc(v)?.let { cat.put(k, it) }
         }
         val icons = JSONObject()
-        iconDir().listFiles().orEmpty().sortedBy { it.name }.forEach { f -> if (f.name.endsWith(".png")) icons.put(f.name.removeSuffix(".png"), "${f.length()}-${f.lastModified()}") }
-        return JSONObject().put("glassio", 1).put("name", name).put("glass", glass).put("catalogs", cat).put("icons", icons)
+        iconDir(p).listFiles().orEmpty().sortedBy { it.name }.forEach { f -> if (f.name.endsWith(".png")) icons.put(f.name.removeSuffix(".png"), "${f.length()}-${f.lastModified()}") }
+        return JSONObject().put("glassio", 1).put("name", name).put("profile", p).put("glass", glass).put("catalogs", cat).put("icons", icons)
     }
 
-    private fun iconDir() = File(app.filesDir, "icons")
+    private fun iconDir(p: Int) = Profiles.dir(app, "icons", p)
 
     private fun enc(v: Any?): JSONObject? = when (v) {
         is Boolean -> JSONObject().put("t", "b").put("v", v)
@@ -326,8 +354,7 @@ object PeerSync {
         nsdReg?.let { l -> runCatching { (app.getSystemService(Context.NSD_SERVICE) as android.net.nsd.NsdManager).unregisterService(l) } }
         nsdReg = null
         if (::app.isInitialized) runCatching {
-            app.getSharedPreferences("glass", Context.MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
-            app.getSharedPreferences("glass_catalogs", Context.MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
+            watched().forEach { it.unregisterOnSharedPreferenceChangeListener(prefListener) }
         }
     }
 
@@ -361,7 +388,7 @@ object PeerSync {
                 }) }
             }
         }
-        runCatching { nsd.discoverServices(SERVICE, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, dl) }
+        runCatching { nsd.discoverServices(SERVICE, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, dl) }.onFailure { Glog.w("Sync: discovery", it) }
         // The scan: every address of this TV's network on the first sync ports (some routers drop mDNS between Wi-Fi
         // and cable).
         val mine = myAddress()
@@ -392,13 +419,13 @@ object PeerSync {
             .getOrElse { return if (it.message?.contains("403") == true) "Wrong or expired code" else "Can't reach ${f.name}" }
         val key = o.optString("key").ifBlank { return o.optString("error").ifBlank { "Pairing failed" } }
         sp.edit().putString("peerName", o.optString("name").ifBlank { f.name }).putString("peerHost", f.host).putInt("peerPort", f.port)
-            .putString("peerKey", key).remove("applied").remove("iconSigs").putString("role", "follow").apply()
+            .putString("peerKey", key).apply { sp.all.keys.filter { it.startsWith("applied") || it.startsWith("iconSigs") }.forEach { remove(it) } }.putString("role", "follow").apply()
         main.post { rev.intValue++; restart() }
         return null
     }
 
     fun unfollow() {
-        sp.edit().remove("peerName").remove("peerHost").remove("peerPort").remove("peerKey").remove("applied").remove("iconSigs").remove("lastAt").putString("role", "off").apply()
+        sp.edit().remove("peerName").remove("peerHost").remove("peerPort").remove("peerKey").apply { sp.all.keys.filter { it.startsWith("applied") || it.startsWith("iconSigs") }.forEach { remove(it) } }.remove("lastAt").putString("role", "off").apply()
         rev.intValue++; restart()
     }
 
@@ -406,28 +433,32 @@ object PeerSync {
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
     private fun base() = "http://$peerHost:$peerPort"
-    private fun auth() = "k=${enc(peerKey)}&name=${enc(name)}"
+    private fun auth() = "k=${enc(peerKey)}&name=${enc(name)}&p=${mine()}"
 
     private fun startFollow() {
         val my = gen
-        followThread = Thread({
+        // (A wake-up left over from before isn't for this run.)
+        wakeUp.tryReceive()
+        followJob = Bg.io("glass-sync-follow") {
             var fails = 0
             while (gen == my && role == "follow") {
                 try {
                     woken = false
                     if (mode == "auto") {
                         // Waits on the main TV until something changes there.
-                        val h = get("${base()}/wait?${auth()}&h=${enc(sp.getString("applied", "").orEmpty())}", 60_000).optString("h")
+                        val h = get("${base()}/wait?${auth()}&h=${enc(sp.getString(pk("applied"), "").orEmpty())}", 60_000).optString("h")
                         if (gen != my) break
-                        if (h.isNotBlank() && h != sp.getString("applied", "")) pull(announce = true)
+                        if (h.isNotBlank() && h != sp.getString(pk("applied"), "")) pull(announce = true)
                         else setStatus("Up to date", false)
                     } else {
                         check()
-                        Thread.sleep(10 * 60_000L)
+                        // Ten minutes, or until woken (Glassio back on screen).
+                        withTimeoutOrNull(10 * 60_000L) { wakeUp.receive() }
                     }
                     fails = 0
-                } catch (e: InterruptedException) {
-                    if (gen != my) break
+                } catch (e: CancellationException) {
+                    // Stopped (the role or the main TV changed).
+                    throw e
                 } catch (e: Exception) {
                     if (gen != my) break
                     if (woken) { woken = false; continue }
@@ -435,19 +466,20 @@ object PeerSync {
                     setStatus(if (e.message?.contains("403") == true) "${peerName.ifBlank { "The main TV" }} no longer knows this TV: follow it again"
                         else "Can't reach ${peerName.ifBlank { "the main TV" }} (asleep or off the network)", false)
                     // The main TV's address may have changed (a new address from the router): found again by name.
-                    if (fails % 3 == 0) runCatching { relocate() }
-                    try { Thread.sleep(if (fails < 3) 15_000L else 60_000L) } catch (_: InterruptedException) { if (gen != my) break }
+                    if (fails % 3 == 0) runCatching { relocate() }.onFailure { Glog.w("Sync: looking for the main TV again", it) }
+                    withTimeoutOrNull(if (fails < 3) 15_000L else 60_000L) { wakeUp.receive() }
+                    if (gen != my) break
                 }
             }
-        }, "glass-sync-follow").apply { isDaemon = true; start() }
+        }
     }
 
     /** Glassio came back to the screen: a follower checks at once (a missed change shows straight away). */
     fun resumed() { if (::app.isInitialized && role == "follow") wake() }
-    // A waiting request isn't stopped by interrupt(): its connection is closed instead.
+    // A waiting request can't be woken: its connection is closed instead.
     @Volatile private var waitConn: java.net.HttpURLConnection? = null
     @Volatile private var woken = false
-    private fun wake() { woken = true; followThread?.interrupt(); runCatching { waitConn?.disconnect() } }
+    private fun wake() { woken = true; wakeUp.trySend(Unit); runCatching { waitConn?.disconnect() } }
 
     private fun relocate() {
         val f = discover().firstOrNull { it.name == peerName } ?: return
@@ -457,7 +489,7 @@ object PeerSync {
     /** Blocking: is there anything new on the main TV (manual mode shows "Changes waiting")? */
     fun check() {
         val h = get("${base()}/hash?${auth()}", 5000).optString("h")
-        val news = h.isNotBlank() && h != sp.getString("applied", "")
+        val news = h.isNotBlank() && h != sp.getString(pk("applied"), "")
         setStatus(if (news) "Changes waiting on ${peerName.ifBlank { "the main TV" }}" else "Up to date", news)
     }
 
@@ -470,9 +502,15 @@ object PeerSync {
 
     @Synchronized private fun pull(announce: Boolean) {
         val s = get("${base()}/state?${auth()}", 15_000)
+        if (s.optBoolean("missing")) {
+            // The main TV has never opened this profile: nothing of it to take (this TV keeps its own).
+            sp.edit().putString(pk("applied"), s.optString("h")).apply()
+            setStatus("${peerName.ifBlank { "The main TV" }} has not opened this profile yet", false)
+            return
+        }
         val g = groups
         val n = apply(s, g)
-        sp.edit().putString("applied", s.optString("h")).putLong("lastAt", System.currentTimeMillis()).apply()
+        sp.edit().putString(pk("applied"), s.optString("h")).putLong("lastAt", System.currentTimeMillis()).apply()
         setStatus("Up to date", false)
         if (announce && n > 0 && notify) main.post {
             if (app.foreground()) android.widget.Toast.makeText(app, "Synced from ${peerName.ifBlank { "the main TV" }}", android.widget.Toast.LENGTH_SHORT).show()
@@ -483,8 +521,8 @@ object PeerSync {
     private fun apply(s: JSONObject, g: Set<String>): Int {
         var changed = 0
         val glass = s.optJSONObject("glass") ?: JSONObject()
-        val gsp = app.getSharedPreferences("glass", Context.MODE_PRIVATE)
-        val now = gsp.all
+        // (This TV's settings as they are for the profile in use: the TV's own and the profile's.)
+        val now = app.settings.dumpAll()
         val put = HashMap<String, Any>(); val remove = HashSet<String>()
         for (k in glass.keys()) {
             val grp = groupOf(k) ?: continue
@@ -510,7 +548,7 @@ object PeerSync {
     }
 
     private fun applyCatalogs(cat: JSONObject): Int {
-        val csp = app.getSharedPreferences("glass_catalogs", Context.MODE_PRIVATE)
+        val csp = Profiles.prefs(app, "glass_catalogs")
         val now = csp.all
         val ed = csp.edit(); var n = 0
         for (k in cat.keys()) { val v = dec(cat.getJSONObject(k)) ?: continue; if (now[k] != v) { put(ed, k, v); n++ } }
@@ -518,12 +556,12 @@ object PeerSync {
         if (n == 0) return 0
         ed.commit()
         app.catalogs.reloadFromPrefs()
-        app.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { app.catalogs.refresh() } }
+        app.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { app.catalogs.refresh() }.onFailure { Glog.w("Sync: catalogs refresh", it) } }
         return n
     }
 
     private fun applyIcons(icons: JSONObject): Int {
-        val had = sp.getString("iconSigs", "").orEmpty().split('\n').filter { '=' in it }.associate { it.substringBefore('=') to it.substringAfter('=') }
+        val had = sp.getString(pk("iconSigs"), "").orEmpty().split('\n').filter { '=' in it }.associate { it.substringBefore('=') to it.substringAfter('=') }
         val sigs = HashMap<String, String>(); var n = 0
         for (pkg in icons.keys()) {
             if (!Regex("[A-Za-z0-9._]+").matches(pkg)) continue
@@ -537,7 +575,7 @@ object PeerSync {
         }
         // Icons the main TV no longer has (one synced before, or this TV's own made the same way): back to the app's.
         for (pkg in had.keys) if (pkg !in sigs && !icons.has(pkg)) { app.icons.fileFor(pkg).delete(); n++ }
-        sp.edit().putString("iconSigs", sigs.entries.joinToString("\n") { "${it.key}=${it.value}" }).apply()
+        sp.edit().putString(pk("iconSigs"), sigs.entries.joinToString("\n") { "${it.key}=${it.value}" }).apply()
         if (n > 0) main.post { app.icons.rev.intValue++ }
         return n
     }

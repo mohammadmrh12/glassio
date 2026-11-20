@@ -58,3 +58,10 @@ fun Modifier.tvPress(
         }
     }.focusable()
 }
+
+/**
+ * The focus requester kept for [key] in a remembered map: made once per key, then reused on every composition
+ * (a requester made in composition without being kept would be a new one each time).
+ */
+fun <K> MutableMap<K, androidx.compose.ui.focus.FocusRequester>.requester(key: K): androidx.compose.ui.focus.FocusRequester =
+    getOrPut(key) { androidx.compose.ui.focus.FocusRequester() }

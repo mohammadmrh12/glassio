@@ -1,5 +1,6 @@
 package com.glasslauncher.tv
 
+import com.glasslauncher.tv.data.Bg
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -50,10 +51,10 @@ object CamPlayer {
         if (!url.startsWith("ha://")) { play(p, url); return }
         val st = (ctx.applicationContext as GlassApp).settings
         val main = android.os.Handler(android.os.Looper.getMainLooper())
-        Thread {
+        Bg.io("glass-cam") {
             val live = runCatching { com.glasslauncher.tv.net.HaWatch.streamUrl(st.haUrl, st.haToken, url.removePrefix("ha://")) }.getOrNull()
             main.post { if (live != null) runCatching { play(p, live) } else runCatching { p.stop() } }
-        }.apply { isDaemon = true }.start()
+        }
     }
 
     fun play(p: ExoPlayer, url: String) {

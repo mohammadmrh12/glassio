@@ -18,10 +18,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -39,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -73,12 +76,43 @@ class QrCodeDialog(val title: String, val url: String, val code: kotlinx.corouti
  * "Support me": a gift card code and an optional note in one window, sent from there. [clean] gives the code in its
  * proper form or null; [send] (blocking, called off the main thread) says whether it arrived.
  */
+/** A list that stays open while its rows are pressed: each shows its value now ([value]) and changes it on OK. */
+class PickRow(val label: String, val sub: String = "", val value: () -> String, val onClick: () -> Unit)
+/** [style]: the menus' look (Settings → Menu & themes → Look), so it is the same glass as the dock's menus and the side menu. */
+class PickDialog(val title: String, val note: String, val rows: List<PickRow>, val style: String = "liquid") : DialogState
+
+/** One app's catalogs and what stands in the carousel's place for it (the dock's menu → Catalogs, and Settings → Catalogs). */
+fun appCatalogsDialog(app: com.glasslauncher.tv.GlassApp, pkg: String, label: String): DialogState {
+    val A = com.glasslauncher.tv.data.AppCatalogs
+    val st = app.settings
+    val all = app.catalogs.catalogs.value
+    val hasRows = st.channelsOn && com.glasslauncher.tv.data.Channels.allFor(st, pkg).isNotEmpty()
+    val modes = listOfNotNull("", if (hasRows) A.ROWS else null, A.CATALOGS, A.NONE)
+    fun name(m: String) = when (m) { A.ROWS -> "Its rows"; A.CATALOGS -> "Its catalogs"; A.NONE -> "Nothing"
+        else -> "Automatic · " + when (A.effective("", hasRows, A.keysFor(st, all, pkg).isNotEmpty())) { A.ROWS -> "rows"; A.CATALOGS -> "catalogs"; else -> "nothing" } }
+    val rows = ArrayList<PickRow>()
+    rows += PickRow("In the carousel's place", "", { name(A.stage(st, pkg)) }) {
+        A.setStage(st, pkg, modes[(modes.indexOf(A.stage(st, pkg)).coerceAtLeast(0) + 1) % modes.size])
+    }
+    // The ticked ones on top, then the ones named after this app, then the rest as Settings → Catalogs lists them.
+    // (The order is the one at opening: a row doesn't jump away from under the selection when it is ticked.)
+    val ticked = A.keysFor(st, all, pkg).toSet()
+    val mine = A.suggested(all, pkg).toSet()
+    all.sortedBy { c -> if (c.key in ticked) 0 else if (c.key in mine) 1 else 2 }.forEach { c ->
+        rows += PickRow(c.name, "${c.addonName} · ${c.type}", { if (c.key in A.keysFor(st, all, pkg)) "✓" else "" }) { A.toggle(st, all, pkg, c.key) }
+    }
+    return PickDialog("$label · Catalogs", if (all.isEmpty()) "No catalogs yet: add an add-on in Settings → Catalogs" else "Shown while $label is selected in the dock",
+        rows, st.menuStyle)
+}
+
+/** A problem report before it goes: what will be sent, Send, and a QR code for the phone when it can't be sent from here. */
+class ReportDialog(val data: com.glasslauncher.tv.data.Report.Data, val send: (com.glasslauncher.tv.data.Report.Data) -> com.glasslauncher.tv.data.Report.Sent) : DialogState
 class SupportDialog(val clean: (String) -> String?, val send: (String, String) -> Boolean) : DialogState
 
 @Composable
 fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
     if (state == null) return
-    androidx.compose.runtime.key(state) {
+    androidx.compose.runtime.key(state) { OverSettings {
         when (state) {
             is TextEntry -> TextEntryDialog(state, onDismiss)
             is MenuDialog -> MenuDialogView(state, onDismiss)
@@ -87,8 +121,10 @@ fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
             is ReorderDialog -> ReorderDialogView(state, onDismiss)
             is KeyCaptureDialog -> KeyCaptureView(state, onDismiss)
             is SupportDialog -> SupportDialogView(state, onDismiss)
+            is ReportDialog -> ReportDialogView(state, onDismiss)
+            is PickDialog -> PickDialogView(state, onDismiss)
         }
-    }
+    } }
 }
 
 @Composable
@@ -220,7 +256,7 @@ private fun ReorderDialogView(d: ReorderDialog, onDismiss: () -> Unit) {
             Text(if (held == null) "OK picks a row up · Back saves" else "▲ ▼ move it · OK puts it down", color = Color.White.copy(alpha = 0.55f), fontSize = 10.5f.sp,
                 modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 10.dp))
             order.forEachIndexed { i, k ->
-                val fr = frs.getOrPut(k) { FocusRequester() }
+                val fr = frs.requester(k)
                 var f by remember { mutableStateOf(false) }
                 val lifted = held == k
                 Row(
@@ -339,6 +375,127 @@ private suspend fun delay100() = kotlinx.coroutines.delay(100)
  * field (opening by itself, it jumped over the window the moment it appeared). It stays open while sending and says
  * how it went.
  */
+@Composable
+private fun PickDialogView(d: PickDialog, onDismiss: () -> Unit) {
+    val s = LocalScale.current
+    val light = d.style == "bow"
+    val ink = if (light) Color(0xFF111114) else Color.White
+    val fr = remember { FocusRequester() }
+    // (Opened while OK is still held on a menu: that OK is not a press here.)
+    var armed by remember { mutableStateOf(false) }
+    var rev by remember { mutableStateOf(0) }
+    // A light pop-up list on the menus' own glass (the menu's look, so also Black AMOLED and Black on white). Its
+    // window covers the screen and dims nothing: the glass then sits over the page where it is drawn, as a menu's does.
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        val dv = androidx.compose.ui.platform.LocalView.current
+        val overSettings = LocalOverSettings.current != null
+        LaunchedEffect(overSettings) { (dv.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setDimAmount(if (overSettings) SettingsGlass.DIM else 0.18f) }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            GlassPanel(Modifier.width((300 * s).dp).onPreviewKeyEvent { ev ->
+                if (!ev.isSelect || armed) false
+                else if (ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount == 0) { armed = true; false }
+                else true
+            }, radius = (20 * s).dp, style = d.style, darken = 0.3f) {
+                Column(Modifier.fillMaxWidth().padding((8 * s).dp)) {
+                    Text(d.title, color = ink.copy(alpha = 0.75f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = (10 * s).dp, end = (10 * s).dp, top = (4 * s).dp))
+                    if (d.note.isNotBlank()) Text(d.note, color = ink.copy(alpha = 0.45f), fontSize = (8 * s).sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = (10 * s).dp, end = (10 * s).dp, top = (1 * s).dp))
+                    Spacer(Modifier.height((6 * s).dp))
+                    Column(Modifier.heightIn(max = (236 * s).dp).verticalScroll(rememberScrollState())) {
+                        d.rows.forEachIndexed { i, r ->
+                            var focused by remember { mutableStateOf(false) }
+                            val value = remember(rev) { r.value() }
+                            val on = if (focused) (if (light) Color.White else Color(0xFF111114)) else ink
+                            Row(Modifier.fillMaxWidth().padding(vertical = (1 * s).dp).clip(RoundedCornerShape((11 * s).dp))
+                                .background(if (focused) (if (light) Color(0xFF111114) else Color.White).copy(alpha = 0.94f) else Color.Transparent)
+                                .let { if (i == 0) it.focusRequester(fr) else it }
+                                .onFocusChanged { focused = it.isFocused }
+                                .clickable { r.onClick(); rev++ }
+                                .padding(horizontal = (11 * s).dp, vertical = (6 * s).dp), verticalAlignment = Alignment.CenterVertically) {
+                                // The name, and what it is from in small faint letters beside it: one short line a row.
+                                Text(r.label, color = on, fontSize = (11.5f * s).sp, fontWeight = if (value == "✓" || focused) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = (if (r.sub.isBlank()) 190 else 170 * 1).let { (it * s).dp }))
+                                if (r.sub.isNotBlank()) Text(r.sub, color = on.copy(alpha = 0.45f), fontSize = (8 * s).sp, maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = (7 * s).dp).weight(1f))
+                                else Spacer(Modifier.weight(1f))
+                                if (value.isNotBlank()) Text(value, color = on.copy(alpha = if (value == "✓") 1f else 0.6f), fontSize = ((if (value == "✓") 13f else 9.5f) * s).sp,
+                                    fontWeight = if (value == "✓") FontWeight.Bold else FontWeight.Normal, maxLines = 1, modifier = Modifier.padding(start = (8 * s).dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { repeat(6) { kotlinx.coroutines.delay(40); if (runCatching { fr.requestFocus() }.isSuccess) return@LaunchedEffect } }
+}
+
+@Composable
+private fun ReportDialogView(d: ReportDialog, onDismiss: () -> Unit) {
+    val R = com.glasslauncher.tv.data.Report
+    val text = remember { R.preview(d.data) }
+    var busy by remember { mutableStateOf(false) }
+    var sent by remember { mutableStateOf<com.glasslauncher.tv.data.Report.Sent?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    val sendBtn = remember { FocusRequester() }
+    var boxFocused by remember { mutableStateOf(false) }
+    // No relay in this build, or it didn't take the report: the phone opens a new issue with the short summary.
+    val phone = !R.relay || sent?.ok == false
+    val link = remember { R.issueLink(d.data) }
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        DialogSurface(width = 640) {
+            Text(if (sent?.ok == true) "Report sent" else "Report a problem", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(when {
+                sent?.ok == true -> (sent?.note?.takeIf { it.isNotBlank() }?.plus(" · ") ?: "") + "Thank you!" + (if ((sent?.number ?: 0) > 0) " It is issue #${sent?.number} on GitHub" else "")
+                phone && R.relay -> "It couldn't be sent from the TV (${sent?.note}). Scan the code: it opens a new issue on GitHub with a short summary, no log"
+                phone -> "Scan the code with your phone: it opens a new issue on GitHub with a short summary (this build can't send from the TV)"
+                else -> "This is everything that will be sent. It becomes a public issue on GitHub: addresses, keys, emails and names were removed"
+            }, color = Color.White.copy(alpha = 0.65f), fontSize = 11.sp)
+            Spacer(Modifier.height(10.dp))
+            if (phone) {
+                val qr = remember(link) { com.glasslauncher.tv.net.Net.qr(link, 420).asImageBitmap() }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.foundation.Image(qr, null, Modifier.width(170.dp).height(170.dp).clip(RoundedCornerShape(10.dp)))
+                    Spacer(Modifier.width(16.dp))
+                    Text(d.data.description + "\n\nGlassio " + d.data.version + "\n" + d.data.device, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                }
+            } else if (sent?.ok != true) {
+                Text(text, color = Color.White.copy(alpha = 0.86f), fontSize = 10.sp, lineHeight = 13.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.35f))
+                        .border(1.dp, Color.White.copy(alpha = if (boxFocused) 0.7f else 0.12f), RoundedCornerShape(10.dp))
+                        .onFocusChanged { boxFocused = it.isFocused }
+                        // (Down from it is Send, not whichever button is nearest.)
+                        .focusProperties { down = sendBtn }
+                        // Up and Down read through it; at its end Down goes on to the buttons.
+                        .onPreviewKeyEvent { e ->
+                            val down = e.key == androidx.compose.ui.input.key.Key.DirectionDown; val up = e.key == androidx.compose.ui.input.key.Key.DirectionUp
+                            if (!(down && scroll.value < scroll.maxValue) && !(up && scroll.value > 0)) false
+                            else { if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) scope.launch { scroll.animateScrollTo((scroll.value + if (down) 170 else -170).coerceIn(0, scroll.maxValue)) }; true }
+                        }
+                        .focusable().verticalScroll(scroll).padding(10.dp))
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (!phone && sent?.ok != true) DialogButton(if (busy) "Sending…" else "Send", Modifier.focusRequester(sendBtn)) {
+                    if (busy) return@DialogButton
+                    busy = true
+                    scope.launch {
+                        sent = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { d.send(d.data) }
+                        busy = false
+                        kotlinx.coroutines.delay(80); runCatching { sendBtn.requestFocus() }
+                    }
+                }
+                DialogButton(if (phone || sent?.ok == true) "Close" else "Cancel", if (phone || sent?.ok == true) Modifier.focusRequester(sendBtn) else Modifier, onClick = onDismiss)
+                if (!phone && sent?.ok != true) Text("Up: read it all", color = Color.White.copy(alpha = 0.4f), fontSize = 10.sp)
+            }
+        }
+    }
+    LaunchedEffect(phone) { kotlinx.coroutines.delay(80); runCatching { sendBtn.requestFocus() } }
+}
+
 @Composable
 private fun SupportDialogView(d: SupportDialog, onDismiss: () -> Unit) {
     var code by remember { mutableStateOf("") }

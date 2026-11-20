@@ -1,5 +1,6 @@
 package com.glasslauncher.tv
 
+import com.glasslauncher.tv.data.Bg
 import android.app.Application
 import com.glasslauncher.tv.data.AppRepository
 import com.glasslauncher.tv.data.CatalogRepository
@@ -127,6 +128,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     lateinit var weather: com.glasslauncher.tv.data.Weather; private set
     lateinit var updater: com.glasslauncher.tv.data.Updater; private set
     lateinit var library: com.glasslauncher.tv.data.Library; private set
+    lateinit var platformRows: com.glasslauncher.tv.data.PlatformRows; private set
     lateinit var sync: com.glasslauncher.tv.data.Sync; private set
 
     override fun onCreate() {
@@ -165,8 +167,18 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         // The TV turning off: the Hue lights go back as they were (or as chosen).
         runCatching {
             val f = android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF)
+            // (And turning on again after a long sleep: who is watching, or the automatic profile.)
+            f.addAction(android.content.Intent.ACTION_SCREEN_ON)
+            var offSince = 0L
             val r = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                    if (i.action == android.content.Intent.ACTION_SCREEN_ON) {
+                        val slept = if (offSince > 0L) android.os.SystemClock.elapsedRealtime() - offSince else 0L
+                        offSince = 0L
+                        if (slept > 5 * 60_000L && settings.setupDone) com.glasslauncher.tv.ui.ProfilesUi.wake(this@GlassApp)
+                        return
+                    }
+                    offSince = android.os.SystemClock.elapsedRealtime()
                     screenOffAt = android.os.SystemClock.uptimeMillis()
                     com.glasslauncher.tv.data.HueSync.leave(settings, settings.hueOff)
                 }
@@ -174,10 +186,10 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, android.content.Context.RECEIVER_EXPORTED)
             else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(r, f)
         }
-        Thread { runCatching { DevHooks.key(this) } }.apply { isDaemon = true }.start()
+        Bg.io("glass-start") { runCatching { DevHooks.key(this) } }
         com.glasslauncher.tv.ui.Glow.amount = settings.glowSize
         // The menu's TV numbers are ready before it first opens.
-        if (settings.menuSys) Thread { runCatching { com.glasslauncher.tv.data.SystemInfo.read(this, settings.sysCpu || settings.sysGpu) } }.apply { isDaemon = true }.start()
+        if (settings.menuSys) Bg.io("glass-start") { runCatching { com.glasslauncher.tv.data.SystemInfo.read(this, settings.sysCpu || settings.sysGpu) }.onFailure { com.glasslauncher.tv.data.Glog.w("System info", it) } }
         if (settings.perfMode == "auto") settings.applyMode("auto")
         com.glasslauncher.tv.ui.GlassCache.res = settings.glassRes
         http = Http(this)
@@ -192,6 +204,12 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         com.glasslauncher.tv.ui.SaverPlan.start(this)
         weather = com.glasslauncher.tv.data.Weather(settings, http, scope).also { it.start() }
         library = com.glasslauncher.tv.data.Library(this, settings, http, cw.trakt, scope, cw.simkl)
+        platformRows = com.glasslauncher.tv.data.PlatformRows(this, settings, http)
+        // The profiles' names and pictures as they are in Nuvio now (a little after the start, off the main thread).
+        com.glasslauncher.tv.data.Bg.io("glass-profiles") {
+            kotlinx.coroutines.delay(6_000)
+            runCatching { com.glasslauncher.tv.data.NuvioAvatars.refresh(this, library.nuvio) }.onFailure { com.glasslauncher.tv.data.Glog.w("Nuvio profiles at start", it) }
+        }
         cw.nuvio = library.nuvio
         sync = com.glasslauncher.tv.data.Sync(this, settings, library, cw, scope).also { it.start() }
         com.glasslauncher.tv.net.NotifyServer.start(this)
@@ -201,7 +219,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(this)
         // Settings → Sync: the main TV's server, or following the main TV.
         com.glasslauncher.tv.data.PeerSync.start(this)
-        if (settings.musicOn) Thread { runCatching { com.glasslauncher.tv.data.NowPlaying.grant(this); com.glasslauncher.tv.data.NowPlaying.start(this) } }.apply { isDaemon = true }.start()
+        if (settings.musicOn) Bg.io("glass-start") { runCatching { com.glasslauncher.tv.data.NowPlaying.grant(this); com.glasslauncher.tv.data.NowPlaying.start(this) }.onFailure { com.glasslauncher.tv.data.Glog.w("Music: following other apps", it) } }
         // The TV's inputs (HDMI, CEC devices): read now and every few minutes.
         scope.launch {
             while (true) {
@@ -221,8 +239,9 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         }
         updater = com.glasslauncher.tv.data.Updater(this, scope) { settings.updateChannel == "beta" }.also { it.start() }
         // If Glass was closed while the TV screensaver was being started, put the screen timeout back.
-        Thread { com.glasslauncher.tv.saver.SystemDream.restoreIfPending(this) }.apply { isDaemon = true }.start()
+        Bg.io("glass-start") { com.glasslauncher.tv.saver.SystemDream.restoreIfPending(this) }
         icons.importDropFolder(apps.apps.value.map { it.pkg })
+        com.glasslauncher.tv.data.Hue.pins = settings
         ensureHomeService()
         // Decode dock artwork once, off the main thread, so the first frames are instant.
         scope.launch { apps.apps.value.forEach { runCatching { apps.artwork(it) } } }

@@ -577,6 +577,19 @@ object SaverPlan {
     }
 }
 
+/**
+ * Whether the trailer screensaver shows the posters (the slideshow) instead: nothing playing and nothing to play
+ * (no titles yet, none of them with a trailer found, or no internet). The setting stays Trailers: the trailers come
+ * back by themselves as soon as one is found.
+ */
+internal fun saverShowsPosters(playing: Boolean, none: Boolean, noTitles: Boolean, online: Boolean): Boolean =
+    !playing && (none || noTitles || !online)
+
+/** Test only (dev key: --ei saver_no_trailers <seconds>): the trailer screensaver finds no trailer for that long. */
+object SaverTest {
+    val noTrailers = mutableStateOf(false)
+}
+
 @Composable
 fun SaverTrailers(app: GlassApp) {
     val st = app.settings
@@ -584,11 +597,19 @@ fun SaverTrailers(app: GlassApp) {
     val raw by app.catalogs.items.collectAsState()
     val enriched by app.catalogs.enrichedItems.collectAsState()
     // (The one found ahead first: SaverPlan.)
-    val pool = remember(raw.size) {
-        val l = raw.filter { it.id.startsWith("tt") }.shuffled()
-        val k = SaverPlan.key
-        val first = l.indexOfFirst { it.key == k }
-        if (first > 0) listOf(l[first]) + l.filterIndexed { i, _ -> i != first } else l
+    // One order for the whole screensaver. Titles that arrive later (the catalogs still loading when the screensaver
+    // starts with Glassio, or refreshed while it runs) go to the end. The list used to be shuffled again whenever
+    // its size changed, and the choosing below started over with it: the trailer on screen was replaced a few
+    // seconds in, by another one or by itself from the beginning (the one found ahead was put first every time).
+    var pool by remember { mutableStateOf(emptyList<com.glasslauncher.tv.data.HeroItem>()) }
+    LaunchedEffect(raw) {
+        val have = pool.map { it.key }.toSet()
+        val fresh = raw.filter { it.id.startsWith("tt") && it.key !in have }.shuffled()
+        if (fresh.isEmpty()) return@LaunchedEffect
+        pool = if (pool.isNotEmpty()) pool + fresh else {
+            val first = fresh.indexOfFirst { it.key == SaverPlan.key }
+            if (first > 0) listOf(fresh[first]) + fresh.filterIndexed { i, _ -> i != first } else fresh
+        }
     }
     DisposableEffect(Unit) { onDispose { SaverPlan.used(app) } }
     val full = true
@@ -605,13 +626,13 @@ fun SaverTrailers(app: GlassApp) {
     var volume by remember { mutableIntStateOf(st.saverTrailerVolume) }
     fun item(i: Int) = pool[i.mod(pool.size)].let { enriched[it.key] ?: it }
     fun go(d: Int) { dir = if (d < 0) -1 else 1; want = at + dir; tick++ }
-    LaunchedEffect(tick, pool.size) {
+    LaunchedEffect(tick, pool.isEmpty()) {
         if (pool.isEmpty()) return@LaunchedEffect
         var i = want
         var found: Pair<Int, Pair<com.glasslauncher.tv.data.HeroItem, Pair<String, com.glasslauncher.tv.data.TrailerSource.Streams>>>? = null
         for (n in 0 until minOf(pool.size, 12)) {
             val it = item(i)
-            val got = kotlinx.coroutines.withContext(Trailers.background) { runCatching { Trailers.prepare(app, it.type, it.id, it.name, it.year, full) }.getOrNull() }
+            val got = if (SaverTest.noTrailers.value) null else kotlinx.coroutines.withContext(Trailers.background) { runCatching { Trailers.prepare(app, it.type, it.id, it.name, it.year, full) }.getOrNull() }
             val sts = got?.second
             if (got != null && sts != null) { found = i to (it to (got.first to sts)); break }
             i += dir
@@ -622,6 +643,7 @@ fun SaverTrailers(app: GlassApp) {
         at = f.first
         val (it, yt) = f.second
         cur = it to Trailers.Req("saver:" + it.key, yt.first, ++rev, yt.second, overlay = true)
+        Glog.i("Screensaver trailer: ${it.name} (${yt.first})")
         com.glasslauncher.tv.saver.TrailerSaver.rev.intValue++
         // The next one gets ready while this one plays.
         val n = item(at + dir)
@@ -639,7 +661,19 @@ fun SaverTrailers(app: GlassApp) {
     // and starts again by itself when it is back.
     var online by remember { mutableStateOf(isOnline(ctx)) }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(3000); online = isOnline(ctx) } }
-    LaunchedEffect(online) { if (online && cur == null && pool.isNotEmpty()) { want = at; tick++ } }
+    // (Only when it had nothing to play: at the start the first choice is under way, and starting it again here
+    // threw that one away.)
+    LaunchedEffect(online) { if (online && cur == null && none && pool.isNotEmpty()) { want = at; tick++ } }
+    // Nothing was found: the posters show meanwhile (see saverShowsPosters), and the next titles are tried again
+    // every two minutes, at once when the test switch goes off.
+    val testOff = remember { booleanArrayOf(false) }
+    LaunchedEffect(none, SaverTest.noTrailers.value) {
+        if (SaverTest.noTrailers.value) { testOff[0] = true; return@LaunchedEffect }
+        if (!none || pool.isEmpty()) return@LaunchedEffect
+        // (Right away when the test switch has just gone off.)
+        if (testOff[0]) testOff[0] = false else kotlinx.coroutines.delay(120_000L)
+        want = at + 12 * dir; tick++
+    }
     fun openIt(it: com.glasslauncher.tv.data.HeroItem) {
         com.glasslauncher.tv.data.NuvioLaunch.open(ctx, st, app.http, it)
         com.glasslauncher.tv.saver.SaverControl.afterOpen?.invoke()
@@ -667,7 +701,8 @@ fun SaverTrailers(app: GlassApp) {
         ), null)
     }
     // OK and held OK, read by the screensaver's key handling.
-    DisposableEffect(Unit) {
+    val posters = saverShowsPosters(cur != null, none, pool.isEmpty(), online)
+    DisposableEffect(posters) {
         com.glasslauncher.tv.saver.SaverControl.onOk = { cur?.first?.let { openIt(it) } }
         com.glasslauncher.tv.saver.SaverControl.onLong = { cur?.first?.let { menuFor(it) } }
         onDispose {
@@ -703,8 +738,13 @@ fun SaverTrailers(app: GlassApp) {
             if (bg.isNotBlank()) coil3.compose.AsyncImage(bg, null, Modifier.fillMaxSize().graphicsLayer { alpha = 0.85f },
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop)
         }
-        if (c == null && (none || pool.isEmpty() || !online)) DriftingNote(
-            when { !online -> "No internet connection\nThe trailers come back when it's back"; pool.isEmpty() -> "No titles in the carousel yet"; else -> "No trailers found" }, s)
+        // No trailer to play: the posters (the slideshow) instead of an empty screen; the note only when there is
+        // nothing to show at all (no titles yet).
+        if (posters) {
+            val haveBackdrops = app.catalogs.items.collectAsState().value.any { it.background.isNotBlank() }
+            if (haveBackdrops) com.glasslauncher.tv.saver.Slideshow(app)
+            else DriftingNote(when { !online -> "No internet connection\nThe trailers come back when it's back"; pool.isEmpty() -> "No titles in the carousel yet"; else -> "No trailers found" }, s)
+        }
         // The title's logo and details, like the carousel, for a few seconds after each trailer starts.
         if (c != null && infoOn) {
             val a by androidx.compose.animation.core.animateFloatAsState(if (shown) 1f else 0f, tween(if (shown) 500 else 900), label = "saverInfo")

@@ -49,7 +49,7 @@ data class HeroItem(
  * "manual_addons") deliberately match the relay so a relay export imports one-to-one.
  */
 class CatalogRepository(private val ctx: Context, private val settings: Settings, private val http: Http) {
-    private val sp = ctx.getSharedPreferences("glass_catalogs", Context.MODE_PRIVATE)
+    private val sp = Profiles.prefs(ctx, "glass_catalogs")
     private val tmdb = Tmdb(http)
     private val tmdbLock = Mutex()
     private val loadLock = Mutex()
@@ -124,7 +124,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
         importSeed()
         scope.launch(Dispatchers.IO) {
             while (true) {
-                runCatching { refresh() }
+                runCatching { refresh() }.onFailure { Glog.w("Catalogs refresh", it) }
                 delay((if (settings.surprise) settings.surpriseMin else 30) * 60 * 1000L)
             }
         }
@@ -162,7 +162,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
 
     /** Everything the carousel's titles depend on: Settings reloads the catalogs only when this changed. */
     fun signature(): String = listOf(allAddons(), selectedKeys.value.sorted(), settings.catalogsNuvio, settings.catalogsStremio,
-        settings.perCatalog, settings.maxItems, settings.shuffle, settings.surprise, settings.surpriseMin, settings.descLang, settings.tmdbToken.length).toString()
+        settings.perCatalog, settings.maxItems, settings.shuffle, settings.surprise, settings.surpriseMin, settings.descLang, settings.tmdbToken.length, Region.of(settings)).toString()
 
     suspend fun refresh() = loadLock.withLock {
         withContext(Dispatchers.IO) {
@@ -234,6 +234,37 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
         }
     }
 
+    /** Each app's titles from the catalogs linked to it (see AppCatalogs), loaded ahead so the carousel has them at once. */
+    val appItems = MutableStateFlow<Map<String, List<HeroItem>>>(emptyMap())
+
+    /** Loads [links] (app → its catalogs). An app whose catalogs didn't answer keeps the titles it had. */
+    suspend fun loadApps(links: Map<String, List<String>>) = withContext(Dispatchers.IO) {
+        val all = catalogs.value.associateBy { it.key }
+        val per = settings.perCatalog
+        val cap = settings.maxItems
+        val fetched = java.util.concurrent.ConcurrentHashMap<String, List<HeroItem>>()
+        val gate = Semaphore(4)
+        coroutineScope {
+            links.values.flatten().distinct().mapNotNull { all[it] }.map { c ->
+                async { gate.withPermit { fetched[c.key] = runCatching { fetchCatalog(c, per) }.onFailure { Glog.w("Catalog ${c.name} for an app", it) }.getOrDefault(emptyList()) } }
+            }.awaitAll()
+        }
+        val before = appItems.value
+        appItems.value = links.mapValues { (pkg, keys) ->
+            // One from each catalog in turn (films and series mixed), each title once.
+            val its = keys.mapNotNull { fetched[it] }.map { it.iterator() }
+            val out = ArrayList<HeroItem>(); val seen = HashSet<String>()
+            loop@ while (its.any { it.hasNext() }) for (it in its) {
+                if (!it.hasNext()) continue
+                val item = it.next()
+                if (seen.add(item.key)) out += item
+                if (cap > 0 && out.size >= cap) break@loop
+            }
+            out.ifEmpty { before[pkg].orEmpty() }
+        }.filterValues { it.isNotEmpty() }
+        if (links.isNotEmpty()) Glog.i("Catalogs of apps: " + links.entries.joinToString(" · ") { (p, k) -> "${p.substringAfterLast('.')} ${k.size} catalogs, ${appItems.value[p]?.size ?: 0} titles" })
+    }
+
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
     private fun fetchCatalog(c: CatalogRef, limit: Int): List<HeroItem> {
@@ -300,7 +331,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
         withContext(Dispatchers.IO) {
             tmdbLock.withLock {
                 if (enriched.value.containsKey(item.key)) return@withLock
-                val r = runCatching { tmdb.enrich(item, token, settings.descLang) }.getOrNull()
+                val r = runCatching { tmdb.enrich(item, token, settings.descLang, Region.of(settings)) }.getOrNull()
                 enriched.value = enriched.value + (item.key to (r ?: item))
             }
         }

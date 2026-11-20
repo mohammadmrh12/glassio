@@ -1,5 +1,6 @@
 package com.glasslauncher.tv.ui
 
+import com.glasslauncher.tv.data.Bg
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -105,7 +106,7 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
     val shown = (win until (win + vis).coerceAtMost(rows.size)).toList()
     // One focus handle per card ("row key#index"), each row's scroll and the card last selected in it.
     val reqs = remember(pkg) { HashMap<String, FocusRequester>() }
-    fun req(r: Int, i: Int) = reqs.getOrPut("${rows[r].key}#$i") { FocusRequester() }
+    fun req(r: Int, i: Int) = reqs.requester("${rows[r].key}#$i")
     val lastSel = remember(pkg) { HashMap<String, Int>() }
     val states = rows.map { ch -> androidx.compose.runtime.key(ch.key) { rememberLazyListState() } }
     // Where the selection is now (row, card).
@@ -311,7 +312,7 @@ private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, g
                 bmp = b
                 // The blurred background made ahead for every card on screen: moving to one shows it at once.
                 if (blurBg && b != null) ChannelsUi.warm?.invoke(p.poster, b)
-                if ((glow == "color" || hueApp != null) && gc == null) Thread { gc = Glow.colorOf("ch:" + p.poster, b) }.start()
+                if ((glow == "color" || hueApp != null) && gc == null) Bg.io("glass-glow") { gc = Glow.colorOf("ch:" + p.poster, b) }
             })
         // No picture (or one Glassio isn't allowed to read): the title instead.
         else Text(p.title, color = Color.White.copy(alpha = 0.85f), fontSize = (8.5f * s).sp, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,

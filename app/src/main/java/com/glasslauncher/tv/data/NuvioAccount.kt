@@ -19,6 +19,7 @@ import java.net.URL
  * signs in with its email and password.
  */
 class NuvioAccount(ctx: Context) {
+    private val appCtx = ctx.applicationContext
     private val sp = ctx.getSharedPreferences("glass_nuvio", Context.MODE_PRIVATE)
     /** The backend: the official one unless a self-hosted one is set. */
     val server: String get() = sp.getString("server", "").orEmpty()
@@ -169,6 +170,57 @@ class NuvioAccount(ctx: Context) {
             id to o.optString("name").ifBlank { "Profile $id" }
         }.sortedBy { it.first }
     }.getOrElse { lastError = it.message.orEmpty(); null }
+
+    /**
+     * The account's profiles as the chooser shows them (name, picture, colour, PIN). Null on failure.
+     * Their pictures are fetched onto the TV on the way (see [NuvioAvatars]); a picture that can't be fetched
+     * leaves the profile with its letter.
+     */
+    fun profileInfos(): List<Profiles.Info>? = runCatching {
+        var tok = access() ?: return null
+        var (c, t) = call("/rest/v1/rpc/sync_pull_profiles", JSONObject(), tok)
+        if (c == 401) { tok = access(force = true) ?: return null; val r = call("/rest/v1/rpc/sync_pull_profiles", JSONObject(), tok); c = r.first; t = r.second }
+        check(c in 200..299) { "Nuvio answered HTTP $c" }
+        val a = JSONArray(t)
+        (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            val id = o.optInt("profile_index", -1).takeIf { it > 0 } ?: return@mapNotNull null
+            fun text(k: String) = if (o.isNull(k)) "" else o.optString(k)
+            Profiles.Info(id, text("name").ifBlank { "Profile $id" }, text("avatar_url"), text("avatar_color_hex"), o.optBoolean("pin_enabled"),
+                avatarId = text("avatar_id"))
+        }.sortedBy { it.id }.let { list -> runCatching { NuvioAvatars.fetch(appCtx, this, list) }.onFailure { Glog.w("Nuvio profile pictures", it) }.getOrDefault(list) }
+    }.getOrElse { lastError = it.message.orEmpty(); null }
+
+    /** For [NuvioAvatars]: one of Nuvio's lists of ready-made pictures ([member]: the supporters' one, which needs the account). */
+    internal fun avatarCatalog(member: Boolean): JSONArray? = runCatching {
+        val tok = if (member) access() ?: return null else null
+        val (c, t) = call("/rest/v1/rpc/" + (if (member) "get_member_profile_avatar_catalog" else "get_avatar_catalog"), JSONObject(), tok)
+        check(c in 200..299) { "Nuvio answered HTTP $c" }
+        JSONArray(t)
+    }.onFailure { Glog.w("Nuvio pictures list" + (if (member) " (supporters)" else ""), it) }.getOrNull()
+
+    /** For [NuvioAvatars]: where a ready-made picture is, and what to send with the request (the supporters' ones need the account). */
+    internal fun avatarRequest(path: String, member: Boolean): Pair<String, Map<String, String>>? {
+        val p = path.trim().trimStart('/')
+        if (p.startsWith("http://") || p.startsWith("https://")) return p to emptyMap()
+        if (!member) return "$base/storage/v1/object/public/avatars/$p" to emptyMap()
+        val tok = access() ?: return null
+        return "$base/storage/v1/object/authenticated/membership-profile-avatars/$p" to mapOf("apikey" to key, "Authorization" to "Bearer $tok")
+    }
+
+    /** Test: what Nuvio sends for each profile, as field names with the kind of value (the values only of its number, its ready-made picture and its colours). */
+    fun profileFields(): String = runCatching {
+        val tok = access() ?: return "not signed in"
+        val (c, t) = call("/rest/v1/rpc/sync_pull_profiles", JSONObject(), tok)
+        if (c !in 200..299) return "HTTP $c"
+        val a = JSONArray(t)
+        "${a.length()} profiles; " + (0 until a.length()).joinToString(" | ") { i ->
+            val o = a.getJSONObject(i)
+            o.keys().asSequence().joinToString(", ") { k -> val v = o.opt(k); "$k:" + when (v) {
+                null, JSONObject.NULL -> "null"; is String -> if (k == "avatar_id" || k == "profile_background_id" || v.startsWith("#")) "\"$v\"" else "text(${v.length})" + (if (v.startsWith("http")) " link" else "")
+                is Number -> if (k == "profile_index") "number=$v" else "number"; is Boolean -> "yes/no"; else -> v.javaClass.simpleName } }
+        }
+    }.getOrElse { "failed: ${it.message}" }
 
     companion object {
         const val OFFICIAL = "https://api.nuvio.tv"
