@@ -47,12 +47,34 @@ object DevHooks {
         // Settings searching for these words (QA: the search's results without typing on the TV's keyboard).
         i.getStringExtra("settings_search")?.let { q -> com.glasslauncher.tv.ui.SettingsAskSearch.value = q; app.requestSettings.intValue = com.glasslauncher.tv.ui.CATEGORY_ORDER.indexOf("Accounts & profiles").coerceAtLeast(0); app.requestSettingsRev.intValue++ }
         i.getIntExtra("open_settings", -1).takeIf { it >= 0 }?.let { app.requestSettings.intValue = it; app.requestSettingsRev.intValue++ }
+        if (i.getBooleanExtra("show_tour", false)) com.glasslauncher.tv.ui.WhatsNew.show()
+        // Next picture / video / photo of your own background (QA: --ez next_bg true).
+        if (i.getBooleanExtra("next_bg", false)) com.glasslauncher.tv.ui.CustomBackground.nextNow(app.settings)
+        // Multi-view cameras on / off (QA: --ez multi_cams true).
+        if (i.getBooleanExtra("multi_cams", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(true)
+        if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
+        if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
+        // The search (a remote button set to it): its page on the home screen, the bar selected. Nothing when it is off.
+        if (i.getBooleanExtra("open_search", false) && app.settings.searchOn) { app.requestSettings.intValue = 102; app.requestSettingsRev.intValue++ }
+        // Starts (or stops) the trailer of the title on screen, like the Play menu: --ez trailer_now true.
+        if (i.getBooleanExtra("trailer_now", false)) com.glasslauncher.tv.ui.Trailers.request.intValue++
+        if (i.getBooleanExtra("show_setup", false)) app.requestSetup.intValue++
+        if (i.getBooleanExtra("start_saver", false)) a.startActivity(Intent(a, com.glasslauncher.tv.saver.ScreensaverActivity::class.java))
+
+        if (!allowed(app, i)) return
+        // ---- These change something or print something private: after the key, like the rest below.
         // The silent update path, with this same APK (Glassio restarts): --ez self_install true.
-        if (i.getBooleanExtra("self_install", false)) Bg.io("glass-dev") {
+        if (!com.glasslauncher.tv.data.Store.PLAY && i.getBooleanExtra("self_install", false)) Bg.io("glass-dev") {
             val f = java.io.File(app.cacheDir, "self.apk")
             java.io.File(app.applicationInfo.sourceDir).copyTo(f, overwrite = true)
             val r = com.glasslauncher.tv.data.LocalShell.install(app, f)
             com.glasslauncher.tv.data.Glog.i("Self install: ${r.exceptionOrNull()?.let { "${it.javaClass.simpleName} ${it.message}" } ?: "ok"}")
+        }
+        // The "Manage from phone" page without reading the QR code (QA from a computer): starts it and logs its
+        // address (tag GlassPhone): --ez phone_url true; false stops it again.
+        if (i.hasExtra("phone_url")) {
+            if (i.getBooleanExtra("phone_url", false)) android.util.Log.i("GlassPhone", com.glasslauncher.tv.net.PhoneHost.start(app) ?: "no network")
+            else com.glasslauncher.tv.net.PhoneHost.stop()
         }
         // Hue: find the bridge (--ez hue_find true), then pair after its button (--ez hue_pair true); log only.
         if (i.getBooleanExtra("hue_find", false)) Bg.io("glass-dev") {
@@ -71,13 +93,6 @@ object DevHooks {
         // Opens a title in Nuvio Legacy as the carousel does: --es open_legacy movie:tt0111161.
         i.getStringExtra("open_legacy")?.let { v -> com.glasslauncher.tv.data.NuvioLaunch.openIn(app, "legacy",
             com.glasslauncher.tv.data.HeroItem(v.substringAfter(':'), v.substringAfter(':'), v.substringBefore(':'), "", "", "", "", "", "", "", emptyList(), "")) }
-        if (i.getBooleanExtra("show_tour", false)) com.glasslauncher.tv.ui.WhatsNew.show()
-        // Next picture / video / photo of your own background (QA: --ez next_bg true).
-        if (i.getBooleanExtra("next_bg", false)) com.glasslauncher.tv.ui.CustomBackground.nextNow(app.settings)
-        // Multi-view cameras on / off (QA: --ez multi_cams true).
-        if (i.getBooleanExtra("multi_cams", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(true)
-        if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
-        if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
         // Home Assistant cameras: lists them and asks for the first one's live link (log only).
         if (i.getBooleanExtra("ha_cams", false)) Bg.io("glass-dev") {
             runCatching {
@@ -100,8 +115,6 @@ object DevHooks {
             val r = com.glasslauncher.tv.ui.Trailers.prepare(app, p.getOrElse(2) { "series" }, p.getOrElse(3) { "" }, p.getOrElse(0) { "" }, p.getOrElse(1) { "" })
             com.glasslauncher.tv.data.Glog.i("Trailer find '${p[0]}': " + (r?.let { "${it.first} ${it.second?.height}p" } ?: "none (the picture stays)"))
         } }
-        // Starts (or stops) the trailer of the title on screen, like the Play menu: --ez trailer_now true.
-        if (i.getBooleanExtra("trailer_now", false)) com.glasslauncher.tv.ui.Trailers.request.intValue++
         if (i.hasExtra("fake_song")) {
             if (i.getBooleanExtra("fake_song", false)) {
                 val b = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)
@@ -114,10 +127,6 @@ object DevHooks {
         if (i.getBooleanExtra("dump_media", false)) com.glasslauncher.tv.data.NowPlaying.dump()
         if (i.getBooleanExtra("dump_media", false)) com.glasslauncher.tv.data.NowPlaying.dumpSessions(app)
         if (i.getBooleanExtra("dump_channels", false)) Bg.io("glass-dev") { com.glasslauncher.tv.data.Channels.dump(app) }
-        if (i.getBooleanExtra("show_setup", false)) app.requestSetup.intValue++
-        if (i.getBooleanExtra("start_saver", false)) a.startActivity(Intent(a, com.glasslauncher.tv.saver.ScreensaverActivity::class.java))
-
-        if (!allowed(app, i)) return
         val st = app.settings
         // ---- Settings
         i.getStringArrayExtra("prefs")?.forEach { st.debugSet(it) }
@@ -189,12 +198,38 @@ object DevHooks {
                 if (open) a.runOnUiThread { com.glasslauncher.tv.data.PlatformLinks.openOr(app, app.settings, item) { com.glasslauncher.tv.data.Glog.i("Link ${p[0]}: opened the usual way") } }
             }
         }
+        // The search without the remote (tag GlassSearch): --es search_words "words" puts them in the bar;
+        // --es search_test "tt0111161:movie:The Shawshank Redemption" logs the places it can be watched in and how
+        // many sources the add-ons give for Stremio (the first few as shown, never their addresses).
+        i.getStringExtra("search_words")?.let { com.glasslauncher.tv.ui.SearchUi.query.value = it }
+        // An icon moved in the dock's order without the remote: --es move_app "package:+1" (or -1 …).
+        i.getStringExtra("move_app")?.let { v -> v.substringAfterLast(':').toIntOrNull()?.let { d -> app.apps.move(v.substringBeforeLast(':'), d) } }
+        // The dock's list read again (after a setting that adds or removes one of Glassio's own icons): --ez reload_apps true.
+        if (i.getBooleanExtra("reload_apps", false)) Bg.io("glass-dev") { if (app.settings.searchOn && app.settings.searchDock) app.apps.placeNearFront(com.glasslauncher.tv.ui.SearchUi.DOCK_PKG); app.apps.reload() }
+        i.getStringExtra("search_test")?.let { v ->
+            val p = v.split(':')
+            val item = com.glasslauncher.tv.data.HeroItem("search:" + p[0], p[0], p.getOrElse(1) { "movie" }, p.getOrElse(2) { "" }, "", "", "", "", "", "", emptyList(), "")
+            Bg.io("glass-dev") {
+                val S = com.glasslauncher.tv.data.Search
+                var t = System.currentTimeMillis()
+                val found = S.titles(app.http, app.settings, item.name)
+                android.util.Log.i("GlassSearch", "titles for \"${item.name}\": ${found.size} (${System.currentTimeMillis() - t} ms): " + found.take(5).joinToString { "${it.name} ${it.year} ${it.type}" })
+                found.firstOrNull()?.let { f -> android.util.Log.i("GlassSearch", "first: ${f.id} -> ${S.resolve(app.http, app.settings, f)?.id ?: "no IMDb id"}") }
+                t = System.currentTimeMillis()
+                val places = S.places(app, app.settings, item) { }
+                android.util.Log.i("GlassSearch", "places (${System.currentTimeMillis() - t} ms): " + places.joinToString { it.label + if (it.sources) " ›" else "" }.ifBlank { "none" })
+                t = System.currentTimeMillis()
+                val src = S.sources(app.http, app.settings, app.catalogs.allAddons(), item)
+                android.util.Log.i("GlassSearch", "sources: ${src.size} (${System.currentTimeMillis() - t} ms)")
+                src.take(6).forEach { android.util.Log.i("GlassSearch", "  " + it.line) }
+            }
+        }
         // Where the selection is (QA: --ez dump_focus true), one line in the log under GlassFocus.
         if (i.getBooleanExtra("dump_focus", false)) {
             val f = com.glasslauncher.tv.ui.DockFocus
             android.util.Log.i("GlassFocus", "screen=${a.screenName} hero=${f.hero} top=${f.top} dock=${f.dock} idx=${f.idx} cols=${f.cols} " +
                 "musicStage=${com.glasslauncher.tv.ui.MusicUi.stageFocused} musicApps=${com.glasslauncher.tv.ui.MusicUi.appsFocused} " +
-                "inputs=${com.glasslauncher.tv.ui.InputsUi.focused} rows=${com.glasslauncher.tv.ui.ChannelsUi.focused} " +
+                "inputs=${com.glasslauncher.tv.ui.InputsUi.focused} search=${com.glasslauncher.tv.ui.SearchUi.focused} rows=${com.glasslauncher.tv.ui.ChannelsUi.focused} " +
                 "profile=${com.glasslauncher.tv.data.Profiles.active(app)} home=${com.glasslauncher.tv.data.Profiles.home(app)} " +
                 "chooser=${com.glasslauncher.tv.ui.ProfilesUi.open.value} chooserSel=${com.glasslauncher.tv.ui.ProfilesUi.sel.intValue} appCat=${com.glasslauncher.tv.data.AppCatalogs.pkg.value ?: "-"} slide=${com.glasslauncher.tv.data.AppCatalogs.slide.replace(' ', '_')} " +
                 "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} cams=${MultiCamOverlay.open.value} " +

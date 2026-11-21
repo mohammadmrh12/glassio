@@ -42,7 +42,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -265,7 +264,7 @@ internal fun Dock(
                         val edges = gridEdges(c, row.size, r, rows.size, allowUp = true)
                         val base = Modifier.weight(1f)
                             .then(if (idx == 0) Modifier.focusRequester(firstTile) else Modifier)
-                            .then(if (r == 0) Modifier.focusProperties { up = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value && e?.pkg == MusicUi.DOCK_PKG) MusicUi.appsEntry else if (InputsUi.page.value && e?.pkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG) InputsUi.entry else heroFocus } else Modifier)
+                            .then(if (r == 0) Modifier.focusProperties { up = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value && e?.pkg == MusicUi.DOCK_PKG) MusicUi.appsEntry else if (InputsUi.page.value && e?.pkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG) InputsUi.entry else if (SearchUi.page.value && e?.pkg == SearchUi.DOCK_PKG) SearchUi.entry else heroFocus } else Modifier)
                         if (e == null) {
                             key(FOLDER) {
                                 FolderTile(
@@ -445,7 +444,7 @@ private fun StripDock(
                     .then(if (i == 0) Modifier.focusRequester(firstTile) else Modifier)
                     .focusProperties {
                         left = focus[(i - 1 + n) % n]; right = focus[(i + 1) % n]
-                        up = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value && e?.pkg == MusicUi.DOCK_PKG) MusicUi.appsEntry else if (InputsUi.page.value && e?.pkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG) InputsUi.entry else heroFocus
+                        up = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value && e?.pkg == MusicUi.DOCK_PKG) MusicUi.appsEntry else if (InputsUi.page.value && e?.pkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG) InputsUi.entry else if (SearchUi.page.value && e?.pkg == SearchUi.DOCK_PKG) SearchUi.entry else heroFocus
                     }
                 androidx.compose.runtime.CompositionLocalProvider(LocalEdge provides edge) {
                     if (e == null) key(FOLDER) {

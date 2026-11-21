@@ -169,6 +169,16 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     var prevImgs by remember { mutableStateOf<Triple<ImageBitmap, ImageBitmap, ImageBitmap>?>(null) }
     var shownBackdrop by remember { mutableStateOf<ImageBitmap?>(null) }
     var prevBackdrop by remember { mutableStateOf<ImageBitmap?>(null) }
+    // The carousel's picture as it showed when a page of the dock's icons (search, music apps, inputs, an app's rows)
+    // took its place: back on the same slide it is put back as it was, with nothing loaded or made again (that
+    // took about half a second of an empty blurred page).
+    class KeptPage(val url: String, val sig: String, val list: String?, val page: ImageBitmap, val imgs: Triple<ImageBitmap, ImageBitmap, ImageBitmap>)
+    val keptPage = remember { arrayOfNulls<KeptPage>(1) }
+    // The search's page comes and goes in one frame, page and glass together (its cards fade by themselves): a
+    // crossfade of two full pages with every glass surface drawn twice cost the TV GPU 45-55 ms a frame, some
+    // fifteen frames a second for the length of the fade, which is what looked like a stutter.
+    val searchCut = remember { booleanArrayOf(false) }
+    fun pageSig() = listOf(Scrims.key, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.imageQuality).joinToString("|")
     // Which picture is on screen: the title text waits for it, so text and picture change together.
     val shownUrl = remember { mutableStateOf<String?>(null) }
     var fadeMs by remember { mutableIntStateOf(settings.transitionMs) }
@@ -184,10 +194,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     }
     // The music apps' and inputs' own background (Glassio's lights, or the carousel's picture blurred) made ahead on
     // the quiet thread, the carousel's again after each new picture has settled: the page then comes up at once.
-    LaunchedEffect(settings.stagePageBg, settings.bgMode, settings.musicOn, settings.inputsIcon, if (settings.stagePageBg == "carousel") shownUrl.value else null,
+    LaunchedEffect(settings.stagePageBg, settings.bgMode, settings.musicOn, settings.inputsIcon, settings.searchOn, if (settings.stagePageBg == "carousel") shownUrl.value else null,
         settings.blurRadius, settings.glassRes, settings.pageScale, settings.channelsBlurBri) {
         val mode = settings.stagePageBg
-        if (mode == "grey" || settings.bgMode != "carousel" || !(settings.musicOn || settings.inputsIcon)) return@LaunchedEffect
+        if (mode == "grey" || settings.bgMode != "carousel" || !(settings.musicOn || settings.inputsIcon || settings.searchOn)) return@LaunchedEffect
         val u = shownUrl.value?.takeIf { !it.startsWith("glassio:") }
         if (mode == "carousel" && u == null) return@LaunchedEffect
         delay(if (mode == "carousel") 900 else 3_000)
@@ -231,14 +241,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // Left shade switch and its bottom shade.)
     (if (settings.bgMode != "carousel") settings.sideShadeOff else settings.carouselShade == "off").let { if (Scrims.sideOff != it) Scrims.sideOff = it }
     (settings.bgMode == "carousel" && settings.carouselShade == "off").let { if (Scrims.bottomOff != it) Scrims.bottomOff = it }
-    LaunchedEffect(backdrop, Scrims.key, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value, settings.stagePageBg, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
+    LaunchedEffect(backdrop, Scrims.key, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value || SearchUi.page.value, settings.stagePageBg, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
         // selected card's picture blurred), crossfaded together. Coming from the music page it fades from that page
         // (the carousel's picture under it used to show for a second while the new background was being made).
         // (Also the idle music player, nothing playing: on the grey page.)
         // (Only over the carousel: with your own picture, like a video or the screensaver, the page stays see-through.)
-        if ((ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value) && settings.bgMode == "carousel") {
+        if ((ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value || SearchUi.page.value) && settings.bgMode == "carousel") {
             val (w, h, tag) = ChannelPages.size(ctx, settings)
             val blurMode = settings.channelsBg == "blur" && ChannelsUi.shown.value
             val art = ChannelsUi.art.value?.takeIf { blurMode }
@@ -283,6 +293,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // artwork flashed for a moment on the way to the rows.)
             val music = MusicUi.stageCur.value?.takeIf { first && musicWas[0] }
             mix.snapTo(0f)
+            // (The carousel's own picture is what this page replaces: kept for the way back.)
+            val wasUrl = shownUrl.value; val wasPage = shownBackdrop; val wasImgs = backImgs
+            if (wasUrl != null && !wasUrl.startsWith("glassio:") && wasPage != null && wasImgs != null) keptPage[0] = KeptPage(wasUrl, pageSig(), com.glasslauncher.tv.data.AppCatalogs.pkg.value, wasPage, wasImgs)
             if (music != null) { val m = music.glass ?: music.back; prevBackdrop = m; prevImgs = Triple(m, m, m) }
             else if (bridged != null) { prevImgs = Triple(bridged.second.blurred, bridged.second.sharp, bridged.second.heavy); prevBackdrop = bridged.first }
             else { prevImgs = backImgs; prevBackdrop = shownBackdrop }
@@ -294,7 +307,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             if (settings.slideAnim != "fade" && rowsShaded[0]?.first !== page) scope.launch(Dispatchers.Default) {
                 runCatching { withSideShade(page) }.getOrNull()?.let { rowsShaded[0] = page to it }
             }
-            try { mix.animateTo(1f, tween(if (first) 240 else 260)) } finally {
+            searchCut[0] = SearchUi.page.value
+            try { if (searchCut[0]) mix.snapTo(1f) else mix.animateTo(1f, tween(if (first) 150 else 200)) } finally {
                 prevImgs = null; prevBackdrop = null
                 withContext(kotlinx.coroutines.NonCancellable) { mix.snapTo(1f) }
             }
@@ -323,6 +337,20 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         if (own && custom == null) return@LaunchedEffect
         val u = custom ?: backdrop ?: return@LaunchedEffect
         if (custom != null && shownUrl.value == custom && backImgs != null) return@LaunchedEffect
+        // Back from a page of the dock's icons to the slide that was showing: its picture is still here.
+        // (Only to the same list: on the way to an app with its own carousel the picture reported for a moment is
+        // still the old list's, and it showed for half a second before sliding to the app's.)
+        keptPage[0]?.takeIf { it.url == u && it.sig == pageSig() && it.list == com.glasslauncher.tv.data.AppCatalogs.pkg.value && shownUrl.value?.startsWith("glassio:") == true }?.let { k ->
+            prevImgs = backImgs; prevBackdrop = shownBackdrop
+            backImgs = k.imgs; slideDir = 0
+            mix.snapTo(0f)
+            shownBackdrop = k.page; shownUrl.value = u; fadeMs = 150
+            try { if (searchCut[0]) mix.snapTo(1f) else mix.animateTo(1f, tween(150, easing = androidx.compose.animation.core.LinearEasing)) } finally {
+                prevImgs = null; prevBackdrop = null
+                withContext(kotlinx.coroutines.NonCancellable) { mix.snapTo(1f) }
+            }
+            return@LaunchedEffect
+        }
         // Wait for both the full picture and its glass copy, then switch them in the same frame.
         // Originals are big downloads: if the original is not cached yet, show the 1280 px copy first
         // (fast) and swap in the original silently once it arrives.
@@ -363,7 +391,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         }
         if (fullBmp == null) return@LaunchedEffect
         val first = backImgs == null
-        fadeMs = if (app.browsing()) (when (settings.slideAnim) { "apple" -> 560; "slide" -> 420; else -> 220 }) else settings.transitionMs
+        // (Back from a page of the dock's own icons or an app's rows: a short crossfade, not a slide's length. It took
+        // the slides' time, 560 ms and more, and the search felt slow to leave.)
+        val fromStage = shownUrl.value?.startsWith("glassio:") == true
+        fadeMs = if (fromStage && searchCut[0]) 0 else if (fromStage) 150 else if (app.browsing()) (when (settings.slideAnim) { "apple" -> 560; "slide" -> 420; else -> 220 }) else settings.transitionMs
         val dm = ctx.resources.displayMetrics
         val src = fullBmp
         // Slide: the side shade must stay put while pictures move, so it is drawn on top instead of baked in.
@@ -387,7 +418,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         shownBackdrop = baked
         shownUrl.value = u
         try {
-            if (first || next == null) mix.snapTo(1f)
+            if (first || next == null || fadeMs == 0) mix.snapTo(1f)
             else mix.animateTo(1f, tween(fadeMs, easing = when {
                 slideDir == 0 -> androidx.compose.animation.core.LinearEasing
                 // Apple TV: a quick start that settles slowly.
@@ -408,6 +439,29 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             fadeMs = 0; shownBackdrop = b
         } }
     }
+    // The opening slide of each app's own carousel made ready ahead, on the quiet thread (the picture scaled to the
+    // screen with its shades, and its small copy for the glass): going to that app then only fades. Made when
+    // needed, it left the page waiting about half a second.
+    val aheadUrls = HeroAhead.urls.value
+    LaunchedEffect(aheadUrls, pageSig(), settings.bgMode) {
+        val slide = settings.slideAnim != "fade"
+        fun key(u: String) = (if (slide) "$u|slide" else u) + "|" + settings.pageScale + "|" + settings.memTier + "|" + Scrims.key
+        BakeCache.keepOnly(if (settings.bgMode == "carousel") aheadUrls.map { key(it) }.toSet() else emptySet())
+        if (settings.bgMode != "carousel") return@LaunchedEffect
+        delay(2500)
+        val dm = ctx.resources.displayMetrics
+        for (u in aheadUrls) {
+            // (Its picture is kept by the carousel a moment after the list is known: waited for a little.)
+            var src: ImageBitmap? = null
+            repeat(20) { if (src == null) { src = GlassCache.pinnedFull[u]; if (src == null) delay(500) } }
+            val full = src ?: continue
+            if (BakeCache.get(key(u), full) != null) continue
+            withContext(Dispatchers.Default) { runCatching {
+                val b = bakeBackdrop(full, (dm.widthPixels * settings.pageScale).toInt(), (dm.heightPixels * settings.pageScale).toInt(), !slide)
+                GlassHalf.of(b); BakeCache.keep(key(u), full, b)
+            }.onFailure { com.glasslauncher.tv.data.Glog.w("Preparing an app's first slide", it) } }
+        }
+    }
     // Glass like glass: a short ripple after every move in the dock.
     val wobble = remember { androidx.compose.animation.core.Animatable(0f) }
     val kick: () -> Unit = {
@@ -425,6 +479,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         when {
             c == 100 -> { onScreen(Screen.Home); menuOpen = true; app.requestSettings.intValue = -1 }
             c == 101 -> { menuOpen = false; onScreen(Screen.Library); app.requestSettings.intValue = -1 }
+            c == 102 -> { menuOpen = false; folderOpen = false; pop = null; onScreen(Screen.Home); SearchUi.open(settings); app.requestSettings.intValue = -1 }
             c >= 0 -> { settingsCat = c; onScreen(Screen.Settings); app.requestSettings.intValue = -1 }
         }
     }
@@ -447,12 +502,13 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val lifeNow by life.currentStateFlow.collectAsState()
     val isResumed = lifeNow.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
     LaunchedEffect(isResumed, folderOpen, screen, menuOpen) {
-        if (!isResumed || folderOpen || screen != Screen.Home || menuOpen) return@LaunchedEffect
+        if (!isResumed || folderOpen || screen != Screen.Home || menuOpen || SearchUi.full.value) return@LaunchedEffect
         repeat(3) {
             delay(250)
             if (homeHasFocus[0] || pop != null || dialog != null || pickerFor != null) return@LaunchedEffect
             // (With your own background the hidden spot above the dock opens the menu: the first app then.)
-            val first = if (settings.bgMode != "carousel") firstTile else heroFocus
+            // (The search page up: its bar. The carousel's button isn't there then, and the page went away with the selection.)
+            val first = if (SearchUi.page.value) SearchUi.entry else if (settings.bgMode != "carousel") firstTile else heroFocus
             if (runCatching { first.requestFocus() }.isFailure) runCatching { firstTile.requestFocus() }
         }
     }
@@ -467,7 +523,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         while (true) {
             delay(250)
             // On the plain home screen the selection must be on the page itself: held by something hidden counts as lost.
-            val plainHome = screen == Screen.Home && !folderOpen && !menuOpen && pop == null && dialog == null && pickerFor == null
+            val plainHome = screen == Screen.Home && !folderOpen && !menuOpen && pop == null && dialog == null && pickerFor == null && !SearchUi.full.value
             // Only on the plain home screen: the Library and Settings keep their own selection (moving "down" for them
             // here made those pages scroll down by themselves).
             if (!plainHome) { lost = 0; tries = 0; continue }
@@ -481,7 +537,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             lost = 0
             if (tries == 0) com.glasslauncher.tv.data.Glog.i("Nothing selected ($screen, folder $folderOpen, menu $menuOpen): selecting again")
             // Each try something else, in case one of them can't take it (the Play button hidden, the dock away…).
-            if (tries % 2 == 0) runCatching { (if (settings.bgMode != "carousel") firstTile else heroFocus).requestFocus() }
+            if (tries % 2 == 0) runCatching { (if (SearchUi.page.value) SearchUi.entry else if (settings.bgMode != "carousel") firstTile else heroFocus).requestFocus() }
             else runCatching { firstTile.requestFocus() }
             tries++
         }
@@ -942,20 +998,25 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                                 // (Up into the Music icon's player: still the Music icon's, Stop / pause come back to it.)
                                 if (!MusicUi.appsFocused && !MusicUi.stageFocused) MusicUi.appsOn.value = false
                                 if (!InputsUi.focused && !InputsUi.held()) InputsUi.on.value = false
+                                if (!SearchUi.focused && !SearchUi.held()) SearchUi.on.value = false
                             }
                             return@LaunchedEffect
                         }
                         val inputsIcon = !dockMid && settings.inputsIcon && dockPkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG
+                        val searchIcon = SearchUi.inPlace(settings) && settings.searchOn && dockPkg == SearchUi.DOCK_PKG
                         val musicIcon = !dockMid && settings.musicOn && dockPkg == MusicUi.DOCK_PKG
                         val musicApp = !dockMid && !musicIcon && MusicUi.playerFor(ctx, settings, dockPkg)
                         val hasRows = !dockMid && settings.channelsOn && !musicIcon && !musicApp && com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).isNotEmpty()
                         // Catalogs of this app (see AppCatalogs): its rows, its catalogs in the carousel, or nothing.
                         val AC = com.glasslauncher.tv.data.AppCatalogs
-                        val hasCats = settings.appCatalogsOn && !musicIcon && !musicApp && !inputsIcon && !app.catalogs.appItems.value[dockPkg].isNullOrEmpty()
+                        val hasCats = settings.appCatalogsOn && !musicIcon && !musicApp && !inputsIcon && !searchIcon && !app.catalogs.appItems.value[dockPkg].isNullOrEmpty()
                         val stand = if (settings.appCatalogsOn) AC.effective(AC.stage(settings, dockPkg), hasRows, hasCats) else if (hasRows) AC.ROWS else AC.NONE
                         val rows = hasRows && stand == AC.ROWS
                         val cats = hasCats && stand == AC.CATALOGS
-                        delay(if (musicIcon || musicApp || rows || inputsIcon || cats || AC.pkg.value != null) 240 else 90)
+                        // (To the search, and away from it to whatever is next to it: at once, both ways. The longer rest is for
+                        // pages that would flash while the selection only passes over their icon.)
+                        val fromSearch = SearchUi.on.value && !searchIcon
+                        delay(if (searchIcon) 50 else if (fromSearch) 30 else if (musicIcon || musicApp || rows || inputsIcon || cats || AC.pkg.value != null) 240 else 90)
                         // (Another app's titles come in like the next slide. With nothing selected in the dock the list
                         // stays: Up to the carousel is how one of its titles is opened.)
                         if (AC.pkg.value != dockPkg.takeIf { cats }) { SlideDir.dir = 1; app.navAt = System.currentTimeMillis() }
@@ -971,6 +1032,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         MusicUi.dockApp.value = dockPkg.takeIf { musicApp }
                         MusicUi.appsOn.value = musicIcon
                         InputsUi.on.value = inputsIcon
+                        SearchUi.on.value = searchIcon
                     }
                     LaunchedEffect(settings.channelsOn) { if (settings.channelsOn) com.glasslauncher.tv.data.Channels.start(ctx) }
                     // Each dock app's catalogs are loaded ahead, and again every half hour, off the main thread: the
@@ -988,7 +1050,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     val chanRows = if (chanPkg != null && !folderOpen && screen == Screen.Home) com.glasslauncher.tv.data.Channels.rowsFor(settings, chanPkg) else emptyList()
                     // The dock's Music icon puts the player in the carousel's place: no rows then. With the dock open the
                     // rows go, their background stays behind it (chanPage).
-                    val chanPage = chanPkg != null && chanRows.isNotEmpty() && !MusicUi.forced.value
+                    // (Nor under the search opened from the menu or a remote button: the search has the place then.)
+                    val chanPage = chanPkg != null && chanRows.isNotEmpty() && !MusicUi.forced.value && !SearchUi.on.value
                     val chanOn = chanPage && !expanded
                     // The music apps (the Music icon), on the grey page; kept behind the open dock. Not while a song plays:
                     // its player then.
@@ -1004,13 +1067,17 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     val inputsPage = InputsUi.on.value && settings.inputsIcon && !folderOpen && screen == Screen.Home
                     val inputsShow = inputsPage && !expanded
                     androidx.compose.runtime.SideEffect { InputsUi.page.value = inputsPage }
+                    // The Search icon: its bar and the titles found, on the same page.
+                    val searchPage = SearchUi.on.value && settings.searchOn && !folderOpen && screen == Screen.Home && SearchUi.inPlace(settings)
+                    val searchShow = searchPage && !expanded
+                    androidx.compose.runtime.SideEffect { SearchUi.page.value = searchPage }
                     androidx.compose.runtime.SideEffect { MusicUi.appsVisible.value = appsShow; MusicUi.appsPage.value = appsPage }
                     // Paused or stopped on the Music icon: the player gives way to the music apps, the selection goes back
                     // to the icon (it was left in the player going away, then went to the first app).
                     LaunchedEffect(appsShow) {
                         if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
                     }
-                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage, quickHide = (chanPage || appsPage || inputsPage || (otherPageNow && !heroOwn)) && !musicWas[0] && settings.bgMode == "carousel", paused = screen != Screen.Home || pop != null || WhatsNew.open.value || chanPage || appsPage || inputsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
+                    HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage || searchPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage || searchPage, quickHide = (chanPage || appsPage || inputsPage || searchPage || (otherPageNow && !heroOwn)) && !musicWas[0] && settings.bgMode == "carousel", paused = screen != Screen.Home || pop != null || WhatsNew.open.value || chanPage || appsPage || inputsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         // (Showing an app's catalogs: Down from the carousel goes back to that app, so its titles stay.)
                         heroFocus = heroFocus, firstTile = com.glasslauncher.tv.data.AppCatalogs.pkg.value?.let { tileFocus[it] } ?: firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
@@ -1047,6 +1114,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                             onUp = toMenu,
                             onPickIcon = { e -> pickerFor = e })
                     }
+                    val searchA by animateFloatAsState(if (searchShow) 1f else 0f, tween(if (searchShow) 110 else 100), label = "searchPage")
+                    // (Each thing's own alpha, no layer of the whole screen for the fade: one full-screen buffer less on the TV GPU.)
+                    if (searchShow || searchA > 0.01f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = searchA; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }) {
+                        SearchStage(app, s, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
+                            leave = { if (runCatching { tileFocus[SearchUi.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                            // (Stay in the search: ▲ from the bar goes nowhere.)
+                            toMenu = { if (!settings.searchStay) toMenu() })
+                    }
                 }
                 if (DebugHide.intValue and 4 == 0) TopBar(app, s, gearReq, menuOpen = menuOpen, onSettings = { onScreen(Screen.Settings) },
                     // Opens at once, also right after closing: the focus now goes back to Play (not to this button) when
@@ -1056,7 +1131,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 val customPos = if (settings.bgMode != "carousel") settings.dockPos else "bottom"
                 Dock(
                     vertical = customPos == "left", centered = customPos == "center",
-                    onLibrary = { libFromDock = true; onScreen(Screen.Library) },
+                    // (Stay in the search: ▼ on the Search icon doesn't open the Library.)
+                    onLibrary = { if (!(settings.searchStay && SearchUi.on.value)) { libFromDock = true; onScreen(Screen.Library) } },
                     onRight = { if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true } else runCatching { gearReq.requestFocus() } },
                     app = app, s = s, metrics = metrics, screenH = screenHdp, radius = radius,
                     expanded = expanded, onExpanded = { expanded = it },
@@ -1090,14 +1166,17 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // Over the channels' rows too (the music page gives way to them): kept built and faded in and out with
                 // the rows (built each time they came, it appeared late and went at once).
                 val homeIsland = settings.islandHome && (!settings.musicMode || !MusicUi.stageAllowed(settings)) && MusicUi.dockApp.value == null && !(stageWanted && !ChannelsUi.shown.value)
-                val chanIsland0 = ChannelsUi.shown.value || MusicUi.appsPage.value || InputsUi.page.value || (MusicUi.carouselApp.value && settings.musicMode)
+                // (Never with the search: its bar has the top of the screen.)
+// (Gone as soon as its icon is selected, before its page is up: it lingered over the bar for a moment.)
+                val searchUp = SearchUi.page.value || SearchUi.full.value || (settings.searchOn && SearchUi.inPlace(settings) && ChannelsUi.dockPkg.value == SearchUi.DOCK_PKG)
+                val chanIsland0 = !searchUp && (ChannelsUi.shown.value || MusicUi.appsPage.value || InputsUi.page.value || (MusicUi.carouselApp.value && settings.musicMode))
                 // (Never over the player itself: the Music icon's or a music app's own player showed it twice.)
                 val playerUp = stageWanted && !ChannelsUi.shown.value
                 val chanIsland = chanIsland0 && !playerUp
-                val islandA by animateFloatAsState(if (homeIsland || chanIsland) 1f else 0f, tween(if (chanIsland) 260 else 200), label = "chanIsland")
+                val islandA by animateFloatAsState(if ((homeIsland && !searchUp) || chanIsland) 1f else 0f, tween(if (searchUp) 70 else if (chanIsland) 260 else 200), label = "chanIsland")
                 LaunchedEffect(chanIsland, homeIsland) { if (!chanIsland && !homeIsland) MusicUi.islandOpen.value = false }
                 if (settings.musicOn && !MusicUi.forced.value && (homeIsland || settings.musicMode))
-                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = islandA }) { if (islandA > 0f || homeIsland) MusicIsland(app, s) }
+                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = islandA }) { if (islandA > 0f || (homeIsland && !searchUp)) MusicIsland(app, s) }
             }
             // The folder fades out over the home screen instead of vanishing: the dock's glass is drawn again under it
             // first (it showed black for a couple of frames as the folder closed).
@@ -1116,6 +1195,18 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 )
             }
             if (screen == Screen.Home && !folderOpen) UpdateBanner(app, s, Modifier.align(Alignment.TopEnd).padding(end = (34 * s).dp))
+            // The search over the whole screen: where its page can't stand above the dock (the dock in the middle or as
+            // a column), from OK on its icon, the menu's row or a remote button. Back, or ▼ past its last row, closes it.
+            if (SearchUi.full.value && screen == Screen.Home && settings.searchOn && !SearchUi.inPlace(settings)) {
+                val closeSearch = {
+                    SearchUi.full.value = false
+                    scope.launch { repeat(6) { if (runCatching { tileFocus[SearchUi.DOCK_PKG]?.requestFocus() ?: firstTile.requestFocus() }.getOrDefault(false)) return@launch; delay(40) } }
+                    Unit
+                }
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)).focusGroup()) {
+                    SearchStage(app, s, bottom = 20 * s, leave = closeSearch, toMenu = { })
+                }
+            } else if (SearchUi.full.value) androidx.compose.runtime.SideEffect { SearchUi.full.value = false }
             if (screen == Screen.Home && menuOpen) SideMenu(
                 app, s, modifier = Modifier.align(Alignment.TopEnd).onFocusChanged { menuHasFocus = it.hasFocus },
                 onClose = {
@@ -1125,7 +1216,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     val custom = when (settings.bgMode) { "image" -> settings.bgImage.isNotBlank(); "video" -> settings.bgVideo.isNotBlank(); "aerial", "photos" -> true; else -> false }
                     // The channels' rows on screen: back into their top row.
                     // (Into the music apps too: the selection was lost there.)
-                    val back = if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value) MusicUi.appsEntry else if (custom) firstTile else heroFocus
+                    // (Into the search bar and the inputs too: their pages stay under the menu, the carousel's button doesn't exist then.)
+                    // (The search first: asked for from the menu over an app's rows, the selection went into the rows.)
+                    val back = if (SearchUi.page.value || SearchUi.pending || SearchUi.full.value) SearchUi.entry else if (ChannelsUi.showing) ChannelsUi.entry else if (MusicUi.appsVisible.value) MusicUi.appsEntry
+                        else if (InputsUi.page.value) InputsUi.entry else if (custom) firstTile else heroFocus
                     // The focus goes back first, straight from the menu, then the menu closes.
                     menuHasFocus = false
                     runCatching { back.requestFocus() }

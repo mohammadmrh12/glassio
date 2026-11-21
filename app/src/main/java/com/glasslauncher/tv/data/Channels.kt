@@ -33,6 +33,7 @@ object Channels {
     /** Blocking. Gives Glassio the right to read the TV's channels, over the TV's ADB. */
     fun grant(ctx: Context): Boolean {
         if (hasAccess(ctx)) return true
+        if (Store.PLAY) return false   // the TV's own question is asked instead
         LocalShell.run(ctx, "pm grant ${ctx.packageName} $PERMISSION; pm grant ${ctx.packageName} com.android.providers.tv.permission.READ_EPG_DATA 2>/dev/null; true")
         return hasAccess(ctx)
     }

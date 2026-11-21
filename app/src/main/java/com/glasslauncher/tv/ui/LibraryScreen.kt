@@ -34,7 +34,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,11 +79,11 @@ import kotlinx.coroutines.withContext
  */
 /** Asks before a title is removed (Settings: "Ask before removing"). */
 private val LocalAsk = androidx.compose.runtime.staticCompositionLocalOf<(String, () -> Unit) -> Unit> { { _, f -> f() } }
-private val LocalGlow = androidx.compose.runtime.staticCompositionLocalOf { "off" }
+internal val LocalGlow = androidx.compose.runtime.staticCompositionLocalOf { "off" }
 /** The app, when the Hue lights follow the selected poster (else null). */
-private val LocalHuePosters = androidx.compose.runtime.staticCompositionLocalOf<com.glasslauncher.tv.GlassApp?> { null }
+internal val LocalHuePosters = androidx.compose.runtime.staticCompositionLocalOf<com.glasslauncher.tv.GlassApp?> { null }
 /** Hold OK on a title: its menu (open it in one of your apps, or remove it). */
-private val LocalItemMenu = androidx.compose.runtime.staticCompositionLocalOf<(HeroItem, (() -> Unit)?) -> Unit> { { _, remove -> remove?.invoke() } }
+internal val LocalItemMenu = androidx.compose.runtime.staticCompositionLocalOf<(HeroItem, (() -> Unit)?) -> Unit> { { _, remove -> remove?.invoke() } }
 
 @Composable
 fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean = true, onClose: () -> Unit) {
@@ -105,7 +104,7 @@ fun LibraryScreen(app: GlassApp, onTopUp: (() -> Unit)? = null, active: Boolean 
             opts += "Open in $label" to { com.glasslauncher.tv.data.PlatformLinks.openOr(ctx, app.settings, enriched) { NuvioLaunch.openApp(ctx, pkg) } }
         }
         // Its trailer, over the whole screen (Back stops it).
-        if (item.id.startsWith("tt")) opts += "Trailer" to {
+        if (!com.glasslauncher.tv.data.Store.PLAY && item.id.startsWith("tt")) opts += "Trailer" to {
             scope.launch {
                 val got = withContext(Trailers.background) { runCatching { Trailers.prepare(app, item.type, item.id, item.name, item.year) }.getOrNull() }
                 if (got?.second == null) toast(ctx, "No trailer for ${item.name}")
@@ -353,7 +352,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                     Text("Library", color = Color.White, fontSize = (26 * s).sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height((4 * s).dp))
                     Text(
-                        if (hasAny) "OK opens · hold OK for its trailer and more" else "Nothing here yet. On the home screen, press + next to Play to save a title.",
+                        if (hasAny) (if (com.glasslauncher.tv.data.Store.PLAY) "OK opens · hold OK for more" else "OK opens · hold OK for its trailer and more") else "Nothing here yet. On the home screen, press + next to Play to save a title.",
                         color = Color.White.copy(alpha = 0.55f), fontSize = (10 * s).sp,
                     )
                 }
@@ -559,7 +558,7 @@ internal object LibPace {
 
 /** The Continue Watching row: it moves only when the next card would go past the page's margin, by just enough. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private class RowScroll(private val margin: Float, private val glide: Glide) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+internal class RowScroll(private val margin: Float, private val glide: Glide) : androidx.compose.foundation.gestures.BringIntoViewSpec {
     private val soft = androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 300f, visibilityThreshold = 0.5f)
     @Deprecated("still read by Compose 1.9 for bring-into-view scrolling")
     override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> get() = soft
@@ -600,7 +599,7 @@ private fun Section(title: String, s: Float) {
 }
 
 @Composable
-private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier, onOpen: () -> Unit, onRemove: (() -> Unit)?) {
+internal fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier, onOpen: () -> Unit, onRemove: (() -> Unit)?) {
     val ctx = LocalContext.current
     val removeNow = onRemove
     val itemMenu = LocalItemMenu.current
@@ -631,34 +630,7 @@ private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier
                 .drawBehind {
                     // Soft shadow from one pre-blurred picture (smooth on every TV; elevation shadows banded): light
                     // under every poster, deeper under the selected one as it lifts.
-                    run {
-                        // Only the ring around the poster is drawn (four strips): the middle is hidden under the
-                        // picture anyway, and filling it under every poster cost the TV GPU ~3 ms a frame.
-                        val sh = PosterShadow.get()
-                        val pad = size.width * PosterShadow.PAD
-                        val dy = size.height * (0.03f + 0.02f * lift)
-                        val a = 0.3f + 0.5f * lift
-                        val sw = sh.width.toFloat(); val shh = sh.height.toFloat()
-                        val dw = size.width + 2 * pad; val dh = size.height + 2 * pad
-                        val kx = sw / dw; val ky = shh / dh
-                        fun strip(x: Float, y: Float, w: Float, h: Float) {
-                            if (w <= 0f || h <= 0f) return
-                            drawImage(sh, srcOffset = androidx.compose.ui.unit.IntOffset((x * kx).toInt(), (y * ky).toInt()),
-                                srcSize = androidx.compose.ui.unit.IntSize((w * kx).toInt().coerceAtLeast(1), (h * ky).toInt().coerceAtLeast(1)),
-                                dstOffset = androidx.compose.ui.unit.IntOffset((x - pad).toInt(), (y - pad + dy).toInt()),
-                                dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()), alpha = a,
-                                filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
-                        }
-                        // In shadow-picture space (0…dw, 0…dh) the poster covers pad…pad+width, shifted down by dy.
-                        // The strips reach in under the poster's rounded corners: stopping at its square edge left the
-                        // corners without shadow, a light little frame around each one.
-                        val r = cornerPx * 1.2f
-                        val top = (pad - dy + r).coerceAtLeast(0f); val bottom = pad + size.height - dy - r
-                        strip(0f, 0f, dw, top)
-                        strip(0f, bottom, dw, dh - bottom)
-                        strip(0f, top, pad + r, bottom - top)
-                        strip(pad + size.width - r, top, pad + r, bottom - top)
-                    }
+                    softShadow(PosterShadow.get(), PosterShadow.PAD, lift, cornerPx)
                     with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = true, corner = cornerPx) }
                 }
                 .clip(shape)
@@ -667,14 +639,14 @@ private fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifier
                 .then(if (loaded) Modifier else Modifier.background(Color(0xFF4A4A50))),
             contentAlignment = Alignment.Center,
         ) {
-            if (!loaded) Text(item.name, color = Color.White.copy(alpha = 0.6f), fontSize = (10 * s).sp, textAlign = TextAlign.Center,
+            if (!loaded) Plain(item.name, color = Color.White.copy(alpha = 0.6f), fontSize = (10 * s).sp, textAlign = TextAlign.Center,
                 modifier = Modifier.padding((8 * s).dp))
             AsyncImage(req, item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
                 loaded = true
                 if ((glow == "color" || hueApp != null) && gc == null) { val b = r.result.image; Bg.io("glass-glow") { gc = Glow.colorOf("p:" + item.key, (b as? coil3.BitmapImage)?.bitmap) } }
             })
         }
-        if (titles) Text(item.name, color = Color.White.copy(alpha = if (focused) 0.95f else 0.6f), fontSize = (9.5f * s).sp,
+        if (titles) Plain(item.name, color = Color.White.copy(alpha = if (focused) 0.95f else 0.6f), fontSize = (9.5f * s).sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = (7 * s).dp))
     }
 }
@@ -730,7 +702,7 @@ private fun CwCard(item: HeroItem, source: String, s: Float, wide: Boolean, show
             Text(source, color = Color.White, fontSize = (8 * s).sp, fontWeight = FontWeight.SemiBold)
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = (9 * s).dp, vertical = (8 * s).dp)) {
-            Text(item.name, color = Color.White, fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Plain(item.name, color = Color.White, fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val pct = (item.progress * 100).toInt().coerceIn(0, 100)
             Text((if (item.nextUp) listOf("Next up", item.sub) else listOf(item.sub, "$pct%")).filter { it.isNotBlank() }.joinToString("  ·  "),
                 color = Color.White.copy(alpha = 0.75f), fontSize = (8.5f * s).sp)
@@ -766,8 +738,40 @@ internal fun greyPage(w: Int, h: Int): ImageBitmap {
     return b.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap()
 }
 
+/**
+ * The soft shadow under a poster or a card, from one pre-blurred picture ([sh], its blur margin [padFrac] of the
+ * width on each side): light at rest, deeper as the card lifts ([lift] 0..1). Used by the Library and the search.
+ */
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.softShadow(sh: ImageBitmap, padFrac: Float, lift: Float, cornerPx: Float) {
+    // Only the ring around the poster is drawn (four strips): the middle is hidden under the
+    // picture anyway, and filling it under every poster cost the TV GPU ~3 ms a frame.
+    val pad = size.width * padFrac
+    val dy = size.height * (0.03f + 0.02f * lift)
+    val a = 0.3f + 0.5f * lift
+    val sw = sh.width.toFloat(); val shh = sh.height.toFloat()
+    val dw = size.width + 2 * pad; val dh = size.height + 2 * pad
+    val kx = sw / dw; val ky = shh / dh
+    fun strip(x: Float, y: Float, w: Float, h: Float) {
+        if (w <= 0f || h <= 0f) return
+        drawImage(sh, srcOffset = androidx.compose.ui.unit.IntOffset((x * kx).toInt(), (y * ky).toInt()),
+            srcSize = androidx.compose.ui.unit.IntSize((w * kx).toInt().coerceAtLeast(1), (h * ky).toInt().coerceAtLeast(1)),
+            dstOffset = androidx.compose.ui.unit.IntOffset((x - pad).toInt(), (y - pad + dy).toInt()),
+            dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()), alpha = a,
+            filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
+    }
+    // In shadow-picture space (0…dw, 0…dh) the poster covers pad…pad+width, shifted down by dy.
+    // The strips reach in under the poster's rounded corners: stopping at its square edge left the
+    // corners without shadow, a light little frame around each one.
+    val r = cornerPx * 1.2f
+    val top = (pad - dy + r).coerceAtLeast(0f); val bottom = pad + size.height - dy - r
+    strip(0f, 0f, dw, top)
+    strip(0f, bottom, dw, dh - bottom)
+    strip(0f, top, pad + r, bottom - top)
+    strip(pad + size.width - r, top, pad + r, bottom - top)
+}
+
 /** One blurred rounded shape, drawn behind every poster (scaled), for a light, soft shadow. */
-private object PosterShadow {
+internal object PosterShadow {
     /** Blur margin on each side, as a fraction of the poster width. */
     const val PAD = 0.16f
     private var img: ImageBitmap? = null
@@ -780,6 +784,19 @@ private object PosterShadow {
         }
         android.graphics.Canvas(b).drawRoundRect(pad + 4f, pad + 8f, pad + w - 4f, pad + h.toFloat(), 14f, 14f, p)
         b.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap().also { img = it }
+    }
+    /** The same for a wide card (16:9): its margin is [WIDE_PAD] of the width. */
+    const val WIDE_PAD = 0.09f
+    private var wideImg: ImageBitmap? = null
+    fun wide(): ImageBitmap = wideImg ?: run {
+        val w = 256; val h = 144; val pad = (w * WIDE_PAD).toInt()
+        val b = android.graphics.Bitmap.createBitmap(w + 2 * pad, h + 2 * pad, android.graphics.Bitmap.Config.ARGB_8888)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.DITHER_FLAG).apply {
+            color = android.graphics.Color.argb(170, 0, 0, 0)
+            maskFilter = android.graphics.BlurMaskFilter(pad * 0.8f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        android.graphics.Canvas(b).drawRoundRect(pad + 4f, pad + 8f, pad + w - 4f, pad + h.toFloat(), 14f, 14f, p)
+        b.copy(android.graphics.Bitmap.Config.ARGB_8888, false).also { b.recycle(); it.prepareToDraw() }.asImageBitmap().also { wideImg = it }
     }
 }
 

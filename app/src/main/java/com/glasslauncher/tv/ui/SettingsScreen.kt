@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -106,6 +105,10 @@ private val NEW_IN = mapOf(
     "4.0.0" to listOf("Profile", "At start", "Name", "Picture", "Greeting", "Catalogs for apps", "Apps and their catalogs",
         "Continue Watching in app carousels", "Play opens the streaming app", "Apps", "Find links with JustWatch", "Country",
         "Platform rows", "Rows per platform", "Carousel shade", "Button look", "Music & Inputs page"),
+    "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
+        "Nuvio and Stremio apps", "Nuvio plays at once", "Stremio for a film", "Quality", "Largest file", "HDR and Dolby Vision",
+        "Leave out cinema recordings", "Torrents", "Add-ons asked", "Keep the words searched", "Search in the menu", "Page behind the search", "Titles as", "Stay in the search", "Card size", "Rating",
+        "Only on my services", "Popular this week", "Start with an empty bar", "YouTube", "YouTube opens in", "Music", "Music apps", "A song plays under the search", "Order of the list"),
 )
 /** The rows marked New on this screen, and what to do when one is used. */
 private class NewMarks(val titles: Set<String>, val used: (String) -> Unit)
@@ -253,7 +256,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
     fun pageRow(title: String, desc: String, value: String, ok: Boolean? = null, sp: SubPage): SRow = Act(title, desc, value, ok, sub = sp) { openSub(sp) }
     fun closeSub() { if (subs.isNotEmpty()) { hold(); subs.removeAt(subs.lastIndex) } }
     /** A row that opens a list: its count on the right. */
-    fun more(n: Any) = "$n  ›"
+    fun more(n: Any) = "${com.glasslauncher.tv.data.I18n.tr(n.toString())}  ›"
     val weatherFound by app.weather.found.collectAsState()
     // The Hue pages read the bridge again when this changes (connected, forgotten).
     val hueRev = remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -728,6 +731,127 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Adjust("  · Card size", "", { pct(st.libraryCwSize) }, { st.libraryCwSize = ((st.libraryCwSize * 10).roundToInt() + it) / 10f }))
                 add(Toggle("  · Where it came from", "Nuvio, Trakt, Simkl or Stremio, with a dot in its colour", { st.libraryCwSource }, { st.libraryCwSource = it }))
                 add(Note("In the Library: OK opens the title like the carousel. Hold OK (or Menu) to remove it."))
+
+                add(Note("Search"))
+                add(pageRow("Search", "Films and series by name, from an icon in the dock, and where each can be watched. Off: nothing of it is there",
+                    more(if (st.searchOn) "On" else "Off"), sp = SubPage("Search") {
+                        buildList {
+                            val reload = { scope.launch(Dispatchers.IO) { app.apps.reload() }; Unit }
+                            add(Toggle("Search", "An icon in the dock: select it and the search bar comes up in the carousel's place; OK types. Glassio plays nothing itself: a title opens in an app",
+                                { st.searchOn }, { st.searchOn = it; if (it && st.searchDock) app.apps.placeNearFront(SearchUi.DOCK_PKG); reload() }))
+                            if (!st.searchOn) return@buildList
+                            add(Toggle("Search icon in the dock", "Move, hide and change it like an app", { st.searchDock }, { st.searchDock = it; if (it) app.apps.placeNearFront(SearchUi.DOCK_PKG); reload() }))
+                            // (The same setting as Music & app rows → Music & Inputs page: the three icons share their page.)
+                            add(Adjust("Page behind the search", "The grey page, Glassio's soft coloured lights, or the carousel's picture blurred. The Music and Inputs icons' page is the same one",
+                                { when (st.stagePageBg) { "glassio" -> "Glassio blur"; "carousel" -> "Carousel blur"; else -> "Grey" } },
+                                { st.stagePageBg = cycle(listOf("grey", "glassio", "carousel"), st.stagePageBg, it) }))
+                            add(Toggle("Search in the menu", "A Search row in the side menu; a remote button can open it too (System → Remote buttons)", { st.menuSearch }, { st.menuSearch = it }))
+                            add(Note("What is searched"))
+                            add(Toggle("Films", "", { st.searchMovies }, { if (it || st.searchSeries) st.searchMovies = it }))
+                            add(Toggle("Series", "", { st.searchSeries }, { if (it || st.searchMovies) st.searchSeries = it }))
+                            add(Adjust("Titles as", "A tall poster or a wide card with the title's backdrop. The name, the year and the rating are inside the picture, like a Continue Watching card of the Library",
+                                { if (st.searchShape == "card") "Card" else "Poster" }, { st.searchShape = if (st.searchShape == "card") "poster" else "card" }))
+                            add(Toggle("Stay in the search", "On the Search icon ▼ doesn't open the Library, and ▲ from the search bar doesn't go to the menu", { st.searchStay }, { st.searchStay = it }))
+                            add(Adjust("Card size", "Large: the titles and the videos as big as fits above the dock with both rows whole. Standard: the smaller cards",
+                                { if (st.searchCardSize == "large") "Large" else "Standard" }, { st.searchCardSize = if (st.searchCardSize == "large") "standard" else "large" }))
+                            add(Toggle("Popular this week", "Shown before anything is typed. Needs the TMDB token (Accounts & profiles)", { st.searchTrending }, { st.searchTrending = it }))
+                            add(Toggle("Rating", "The title's rating, the number alone, faint, beside the year and Film / Series", { st.searchRating }, { st.searchRating = it }))
+                            add(Toggle("Only on my services", "Only titles that a service's app on this TV has. Titles that are on none of them are left out, also when Nuvio or Stremio could open them",
+                                { st.searchMine }, { st.searchMine = it }))
+                            // Videos and songs: found here (the github build), opened in their apps.
+                            if (com.glasslauncher.tv.data.MediaSearch.AVAILABLE) {
+                                val tube = com.glasslauncher.tv.data.Search.YOUTUBE_APPS.filter { NuvioLaunch.installed(ctx, it) }
+                                add(Toggle("YouTube", if (tube.isEmpty()) "No YouTube app or SmartTube on this TV" else "Videos under the titles; one opens in the app below", { st.searchYoutube }, { st.searchYoutube = it }))
+                                if (st.searchYoutube && tube.size > 1) add(Adjust("  · YouTube opens in", "", { if (st.searchYoutubeApp == "auto") "Automatic" else com.glasslauncher.tv.data.Search.appLabel(ctx, st.searchYoutubeApp) },
+                                    { st.searchYoutubeApp = cycle(listOf("auto") + tube, st.searchYoutubeApp.takeIf { a -> a == "auto" || a in tube } ?: "auto", it) }))
+                            }
+                            val music = listOfNotNull(("spotify" to "Spotify").takeIf { NuvioLaunch.installed(ctx, com.glasslauncher.tv.data.Search.SPOTIFY) },
+                                ("soundcloud" to "SoundCloud").takeIf { com.glasslauncher.tv.data.MediaSearch.AVAILABLE && NuvioLaunch.installed(ctx, com.glasslauncher.tv.data.Search.SOUNDCLOUD) })
+                            add(Toggle("Music", if (music.isEmpty()) "Neither Spotify nor SoundCloud is on this TV" else "SoundCloud's songs under the titles, and Spotify's own search with the words in it", { st.searchMusic }, { st.searchMusic = it }))
+                            if (st.searchMusic && music.isNotEmpty()) {
+                                val on = music.filter { it.first !in st.searchMusicOff }
+                                add(Act("  · Music apps", on.joinToString(" · ") { it.second }.ifBlank { "None" }, more(on.size)) {
+                                    dialog = PickDialog("Music", "The ones without a tick are left out of the search", music.map { (k, n) ->
+                                        PickRow(n, "", { if (k in st.searchMusicOff) "" else "✓" }) { st.searchMusicOff = if (k in st.searchMusicOff) st.searchMusicOff - k else st.searchMusicOff + k }
+                                    }, st.menuStyle)
+                                })
+                            }
+                            if (st.searchMusic && music.any { it.first == "soundcloud" && it.first !in st.searchMusicOff })
+                                add(Toggle("A song plays under the search", "Glassio comes back as soon as the song starts in SoundCloud. Off: SoundCloud stays open", { st.searchMusicStay }, { st.searchMusicStay = it }))
+                            add(Note("Opening a title"))
+                            // The list, the first place of it, or one app chosen here (a service's app, a Nuvio app, Stremio).
+                            val okApps = (if (st.searchServices) com.glasslauncher.tv.data.PlatformLinks.installed(ctx).filter { it !in st.searchServicesOff }.map { it to com.glasslauncher.tv.data.Search.appLabel(ctx, it) } else emptyList()) +
+                                com.glasslauncher.tv.data.Search.players(ctx, st)
+                            add(Adjust("OK on a title", "A list of the places it can be watched in, the first of them at once (services first, then Nuvio, then Stremio), or always one app: the list comes up when that app can't open the title",
+                                { when (st.searchOk) { "list" -> "Lists where to watch"; "first" -> "Opens the first place"; else -> okApps.firstOrNull { it.first == st.searchOk }?.second ?: "Lists where to watch" } },
+                                { st.searchOk = cycle(listOf("list", "first") + okApps.map { a -> a.first }, st.searchOk.takeIf { k -> k == "list" || k == "first" || okApps.any { a -> a.first == k } } ?: "list", it) }))
+                            add(Adjust("  · Order of the list", "", { if (st.searchOrder == "players") "Nuvio and Stremio first" else "Services first" }, { st.searchOrder = if (st.searchOrder == "players") "services" else "players" }))
+                            add(Toggle("Streaming services", "Netflix, Apple TV, Prime Video, Disney+: the ones on this TV that have the title in your country (JustWatch)",
+                                { st.searchServices }, { st.searchServices = it }))
+                            if (st.searchServices) {
+                                val can = com.glasslauncher.tv.data.PlatformLinks.installed(ctx).toList()
+                                val names = can.associateWith { com.glasslauncher.tv.data.Search.appLabel(ctx, it) }
+                                val on = can.filter { it !in st.searchServicesOff }
+                                add(Act("  · Service apps", if (can.isEmpty()) "No streaming service's app on this TV yet" else on.joinToString(" · ") { names.getValue(it) }.ifBlank { "None" }, more(on.size)) {
+                                    if (can.isEmpty()) return@Act
+                                    dialog = PickDialog("Streaming services", "The ones without a tick never show for a title", can.map { p ->
+                                        PickRow(names.getValue(p), "", { if (p in st.searchServicesOff) "" else "✓" }) {
+                                            st.searchServicesOff = if (p in st.searchServicesOff) st.searchServicesOff - p else st.searchServicesOff + p
+                                        }
+                                    }, st.menuStyle)
+                                })
+                                if (!st.linkJustWatch) add(link("Catalogs & add-ons", "Find links with JustWatch", "It is off: without it no service is found for a title"))
+                                add(link("Catalogs & add-ons", "Country", "What each service has differs by country"))
+                            }
+                            add(Toggle("Nuvio and Stremio", "The Nuvio apps and Stremio on this TV: they can open any title", { st.searchPlayers }, { st.searchPlayers = it }))
+                            if (st.searchPlayers) {
+                                val can = NuvioLaunch.installedTargets(ctx)
+                                val on = can.filter { it.first !in st.searchPlayersOff }
+                                add(Act("  · Nuvio and Stremio apps", if (can.isEmpty()) "None of them is on this TV" else on.joinToString(" · ") { it.second }.ifBlank { "None" }, more(on.size)) {
+                                    if (can.isEmpty()) return@Act
+                                    dialog = PickDialog("Nuvio and Stremio", "The ones without a tick never show for a title", can.map { (t, n) ->
+                                        PickRow(n, "", { if (t in st.searchPlayersOff) "" else "✓" }) {
+                                            st.searchPlayersOff = if (t in st.searchPlayersOff) st.searchPlayersOff - t else st.searchPlayersOff + t
+                                        }
+                                    }, st.menuStyle)
+                                })
+                                if (on.any { it.first != "stremio" }) add(Toggle("  · Nuvio plays at once", "Instead of the title's page: the Nuvio app starts it and picks the source by its own settings. A series opens its page",
+                                    { st.searchNuvioPlay }, { st.searchNuvioPlay = it }))
+                                if (on.any { it.first == "stremio" } && !com.glasslauncher.tv.data.Store.PLAY) {
+                                    add(Note("Stremio's sources"))
+                                    add(Adjust("Stremio for a film", "Stremio takes one exact source from Glassio: your add-ons' sources are listed here by the rules below, or the first that fits plays at once. A series opens its page in Stremio",
+                                        { when (st.stremioSources) { "first" -> "Plays the first that fits"; "page" -> "Its page in Stremio"; else -> "Lists the sources" } },
+                                        { st.stremioSources = cycle(listOf("list", "first", "page"), st.stremioSources, it) }))
+                                    if (st.stremioSources != "page") {
+                                        add(Adjust("  · Quality", "That one first, then the nearest below it", { when (st.stremioQuality) { 0 -> "Highest"; 2160 -> "4K"; else -> "${st.stremioQuality}p" } },
+                                            { st.stremioQuality = cycle(listOf(0, 2160, 1080, 720), st.stremioQuality, it) }))
+                                        val sizes = listOf(0, 2, 4, 6, 8, 10, 15, 20, 30, 50, 80)
+                                        add(Adjust("  · Largest file", "Bigger files are left out", { if (st.stremioMaxGb == 0) "No limit" else "${st.stremioMaxGb} GB" },
+                                            { st.stremioMaxGb = sizes[(sizes.indexOf(st.stremioMaxGb).coerceAtLeast(0) + it).coerceIn(0, sizes.lastIndex)] }))
+                                        add(Adjust("  · HDR and Dolby Vision", "", { when (st.stremioHdr) { "prefer" -> "First"; "avoid" -> "Last"; else -> "Doesn't matter" } },
+                                            { st.stremioHdr = cycle(listOf("any", "prefer", "avoid"), st.stremioHdr, it) }))
+                                        add(Toggle("  · Leave out cinema recordings", "CAM, telesync and the like", { st.stremioNoCam }, { st.stremioNoCam = it }))
+                                        add(Toggle("  · Torrents", "Sources without a direct address (marked P2P). Stremio plays them only where its streaming server runs; on most TVs they don't start",
+                                            { st.stremioP2p }, { st.stremioP2p = it }))
+                                        val addons = app.catalogs.allAddons()
+                                        val used = addons.filter { it !in st.stremioAddonsOff }
+                                        add(Act("  · Add-ons asked", "The ones that give sources among your add-ons", more("${used.size} / ${addons.size}")) {
+                                            if (addons.isEmpty()) return@Act
+                                            dialog = PickDialog("Add-ons asked for sources", "One that gives no sources is simply skipped", addons.map { u ->
+                                                PickRow(u.substringAfter("://").substringBefore('/'), "", { if (u in st.stremioAddonsOff) "" else "✓" }) {
+                                                    st.stremioAddonsOff = if (u in st.stremioAddonsOff) st.stremioAddonsOff - u else st.stremioAddonsOff + u
+                                                }
+                                            }, st.menuStyle)
+                                        })
+                                    }
+                                }
+                            }
+                            add(Note("Searched before"))
+                            add(Toggle("Start with an empty bar", "The search opens empty each time. Off: what was typed last is still in the bar", { st.searchFresh }, { st.searchFresh = it }))
+                            add(Toggle("Keep the words searched", "A list of your earlier searches under the bar while it is empty: OK on one searches it again", { st.searchRecent }, { st.searchRecent = it; if (!it) st.searchHistory = emptyList() }))
+                            if (st.searchRecent && st.searchHistory.isNotEmpty()) add(Act("  · Forget them", st.searchHistory.joinToString(" · "), "") { st.searchHistory = emptyList() })
+                        }
+                    }))
             }
         },
         Category("Carousel") {
@@ -804,6 +928,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 })
                 add(Note("One title: on the carousel hold OK (or press Menu) to switch to its next picture. Glassio remembers it."))
 
+                if (!com.glasslauncher.tv.data.Store.PLAY) {
                 add(Note("Trailers"))
                 add(Toggle("Trailer button", "Next to Play (Apple TV buttons). Hold OK on Play has Trailer too", { st.trailerButton }, { st.trailerButton = it }))
                 add(Adjust("Play trailers by themselves", "After this long on a title its trailer starts; when it ends (or ◀ ▶) the next title comes", {
@@ -822,6 +947,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Adjust("  · Language", "", { java.util.Locale(st.trailerSubLang).getDisplayLanguage(java.util.Locale.ENGLISH) },
                     { st.trailerSubLang = cycle(listOf("en", "ar", "fr", "de", "es", "it", "tr", "fa", "ru", "pt", "hi", "ja", "ko", "zh"), st.trailerSubLang, it) }))
                 add(Adjust("  · Size", "", { pct(st.trailerSubScale) }, { st.trailerSubScale = ((st.trailerSubScale * 10).roundToInt() + it) / 10f }))
+                }
             }
         },
         Category("Dock & icons") {
@@ -861,7 +987,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     { st.iconPack = cycle(listOf("") + SettingsCache.packs.value.orEmpty().map { p -> p.pkg }, st.iconPack, it) }))
                 add(Act("  · Find icon packs on Google Play", "Projectivy / Android TV icon packs", "") { openPlay(ctx, null, "projectivy icon pack") })
                 // Packs installed straight from their own pages (GitHub, F-Droid): Install, then pick it under Icon pack.
-                add(pageRow("  · Install an icon pack", "Straight from the packs' own pages (GitHub, F-Droid)", more(com.glasslauncher.tv.data.IconPackStore.PACKS.size), sp = SubPage("Install an icon pack") {
+                if (!com.glasslauncher.tv.data.Store.PLAY) add(pageRow("  · Install an icon pack", "Straight from the packs' own pages (GitHub, F-Droid)", more(com.glasslauncher.tv.data.IconPackStore.PACKS.size), sp = SubPage("Install an icon pack") {
                         tvRev.intValue
                         buildList {
                             com.glasslauncher.tv.data.IconPackStore.PACKS.forEach { p ->
@@ -1000,8 +1126,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("  · Look", "", { styleName(st.menuStyle) },
                         { st.menuStyle = cycle(listOf("liquid", "water", "water_still", "clear", "amoled", "bow"), st.menuStyle, it); st.theme = "" }))
                     add(Adjust("  · Size", "", { pct(st.menuScale) }, { st.menuScale = ((st.menuScale * 20).roundToInt() + it) / 20f }))
-                    add(Act("  · Order", st.menuOrder.joinToString(" · ") { com.glasslauncher.tv.data.MENU_NAMES[it] ?: it }, "Change") {
-                        dialog = ReorderDialog("Menu order", st.menuOrder.map { it to (com.glasslauncher.tv.data.MENU_NAMES[it] ?: it) }) { st.menuOrder = it }
+                    add(Act("  · Order", st.menuOrder.filterNot { com.glasslauncher.tv.data.Store.PLAY && it == "trailer" }.joinToString(" · ") { com.glasslauncher.tv.data.MENU_NAMES[it] ?: it }, "Change") {
+                        // (The play build has no trailers: their item isn't offered, and stays in the saved order, at its end.)
+                        dialog = ReorderDialog("Menu order", st.menuOrder.filterNot { com.glasslauncher.tv.data.Store.PLAY && it == "trailer" }.map { it to (com.glasslauncher.tv.data.MENU_NAMES[it] ?: it) }) { st.menuOrder = if (com.glasslauncher.tv.data.Store.PLAY && "trailer" in st.menuOrder) it + "trailer" else it }
                     })
                     add(Toggle("Greeting", "Hello and the profile's name at the top of the menu, with its picture (the name alone under a Hello button, no picture under a picture button)",
                         { st.menuHello }, { st.menuHello = it }))
@@ -1017,13 +1144,14 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                 add(Toggle("Themes", "", { st.menuThemes }, { st.menuThemes = it }))
                                 add(Toggle("Profile", "Change who is watching (shown when your Nuvio account has more than one profile)", { st.menuProfile }, { st.menuProfile = it }))
                                 add(Toggle("Background", "Switch between title backdrops, your picture, your video and the screensaver", { st.menuBackground }, { st.menuBackground = it }))
-                                add(Toggle("Trailer", "Play or stop the trailer, and its size, starting by itself and subtitles", { st.menuTrailer }, { st.menuTrailer = it }))
+                                if (!com.glasslauncher.tv.data.Store.PLAY) add(Toggle("Trailer", "Play or stop the trailer, and its size, starting by itself and subtitles", { st.menuTrailer }, { st.menuTrailer = it }))
                                 add(Toggle("Screensaver", "Start it, choose its videos and when it starts", { st.menuSaver }, { st.menuSaver = it }))
                                 add(link("Smart home", "Camera in the menu", "The live camera in the menu is with the cameras"))
                                 add(link("Music & app rows", "Player in the menu", "The small player in the menu is with the music"))
                                 add(Toggle("Inputs", "The TV's HDMI inputs and the devices plugged into them (found by themselves, by name over HDMI-CEC)",
                                     { st.menuInputs }, { st.menuInputs = it; if (it) scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }))
                                 add(Toggle("Recent apps", "Opens the app switcher (like holding Home)", { st.menuRecents }, { st.menuRecents = it }))
+                                if (st.searchOn) add(Toggle("Search", "Glassio's search: films, series, videos, songs", { st.menuSearch }, { st.menuSearch = it }))
                                 add(Toggle("Wi-Fi", "", { st.menuWifi }, { st.menuWifi = it }))
                                 add(Toggle("Bluetooth", "The TV's Bluetooth: remotes, headphones, speakers and controllers", { st.menuBluetooth }, { st.menuBluetooth = it }))
                                 add(Toggle("Android settings", "", { st.menuAndroid }, { st.menuAndroid = it }))
@@ -1212,7 +1340,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         "trailer" -> "Trailers"
                         else -> "Posters with logos"
                     }
-                }, { st.saverMode = cycle(listOf("aerial", "slideshow", "trailer", "system"), st.saverMode, it) }))
+                }, { st.saverMode = cycle(if (com.glasslauncher.tv.data.Store.PLAY) listOf("aerial", "slideshow", "system") else listOf("aerial", "slideshow", "trailer", "system"), st.saverMode, it) }))
                 if (st.saverMode == "slideshow") add(Note("OK on a poster opens the title in Nuvio · ◀ ▶ the next or the one before"))
                 add(Act("Preview now", "") { ctx.startActivity(Intent(ctx, ScreensaverActivity::class.java)) })
 
@@ -1337,7 +1465,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 // Without ADB: the TV's own question.
                 else kotlinx.coroutines.withContext(Dispatchers.Main) { runCatching { (ctx as? android.app.Activity)?.requestPermissions(arrayOf(ch.PERMISSION), 77) } }
                 tvRev.intValue++
-                toast(ctx, if (ok) "Channels on" else "Allow it on the TV's question, or allow TV access (ADB) first: Glassio settings → System")
+                toast(ctx, if (ok) "Channels on" else if (com.glasslauncher.tv.data.Store.PLAY) "Allow it on the TV's question" else "Allow it on the TV's question, or allow TV access (ADB) first: Glassio settings → System")
             }
             fun label(pkg: String) = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == pkg }?.label
                 ?: runCatching { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
@@ -1345,13 +1473,15 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Note("Music"))
                 val musicAccess = com.glasslauncher.tv.data.NowPlaying.hasAccess(ctx)
                 add(Toggle("Music", if (!st.musicOn) "Glassio follows what any music app plays (Spotify, YouTube Music, Apple Music, Anghami…)"
-                    else if (musicAccess) "On: following your music apps" else "Needs TV access (ADB, System) to read the music apps: press to try again",
+                    else if (musicAccess) "On: following your music apps" else if (com.glasslauncher.tv.data.Store.PLAY) "Needs \"Notification access\" for Glassio in the TV's settings: press to open it"
+                    else "Needs TV access (ADB, System) to read the music apps: press to try again",
                     { st.musicOn }, { on ->
                         st.musicOn = on
                         if (on) io {
                             val ok = com.glasslauncher.tv.data.NowPlaying.grant(ctx)
                             com.glasslauncher.tv.data.NowPlaying.start(ctx); app.apps.reload(); tvRev.intValue++
-                            if (ok) "Music on" else "Allow TV access (ADB) first: Glassio settings → System"
+                            if (!ok && com.glasslauncher.tv.data.Store.PLAY) kotlinx.coroutines.withContext(Dispatchers.Main) { openSystem(ctx, AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS) }
+                            if (ok) "Music on" else if (com.glasslauncher.tv.data.Store.PLAY) "Turn on Glassio under Notification access, then switch Music on again" else "Allow TV access (ADB) first: Glassio settings → System"
                         } else app.apps.reload()
                     }))
                 if (st.musicOn) {
@@ -1456,7 +1586,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             val camList = st.cameras.mapNotNull { Cam.parse(it) }
             buildList {
                 add(Note("Hue lights"))
-                add(Toggle("Hue Sync", "Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork",
+                add(Toggle("Hue Sync", if (com.glasslauncher.tv.data.Store.PLAY) "Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork"
+                    else "Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork",
                     { st.hueOn }, { on -> st.hueOn = on; if (!on) sync.leave(st, "restore") }))
                 val paired = st.hueUser.isNotBlank()
                 if (st.hueOn) {
@@ -1563,7 +1694,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     }, { st.hueIntensity = (st.hueIntensity + it).coerceIn(0, 3) }))
                     add(Adjust("Brightness", "", { "${st.hueBri} %" }, { st.hueBri = st.hueBri + it * 5 }))
                     add(Toggle("Follow the picture's brightness", "Darker scenes, dimmer lights", { st.hueFollowBri }, { st.hueFollowBri = it }))
-                    add(Toggle("Follow videos", "Your video background and trailers, live", { st.hueVideo }, { st.hueVideo = it }))
+                    add(Toggle("Follow videos", if (com.glasslauncher.tv.data.Store.PLAY) "Your video background, live" else "Your video background and trailers, live", { st.hueVideo }, { st.hueVideo = it }))
                     if (st.hueVideo || st.hueSaver) add(Adjust("  · Every", "How often the lights follow a video", { if (st.hueVideoSec <= 0) "0.5 s" else "${st.hueVideoSec} s" }, { st.hueVideoSec = st.hueVideoSec + it }))
                     pick("Change speed", "How long the lights take to follow a video (a new title's colours come at once)", st.hueSpeedMs.toString(), listOf(
                         Triple("0", "Instant", ""), Triple("400", "Quick", "0.4 s"), Triple("1000", "Smooth", "1 s"),
@@ -1805,12 +1936,13 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         }
                     }
                 opts += ThumbItem("Recent apps", "The open apps, like holding Home", HueArt.recents()) { mapTo(code, "recents", "Recent apps") }
+                if (st.searchOn) opts += ThumbItem("Search", "Glassio's search: films, series, videos, songs", null) { mapTo(code, "search", "Search") }
                 com.glasslauncher.tv.data.Inputs.list.value.forEach { inp ->
                     val pic = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == com.glasslauncher.tv.data.Inputs.PREFIX + inp.id }?.let { app.apps.cachedArtwork(it)?.bmp }
                         ?: HueArt.input(inp.label)
                     opts += ThumbItem(inp.label, "TV input", pic) { mapTo(code, com.glasslauncher.tv.data.Inputs.PREFIX + inp.id, inp.label) }
                 }
-                app.apps.ordered(includeHidden = true).filter { !com.glasslauncher.tv.data.Inputs.isInput(it.pkg) && it.pkg != MusicUi.DOCK_PKG }.forEach { e ->
+                app.apps.ordered(includeHidden = true).filter { !com.glasslauncher.tv.data.Inputs.isInput(it.pkg) && it.pkg != MusicUi.DOCK_PKG && it.pkg != SearchUi.DOCK_PKG }.forEach { e ->
                     opts += ThumbItem(e.label, "App", app.apps.cachedArtwork(e)?.bmp) { mapTo(code, "app:" + e.pkg, e.label) }
                 }
                 dialog = ThumbDialog("${keyName(code)} opens…", opts)
@@ -1827,9 +1959,16 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             com.glasslauncher.tv.data.PeerSync.rev.intValue
             buildList {
                 add(Note("Home button & start"))
-                add(Toggle("Home button opens Glassio", "Needs Glassio's accessibility service", { st.interceptHome }, { st.interceptHome = it }))
-                add(Act("  · Turn on the service", "Find Glassio and switch it on", "") { openSystem(ctx, AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS) })
-                add(Act("  · With ADB", if (homeKeyOn) "The accessibility service is on" else "When the TV doesn't let you (restricted setting / greyed out). Needs TV access (ADB)", "") {
+                // The play build: what the service is for is read and agreed to before the TV's settings open
+                // (and the service does nothing until then).
+                fun agreeThen(then: () -> Unit) {
+                    if (!com.glasslauncher.tv.data.Store.PLAY || st.a11yConsent) then()
+                    else dialog = ConsentDialog(A11Y_TITLE, A11Y_TEXT, "Agree and open the TV's Accessibility settings") { st.a11yConsent = true; then() }
+                }
+                add(Toggle("Home button opens Glassio", "Needs Glassio's accessibility service", { st.interceptHome }, { on -> st.interceptHome = on; if (on && com.glasslauncher.tv.data.Store.PLAY && !homeKeyOn) agreeThen { openSystem(ctx, AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS) } }))
+                add(Act("  · Turn on the service", "Find Glassio and switch it on", "") { agreeThen { openSystem(ctx, AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS) } })
+                if (com.glasslauncher.tv.data.Store.PLAY && st.a11yConsent) add(Act("  · Take back my agreement", "The service then does nothing, also while it is on in the TV's settings", "") { st.a11yConsent = false; toast(ctx, "Taken back") })
+                if (!com.glasslauncher.tv.data.Store.PLAY) add(Act("  · With ADB", if (homeKeyOn) "The accessibility service is on" else "When the TV doesn't let you (restricted setting / greyed out). Needs TV access (ADB)", "") {
                     scope.launch(Dispatchers.IO) {
                         val svc = "${ctx.packageName}/com.glasslauncher.tv.HomeKeyService"
                         val cmd = "cur=\$(settings get secure enabled_accessibility_services); " +
@@ -1846,9 +1985,15 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     }
                 })
                 add(Act("Choose default home app", "", "") { openSystem(ctx, AndroidSettings.ACTION_HOME_SETTINGS) })
-                add(Toggle("Open Glassio when the TV starts", "Glassio opens on its own after the TV turns on. The right to do so is given over ADB (TV → TV access (ADB))", { st.bootStart }, { on ->
+                add(Toggle("Open Glassio when the TV starts", if (com.glasslauncher.tv.data.Store.PLAY) "Glassio opens on its own after the TV turns on. Needs \"Display over other apps\" for Glassio, in the TV's settings"
+                    else "Glassio opens on its own after the TV turns on. The right to do so is given over ADB (TV → TV access (ADB))", { st.bootStart }, { on ->
                     st.bootStart = on
-                    if (on) scope.launch(Dispatchers.IO) {
+                    // The play build never gives itself the right: the TV's own page for it opens.
+                    if (com.glasslauncher.tv.data.Store.PLAY) {
+                        if (on && !AndroidSettings.canDrawOverlays(ctx)) runCatching {
+                            ctx.startActivity(Intent(AndroidSettings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + ctx.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }.onFailure { toast(ctx, "Allow \"Display over other apps\" for Glassio: TV settings → Apps → Special app access") }
+                    } else if (on) scope.launch(Dispatchers.IO) {
                         val r = com.glasslauncher.tv.data.LocalShell.run(ctx, "appops set ${ctx.packageName} SYSTEM_ALERT_WINDOW allow; " +
                             "cmd package set-home-activity ${ctx.packageName}/com.glasslauncher.tv.MainActivity >/dev/null 2>&1; true")
                         toast(ctx, if (r.isSuccess) "Glassio opens when the TV starts" else "Saved. Allow TV access (ADB) so the TV lets Glassio open")
@@ -2048,17 +2193,18 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Note("Lock an app: hold OK on it in the dock → Lock. It then asks for the code when opened from Glassio: ▲ ▼ change a digit, ◀ ▶ move, and it opens as soon as the code is right."))
 
                 add(Note("TV"))
-                add(Adjust("Language", "The menu, the settings sections, the setup and the main rows (the rest stays English for now). Reopen the screen to see it",
+                add(Adjust("Language", "Glassio's screens in this language, at once. Made by machine: tell us where the wording is wrong",
                     { com.glasslauncher.tv.data.I18n.LANGS[st.lang] ?: "English" }, { st.lang = cycle(com.glasslauncher.tv.data.I18n.LANGS.keys.toList(), st.lang, it) }))
                 add(pageRow("TV access (ADB)", "Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use it. Three steps, once",
                     if (adbAccess == true) more("Allowed") else more("3 steps"), ok = if (adbAccess == true) true else null, sp = SubPage("TV access (ADB)") {
                         val devOn = runCatching { AndroidSettings.Global.getInt(ctx.contentResolver, AndroidSettings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1 }.getOrDefault(false)
                         val adbOn = runCatching { AndroidSettings.Global.getInt(ctx.contentResolver, AndroidSettings.Global.ADB_ENABLED, 0) == 1 }.getOrDefault(false)
                         buildList {
-                            add(Note("TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use the TV's own debugging connection. Turn it on once:"))
+                            add(Note(if (com.glasslauncher.tv.data.Store.PLAY) "TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, inputs and open apps use the TV's own debugging connection. Optional. Turn it on once:"
+                                else "TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use the TV's own debugging connection. Turn it on once:"))
                             add(Note("1. Developer options: open About below and press OK on \"Android TV OS build\" (or \"Build\") 7 times, until it says you are a developer."))
                             add(Note("2. Open Developer options below and turn on USB debugging (on some TVs also \"Network debugging\" / \"ADB over network\")."))
-                            if (com.glasslauncher.tv.data.SystemSetup.isFireTv()) add(Note("Fire TV doesn't let apps use its own ADB any more (Fire OS 7.6.6.9 / 8.1.0.3 and later), so \"Allow Glassio\" can't work there. " +
+                            if (!com.glasslauncher.tv.data.Store.PLAY && com.glasslauncher.tv.data.SystemSetup.isFireTv()) add(Note("Fire TV doesn't let apps use its own ADB any more (Fire OS 7.6.6.9 / 8.1.0.3 and later), so \"Allow Glassio\" can't work there. " +
                                 "From a computer or phone with ADB, connected to this Fire TV, type once: " + com.glasslauncher.tv.data.SystemSetup.FIRE_TV_COMMANDS +
                                 ". Glassio then turns on the Home button service (remote buttons, cameras) and the music player by itself."))
                             add(Note("3. Press \"Allow Glassio\" below. The TV asks \"Allow USB debugging?\": tick Always allow from this computer, then OK. It is asked only once."))
@@ -2308,10 +2454,13 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             Pane(
                 Modifier.weight(1f).fillMaxHeight().onFocusChanged { rightFocusedA[0] = it.hasFocus }
                     // Left goes back to this page's own category; Up/Down at the ends stay in the page.
+                    // (From a page a row opened, Left goes up one page, to that row, like Back: it went to the
+                    // sections with the page still up, and the next Down changed section from inside a sub-page.)
                     .focusProperties {
                         exit = { dir ->
                             when (dir) {
-                                androidx.compose.ui.focus.FocusDirection.Left -> leftOf()
+                                androidx.compose.ui.focus.FocusDirection.Left ->
+                                    if (subs.isNotEmpty() && !searching && special == null) { scope.launch { closeSub() }; FocusRequester.Cancel } else leftOf()
                                 androidx.compose.ui.focus.FocusDirection.Up, androidx.compose.ui.focus.FocusDirection.Down -> FocusRequester.Cancel
                                 else -> FocusRequester.Default
                             }
@@ -2527,14 +2676,14 @@ private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Uni
             }, onFocus = { if (!it) editing = false }, onClick = { editing = !editing }) { f ->
                 Label(row.title, if (editing) "◀ ▶ to change · OK when done" else row.desc, s, Modifier.weight(1f))
                 val ink = LocalInk.current
-                if (editing) Text("‹  ${row.value()}  ›", color = Color.White, fontSize = (13.5f * s).sp, fontWeight = FontWeight.SemiBold)
-                else Text(row.value() + "  ›", color = ink.copy(alpha = 0.55f), fontSize = (13 * s).sp)
+                if (editing) Text("‹  ${com.glasslauncher.tv.data.I18n.tr(row.value())}  ›", color = Color.White, fontSize = (13.5f * s).sp, fontWeight = FontWeight.SemiBold)
+                else Text(com.glasslauncher.tv.data.I18n.tr(row.value()) + "  ›", color = ink.copy(alpha = 0.55f), fontSize = (13 * s).sp)
             }
         }
         is Act -> Frame(s, pos = pos, onClick = row.onClick) { f ->
             Label(row.title, row.desc, s, Modifier.weight(1f))
             val ink = LocalInk.current
-            if (row.value.isNotEmpty()) Text(if (row.ok == true) "✓  " + row.value else row.value,
+            if (row.value.isNotEmpty()) Text(if (row.ok == true) "✓  " + com.glasslauncher.tv.data.I18n.tr(row.value) else row.value,
                 color = when (row.ok) { true -> accentOf(app.settings.settingsAccent).let { a -> if (ink == Color.White) androidx.compose.ui.graphics.lerp(a, Color.White, 0.35f) else a }; false -> Color(0xFFFF5A52); else -> ink.copy(alpha = 0.55f) },
                 fontSize = (12.5f * s).sp, fontWeight = if (row.ok != null) FontWeight.SemiBold else null, maxLines = 1)
         }
@@ -2781,6 +2930,8 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
             add(Note("Glassio ${app.updater.current} · The most clean, comfortable and customisable launcher."))
             add(Act("What's new", "A short tour of what's new and where to change it", "Open") { WhatsNew.show() })
             add(Act("Give Glassio a star on GitHub", "Scan the code with your phone and tap ★ Star. It helps others find it", "★") { toast(ctx, "Thank you! Scan the code on the left") })
+            if (com.glasslauncher.tv.data.Store.PLAY) add(Note("Updates come from Google Play."))
+            else {
             add(Adjust("Updates", if (app.settings.updateChannel == "beta") "Beta: new things first, they may still have bugs" else "Stable: only finished releases",
                 { if (app.settings.updateChannel == "beta") "Beta" else "Stable" },
                 { app.settings.updateChannel = if (app.settings.updateChannel == "beta") "stable" else "beta"
@@ -2793,6 +2944,7 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
                 scope.launch(Dispatchers.IO) { toast(ctx, app.updater.check()) }
             })
             add(Note("A pill appears next to the clock when a new version is out."))
+            }
             // A problem, with Glassio's last log lines, straight to GitHub Issues (see Report): described here, shown
             // in full before it goes.
             add(Act("Report a problem", "Goes to GitHub with Glassio's log. You see it all before it is sent",
@@ -2812,12 +2964,13 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
                 }
             })
             // Support: a PSN gift card code, typed here and sent straight to the developer (see Support).
-            add(Note("Support me"))
-            add(Act("PlayStation gift card (PSN, USA)", if (com.glasslauncher.tv.data.Support.ready) "Type the code and press Send: it comes straight to me. Thank you!"
+            if (!com.glasslauncher.tv.data.Store.PLAY) add(Note("Support me"))
+            if (!com.glasslauncher.tv.data.Store.PLAY) add(Act("PlayStation gift card (PSN, USA)", if (com.glasslauncher.tv.data.Support.ready) "Type the code and press Send: it comes straight to me. Thank you!"
                 else "Not available in this build", "Send") {
                 if (!com.glasslauncher.tv.data.Support.ready) { toast(ctx, "Not available in this build"); return@Act }
                 dlg = SupportDialog({ com.glasslauncher.tv.data.Support.clean(it) }) { c, n -> com.glasslauncher.tv.data.Support.send(c, n, app.updater.current) }
             })
+            if (com.glasslauncher.tv.data.Store.PLAY) add(Note("Privacy: github.com/" + com.glasslauncher.tv.data.Updater.REPO + "/blob/main/docs/PRIVACY.md"))
             add(Note("Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB."))
             if (crash.isNotBlank()) add(Act("Last crash", crash.take(120), "Clear") { java.io.File(ctx.filesDir, "last-crash.txt").delete(); toast(ctx, "Cleared") })
         }

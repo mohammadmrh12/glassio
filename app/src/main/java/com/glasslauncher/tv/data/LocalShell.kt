@@ -85,6 +85,7 @@ object LocalShell {
      * limit: a TV still asking "Allow USB debugging?" (or one that was refused) no longer waits for ever.
      */
     fun install(ctx: Context, apk: File, port: Int = 5555): Result<Unit> {
+        if (Store.PLAY) return Result.failure(IllegalStateException("not in this build"))
         val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
         val remote = "/data/local/tmp/glass-update.apk"
         val log = "/data/local/tmp/glass-update.log"

@@ -670,14 +670,17 @@ private class PageShaders {
  *
  * A pop-up or dialog on glass normally reads the home page (the carousel's picture). Over Settings that picture is
  * not what is under it: clear glass showed the whole poster, sharp, inside the list (the writing couldn't be read).
- * So every glass panel drawn over Settings is frosted, a little darker, and reads the Settings page (its blurred
+ * So every glass panel drawn over Settings is frosted, lighter than on the home screen (the page under it is dark
+ * already: darkened as on the home screen and with the screen dimmed it read as a black box), and reads the Settings page (its blurred
  * picture), whatever the theme; the two flat looks stay as they are. One rule, in [GlassPanel]: the hosts of what
  * can open over Settings ([DialogHost], [PopMenuHost], [AppLockHost]) only say so with [OverSettings].
  */
 object SettingsGlass {
     val env = androidx.compose.runtime.mutableStateOf<GlassEnv?>(null)
     /** How much the rest of the screen dims behind a pop-up over Settings. */
-    const val DIM = 0.42f
+    const val DIM = 0.2f
+    /** How much of a panel's own darkening is kept over Settings: the page under it is dark already. */
+    const val DARKEN = 0.1f
 }
 
 /** The Settings page's glass environment while something is drawn over Settings, else null (see [SettingsGlass]). */
@@ -705,7 +708,7 @@ fun GlassPanel(
     if (over != null && style != "amoled" && style != "bow") {
         val ref = androidx.compose.runtime.rememberUpdatedState(over)
         androidx.compose.runtime.CompositionLocalProvider(LocalOverSettings provides null, LocalGlassEnv provides over, LocalGlassEnvRef provides ref) {
-            GlassPanel(modifier, radius, "liquid", (darken + 0.10f).coerceAtMost(0.9f), refract, cache, content)
+            GlassPanel(modifier, radius, "liquid", darken * SettingsGlass.DARKEN, refract, cache, content)
         }
         return
     }

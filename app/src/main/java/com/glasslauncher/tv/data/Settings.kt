@@ -7,11 +7,11 @@ import androidx.compose.runtime.mutableIntStateOf
  * Every launcher option lives here. Reads touch a Compose state counter, so any composable that
  * reads a property recomposes automatically when a setter bumps it.
  */
-val MENU_KEYS = listOf("library", "sliders", "gear", "wifi", "bluetooth", "theme", "camera", "saver", "background", "recents", "inputs", "trailer", "profile")
+val MENU_KEYS = listOf("library", "search", "sliders", "gear", "wifi", "bluetooth", "theme", "camera", "saver", "background", "recents", "inputs", "trailer", "profile")
 /** The menu's order on a new TV. */
-val MENU_DEFAULT = listOf("profile", "inputs", "library", "camera", "sliders", "recents", "gear", "wifi", "bluetooth", "saver", "trailer", "theme", "background")
+val MENU_DEFAULT = listOf("profile", "inputs", "library", "search", "camera", "sliders", "recents", "gear", "wifi", "bluetooth", "saver", "trailer", "theme", "background")
 val MENU_NAMES = mapOf("library" to "Library", "sliders" to "Glassio settings", "gear" to "Android settings", "wifi" to "Wi-Fi", "bluetooth" to "Bluetooth",
-    "theme" to "Themes", "camera" to "Camera", "saver" to "Screensaver", "background" to "Background", "recents" to "Recent apps", "inputs" to "Inputs", "trailer" to "Trailer", "profile" to "Profile")
+    "theme" to "Themes", "camera" to "Camera", "saver" to "Screensaver", "background" to "Background", "recents" to "Recent apps", "inputs" to "Inputs", "trailer" to "Trailer", "search" to "Search", "profile" to "Profile")
 
 class Settings(private val ctx: Context) {
     // The TV's own settings are kept once, a profile's in that profile's file (see Profiles). For the profile that
@@ -331,7 +331,7 @@ class Settings(private val ctx: Context) {
     /** Cameras, one per line: "Name|rtsp://…" (RTSP, HLS or a plain video link). */
     var cameras: List<String> get() = list("cameras"); set(v) = putList("cameras", v)
     var menuCamera: Boolean get() = b("menuCamera", false); set(v) = putB("menuCamera", v)
-    var menuTrailer: Boolean get() = b("menuTrailer", true); set(v) = putB("menuTrailer", v)
+    var menuTrailer: Boolean get() = !Store.PLAY && b("menuTrailer", true); set(v) = putB("menuTrailer", v)
     var menuSaver: Boolean get() = b("menuSaver", true); set(v) = putB("menuSaver", v)
     /** Look of the menu: same choices as the dock (set by Themes). */
     var menuStyle: String get() = s("menuStyle", "water_still"); set(v) = putS("menuStyle", v)
@@ -365,7 +365,7 @@ class Settings(private val ctx: Context) {
     var heroButtons: String get() = s("heroButtons", "apple"); set(v) = putS("heroButtons", v)
     var dotsMax: Int get() = i("dotsMax", 7); set(v) = putI("dotsMax", v.coerceIn(3, 20))
     /** Trailers: a Trailer button next to Play (Apple TV buttons). */
-    var trailerButton: Boolean get() = b("trailerButton", true); set(v) = putB("trailerButton", v)
+    var trailerButton: Boolean get() = !Store.PLAY && b("trailerButton", true); set(v) = putB("trailerButton", v)
     /** cinema (fills the screen) | original (its own shape) | popup (a small glass window by the buttons). */
     var trailerSize: String get() = s("trailerSize", "popup"); set(v) = putS("trailerSize", v)
     var trailerMute: Boolean get() = b("trailerMute", false); set(v) = putB("trailerMute", v)
@@ -378,7 +378,7 @@ class Settings(private val ctx: Context) {
     /** "auto": H.264 up to 1080p (720p on small TVs); "full": the best this TV plays, up to its screen (4K: VP9 / AV1). */
     var trailerSubLang: String get() = s("trailerSubLang", "ar"); set(v) = putS("trailerSubLang", v)
     /** Seconds on a title before its trailer starts by itself (0 = only when asked). */
-    var trailerAutoSec: Int get() = i("trailerAutoSec", 0); set(v) = putI("trailerAutoSec", v.coerceIn(0, 60))
+    var trailerAutoSec: Int get() = if (Store.PLAY) 0 else i("trailerAutoSec", 0); set(v) = putI("trailerAutoSec", v.coerceIn(0, 60))
     /** Size of the trailer's subtitles (1 = as before). */
     var trailerSubScale: Float get() = f("trailerSubScale", 1.3f); set(v) = putF("trailerSubScale", v.coerceIn(0.6f, 2.2f))
     var trailerPopupScale: Float get() = f("trailerPopupScale", 2.0f); set(v) = putF("trailerPopupScale", v.coerceIn(0.6f, 2f))
@@ -566,7 +566,8 @@ class Settings(private val ctx: Context) {
     /** How an HDMI input opens: auto (the TV's app, else Glassio's own) | tv | glassio. */
     var inputPlayer: String get() = s("inputPlayer", "auto"); set(v) = putS("inputPlayer", v)
     var boldText: Boolean get() = b("boldText", false); set(v) = putB("boldText", v)
-    var saverMode: String get() = s("saverMode", "trailer"); set(v) = putS("saverMode", v)
+    /** (The play build has no trailers: there they read as the posters.) */
+    var saverMode: String get() = s("saverMode", "trailer").let { if (Store.PLAY && it == "trailer") "slideshow" else it }; set(v) = putS("saverMode", v)
     // Screensaver "Trailers": the carousel's titles' trailers, one after another.
     var saverTrailerMute: Boolean get() = b("saverTrailerMute", false); set(v) = putB("saverTrailerMute", v)
     var saverTrailerSize: String get() = s("saverTrailerSize", "cinema"); set(v) = putS("saverTrailerSize", v)
@@ -738,6 +739,66 @@ class Settings(private val ctx: Context) {
     var channelsBg: String get() = s("channelsBg", "blur"); set(v) = putS("channelsBg", v)
     /** The page behind the music apps, an idle player and the inputs: "grey", "glassio" (Glassio's soft lights) or "carousel" (the carousel's picture, blurred). */
     var stagePageBg: String get() = s("stagePageBg", "carousel"); set(v) = putS("stagePageBg", v)
+
+    // ---- Search (Settings → Continue Watching & Library → Search). Off: nothing of it exists anywhere.
+    var searchOn: Boolean get() = b("searchOn", false); set(v) = putB("searchOn", v)
+    /** Its icon in the dock (the search bar comes up in the carousel's place while it is selected). */
+    var searchDock: Boolean get() = b("searchDock", true); set(v) = putB("searchDock", v)
+    var searchMovies: Boolean get() = b("searchMovies", true); set(v) = putB("searchMovies", v)
+    var searchSeries: Boolean get() = b("searchSeries", true); set(v) = putB("searchSeries", v)
+    /**
+     * OK on a title: "list" (where to watch it), "first" (the first place in the list's order, at once), or one
+     * app's key (a service's package, or NuvioLaunch's key: "legacy", "stremio" …): straight into that app, the
+     * list when it can't open the title.
+     */
+    var searchOk: String get() = s("searchOk", "list"); set(v) = putS("searchOk", v)
+    /** The streaming services' apps in the list (Netflix, Apple TV …), and the ones left out (packages). */
+    var searchServices: Boolean get() = b("searchServices", true); set(v) = putB("searchServices", v)
+    var searchServicesOff: List<String> get() = list("searchServicesOff"); set(v) = putList("searchServicesOff", v)
+    /** Nuvio, its forks and Stremio in the list, and the ones left out (NuvioLaunch's keys: "legacy", "stremio" …). */
+    var searchPlayers: Boolean get() = b("searchPlayers", true); set(v) = putB("searchPlayers", v)
+    var searchPlayersOff: List<String> get() = list("searchPlayersOff"); set(v) = putList("searchPlayersOff", v)
+    /** A Nuvio app from the search: its page for the title (false) or playing at once where the app can (true). */
+    var searchNuvioPlay: Boolean get() = b("searchNuvioPlay", false); set(v) = putB("searchNuvioPlay", v)
+    /** Only titles that one of the services' apps on this TV has. */
+    var searchMine: Boolean get() = b("searchMine", false); set(v) = putB("searchMine", v)
+    /** A film or series in the search: "poster" (tall) or "card" (wide, its backdrop). The name and the rest are inside the picture either way. */
+    var searchShape: String get() = s("searchShape", "card"); set(v) = putS("searchShape", v)
+    /** The bar starts empty each time the search is opened (true), or keeps what was typed last. */
+    var searchFresh: Boolean get() = b("searchFresh", true); set(v) = putB("searchFresh", v)
+    /** Before anything is typed: what is popular this week (needs the TMDB token). */
+    var searchTrending: Boolean get() = b("searchTrending", true); set(v) = putB("searchTrending", v)
+    /** A title's rating, the number alone, faint, in its line with the year and Film / Series. */
+    var searchRating: Boolean get() = b("searchRating", true); set(v) = putB("searchRating", v)
+    /** In the list of places: "services" first (default) or the Nuvio apps and Stremio first ("players"). */
+    var searchOrder: String get() = s("searchOrder", "services"); set(v) = putS("searchOrder", v)
+    /** Videos from YouTube under the titles, and the app one opens in: "auto" (SmartTube when it is there, else YouTube) or a package. */
+    var searchYoutube: Boolean get() = b("searchYoutube", true); set(v) = putB("searchYoutube", v)
+    var searchYoutubeApp: String get() = s("searchYoutubeApp", "auto"); set(v) = putS("searchYoutubeApp", v)
+    /** Songs: SoundCloud's tracks and a way into Spotify's own search; the apps left out ("spotify", "soundcloud"). */
+    var searchMusic: Boolean get() = b("searchMusic", true); set(v) = putB("searchMusic", v)
+    var searchCardSize: String get() = s("searchCardSize", "large"); set(v) = putS("searchCardSize", v)
+    var searchStay: Boolean get() = b("searchStay", false); set(v) = putB("searchStay", v)
+    var searchMusicStay: Boolean get() = b("searchMusicStay", true); set(v) = putB("searchMusicStay", v)
+    var searchMusicOff: List<String> get() = list("searchMusicOff"); set(v) = putList("searchMusicOff", v)
+    /** A Search row in the side menu. */
+    var menuSearch: Boolean get() = b("menuSearch", true); set(v) = putB("menuSearch", v)
+    /** The words searched before (newest first, one a line), and whether they are kept at all. */
+    var searchRecent: Boolean get() = b("searchRecent", true); set(v) = putB("searchRecent", v)
+    var searchHistory: List<String> get() = list("searchHistory"); set(v) = putList("searchHistory", v)
+    /** Stremio from the search: "list" (the add-ons' sources, chosen here), "first" (the first that fits the rules), "page" (its own page). */
+    var stremioSources: String get() = s("stremioSources", "list"); set(v) = putS("stremioSources", v)
+    /** The rules for Stremio's sources: 0 = any, else 2160 / 1080 / 720 (that quality first, then the nearest below). */
+    var stremioQuality: Int get() = i("stremioQuality", 0); set(v) = putI("stremioQuality", v)
+    /** Largest file in GB, 0 = no limit. */
+    var stremioMaxGb: Int get() = i("stremioMaxGb", 0); set(v) = putI("stremioMaxGb", v)
+    /** "any", "prefer" or "avoid" HDR / Dolby Vision. */
+    var stremioHdr: String get() = s("stremioHdr", "any"); set(v) = putS("stremioHdr", v)
+    var stremioNoCam: Boolean get() = b("stremioNoCam", true); set(v) = putB("stremioNoCam", v)
+    /** Torrents among the sources. Off by default: Stremio on a TV plays them only with its streaming server running (seen: connection refused without it). */
+    var stremioP2p: Boolean get() = b("stremioP2p", false); set(v) = putB("stremioP2p", v)
+    /** Add-ons whose sources are left out (their manifest addresses). */
+    var stremioAddonsOff: List<String> get() = list("stremioAddonsOff"); set(v) = putList("stremioAddonsOff", v)
     /** Up to three rows one above the other ("stack"), or one row in the middle that Up / Down switch ("single"). */
     var channelsLayout: String get() = s("channelsLayout", "single"); set(v) = putS("channelsLayout", v)
     var channelsGlowSize: Float get() = f("channelsGlowSize", 1.4f); set(v) = putF("channelsGlowSize", v.coerceIn(0.3f, 1.6f))
@@ -794,6 +855,8 @@ class Settings(private val ctx: Context) {
 
     // ---- System
     var interceptHome: Boolean get() = b("interceptHome", true); set(v) = putB("interceptHome", v)
+    /** The play build: the person read what the accessibility service is for and agreed (it does nothing before). */
+    var a11yConsent: Boolean get() = b("a11yConsent", false); set(v) = putB("a11yConsent", v)
     /** Opens Glassio when the TV starts (needs the "display over other apps" right, given over ADB). */
     var bootStart: Boolean get() = b("bootStart", true); set(v) = putB("bootStart", v)
     /** Manage from phone: minutes the page stays on after you leave that screen (0 = stops at once). */

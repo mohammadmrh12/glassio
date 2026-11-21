@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
+import com.glasslauncher.tv.ui.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,7 +68,7 @@ class RecentsActivity : ComponentActivity() {
         /** The recent apps on screen now: their remote button pressed again closes them. */
         @Volatile var showing: RecentsActivity? = null
         private val SKIP = setOf(
-            "com.glasslauncher.tv", "nl.rogro82.pipup", "com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher",
+            "com.glasslauncher.tv", "com.glasslauncher.tv.play", "nl.rogro82.pipup", "com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher",
             "com.android.tv.settings", "com.google.android.tv.settings", "com.android.systemui", "com.google.android.apps.tv.dreamx",
             "com.google.android.katniss", "com.google.android.tvrecommendations", "com.android.vending", "com.google.android.permissioncontroller",
         )

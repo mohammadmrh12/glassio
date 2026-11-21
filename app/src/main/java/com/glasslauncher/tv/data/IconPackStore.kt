@@ -61,6 +61,7 @@ object IconPackStore {
 
     /** Blocking: downloads and installs [p]. */
     fun install(ctx: Context, p: Pack, installer: (File) -> Unit) {
+        if (Store.PLAY) return   // nothing is installed from outside Google Play
         if (status.value.containsKey(p.pkg)) return
         val f = File(ctx.cacheDir, "iconpack-${p.pkg}.apk")
         try {

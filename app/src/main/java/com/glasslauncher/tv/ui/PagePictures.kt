@@ -137,8 +137,12 @@ internal object BakeCache {
     private val map = object : LinkedHashMap<String, Pair<Int, ImageBitmap>>(8, 0.75f, true) {
         override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pair<Int, ImageBitmap>>?) = size > max
     }
+    /** Made ahead and never pushed out by browsing: the opening slide of each app's own carousel (three at most). */
+    private val ahead = HashMap<String, Pair<Int, ImageBitmap>>()
     @Synchronized fun get(url: String, src: ImageBitmap): ImageBitmap? =
-        map[url]?.takeIf { it.first == src.width * 10000 + src.height }?.second
+        (map[url] ?: ahead[url])?.takeIf { it.first == src.width * 10000 + src.height }?.second
+    @Synchronized fun keep(url: String, src: ImageBitmap, baked: ImageBitmap) { ahead[url] = (src.width * 10000 + src.height) to baked }
+    @Synchronized fun keepOnly(urls: Set<String>) { ahead.keys.retainAll(urls) }
     @Synchronized fun put(url: String, src: ImageBitmap, baked: ImageBitmap) { map[url] = (src.width * 10000 + src.height) to baked }
 }
 

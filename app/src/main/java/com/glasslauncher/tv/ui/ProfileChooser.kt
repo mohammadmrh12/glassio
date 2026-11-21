@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -217,7 +216,7 @@ fun ProfileChooserHost(app: GlassApp) {
                                 .border((3.2f * t).dp, Color.White.copy(alpha = t), CircleShape))
                         }
                         Spacer(Modifier.height(14.dp))
-                        Text(p.name, color = Color.White.copy(alpha = if (on) 1f else 0.62f), fontSize = 18.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
+                        Plain(p.name, color = Color.White.copy(alpha = if (on) 1f else 0.62f), fontSize = 18.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
                             maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                         Text(when { p.id == active -> I18n.tr("In use"); p.locked -> I18n.tr("PIN in Nuvio"); else -> " " },
                             color = Color.White.copy(alpha = 0.45f), fontSize = 12.sp, maxLines = 1)

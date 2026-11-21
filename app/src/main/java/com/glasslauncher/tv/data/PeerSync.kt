@@ -55,7 +55,7 @@ object PeerSync {
 
     // ---- What belongs to each TV (never synced)
     private val NEVER = setOf(
-        "interceptHome", "inputs", "inputPlayer", "setupDone", "tourSeen", "musicLastPkg", "bootStart", "recentsAdb",
+        "interceptHome", "a11yConsent", "inputs", "inputPlayer", "setupDone", "tourSeen", "musicLastPkg", "bootStart", "recentsAdb",
         "nuvioToken", "nuvioTarget", "cameraDecoder", "phoneMinutes", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
     )
     // (Hue: the bridge and its key are shared on request; the lights and rooms each TV drives stay its own.)

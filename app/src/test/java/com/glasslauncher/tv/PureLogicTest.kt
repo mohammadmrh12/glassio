@@ -322,4 +322,38 @@ class PureLogicTest {
         I18n.lang = "ar"
         o.forEach { assertNotEquals(it, I18n.tr(it)) }
     }
+
+    /** The search reads a source's quality and size from the words an add-on writes, whatever its style. */
+    @Test fun searchReadsQualityAndSize() {
+        val S = com.glasslauncher.tv.data.Search
+        assertEquals(2160, S.qualityOf("Torrentio\n4k HDR"))
+        assertEquals(2160, S.qualityOf("Some.Film.2160p.WEB-DL.x265"))
+        assertEquals(1080, S.qualityOf("[TB+] Film 1080p BluRay"))
+        assertEquals(720, S.qualityOf("Film.720p.HDTV"))
+        assertEquals(0, S.qualityOf("Film HDRip"))
+        assertEquals(0, S.qualityOf("x1080px"))                    // inside another word: not a quality
+        assertEquals(2254857830L, S.sizeOf("👤 12 💾 2.1 GB ⚙️ site"))
+        assertEquals(734003200L, S.sizeOf("700 MB"))
+        assertEquals(1610612736L, S.sizeOf("1,5 GiB"))
+        assertEquals(0L, S.sizeOf("no size here"))
+        assertEquals("2.1 GB", S.sizeText(2254857830L))
+        assertEquals("700 MB", S.sizeText(734003200L))
+        // Films and series in turn, the longer list's rest at the end.
+        assertEquals(listOf("a", "x", "b", "y", "c"), S.mix(listOf("a", "b", "c"), listOf("x", "y")))
+    }
+
+    /** Every language has its file of the screens' words, whole: one translation a line, none empty, no word twice. */
+    @Test fun languageFilesAreWhole() {
+        val dir = java.io.File("src/main/assets/i18n")
+        for (code in I18n.LANGS.keys - "en") {
+            val f = java.io.File(dir, "$code.tsv")
+            assertTrue("$code.tsv is missing", f.exists())
+            val lines = f.readLines().filter { it.isNotBlank() }
+            assertTrue("$code.tsv has only ${lines.size} lines", lines.size > 1400)
+            lines.forEach { l -> assertEquals("$code: one tab a line: $l", 1, l.count { it == '\t' }); assertTrue("$code: empty side: $l", l.substringBefore('\t').isNotBlank() && l.substringAfter('\t').isNotBlank()) }
+            assertEquals("$code: a word twice", lines.size, I18n.parse(lines.asSequence()).size)
+        }
+        // A line break is written as \n in the file and read back as one.
+        assertEquals(mapOf("a\nb" to "c\nd"), I18n.parse(sequenceOf("a\\nb\tc\\nd")))
+    }
 }

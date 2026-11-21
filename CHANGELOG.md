@@ -2,6 +2,33 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.1.0-beta1 — Search, nine languages (beta)
+
+A beta: new features first, a little less tested. Get it with Settings → About → Updates → *Beta*.
+
+- **Search** (off by default; Settings → Continue Watching & Library → *Search*): a Search icon in the dock whose
+  page comes up in the carousel's place, like Music and Inputs. Also a *Search* row in the menu and a remote button.
+  - *Films and series* as cards with the name, year and rating inside (wide cards or posters, two sizes), your
+    progress on titles you are watching, and *Popular this week* before anything is typed.
+  - OK on a title lists where it can be watched: the streaming apps that have it now, the Nuvio apps, Stremio, or
+    *Save to the Library*. Or straight into one app you choose.
+  - *YouTube* videos open in SmartTube or YouTube. *Music*: SoundCloud's songs start and Glassio comes back to
+    the search while the song plays; a Spotify card opens Spotify's own search with your words.
+  - Stremio can play a film at once: Glassio asks your add-ons, sorts the sources by your rules (quality, size,
+    HDR, no cinema recordings) and hands the one you pick, or the first, to Stremio. Glassio itself plays nothing.
+  - Every part has its own switch: each group, each app, the keyboard's history, the page behind it, *Stay in the
+    search*.
+- **Nine languages**: every screen of Glassio in Arabic, Persian, Turkish, French, Spanish, German, Russian and
+  Portuguese, changed at once (Settings → System → *Language*). The translations were made by machine: tell us where
+  the wording is wrong. Arabic is now formal Arabic.
+- **Nuvio One** is one of the apps a title can open in.
+- **Smoother after an update**: Android ran a newly installed Glassio uncompiled for days (slow page changes);
+  Glassio now has itself compiled once after each update, a minute after it starts.
+- **Remote buttons**: a button that sends no key code (some remotes' Netflix and other app buttons) can now be
+  given a job (Settings → System → *Remote buttons*).
+- **Fixes**: back from the screensaver the carousel is no longer black for a moment; pop-up windows over Settings
+  are lighter; Left inside a settings page goes up one page.
+
 ## 4.0.0 — profiles, your streaming apps, new Settings
 
 First out as 4.0.0-beta1 on the Beta channel; this is the same version for everyone.

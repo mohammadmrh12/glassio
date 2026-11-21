@@ -13,7 +13,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -224,7 +223,8 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             Buttons(listOf("Next" to { page = 4 }), focusFirst = false)
                         }
                         4 -> {
-                            Title("System", "Home button, home app, screensaver and starting with the TV. Uses the TV's debugging connection (ADB)")
+                            Title("System", if (com.glasslauncher.tv.data.Store.PLAY) "Home button, home app, screensaver and starting with the TV. Each opens the TV's own settings; the screensaver needs TV access (ADB)"
+                                else "Home button, home app, screensaver and starting with the TV. Uses the TV's debugging connection (ADB)")
                             @Suppress("UNUSED_EXPRESSION") rev
                             var state by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
                             var busy by remember { mutableStateOf("") }
@@ -251,7 +251,30 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             }
                             fun tick(k: String, l: String) = if (state[k] == true) "✓ $l" else l
                             val sys = com.glasslauncher.tv.data.SystemSetup
-                            Buttons(listOf(
+                            // The play build: the Home button service is turned on by the person, in the TV's own
+                            // Accessibility settings, after reading what it is for and agreeing.
+                            var consent by remember { mutableStateOf<DialogState?>(null) }
+                            DialogHost(consent) { consent = null }
+                            fun openA11y() = runCatching { app.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                .onFailure { busy = "Open the TV's settings → Accessibility and turn Glassio on" }
+                            if (com.glasslauncher.tv.data.Store.PLAY) Buttons(listOf(
+                                tick("key", "Home button") to {
+                                    if (st.a11yConsent) openA11y()
+                                    else consent = ConsentDialog(A11Y_TITLE, A11Y_TEXT, "Agree and open the TV's Accessibility settings") { st.a11yConsent = true; openA11y() }
+                                },
+                                tick("home", "Default home app") to { runCatching { app.startActivity(android.content.Intent(android.provider.Settings.ACTION_HOME_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                    .onFailure { busy = "Open the TV's settings → Apps → Default apps → Home app" }; Unit },
+                                tick("saver", "Default screensaver") to { run("Making Glassio the screensaver") { sys.makeScreensaver(app) } },
+                                tick("boot", "Start with the TV") to {
+                                    st.bootStart = true
+                                    // The right to open over other apps: the TV's own page for it.
+                                    if (!android.provider.Settings.canDrawOverlays(app)) runCatching {
+                                        app.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + app.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                                    }.onFailure { busy = "Allow \"Display over other apps\" for Glassio: TV settings → Apps → Special app access" }
+                                    refresh(); Unit
+                                },
+                            ), wrap = true)
+                            else Buttons(listOf(
                                 "Set up everything" to { run("Setting up") { listOf(sys.enableHomeKey(app), sys.makeHomeApp(app), sys.makeScreensaver(app), sys.startWithTv(app, st)).all { it } } },
                                 tick("adb", "TV access (ADB)") to {
                                     if (!sys.developerOn(app)) runCatching { app.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }

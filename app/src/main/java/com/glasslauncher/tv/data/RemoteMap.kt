@@ -37,6 +37,7 @@ object RemoteMap {
         m.action.startsWith("hue:") -> "Turns the ${m.label.ifBlank { "Hue" }} lights off and on"
         m.action == "folder" -> "Opens the Apps folder"
         m.action == "recents" -> "Opens the recent apps"
+        m.action == "search" -> "Opens the search"
         m.action.startsWith("input:") -> "Switches to " + m.label.ifBlank { "the input" }
         else -> m.action
     }
@@ -67,6 +68,7 @@ object RemoteMap {
                     com.glasslauncher.tv.RecentsActivity.showing?.let { r -> r.runOnUiThread { r.close() } }
                 a == "recents" -> app.startActivity(Intent(app, com.glasslauncher.tv.RecentsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 a.startsWith("input:") -> Inputs.open(app, a)
+                a == "search" -> glass(app) { it.putExtra("open_search", true) }
             }
         }.onFailure { Glog.w("Remote button ${m.code}", it) }
     }

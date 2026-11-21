@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
@@ -315,7 +314,7 @@ private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, g
                 if ((glow == "color" || hueApp != null) && gc == null) Bg.io("glass-glow") { gc = Glow.colorOf("ch:" + p.poster, b) }
             })
         // No picture (or one Glassio isn't allowed to read): the title instead.
-        else Text(p.title, color = Color.White.copy(alpha = 0.85f), fontSize = (8.5f * s).sp, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
+        else Plain(p.title, color = Color.White.copy(alpha = 0.85f), fontSize = (8.5f * s).sp, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.Center).padding((6 * s).dp))
         if (p.progress > 0f) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding((5 * s).dp).height((2.5f * s).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.3f))) {
             Box(Modifier.fillMaxWidth(p.progress).height((2.5f * s).dp).background(Color.White))

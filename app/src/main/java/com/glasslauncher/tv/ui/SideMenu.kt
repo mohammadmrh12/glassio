@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
@@ -390,7 +389,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         }
                         add(Triple("My videos", if (st.saverMode == "aerial" && st.saverMine) "✓" else "") { st.saverMode = "aerial"; st.saverMine = !st.saverMine; st.saverPick = "" })
                         add(Triple("Posters", if (st.saverMode == "slideshow") "✓" else "") { st.saverMode = if (st.saverMode == "slideshow") "aerial" else "slideshow" })
-                        add(Triple("Trailers", if (st.saverMode == "trailer") "✓" else "") { st.saverMode = if (st.saverMode == "trailer") "aerial" else "trailer" })
+                        if (!com.glasslauncher.tv.data.Store.PLAY) add(Triple("Trailers", if (st.saverMode == "trailer") "✓" else "") { st.saverMode = if (st.saverMode == "trailer") "aerial" else "trailer" })
                         add(Triple("Shuffle", if (st.saverShuffle) "On" else "Off") { st.saverShuffle = !st.saverShuffle })
                         if (st.saverLock) add(Triple("Locked only", if (st.saverLockedOnly) "On" else "Off · ${st.saverLocked.size}") { st.saverLockedOnly = !st.saverLockedOnly })
                         add(Triple("Large clock", if (st.saverBigClock) "On" else "Off") { st.saverBigClock = !st.saverBigClock })
@@ -409,6 +408,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     val rows = buildList<Triple<String, String, () -> Unit>> {
                         if (st.menuProfile && com.glasslauncher.tv.data.Profiles.known(ctx).size > 1) add(Triple("profile", "Profile") { onClose(); ProfilesUi.show(app) })
                         if (st.menuLibrary) add(Triple("library", "Library") { onLibrary() })
+                        if (st.searchOn && st.menuSearch) add(Triple("search", "Search") { SearchUi.open(st); onClose() })
                         add(Triple("sliders", "Glassio settings") { onSettings() })
                         if (st.menuAndroid) add(Triple("gear", "Android settings") { open(ctx, android.provider.Settings.ACTION_SETTINGS) })
                         if (st.menuWifi) add(Triple("wifi", "Wi-Fi") { open(ctx, android.provider.Settings.ACTION_WIFI_SETTINGS) })
@@ -626,6 +626,11 @@ private fun DrawScope.glyph(kind: String, c: Color) {
             drawLine(c, Offset(w * 0.22f, w * 0.43f), Offset(w * 0.62f, w * 0.43f), w * 0.09f, StrokeCap.Round)
             val p = Path().apply { moveTo(w * 0.50f, w * 0.31f); lineTo(w * 0.64f, w * 0.43f); lineTo(w * 0.50f, w * 0.55f) }
             drawPath(p, c, style = st)
+        }
+        "search" -> {
+            // A magnifying glass.
+            drawCircle(c, w * 0.27f, Offset(w * 0.42f, w * 0.42f), style = st)
+            drawLine(c, Offset(w * 0.62f, w * 0.62f), Offset(w * 0.88f, w * 0.88f), w * 0.09f, StrokeCap.Round)
         }
         "profile" -> {
             // A head and shoulders.

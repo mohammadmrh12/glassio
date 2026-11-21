@@ -65,6 +65,8 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
             val pkg = Inputs.PREFIX + i.id
             found[pkg] = AppEntry(pkg, i.label, ComponentName(ctx.packageName, "input"), true)
         }
+        if (settings.searchOn && settings.searchDock) found[com.glasslauncher.tv.ui.SearchUi.DOCK_PKG] =
+            AppEntry(com.glasslauncher.tv.ui.SearchUi.DOCK_PKG, "Search", ComponentName(ctx.packageName, "search"), true)
         if (settings.inputsIcon) found[Inputs.DOCK_PKG] = AppEntry(Inputs.DOCK_PKG, "Inputs", ComponentName(ctx.packageName, "inputs"), true)
         if (settings.musicOn && settings.musicDock) found[com.glasslauncher.tv.ui.MusicUi.DOCK_PKG] =
             AppEntry(com.glasslauncher.tv.ui.MusicUi.DOCK_PKG, "Music", ComponentName(ctx.packageName, "music"), true)
@@ -83,6 +85,19 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
         val rank = { a: AppEntry -> preferred.indexOf(a.pkg).let { if (it < 0) Int.MAX_VALUE else it } }
         result += rest.sortedWith(compareBy<AppEntry> { rank(it) }.thenBy { it.label.lowercase() })
         return if (includeHidden) result else result.filter { it.pkg !in hidden }
+    }
+
+    /**
+     * Gives a new icon of Glassio's own (the Search icon) a place near the front, once: at the end of the order,
+     * where a new entry lands, it would sit in the Apps folder where nobody looks for it. Second, not first: the
+     * first icon is where the selection comes back to (from Settings, after Home), and that stays the person's own
+     * app. Moved or hidden afterwards, it stays where it was put.
+     */
+    fun placeNearFront(pkg: String) {
+        if (pkg in settings.dockOrder) return
+        val order = ordered(includeHidden = true).map { it.pkg }.filter { it != pkg }.toMutableList()
+        order.add(minOf(1, order.size), pkg)
+        settings.dockOrder = order
     }
 
     fun move(pkg: String, delta: Int) {
@@ -115,7 +130,7 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
         settings.hiddenApps = h
     }
 
-    fun launchIntent(e: AppEntry): Intent? = if (Inputs.isInput(e.pkg) || e.pkg == Inputs.DOCK_PKG || e.pkg == com.glasslauncher.tv.ui.MusicUi.DOCK_PKG) null else
+    fun launchIntent(e: AppEntry): Intent? = if (Inputs.isInput(e.pkg) || e.pkg == Inputs.DOCK_PKG || e.pkg == com.glasslauncher.tv.ui.MusicUi.DOCK_PKG || e.pkg == com.glasslauncher.tv.ui.SearchUi.DOCK_PKG) null else
         (pm.getLeanbackLaunchIntentForPackage(e.pkg) ?: pm.getLaunchIntentForPackage(e.pkg))
             ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
@@ -141,6 +156,8 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
                     Inputs.icon(e.label)
                 } else if (e.pkg == Inputs.DOCK_PKG) {
                     Inputs.dockIcon()
+                } else if (e.pkg == com.glasslauncher.tv.ui.SearchUi.DOCK_PKG) {
+                    com.glasslauncher.tv.ui.SearchUi.dockIcon()
                 } else if (e.pkg == com.glasslauncher.tv.ui.MusicUi.DOCK_PKG) {
                     com.glasslauncher.tv.ui.MusicUi.dockIcon()
                 } else {

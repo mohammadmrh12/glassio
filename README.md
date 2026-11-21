@@ -33,6 +33,9 @@ Tested on the Google TV Streamer (4K).
 Latest: **4.0.0** — profiles, your streaming apps' own catalogs and pages, new Settings, a smoother Library. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
+Latest beta: **4.1.0-beta1** — Search (films, series, YouTube and songs, opened in your apps), nine languages, Nuvio One
+([release](https://github.com/mohammadmrh12/glassio/releases/tag/v4.1.0-beta1); Settings → About → Updates → *Beta*).
+
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
   logos, backdrop galleries and Continue Watching; opens titles in Nuvio or Stremio.
 - **Liquid glass** — real refraction, six themes, a glass colour (black or petrol), bold text, round or sharp corners.
@@ -302,7 +305,7 @@ with new features first. Switch back any time.
 ```sh
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=/path/to/android-sdk
-./gradlew assembleRelease     # app/build/outputs/apk/release/app-release.apk
+./gradlew assembleGithubRelease     # app/build/outputs/apk/github/release/app-github-release.apk
 ```
 See [CONTRIBUTING.md](CONTRIBUTING.md) for testing from a computer and the settings snapshot (`--ez dump_prefs true`).
 </details>

@@ -1,0 +1,4 @@
+# Glassio's own code, compiled ahead when the app is installed (with the libraries' own profiles): without it
+# everything runs in the interpreter for the first days after every update, and the home screen stutters.
+Lcom/glasslauncher/tv/**;
+HSPLcom/glasslauncher/tv/**;->**(**)**

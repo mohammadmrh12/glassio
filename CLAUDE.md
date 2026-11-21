@@ -53,7 +53,7 @@
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
   - The last published version is 4.0.0 (code 69, stable). 4.0.0-beta1 (code 68) was its one beta, the same code.
-    Work goes on on the local `beta` branch.
+    Work goes on on the local `beta` branch: **4.1.0-beta1 (code 70), not published**.
   - `versionCode` must always go up, for betas and stable releases alike.
 
 ### Main files (app/src/main/java/com/glasslauncher/tv)
@@ -85,10 +85,12 @@
 | `data/Channels.kt` | TV provider rows per app |
 | `data/Photos.kt` | Photo backgrounds (sources incl. subreddit) |
 | `data/Support.kt` | "Support me" PSN gift card → private Google Form |
-| `net/PhoneServer.kt` | "Manage from phone" web page |
+| `net/PhoneServer.kt`, `net/PhonePage.kt` | "Manage from phone": the small LAN server (requests, state, uploads) and the page it serves (see **Manage from phone**) |
 | `data/PlatformLinks.kt`, `data/PlatformRows.kt`, `data/Region.kt` | A title's own page in a streaming app, the Library's rows per streaming service, the country both read (see **Title links**) |
 | `data/AppCatalogs.kt` | Catalogs of an app: the carousel shows an app's own catalogs while it is selected in the dock (see **Catalogs for apps**) |
 | `data/Report.kt`, `tools/report-worker/` | A problem report from the TV to GitHub Issues, and the relay that opens the issue (see **Problem reports**) |
+| `data/Search.kt`, `ui/SearchStage.kt` | Search: the titles, where each can be watched, Stremio's sources; the Search icon's page above the dock (see **Search**) |
+| `data/I18n.kt`, `ui/Texts.kt`, `assets/i18n/`, `tools/i18n/` | The languages: the table, the Text every screen uses, each language's words, and the scripts that collect and merge them (see **Languages**) |
 | `data/Bg.kt` | `Bg.io("name") { … }`: the one scope for background work that belongs to the app (servers, watchers, a request off the main thread). No hand-made `Thread`s: only the named single-thread executors with a low priority stay (`glass-prep`, `glass-blur`, `glass-trailers`, `glass-depth`, `glass-chan-blur`, Hue's pool) |
 | `DevHooks.kt` | adb test hooks (see below) |
 
@@ -141,6 +143,14 @@
 - Dock in the middle (`dockPos == "center"`, own background): rows, music and inputs pages never come up.
 - Focus: after a page changes, give focus to its new owner and retry until it holds. One try was lost while the old
   page faded (see the `focusRev` loop).
+- **A freshly installed build runs in Android's interpreter** (`dumpsys package` → *Dexopt state*: `verify`): the
+  main thread is several times slower and every page change has frames of 100-240 ms. The TV compiles only from a
+  profile (`speed` asked for still gives `speed-profile`), and only when it is idle. So: `app/src/main/baseline-prof.txt`
+  puts all of Glassio's own code in the APK's profile; the github build asks the TV's shell to compile once per
+  installed build, a minute after its start (`glass-compile` in `GlassApp`; the compiled code is used from the
+  next start of Glassio); `glassqa.py install` applies the profile and compiles too (`--no-compile` skips it).
+  **Never measure speed on a build whose state is `verify`**: restart Glassio after the compile first.
+  Half of 2026-11-21's "slow" numbers were this.
 - Background work goes through `Bg.io` (an error nobody caught is logged there). A `runCatching` whose failure
   matters ends in `.onFailure { Glog.w("what", it) }`; the bare form is for things that may fail by design (a focus
   request, closing a socket).
@@ -335,6 +345,10 @@ With a streaming app selected in the dock, the carousel shows the titles of the 
   `AppLockHost` wrap what they show in `OverSettings`, and `GlassPanel` then draws any glass style as `liquid`, 10 %
   darker, from that picture (never the carousel's), with the rest of the screen dimmed (`SettingsGlass.DIM`).
   `amoled` and `bow` stay. A new host of something that can open over Settings only needs the `OverSettings` wrap.
+  **Lighter since 4.1.0-beta1** (his ask: "too dark"): over Settings a panel keeps a tenth of its own darkening
+  (`SettingsGlass.DARKEN`, was the whole of it plus 10 %) and the screen dims by 0.2 (`SettingsGlass.DIM`, was
+  0.42); the plain windows (`DialogSurface`: text entry, menus, QR, the agreement) are a lighter grey on a screen
+  dimmed by 0.28 instead of near-black on the system's 0.6.
 - Test: `dump_focus` prints `appCat=` and `slide=` (the title showing); with the dev key `--ez app_cw true` logs
   each title in progress with its source, platform and app (tag `GlassAppCw`), `--es app_cat "package=Catalog name"`
   ticks a catalog for an app, `--es app_cw_as "'Title=package'"` counts a title as an app's until a restart (`-`
@@ -451,14 +465,189 @@ The agreed plan is `build/settings-plan.json` (not in git). All three phases are
 - Each page logs its row count (`GlassSettings: <section>|<rows>`, debug level), for QA. `--es settings_search
   "words"` (no key) opens Settings searching for them.
 
+## Search (`data/Search.kt`, `ui/SearchStage.kt`)
+
+Settings → Continue Watching & Library → *Search* (`searchOn`, **off by default**: nothing of it exists until then).
+Glassio plays nothing itself (his decision): a title opens in an app.
+
+- **The Search icon** (`SearchUi.DOCK_PKG` = "search:all", `searchDock`) is one of Glassio's own dock icons like
+  Music and Inputs, and its page is built the same way: `SearchUi.on` / `page` / `focused` beside `InputsUi`'s
+  everywhere (`homePage()` → `PageKind.Search`, the home screen's dock-selection effect, `StagePages`' background, the
+  dock's `up`). Selected: the search bar comes up in the carousel's place on the Music & Inputs page's background
+  (`stagePageBg`); OK on the icon or ▲ goes to the bar; OK on the bar types (the TV's own keyboard, its voice key);
+  ▼ / Back return to the icon. Moving on and off it was measured the same as the Music icon, frame for frame.
+  Switched on, the icon is put **second** in the dock once (`AppRepository.placeNearFront`): at the end it would sit
+  in the Apps folder; first, the selection would come back to it instead of his own app.
+- **Titles** (`Search.titles`): TMDB's `search/multi` when a token is set (titles carry `tmdb:<n>` until one is
+  opened: `Search.resolve` asks for the IMDb id then), else Cinemeta's search (no key, weaker: it did not find
+  *Big Buck Bunny* by its full name). Shown as the Library's posters (`Poster`, now `internal`), one row. A title
+  without a poster is left out as long as others have one (`Search.withPictures`: they showed as grey cards).
+- **Its lists** (where to watch, Stremio's sources) are `PickDialog`s on the menus' glass (`menuStyle`), so they
+  read the page under them like every list of the home screen, never the grey `MenuDialog` window.
+- **OK on a title** (`searchOk`: `list` / `first` / one app's key, a service's package or NuvioLaunch's key:
+  straight into that app, the list when it can't open the title): the places it can be watched in (`Search.places`): the services'
+  apps that have it now (`PlatformLinks.offers`: JustWatch, every installed app, not only one), then the Nuvio apps,
+  then Stremio; *Save to the Library* at the end. Each group has its switch and its list of apps left out
+  (`searchServices` / `searchServicesOff`, `searchPlayers` / `searchPlayersOff`).
+- **Rows** (since the second pass): *Films and series*, *YouTube*, *Music*, one under the other in a column that
+  scrolls; ▲ ▼ go from row to row (`go`), ◀ ▶ stop at a row's ends (`rowKeys`: they went on to the menu's button),
+  each row remembers its card. The selection is kept inside the page (`inPage`): lost by anything but leaving, it
+  goes to the bar; the home screen's "nothing selected" watch and the menu's close go to the bar too while the page
+  is up. The page's switch back to the carousel's picture has `SearchUi.page` among its keys (without it the blur
+  stayed until the next slide).
+- **The dock in the middle or as a column** (your own background): no page stands above the dock there, so OK on
+  the icon, the menu's row and the remote button open the search over the whole screen (`SearchUi.full`,
+  `SearchUi.inPlace`; drawn at the top of `HomeScreen`, Back or ▼ past the last row closes it).
+- **Nothing typed:** *Popular this week* (`searchTrending`; TMDB's trending, needs the token) in the titles' row.
+- **Cards** (`SearchCard` in `ui/SearchStage.kt`; his final ask): every result is one picture with its words
+  **inside** it at the bottom, on a shade, like the Library's Continue Watching card: the name (it scrolls by on the
+  selected card when it is too long, `basicMarquee`), one faint line (year · Film / Series · rating; a video's
+  channel and length) and the progress bar. Selected: a little bigger, a bright rim. *Titles as* (`searchShape`):
+  `card` (wide, the backdrop; the default, his choice) or `poster` (tall). **No service logos on the pictures** (he found them ragged:
+  removed, with the code that cut them out of the app icons).
+- **Card size** (`searchCardSize`, `large` by default, `standard`): the titles' and the videos' cards are as big
+  as the room above the dock allows with both rows whole (`z` in `SearchStage`, 0.8 to 1.5 times the standard
+  96 × 144 poster / 150 × 84 card: on the Streamer 111 × 166 posters with 173 × 97 videos, or 225 × 126 for both
+  with *Titles as* Card). Never cut by the dock; the music row keeps its size and sits under the dock until it
+  is reached (his ask). Every card has the Library's soft shadow (`softShadow` in `ui/LibraryScreen.kt`, now
+  shared; `PosterShadow.wide()` for 16:9), deeper under the selected one.
+- **Continue Watching** shows on a title's card: its progress as a thin bar and "S2 · E4" in place of the year,
+  matched by kind and name (`Search.nameKey`; the search's titles carry TMDB's number, Continue Watching's IMDb's:
+  two titles of the same name and kind are taken for each other).
+- **The bar starts empty** each time the search is left and opened again (`searchFresh`, on; the stage clears
+  `SearchUi.query` when it goes). *Keep the words searched* is another thing: the list of earlier searches under
+  an empty bar. From the typing, ▼ goes straight to the first row (it took one press to leave the typing).
+- *Only on my services* (`searchMine`, off; `Search.watchOn`: TMDB's `watch/providers` for a title TMDB found, kept
+  a month, else JustWatch; the first 40 titles, six at a time) hides titles none of the services' apps here has.
+  *Order of the list* (`searchOrder`): services or the Nuvio apps first. *Page behind the search* is `stagePageBg`
+  itself (the Music & Inputs page's key), set from the Search page too: the link that stood there named the wrong
+  section and went nowhere.
+- **YouTube and music** (`MediaSearch`, in `src/github`: NewPipe Extractor's search, no key; `src/play` has a
+  stand-in with `AVAILABLE = false`): videos as cards that open in SmartTube or YouTube's app
+  (`searchYoutube`, `searchYoutubeApp`); SoundCloud's tracks as cards that open in its app, and a Spotify card
+  that opens Spotify's own search with the words in it (`searchMusic`, `searchMusicOff`). Spotify has no search
+  open to others without a key, so it has no cards.
+- **A song plays under the search** (`searchMusicStay`, on; `Search.playSong`): OK on a SoundCloud song sends its
+  link, and Glassio's own task is moved back to the front (`AppTask.moveToFront`, never an intent: started with
+  one from the background Android built the home screen anew and the search closed) as soon as SoundCloud's
+  session reports that song playing: 1.2-1.6 s with SoundCloud running, about 6 s from cold. What SoundCloud
+  does with a link, all seen on the Streamer: a link equal to the one its task was first opened with only brings
+  the task forward and nothing plays (each press now carries its own `Intent.identifier`, Android 10+); over a
+  song that is playing it shows the new one's page and plays on (the old one is paused first); the song it holds
+  paused opens paused (told to play); working a link out takes it 0.4 s to more than 6 s, and Glassio in front
+  before that ends it (so no return on a timer). Never plays within 12 s: SoundCloud stays in front. Needs
+  Glassio's media access (Notification access); without it SoundCloud stays open, as with the switch off.
+- **Stay in the search** (`searchStay`, off): with the Search icon selected ▼ doesn't open the Library, and ▲ from
+  the search bar doesn't go to the menu. Off: as before.
+- **Ways in besides the icon:** a *Search* row in the side menu (`menuSearch`, key "search" in `MENU_KEYS`) and a
+  remote button (*Remote buttons* → Search, action "search", `--ez open_search true`): `SearchUi.open()`.
+- **Hybrid** (what each app takes from outside, all seen on the Streamer except official Nuvio, read in its source):
+  - Stremio plays one exact source: `stremio:///player/<stream>/<stream add-on manifest>/<meta add-on manifest>/<type>/<id>/<video id>`,
+    each part percent-encoded, `<stream>` = standard base64 of the zlib-compressed JSON of the add-on's stream
+    object. **Started cold with that link Stremio stops** ("RUNTIME not initialized"): `Search.playInStremio` opens
+    Stremio first and sends the link 1.6 s later. So for a film Glassio reads the add-ons' sources
+    (`Search.sources`, never kept on disk: an address can carry the person's key), sorts them by the rules
+    (`stremioQuality`, `stremioMaxGb`, `stremioHdr`, `stremioNoCam`, `stremioP2p`, `stremioAddonsOff`) and lists
+    them or plays the first (`stremioSources`: `list` / `first` / `page`). A series opens Stremio's page.
+  - Nuvio Legacy: `nuvio-legacy://play/<type>/<id>` starts the title with Legacy's own pick when Legacy is running;
+    cold it stops at its "Who's watching?" (no way round it found in the app). Official Nuvio and the forks: the
+    extras `launchMode=stream`, `contentId`, `contentType`, `videoId`, `name` open the sources screen (films only).
+    Both behind *Nuvio plays at once* (`searchNuvioPlay`, off: the title's page as before).
+  - The services open the title's page (the same links as *Play opens the streaming app*).
+- **Not in the play build:** Stremio's sources (`Store.PLAY`: Stremio opens its own page; the code is dropped: the
+  play APK has no `stremio:///player` and no `infoHash`).
+- Test (dev key): `--es search_test "tt1375666:movie:Inception"` logs titles, places and sources (tag
+  `GlassSearch`, never an address), `--es search_words "words"` fills the bar, `--ez reload_apps true` reads the
+  dock's list again, `--es move_app "package:+1"`; `dump_focus` prints `search=` and `page=Search`.
+
+## Languages (`data/I18n.kt`, `ui/Texts.kt`)
+
+Nine languages. English is the source and the key: a text is looked up by its English words.
+
+- **Every text goes through one place:** `ui.Text` stands in for Material's `Text` in the whole `ui` package (the
+  files no longer import Material's; `saver/` and `RecentsActivity` import `ui.Text`) and shows `I18n.tr(text)`.
+  A new screen needs nothing but its words in the tables. A name that isn't Glassio's own (a film, a song, a
+  profile, a camera) is drawn with `Plain`: a film called *Home* must not be translated.
+- **Arabic is formal Arabic (فصحى) as Saudi system interfaces word it** (his ask, 2026-11-21; it was Iraqi dialect):
+  no dialect words anywhere, the table's Arabic column included.
+- **Where the words are:** the small table in `I18n.kt` (by hand, comes first) and
+  `assets/i18n/<code>.tsv` ("English<TAB>translation", a line break as `\n`; about 1,530 a language), read when the
+  language is set. A change of language bumps `I18n.rev`, which every text reads, so it shows at once.
+- **What stays English:** a sentence put together from parts (a number or a name inside it, ~360 of them), the
+  phone page, the problem report, log lines. Arabic and Persian are still laid out left to right.
+- **Adding words:** `tools/i18n/extract.py` (collects the screens' string literals into `build/i18n/en.json`),
+  translate into `build/i18n/<lang>.<n>.json` (English → translation), `tools/i18n/merge.py` (writes the assets;
+  fails when a language misses a word). `PureLogicTest.languageFilesAreWhole` checks the files.
+- The translations were made by machine in one pass (2026-11-21) and read by nobody who speaks the languages:
+  wrong or clumsy wording is to be expected and fixed as people report it.
+
+## Two builds: `github` and `play` (`docs/play/README.md`)
+
+One code, two flavors (dimension `store`). **`github`** is Glassio as it always was (package `com.glasslauncher.tv`,
+the debug key): the GitHub releases and betas are built from it, and nothing in it changed. **`play`** is for Google
+Play (package `com.glasslauncher.tv.play`, its own upload key from `local.properties`, an AAB): never published
+anywhere until he says so.
+
+- `Store.PLAY` (`data/Store.kt`, a constant from `BuildConfig.PLAY`) switches off what Play does not allow, and R8
+  drops the code behind it: the updater and the Beta channel, *Install an icon pack*, trailers everywhere (the
+  trailer settings read as off and their rows are hidden; a saved `saverMode` "trailer" reads as the posters), the
+  PSN gift card, every shell command that gives Glassio a right (`SystemSetup.enableHomeKey`, `NowPlaying.grant`,
+  `Channels.grant`, the overlay appop, `ensureHomeService`), `LocalShell.install`.
+- `TrailerSource.kt` lives in `src/github` (it needs NewPipe Extractor, a `githubImplementation`); `src/play` has a
+  stub that finds nothing, and a manifest that removes `REQUEST_INSTALL_PACKAGES`, `WRITE_SECURE_SETTINGS`,
+  `ACCESS_ALL_EPG_DATA` and the install receiver.
+- **The accessibility service in the play build** does nothing until the person agreed (`a11yConsent`, the TV's;
+  `ConsentDialog` with `A11Y_TEXT`, shown by Settings → System and the setup before the TV's Accessibility settings
+  open; *Take back my agreement* is under it). Music asks for Notification access and *Open Glassio when the TV
+  starts* for "Display over other apps" through the TV's own pages.
+- Kept in the play build by his choice ("خليهن"): `LocalShell` for the rest (inputs, Bluetooth, screensaver, recent
+  apps, set-home-activity), Apple's aerials, the *Apple TV icons* source, Bing's pictures, JustWatch, Nuvio / Stremio.
+- **A new thing that Play would not allow goes behind `Store.PLAY`** (or into `src/github`), and after any change
+  near these parts scan the play APK: `strings` on its dex files must find none of `newpipe`, `pm grant`,
+  `allow_listener`, `WRITE_SECURE`, `f-droid`, `releases/latest`, `PackageInstaller`, `timedtext`, `gift`
+  (`pm install…` stays inside dadb's own unused code).
+- `docs/PRIVACY.md` is the privacy policy for both; `docs/play/README.md` has the listing's words, the Console's
+  declarations and what is still to do before an upload.
+
+## Manage from phone (`net/PhonePage.kt`, `net/PhoneServer.kt`)
+
+The page is laid out as Settings on the TV: a home list of 7 sections (Accounts & profiles, Catalogs & add-ons, Dock &
+icons, Look & menu, Background & screensaver, Smart home, System) with a value on the right, each a page of rows
+under headings, long lists on their own pages (`#section/page`: Add-ons, Apps, Saved on the TV, Your videos,
+Cameras), and a search on the home list that finds any row, lists' items too, and opens its place with the row lit.
+
+- **One file, no libraries, nothing from the internet.** Rows are built in `model()` from `/api/state` every time
+  something changes. A value is typed in a small window (`edit`), chosen from a list (`pick`, also the confirmation
+  before removing: `ask`), or read before sending (`show`): native `<dialog>`s, never `prompt` / `confirm`.
+- It is a Kotlin string: no dollar sign before a name or a brace in its JavaScript, and old-style functions.
+- **Its look is Glassio's** (his choice, 2026-11-20): liquid glass panes (`backdrop-filter`, a light rim and a top
+  highlight) over the setup's soft lights, which the TV sends as a picture (`/bg.jpg`, `orbsPicture`), always dark,
+  and a **burgundy** accent (`#8c1c3a`, the lighter `#e08aa0` for focus and the chosen item), never the old violet.
+  The one-button page for the settings button's picture (`/button`) has the same look. A browser without backdrop
+  blur gets plain dark panes.
+- **A new row** is one entry in `model()` (`txt(title, desc, value, {e: {…fields…, save}})` for a typed value), its
+  value in `state()` and its action in `post()`. Secrets are write-only: the state says only whether one is set.
+- On the page since 4.0.0's rewrite, besides what it had: the profile's name, the weather city, an app hidden from
+  or shown in the dock, the Photos background and its source, the doorbell's words, the Hue bridge's address, the
+  settings button's picture, and *Report a problem* (typed on the phone, built and cleaned on the TV, read in full
+  on the phone, sent by the TV; when the TV can't send it the phone opens the same report on GitHub).
+- Test: `--ez phone_url true` with the dev key starts the page and logs its address (tag `GlassPhone`), `false` stops
+  it; then any browser on the network (Chrome with a phone-size window was used).
+- **Dev hooks that change or reveal something are all behind the key now** (`self_install`, `hue_find`, `hue_pair`,
+  `open_legacy`, `ha_cams`, `trailer_test`, `trailer_find`, `fake_song`, `dump_media`, `dump_channels` sat before
+  the check, reachable by any app on the TV through the exported activity). Only the ones that open a screen stay
+  open: `open_folder`, `open_app`, `settings_search`, `open_settings`, `show_tour`, `next_bg`, `multi_cams`,
+  `open_menu`, `open_library`, `trailer_now`, `show_setup`, `start_saver`.
+
 ## Build, test, lint
 
 ```sh
 # JAVA_HOME / ANDROID_HOME: see CLAUDE.local.md
-./gradlew :app:assembleRelease          # app/build/outputs/apk/release/app-release.apk
-./gradlew :app:testDebugUnitTest        # unit tests (SettingsKeysTest, UpdaterVersionTest, …)
-./gradlew :app:lintDebug
-adb -s <tv> install -r app/build/outputs/apk/release/app-release.apk
+./gradlew :app:assembleGithubRelease    # app/build/outputs/apk/github/release/app-github-release.apk (the GitHub releases)
+./gradlew :app:testGithubDebugUnitTest  # unit tests (SettingsKeysTest, UpdaterVersionTest, …); testPlayDebugUnitTest for the play build
+./gradlew :app:lintGithubDebug          # lintPlayDebug for the play build
+./gradlew :app:bundlePlayRelease        # app/build/outputs/bundle/playRelease/app-play-release.aab (Google Play)
+adb -s <tv> install -r app/build/outputs/apk/github/release/app-github-release.apk
 ```
 
 - Quick error check: redirect the build to a log, then `grep -E "^e: |BUILD" <log>`.
@@ -828,6 +1017,245 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   `tourSeen` put back to 64. `glassqa.py security` flags `tools/report-worker/src/github.js` (the words "BEGIN RSA
   PRIVATE KEY" in a comment and a regex, no key): a false alarm, already public in the beta.
 
+- **Play Store variant, audit only (2026-11-20, evening; nothing changed in code):** he wants a separate build for
+  Google Play with whatever breaks its rules taken out, and asked for the findings first. Read from the code, judged
+  from the Play policies as known (not re-read on Google's pages; the review decides):
+  - Must go: the updater (`Updater`, `REQUEST_INSTALL_PACKAGES`, the Beta channel), icon packs installed as APKs
+    (`IconPackStore`, `pm install` through `LocalShell`), NewPipeExtractor trailers (`TrailerSource`, the YouTube
+    search scrape, `TrailerSubs`), the PSN gift card (`Support`), `WRITE_SECURE_SETTINGS` and `ACCESS_ALL_EPG_DATA`,
+    the shell commands that grant Glassio its own rights (`SystemSetup`, `Channels`, `NowPlaying.allow_listener`),
+    the debug signing key (Play needs its own key and an AAB).
+  - His to decide: all of `LocalShell` / dadb or only the grants and installs; Apple's aerials and the *Apple TV
+    icons* source; Bing's daily pictures; JustWatch; the Nuvio / Stremio wording; the package id (another signature
+    can't update the GitHub install: a `play` flavor with its own id is the proposal).
+  - Needed besides code: the accessibility declaration with an in-app disclosure and consent page, a privacy policy
+    and the Data safety form (problem reports, accounts), TMDB's attribution, a listing with no Apple / tvOS words.
+  - Fine as it is: native libraries are 16 KB aligned, targetSdk 37, no `QUERY_ALL_PACKAGES`, Hue's pinned trust.
+
+- **The play flavor, built (2026-11-20, evening; local commits only):** see **Two builds**. His answer on the grey
+  points was "خليهن" (keep them); taken to mean the features stay, the package gets `.play` (my proposal: tell him
+  again, it can't be changed after the first upload). Tests and lint pass for both flavors. The github APK is the
+  same size to the byte as 4.0.0's (12,226,298); installed on the Streamer over his, `nav` clean. The play APK
+  (11.4 MB) was installed beside it (left there for him to try: `adb uninstall com.glasslauncher.tv.play` removes
+  it): the setup's first page, Settings → System (no *With ADB* row, the new words under *Open Glassio when the TV
+  starts*), the agreement page on *Turn on the service* (Not now pressed), About (no Updates rows, no gift card,
+  the privacy line). The dex scan is clean. **Found on the way:** the YouTube embedded player the audit expected
+  as a fallback no longer exists (`TrailerLayer` needs streams), so the play build has no trailers at all.
+
+- **Play upload key and the files for the Console (2026-11-20, evening; "كمل الباقي واحفظ المفتاح ع سطح المكتب"):**
+  the upload key was made (RSA 4096, `CN=Glassio`, alias `glassio-upload`) and is outside git: where it is and its
+  password are in CLAUDE.local.md and `local.properties` (`PLAY_*`). The play AAB and APK are now signed with it
+  (certificate SHA-256 `d1d9d86b…8d5434`); the github APK still with the debug key, the same size as 4.0.0. On the
+  Streamer, the play APK signed with the new key (the debug-signed one was removed first): the setup's System step
+  (Home button, Default home app, Default screensaver, Start with the TV), the agreement page from there, *Agree*
+  opened the TV's Accessibility settings (the service was **not** turned on there: his own Glassio holds the Home
+  button). The github build after the split: a trailer found and its streams resolved (`trailer_find`, 1080p).
+  A folder for the Console was put beside the key: the AAB, the APK, the 1280x720 banner, the 512 icon, a 1024x500
+  feature graphic cut from the banner, four 1080p screenshots of his home screen (they show other companies' logos
+  and posters: his to choose), the listing's words and the privacy policy.
+
+- **Everything checked again and fixed (2026-11-20, evening; his request):** found in my own play work and fixed:
+  the service's Back for a camera window it shows now works before the agreement (the check sat above it); the
+  *Home button opens Glassio* switch opened the agreement but then did nothing (it opens the TV's page now); the
+  setup's *Start with the TV* did not ask for "Display over other apps"; the agreement travelled with sync and
+  with a backup (now `a11yConsent` is in `PeerSync.NEVER` and a restore keeps this TV's own); words about trailers
+  left in the play build (the Library's hint, the tour, the menu's screensaver choices and order, two Hue lines);
+  the service's description in the TV's settings (the play build has its own, `src/play/res`); the build commands
+  in CI (`.github/workflows/build.yml` would have failed on the next push: `testDebugUnitTest` no longer exists),
+  the PR template, CONTRIBUTING, README and `tools/tvtest.sh`; the privacy policy's list of services (Wikimedia,
+  wsrv.nl, Hue's discovery, YouTube and Google Translate for the GitHub build). Tests and lint pass for both
+  flavors, debug and release of both build. On the Streamer: the github build installed, `nav` clean; the play
+  build: the setup's System step, *Start with the TV* opened the TV's "Display over other apps" page (nothing
+  switched there); the TV has the pages the play build opens (Accessibility, Notification access, Home app).
+  The play APK scanned again: clean (dead words about trailers remain as text nobody reaches).
+  Left as it is, his to know: the play build's About still shows the GitHub page and its QR code (the source link a
+  GPL app owes; the README there has the GitHub APK's download button, which a reviewer could dislike).
+
+- **Manage from phone, rewritten (2026-11-20, night; his request: minimal and ordered like Settings, add what is
+  missing, review all of it):** see **Manage from phone**. Seen from a browser on the network at a phone's size,
+  dark and light, against the Streamer: the home list, Background & screensaver, Accounts & profiles, Apps with its
+  filter (19 apps; "net" → Netflix and its menu), the choice list for the background, the search ("weather" → City
+  in Look & menu, "netflix" → the app, nothing found), a found row opening its section lit, the typing window
+  (focus in the field, the saved value in it), saving the weather city with its own value (answer shown), a
+  report's preview (2,650 characters, no address in it; **not sent**), a wrong value and a request without the
+  code refused. No console errors. Tests and lint pass for both flavors. Found in the review and fixed: the page
+  had no Photos choice for the background, used the browser's own prompt / confirm, and several dev hooks sat
+  before the key check (see above).
+
+- **Manage from phone: liquid glass, Glassio's lights, burgundy (2026-11-20, night):** see **Manage from phone**.
+  Seen from a browser at a phone's size against the Streamer: the home list on the lights, a section, the typing
+  window with its burgundy button. `/bg.jpg` answers with the picture (8.7 KB) only with the code. His other ask,
+  "always approve": the browser and design tools (chrome-devtools, claude-in-chrome, figma, easel) are in the
+  allowed list of `.claude/settings.local.json`; pushing and releasing still ask, as his rule says.
+
+- **Google Play, the account and the listing's pictures (2026-11-21):** the developer account exists; an app can't
+  be created until the Console's own verification steps are finished (his to do: see CLAUDE.local.md). New
+  1080p listing screenshots (themes, with and without *Colour on focus*, no trailer button or Trailer row) are in
+  the Desktop folder: Play takes 8, the folder had 10 at last look. The play build was removed from the Streamer.
+- **Universal search, looked into only (2026-11-21; nothing changed in code):** a request (issue *Universal media
+  search*) and his idea on top: show the add-ons' sources in the search and play one in Nuvio / Stremio with rules
+  for quality and size. Found on the Streamer with a free 10 s test clip and *Big Buck Bunny* (tt1254207):
+  - **Stremio** (`com.stremio.one`) plays one exact source from outside:
+    `stremio:///player/<stream>/<stream add-on manifest>/<meta add-on manifest>/<type>/<id>/<video id>`, each part
+    percent-encoded, `<stream>` = standard base64 (not URL-safe) of the zlib-compressed JSON of the add-on's stream
+    object (`Stream::encode` in Stremio/stremio-core). Played at once. It also has `stremio:///search`.
+  - **Nuvio Legacy** (`space.nuvio.nativelegacy` 2.0.8): `nuvio-legacy://play/<type>/<id>` starts playing with its
+    own pick (its settings: quality first, HDR, size limits, allowed add-ons, a regex) when it is already running;
+    from a cold start it stopped at its profile chooser and then showed the title's page with the source prepared.
+    It ignores the Stremio player link: no way found to hand it one exact source. Its words say links can also
+    search; the form was not found.
+  - **Nuvio (official,** read from its source, not on the TV**):** an exported `MainActivity` with the extras
+    `launchMode=stream`, `contentId`, `contentType`, `videoId`, `name` opens the sources screen of that title, where
+    its own auto-play (first source, or a regex) applies. No exact source from outside. Arc / Re-Shaped not looked at.
+  - **Spotify** (`com.spotify.tv.android`): `spotify:search:<words>` opens its search with the results;
+    `spotify:track:<id>` starts playing that track at once (also `open.spotify.com/track|album|artist|playlist|search`).
+    Results as cards inside Glassio would need Spotify's API with a person's own
+    key (its present terms not checked).
+  - **SoundCloud** (`com.soundcloud.android`, a TV release): a track's own link (`https://soundcloud.com/<artist>/<track>`)
+    opens the track and plays it at once. A search with the words filled in was not found:
+    `https://soundcloud.com/search?q=` opens the Search tab empty (after the app's own subscription page, closed
+    with Back), `com.soundcloud.android.action.SEARCH` with `query` opens the keyboard empty;
+    `MEDIA_PLAY_FROM_SEARCH` not tried. Searching SoundCloud without a key (as NewPipe Extractor does) was not
+    confirmed: a quick try from the Mac found no client id.
+  - SmartTube (`org.smarttube.stable`) is on the Streamer, the official YouTube app is not; neither link tried yet.
+  - His decisions (2026-11-21): no player in Glassio; hybrid (Stremio by Glassio's rules, the other apps by their
+    own); all of it optional, off = as before; results look like the Library with their own settings; a way round
+    Nuvio Legacy's profile chooser wanted (none found in the app: keeping it running is the proposal). Not built.
+  - So: Glassio's own list and rules can end in the app only for Stremio; for the Nuvios the choice stays theirs.
+    Playing a source in Glassio's own player would make it a streaming app (out of the play build, and a risk for
+    the repo): his decision, not taken. The test left *Big Buck Bunny* possibly in Stremio's Continue Watching.
+
+- **4.1.0-beta1, built and on the Streamer, not published (2026-11-21; his "نفذ بنسخة بيتا"):** three local commits.
+  - *Search* (issue #21 and his own additions): see **Search**. On the Streamer: the icon's page on the carousel-blur
+    background; typing with the TV's keyboard, titles while typing; *Inception* → Nuvio Legacy, Stremio ›, Save; for
+    *Big Buck Bunny* Stremio's 11 sources listed by quality and size, one chosen, Stremio (cold) took it and its
+    player started it (that 4K file then failed in Stremio's own player: "Exo failed to play this video"); Back
+    from Stremio returns to the search page with the title selected; the settings page and its rows; moving on
+    and off the icon against the Music icon (same); `nav` clean, no crash. Found and fixed on the way: the keyboard
+    opening by itself on the next visit, Cinemeta's weak search (TMDB first now), Stremio stopping on a cold start.
+  - *Nuvio One* (issue #20): `app.onetube.tv`, the same `nuvio://` links (read in zoga2o3-ops/Nuvio-One); added to
+    the apps a title opens in. Not installed here: never opened.
+  - *Languages* (issue #19): see **Languages**. On the Streamer: a settings section in Spanish and in Arabic, whole;
+    switching Spanish → Arabic → English with Settings open shows at once (it didn't before the `rev` fix).
+  - *After his look at it (same day):* the search's lists on the menus' glass; *OK on a title* can be one chosen
+    app (set to Stremio for a try: OK went straight to its sources; put back to the list); no grey posters; glass
+    pop-ups over Settings and the plain windows lighter; Arabic redone in formal Arabic. Seen on the Streamer: the
+    pick list over Settings before and after, a section in the new Arabic, the search with its glass list.
+    A feature request was opened on Nuvio Legacy's repository from his account (iqui27/nuvio-native-legacy #810:
+    skip "Who's watching?" for a deep link on a cold start, by a setting or a profile in the link).
+    **A dropped adb command let later keys land elsewhere** (the Play Store opened on an app's page; nothing was
+    installed): keys are now only sent after the screen is confirmed, and never OK in the same command as the check.
+  - *Second pass, after his list (same day):* the rows above (YouTube, music, service icons, order, menu row, remote
+    button); the bar lower so the island doesn't sit on its edge; ◀ ▶ no longer leave a row for the menu; back from
+    the menu to the bar; the blur left after Search → another app; in Settings, ◀ inside a page a row opened goes
+    up one page (it went to the sections with the page still up: his video). On the Streamer: "daft punk" with the
+    three rows, ▲ ▼ between them, 26 presses of ▶ staying in the row, the menu and Back to the bar, "stranger
+    things" and "severance" with Netflix / Apple TV / Prime icons on their posters, new words while a poster was
+    selected (the selection went to the bar, the page stayed), the page sharp again 1.2 s after leaving the icon
+    (it stayed blurred), ◀ from the Search settings page. Not opened: a video in SmartTube, a song, Spotify's card.
+  - *Third pass (same day):* the search over the whole screen for a dock in the middle or a column (seen with the
+    dock in the middle: OK on the icon, rows, Back to the icon; the column dock's icon could not be selected by the
+    test, same code path); logos without plates and the rating on posters (seen: Netflix, Apple TV, Prime Video);
+    *Popular this week*; a *Search* switch among *Menu items*; the menu's row has its magnifying glass (seen).
+  - *Fourth pass (same day):* cards with the name inside and a scrolling long name, Continue Watching on cards
+    (seen: *Family Guy* with its bar and "S2 · E4"), sharper logos (seen), the bar empty on coming back (seen),
+    ▼ once from the typing after the keyboard is closed (seen; with the keyboard up ▼ is the keyboard's own),
+    results 280 ms after the typing rests and fading in. Not seen: the marquee moving, a song or a video card selected.
+  - *Fifth pass (same day):* the cards as above (seen in both shapes, the name scrolling on the selected one),
+    logos gone, the rating in the faint line, *Page behind the search* a real setting.
+  - *Sixth pass (same day):* the bar at the top of the page and **no island while the search is up** (page or full
+    screen); a selected card as in the Library (a poster grows 11 %, a wide card 6 %, the glow in the picture's
+    colour, a bright rim); the rows move with the Library's `Glide` and `RowScroll` (now `internal`), the page
+    between rows with a `Glide` too, a held ◀ ▶ on the Library's beat. Seen: the bar at the top, the island gone,
+    the glow and zoom on a poster, the row moved along by eleven steps. Frames while holding a key were not
+    measured (the tool returned no frames).
+  - *Seventh pass:* no white rim on a selected search card (the zoom and glow stay). Faster fades: the page
+    picture's way back from **any** stage page (search, music apps, inputs, an app's rows) is 200 ms instead of a
+    slide's length (`fromStage` in `HomeScreen`; it was 560 ms and more), the way in 180 ms, the Search icon's rest
+    before its page comes 130 ms (240 for the others). From a recording: in within ~0.25 s, back within ~0.45 s.
+  - *Eighth pass: to the search and back at once.* The island goes as soon as the Search icon is selected (70 ms);
+    the icon's rest before its page is 50 ms and 30 ms on the way out. Back to the slide that was showing, the
+    carousel's picture is put back as it was (`keptPage` in `HomeScreen`: nothing loaded or made again; only for
+    the same list). To an app with its own carousel, its opening slide is ready ahead: the picture and glass pinned
+    by the carousel (`appFirst` in `Hero.kt`), the screen-size picture made ahead (`HeroAhead`, `BakeCache.keep`,
+    three at most, not at `memTier` 0). From recordings (the TV's recorder drops frames: rough): Search → Nuvio
+    ~0.5 s → ~0.1 s; Search → Apple TV (its own carousel) 1.4 s → 0.3 s; into the search 0.2-0.3 s. `nav` clean.
+  - *Ninth pass: smoothness, measured frame by frame* (`gfxinfo framestats` after one key; the script is not in
+    the repo). Found: (1) the interpreter, above: the biggest part; (2) the crossfade to and from the search drew
+    two full pages and every glass surface twice, 45-55 ms a frame on the GPU: the search's page now comes and
+    goes in one frame (`searchCut`), its cards fade by their own alpha (`ModulateAlpha`, no full-screen layer);
+    (3) the search's rows are built one a frame. Longest frame, before → after (compiled, Glassio restarted):
+    into the search 150-240 → 80-100 ms; Search → Nuvio 60-115 → 39; Search → Apple TV 100-128 → 60.
+    Still there: one frame of 80-100 ms when the search page is first built (its bar and first row), and the
+    home screen's usual 27-30 ms a frame while anything moves (the dock's glass: see Open items).
+    `glassqa.py profile` read an old mapping file (pre-flavors path) and printed wrong function names: fixed.
+  - *Tenth pass: a song from the search* (his: OK on a song went into the app and did not play). See **Search**
+    (*A song plays under the search*). Seen on the Streamer: a song from cold; a second press on the same song;
+    the song SoundCloud held paused; another song while one played; each plays and Glassio is back on the same
+    card of the search. Found on the way: **a crash of the search** ("Index 1 out of bounds", three times that
+    day while results arrived: a row's requesters read past their end; guarded, `at()` in `SearchStage.kt`), and
+    the player's "selection lost" rule sending the selection to the first app while the search was up (`Hero.kt`).
+    Not seen: Android below 10 (no identifier there), no media access, a song SoundCloud can't play (its
+    30-second previews were not pressed), YouTube's cards (unchanged: they stay in the YouTube app).
+  - *Eleventh pass:* bigger cards that never reach the dock and the Library's shadow under them (see **Search**,
+    *Card size*). Seen on the Streamer in both shapes. Frames while moving along a row: 23-34 ms with either
+    size (the page's usual range; the shadow's own cost was not isolated). The shadow is faint on his dark page.
+    Spotify stays one card that opens its search (his decision; Spotify's TV app refuses
+    `MEDIA_PLAY_FROM_SEARCH`: tried. Its session lists play-from-uri and play-from-media-id: not tried).
+    The words collector picks up a quoted sentence inside a comment in `ui/`: don't quote one there.
+  - *Twelfth pass:* titles are wide cards by default (`searchShape` "card"). **The scrolling name on a selected
+    card trembled and Glassio's processor use was high** (his video). One cause, measured: `basicMarquee` asked for
+    a frame every 16.7 ms and ran for ever, and any change on this page draws the whole screen again in ~27 ms, so
+    the steps reached the screen unevenly and Glassio drew without end (40-58 % of a core, RenderThread; a song
+    playing and the hidden island cost nothing: 0 frames). Now `SlidingName` in `SearchStage.kt`: one step every
+    second frame, the words moved as a layer, two passes then rest. On the Streamer: every gap between frames is
+    two refreshes (119 of 119; frame cost 25.6 ms), and after the passes 0 frames and 2 % of a core.
+    (A first try, the marquee in its own layer, changed nothing.)
+    Then "the letters still dance": the layer's place is put on whole pixels by Android, so a speed of 1.87 px a
+    step gave steps of 2, 2, 2, 1 px (a twitch four times a second); and a second try, the words as a ready
+    picture (`Offscreen`) inside the card's enlarged layer, was worse (the letters' white cores differed by 12-17 %
+    between frames, against ~1 %). Now the name is taken out of the card's enlargement (`unzoomed`) and moves by
+    the same whole number of pixels every step. Measured: frames every two refreshes (93 of 93), cores ~1 %.
+    **Not confirmed by his eyes yet.** Comparing screenshots of moving text: only the pure-white cores count
+    (the picture behind the letters shifts with the alignment and fills every other measure with noise).
+    **Any animation that runs on this page must step every second frame** until a frame costs under 16.7 ms.
+  - *Thirteenth pass:* running along the dock across the Search icon was heavy (his report): the page's rows
+    were built and thrown away at every crossing. The rows now wait until the selection has rested on the icon
+    for 220 ms or has come into the page (the bar still comes at once). Four keys across the icon, longest frame /
+    main thread: 110-214 / 88-189 ms → 49-65 / 32 or less (between other icons: 37 / 18); what is left is the
+    page picture's change (GPU). The Music heading's top edge showed above the dock with posters: pushed down
+    out of sight when less than a heading's height is left (`pushMusic`).
+    **A measurement in the first two minutes after an install is worthless**: Glassio's own compile
+    (`dex2oat`, a minute after its start) takes a whole core; wait for it and restart Glassio.
+  - *Fourteenth pass:* *Stay in the search* (seen on the Streamer on and off). **Back from the screensaver the
+    carousel was black for ~0.4 s and the dock's glass showed the screensaver's picture** (his report), after
+    ~0.8 s with no frame at all: the screensaver's video copies for the island's glass (`VideoFrames.showing`)
+    were only let go when its screen was destroyed, after the home screen was back, so the home screen took a
+    video to be behind it. Now `VideoFrames.saverClosed()` when the screensaver closes (its copy loops stay
+    quiet for 3 s). Recordings (aerial screensaver, island in glass): the home screen's first frame has its
+    picture; key to picture 1.3 s → 0.5-0.6 s (three runs). Still there: a few frames of 100-200 ms (main
+    thread) while the home screen comes out of black; a profile of it showed nothing that stands out.
+    Not seen: the trailer screensaver, the posters, your own background, an app's rows behind (his "blur
+    background"), the TV's own start of the screensaver (dream).
+  - *Remote buttons with no key code* (his ask: on a Homatics Box R 4K Plus the Netflix button can't be given
+    a job in Glassio, in other launchers it can; that box is not here). Found in the code: a button the TV gives
+    no key code (0) was refused everywhere (`KeyHub.usable`, and the window set "Not set"). Now such a button is
+    known by its scan code, kept as a negative number (`KeyHub.idOf`, shown as "Button 183"), and what arrives
+    while a button is being learnt is written to the log (so a problem report shows it). On the Streamer, with a
+    keyboard made by Android's `hid` tool whose F13 has no key code there: learnt as "Button 183" (put back).
+    **Whether this is what that box's Netflix button sends is not known**: if it still fails there, a report from
+    that TV right after trying shows the line "Remote button while learning: …", or nothing at all (then the
+    button never reaches Glassio's service: is the Home button service on?). `input keyevent` can't test any of
+    this: injected keys skip the accessibility service, and 313 (All apps) is taken by the system before the app.
+  - *The menu's Search over an app's rows* (his report: the search came up over the rows and the selection
+    vanished): `SearchUi.open` now lets the selected app's page go (rows, music apps, inputs), the rows are not
+    drawn while the search is on, and the menu hands the selection to the search bar first (it went into the
+    rows under the search). Seen on the Streamer from SmartTube's rows: the search alone, its bar selected, Back
+    to the Search icon. Not seen: from the music apps' and the inputs' pages, the remote button, a dock without
+    the Search icon.
+  - Tests and lint pass for both flavors; the play APK scanned clean. His settings as before except: `searchOn` on
+    and the Search icon second in his dock (left so he can try it), `settingsNewFor` 4.1.0.
+
 **Earlier (2:45 am):** released 3.8.0 stable (code 67, tag `v3.8.0`, `main` = d68f00a).
 
 ## Open items
@@ -928,15 +1356,44 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   clock during the slide (the clock's cut-out still uses its place on screen, `BackgroundExtras.kt`), the TCL. The
   main thread's p90 during the return rose by ~10 ms (the selected plate remade while it grows): if it shows,
   let the plate keep one place until it has grown.
-- **Beta 4.0.0-beta1 released (2026-11-20):** the public commit `9631597` (one commit on `origin/main` 461c7a4, the
-  local `beta` tree at `db957d7`) is `origin/beta`, tagged `v4.0.0-beta1`, with the GitHub prerelease
-  (https://github.com/mohammadmrh12/glassio/releases/tag/v4.0.0-beta1) and one asset, `Glassio-4.0.0-beta1.apk`,
-  sha256 `bf9d2ae36c6c98e78c416034e360deaff15005831e9af9fbf1acb41036ac027f` (downloaded and compared: the same APK as
-  on the Streamer). `main` is unchanged and `releases/latest` is still v3.8.0. Not yet seen: the updater on the
-  Beta channel offering it.
-- Next beta: the local `beta` keeps its own history; each beta is one new public commit on `origin/beta` (parent:
-  the last public beta commit), made with `commit-tree`, as for stable.
-- The public CLAUDE.md in 3.8.0 is from before the release; the next release carries this one.
+- **4.0.0 stable released (2026-11-20):** the public commit `c1795a2` (one commit on 461c7a4, the tree of local
+  `beta` at `dbf37e5`) is `origin/main`, tagged `v4.0.0`, the *latest* release, with `Glassio.apk` and
+  `Glassio-4.0.0.apk` (sha256 `78c4f2ef990004931e17085c3099cca35514fc8023622f3d90b1c1447c1f4446`, downloaded and
+  compared: the build on the Streamer). `origin/beta` stays at `9631597` (4.0.0-beta1, still a prerelease). Not
+  seen: the updater offering 4.0.0 to a TV on 3.8.0 or on the beta (the TCL), the Downloader code fetching it.
+- The play build, not seen on a TV: *Take back my agreement*, Music asking for Notification access,
+  Channels' own question, the Carousel section without its Trailers group, the screensaver with a saved "trailer"
+  mode, the tour without the support page, a backup from the github build restored into it, the AAB itself (built,
+  never uploaded or installed with bundletool), the service really on in the play build. Not done: an embedded YouTube player to bring trailers back, a banner and screenshots for the
+  listing, moving `IconPackStore` / the updater's installer out of `main` (R8 drops them today).
+- Manage from phone, not tried (each would change his TV): signing in, adding or removing an add-on, a camera, a
+  video, hiding an app, an icon from a link or an upload, a background upload with its progress, a download from a
+  link, the Photos source, the doorbell's words, the Hue address, the profile's name, restore, sending a report.
+  Not seen: a real phone (Safari on iOS: the keyboard over the typing window, the back swipe), Arabic text in a
+  field, the play build's page (the same file). The page is English only.
+- 4.1.0-beta1 before it is published: `CHANGELOG.md`, `docs/CHANGELOG.ar.md` and the READMEs have nothing about
+  it yet; the three issues (#19, #20, #21) were not answered; the changelog should say the translations are machine-made.
+- Search, not done: Spotify's own cards (need a key), episodes of a series for
+  Stremio's sources, keeping Nuvio Legacy running so its profile chooser doesn't come up.
+- Search, not seen: a title that is on an installed service (none of the ones tried was on Netflix or Apple TV in
+  his country, so no service row was ever shown or opened from the search), *Opens the first place*, *Nuvio plays at
+  once* from the search (the link itself was tried by hand), the vertical and regular docks, the dock in the middle
+  (the icon then does nothing: by the same rule as Music and Inputs), your own background, the play build, Arabic
+  typed in the bar, the voice key, results without a TMDB token on the TV, a source that needs Stremio's
+  streaming server (connection refused there: the *Torrents* switch is off by default for that).
+- After leaving the Search, Music or Inputs icon for a carousel app the page stayed blurred for two seconds or
+  more before the sharp picture returned (measured the same for Search and Music, with automatic slides off for the
+  test): not looked into, may be the test's state.
+- The windows he called too dark "in the setup": which ones was not clear (the setup has no glass pop-up of its
+  own; its dialogs are the plain windows, now lighter). Not seen on the TV: a plain window (text entry, menu, QR)
+  after the change, anything in the setup.
+- Languages, not seen: the other six languages on the TV, the side menu, the setup, dialogs and the tour in any of
+  them, a text too long for its row (titles are one line and cut with "…").
+- Next beta: its public commit goes on `origin/beta` with the last stable commit (`origin/main`) as parent, made
+  with `commit-tree`; its version must be above 4.0.0 (4.0.1-beta1 or 4.1.0-beta1, code 70+). The local `beta`
+  keeps its own history.
+- The next release must replace `NEW_IN`'s 4.0.0 entry with its own rows and bump `WhatsNew.ID` (65) if the tour
+  changes.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and
     not their home or a profile picker) is only known from the intent in front.

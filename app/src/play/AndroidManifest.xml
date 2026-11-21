@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google Play build: what Play does not allow is taken out of the merged manifest. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <!-- Updates come from Google Play, and nothing else is installed by Glassio. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove"/>
+    <!-- Rights only the system or ADB can give: this build never gives itself any. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:node="remove" tools:ignore="ProtectedPermissions"/>
+    <uses-permission android:name="com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA" tools:node="remove" tools:ignore="ProtectedPermissions"/>
+    <application>
+        <receiver android:name=".data.InstallResultReceiver" tools:node="remove"/>
+    </application>
+</manifest>
