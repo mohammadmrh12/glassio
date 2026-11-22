@@ -85,6 +85,7 @@ object LocalShell {
      * limit: a TV still asking "Allow USB debugging?" (or one that was refused) no longer waits for ever.
      */
     fun install(ctx: Context, apk: File, port: Int = 5555): Result<Unit> {
+        if (Store.PLAY) return Result.failure(IllegalStateException("not in this build"))
         val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
         val remote = "/data/local/tmp/glass-update.apk"
         val log = "/data/local/tmp/glass-update.log"
@@ -131,9 +132,21 @@ object LocalShell {
         }
     }
 
+    /**
+     * When the TV's adb doesn't answer at all (USB debugging off, or Glassio not allowed), it is not asked again for a
+     * while: every try waits up to 15 s on each of the TV's addresses, and the regular callers (Continue Watching from
+     * Nuvio Legacy every 20 s, Recent apps, TV info) asked again and again, a timeout in the log every minute (#24).
+     * Five minutes, then ten, at most thirty; [retryNow] (the TV access page) clears it.
+     */
+    @Volatile private var quietUntil = 0L
+    @Volatile private var quietFor = 0L
+    fun retryNow() { quietUntil = 0L; quietFor = 0L }
+
     /** Blocking; call off the main thread. Keeps one connection open and reconnects if it drops. */
     @Synchronized
     fun run(ctx: Context, command: String, port: Int = 5555): Result<String> {
+        if (conn == null && android.os.SystemClock.uptimeMillis() < quietUntil)
+            return Result.failure(IllegalStateException("the TV's adb didn't answer a moment ago"))
         repeat(2) { attempt ->
             val r = runCatching {
                 val d = conn ?: open(ctx, port).also { conn = it }
@@ -141,8 +154,16 @@ object LocalShell {
                 check(res.exitCode == 0) { res.allOutput.trim().ifBlank { "exit ${res.exitCode}" } }
                 res.allOutput
             }
-            if (r.isSuccess) return r
-            if (attempt == 1) { Glog.w("TV adb shell", r.exceptionOrNull()); return r }
+            if (r.isSuccess) { quietFor = 0L; return r }
+            if (attempt == 1) {
+                // (Only when no connection could be made: a command that failed on a working connection is its own matter.)
+                if (conn == null) {
+                    quietFor = (if (quietFor == 0L) 5 * 60_000L else quietFor * 2).coerceAtMost(30 * 60_000L)
+                    quietUntil = android.os.SystemClock.uptimeMillis() + quietFor
+                    Glog.w("TV adb shell (not asked again for ${quietFor / 60_000} min)", r.exceptionOrNull())
+                } else Glog.w("TV adb shell", r.exceptionOrNull())
+                return r
+            }
             runCatching { conn?.close() }; conn = null
         }
         return Result.failure(IllegalStateException())

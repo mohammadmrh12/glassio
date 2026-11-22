@@ -192,7 +192,8 @@ class MainActivity : ComponentActivity() {
         handleExtras(intent)
         // Home pressed while we are already in front: go back to the plain home view.
         // (Not when a remote button or Hold Home asked for something: the Library, the menu, the Apps folder, an app.)
-        val asked = listOf("open_library", "open_menu", "open_folder", "open_app").any { intent.hasExtra(it) }
+        // "keep_place": Glassio bringing itself back as it was (a song started from the search plays in its app).
+        val asked = listOf("open_library", "open_menu", "open_folder", "open_app", "open_search", "keep_place").any { intent.hasExtra(it) }
         if (intent.hasCategory(Intent.CATEGORY_HOME) && !asked) {
             screen = Screen.Home
             (application as GlassApp).homeRev.intValue++
@@ -209,7 +210,7 @@ class MainActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (com.glasslauncher.tv.ui.NavGate.blocks(event.keyCode)) return true
         // The shuffle button and "press the button you want" (also caught by the Home button service first).
-        if (KeyHub.handle(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
+        if (KeyHub.handle(application as GlassApp, KeyHub.idOf(event), event.action == KeyEvent.ACTION_DOWN)) return true
         // The What's new tour takes the remote while it shows.
         if (com.glasslauncher.tv.ui.WhatsNew.onKey(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
         // "Who is watching?" takes it too.

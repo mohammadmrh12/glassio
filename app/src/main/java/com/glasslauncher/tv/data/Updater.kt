@@ -67,6 +67,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope, priva
     val lastCheck = MutableStateFlow(0L)
 
     fun start() {
+        if (Store.PLAY) return   // Google Play updates it
         scope.launch(Dispatchers.IO) {
             delay(8_000)
             while (true) { check(); delay(12 * 3600_000L) }
@@ -74,7 +75,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope, priva
     }
 
     /** Returns a message for the Settings toast. */
-    fun check(): String = try {
+    fun check(): String = if (Store.PLAY) "Updates come from Google Play" else try {
         val beta = beta()
         val c = URL(if (beta) API_ALL else API).openConnection() as HttpURLConnection
         c.connectTimeout = 8000; c.readTimeout = 12000
@@ -109,6 +110,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope, priva
     }
 
     fun install() {
+        if (Store.PLAY) return
         val r = available.value ?: return
         scope.launch(Dispatchers.IO) {
             try {
@@ -166,6 +168,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope, priva
     }
 
     fun installWithPackageInstaller(apk: File, own: Boolean = true) {
+        if (Store.PLAY) return
         val pi = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
@@ -184,6 +187,7 @@ class Updater(private val ctx: Context, private val scope: CoroutineScope, priva
 /** Receives the package installer's answer; shows its confirmation screen when it needs one. */
 class InstallResultReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (Store.PLAY) return
         when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -999)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 @Suppress("DEPRECATION")

@@ -30,7 +30,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **4.0.0** — profiles, your streaming apps' own catalogs and pages, new Settings, a smoother Library. What changed in every version:
+Latest: **4.1.0** — Search (films, series, YouTube and songs, opened in your apps), nine languages, Nuvio One and Nuvio+IPTV. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
@@ -302,7 +302,7 @@ with new features first. Switch back any time.
 ```sh
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=/path/to/android-sdk
-./gradlew assembleRelease     # app/build/outputs/apk/release/app-release.apk
+./gradlew assembleGithubRelease     # app/build/outputs/apk/github/release/app-github-release.apk
 ```
 See [CONTRIBUTING.md](CONTRIBUTING.md) for testing from a computer and the settings snapshot (`--ez dump_prefs true`).
 </details>

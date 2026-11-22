@@ -8,9 +8,9 @@ cd ~/AI-Home-Control/work/Glass-Launcher
 if [[ "$1" == "build" ]]; then
   shift
   : "${JAVA_HOME:?Set JAVA_HOME to a JDK 17}" "${ANDROID_HOME:?Set ANDROID_HOME to the Android SDK}"
-  ./gradlew :app:assembleRelease --no-daemon --console=plain > /tmp/gb.log 2>&1; grep -E "^e: |BUILD" /tmp/gb.log
+  ./gradlew :app:assembleGithubRelease --no-daemon --console=plain > /tmp/gb.log 2>&1; grep -E "^e: |BUILD" /tmp/gb.log
   adb connect $D >/dev/null
-  adb -s $D install -r app/build/outputs/apk/release/app-release.apk | tail -1
+  adb -s $D install -r app/build/outputs/apk/github/release/app-github-release.apk | tail -1
   adb -s $D shell am force-stop com.glasslauncher.tv
   adb -s $D shell am start -n com.glasslauncher.tv/.MainActivity >/dev/null 2>&1
   sleep 9

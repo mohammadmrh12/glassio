@@ -219,6 +219,28 @@ object PlatformLinks {
         return got
     }
 
+    private val offersMem = java.util.concurrent.ConcurrentHashMap<String, List<Link>>()
+
+    /**
+     * Every installed app that has the title now (JustWatch's offers in the country), one link each: the search's
+     * "where to watch" list. Not for the main thread. Empty when nothing has it, JustWatch is off or didn't answer
+     * (only a real answer is remembered, for this run of Glassio).
+     */
+    fun offers(ctx: Context, s: Settings, item: HeroItem): List<Link> {
+        val id = item.id.trim()
+        if (!id.startsWith("tt") || !s.linkJustWatch) return emptyList()
+        val apps = usable(ctx)
+        if (apps.isEmpty()) return emptyList()
+        val key = Region.of(s) + ":" + id
+        val all = offersMem[key] ?: run {
+            if (System.currentTimeMillis() < restUntil) return emptyList()
+            runCatching { justWatch(id, item.name, item.type.equals("movie", true), Region.of(s)) }
+                .onFailure { restUntil = System.currentTimeMillis() + REST_MS; Glog.w("Places to watch from JustWatch (left alone for 10 minutes)", it) }
+                .getOrNull()?.also { offersMem[key] = it } ?: return emptyList()
+        }
+        return all.filter { it.pkg in apps && intent(it).resolveActivity(ctx.packageManager) != null }
+    }
+
     /** Looks a title up ahead of time (the slide on screen), so Play opens it at once. */
     fun warm(ctx: Context, s: Settings, item: HeroItem, prefer: String? = null) {
         val id = item.id.trim()

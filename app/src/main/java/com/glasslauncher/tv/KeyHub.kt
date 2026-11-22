@@ -15,11 +15,19 @@ object KeyHub {
         android.view.KeyEvent.KEYCODE_BACK, android.view.KeyEvent.KEYCODE_HOME, android.view.KeyEvent.KEYCODE_POWER,
     )
     fun usable(code: Int) = code !in nav && code != 0
+    /**
+     * The number a remote button is known by: its key code, or, for a button the TV gives no key code (0: many
+     * remotes' Netflix and other app buttons), its scan code as a negative number. Such a button could not be
+     * learnt at all before: it read as "Not set".
+     */
+    fun idOf(e: android.view.KeyEvent): Int = if (e.keyCode != 0) e.keyCode else -e.scanCode
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** True when the key was Glassio's (it is then not passed on). Called for every key, from the service and the activity. */
     fun handle(app: GlassApp, code: Int, down: Boolean): Boolean {
         capture?.let { c ->
+            // (In the log, so a problem report shows what a button that won't be learnt really sends.)
+            if (down) com.glasslauncher.tv.data.Glog.i("Remote button while learning: $code" + if (usable(code)) "" else " (not usable)")
             if (!usable(code)) return false
             if (!down) { capture = null; main.post { c(code) } }
             return true

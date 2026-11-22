@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +59,7 @@ object AppLock {
         val go = {
             if (e.pkg == MusicUi.DOCK_PKG) MusicUi.openFromDock(app)
             else if (e.pkg == com.glasslauncher.tv.data.Inputs.DOCK_PKG) runCatching { InputsUi.entry.requestFocus() }
+            else if (e.pkg == SearchUi.DOCK_PKG) { if (SearchUi.inPlace(app.settings)) SearchUi.type.intValue++ else SearchUi.open(app.settings) }
             else if (com.glasslauncher.tv.data.Inputs.isInput(e.pkg)) com.glasslauncher.tv.data.Inputs.open(ctx, e.pkg)
             else app.apps.launchIntent(e)?.let { runCatching { ctx.startActivity(it) } }
             Unit

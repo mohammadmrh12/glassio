@@ -67,8 +67,8 @@ How the code is laid out, and how to add or fix something without breaking what 
 You need JDK 17 and the Android SDK (Android Studio has both).
 
 ```sh
-./gradlew testDebugUnitTest   # unit tests (seconds, no TV needed)
-./gradlew lintDebug           # Android lint
+./gradlew testGithubDebugUnitTest   # unit tests (seconds, no TV needed)
+./gradlew lintGithubDebug           # Android lint
 ./gradlew assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```

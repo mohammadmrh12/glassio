@@ -157,6 +157,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
             override fun onActivityDestroyed(a: android.app.Activity) {}
         })
+        com.glasslauncher.tv.data.I18n.assets = assets
+        com.glasslauncher.tv.ui.PictureMemory.ctx = this
         com.glasslauncher.tv.data.I18n.lang = settings.lang
         settings.firstRun()
         com.glasslauncher.tv.data.NuvioWatch.episodeOf = { id ->
@@ -240,6 +242,23 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         updater = com.glasslauncher.tv.data.Updater(this, scope) { settings.updateChannel == "beta" }.also { it.start() }
         // If Glass was closed while the TV screensaver was being started, put the screen timeout back.
         Bg.io("glass-start") { com.glasslauncher.tv.saver.SystemDream.restoreIfPending(this) }
+        // After an install or an update Android runs the app's code in its interpreter until it gets round to
+        // compiling it (days, on a TV that is rarely idle and plugged in the way it wants): every page change then
+        // has frames of 100-240 ms. The TV's own shell is asked to compile it now, from the profile shipped in the
+        // APK (baseline-prof.txt) and what has run so far: once per installed build, a minute after the start.
+        // (Not in the play build: Google Play does this at install.)
+        if (!com.glasslauncher.tv.data.Store.PLAY) Bg.io("glass-compile") {
+            runCatching {
+                val pi = packageManager.getPackageInfo(packageName, 0)
+                val key = "${BuildConfig.VERSION_CODE}:${pi.lastUpdateTime}"
+                val sp = getSharedPreferences("compile_done", MODE_PRIVATE)
+                if (sp.getString("build", "") == key) return@runCatching
+                kotlinx.coroutines.delay(60_000)
+                val out = com.glasslauncher.tv.data.LocalShell.run(this@GlassApp, "cmd package compile -m speed-profile -f $packageName").getOrThrow()
+                if (out.contains("Success")) { sp.edit().putString("build", key).apply(); com.glasslauncher.tv.data.Glog.i("Compiled after the update") }
+                else com.glasslauncher.tv.data.Glog.i("Compiling after the update: ${out.trim().take(80)}")
+            }.onFailure { com.glasslauncher.tv.data.Glog.w("Compiling after the update", it) }
+        }
         icons.importDropFolder(apps.apps.value.map { it.pkg })
         com.glasslauncher.tv.data.Hue.pins = settings
         ensureHomeService()
@@ -252,7 +271,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
      * With WRITE_SECURE_SETTINGS (granted once over adb) Glass puts its Home-button service back.
      */
     fun ensureHomeService() {
-        if (!settings.interceptHome) return
+        if (com.glasslauncher.tv.data.Store.PLAY || !settings.interceptHome) return
         if (checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
         runCatching {
             val me = "$packageName/${HomeKeyService::class.java.name}"

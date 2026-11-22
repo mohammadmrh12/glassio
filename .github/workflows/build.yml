@@ -27,16 +27,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       # No local.properties here: the Trakt / Nuvio / Simkl app ids are empty, which the app handles.
       - name: Unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon testGithubDebugUnitTest testPlayDebugUnitTest
       - name: Lint
-        run: ./gradlew --no-daemon lintDebug
+        run: ./gradlew --no-daemon lintGithubDebug lintPlayDebug
       - name: Build the APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon assembleGithubDebug assemblePlayDebug
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: reports-and-apk
           path: |
-            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/*/debug/*.apk
             app/build/reports/
           retention-days: 7

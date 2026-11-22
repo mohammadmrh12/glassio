@@ -7,23 +7,27 @@ import android.widget.Toast
 import org.json.JSONObject
 
 /**
- * Opens a title inside a Nuvio app: Nuvio Legacy, the official Nuvio TV app, Nuvio Arc (fork) or
- * Nuvio Re-Shaped. "auto" (default) uses the first one installed, in that order.
+ * Opens a title inside a Nuvio app: Nuvio Legacy, the official Nuvio TV app, Nuvio Arc (fork), Nuvio Re-Shaped
+ * , Nuvio One or Nuvio+IPTV (forks). "auto" (default) uses the first one installed, in that order.
  */
 object NuvioLaunch {
     const val LEGACY_PKG = "space.nuvio.nativelegacy"
     const val OFFICIAL_PKG = "com.nuvio.tv"
     const val ARC_PKG = "com.nuvio.tv.test"
     const val RESHAPED_PKG = "com.nuvioreshaped.tv"
+    /** Nuvio One (zoga2o3-ops/Nuvio-One): a fork of Nuvio TV with its own package; it reads the same nuvio:// links. */
+    const val ONE_PKG = "app.onetube.tv"
+    /** Nuvio+IPTV (homelessbrian/NuvioPlusIPTV): a fork of Nuvio TV with live TV, its own package, the same nuvio:// links. */
+    const val IPTV_PKG = "com.nuvio.livetv"
     const val STREMIO_PKG = "com.stremio.one"
 
     /** Setting value → package, in the "auto" priority order. */
     val TARGETS = linkedMapOf(
-        "legacy" to LEGACY_PKG, "official" to OFFICIAL_PKG, "arc" to ARC_PKG, "reshaped" to RESHAPED_PKG, "stremio" to STREMIO_PKG,
+        "legacy" to LEGACY_PKG, "official" to OFFICIAL_PKG, "arc" to ARC_PKG, "reshaped" to RESHAPED_PKG, "one" to ONE_PKG, "iptv" to IPTV_PKG, "stremio" to STREMIO_PKG,
     )
     val NAMES = mapOf(
         "auto" to "Auto", "legacy" to "Nuvio Legacy", "official" to "Nuvio (official)",
-        "arc" to "Nuvio Arc", "reshaped" to "Nuvio Re-Shaped", "stremio" to "Stremio",
+        "arc" to "Nuvio Arc", "reshaped" to "Nuvio Re-Shaped", "one" to "Nuvio One", "iptv" to "Nuvio+IPTV", "stremio" to "Stremio",
     )
 
     fun installed(ctx: Context, pkg: String) = runCatching { ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess
@@ -46,6 +50,32 @@ object NuvioLaunch {
     /** Opens the title in one particular app ([target] as in [TARGETS]). */
     fun openIn(ctx: Context, target: String, item: HeroItem): Boolean = runCatching { ctx.startActivity(intentFor(target, item.type, item.id)) }
         .onFailure { Glog.w("Open in $target", it); Toast.makeText(ctx, "${NAMES[target]} can't open this title", Toast.LENGTH_LONG).show() }.isSuccess
+
+    /**
+     * Starts the title in a Nuvio app instead of showing its page, where the app has a way in for that; its page
+     * otherwise. The app picks the source itself, by its own settings.
+     * - Nuvio Legacy: nuvio-legacy://play/<type>/<id> (seen on the Streamer: plays at once when it is running; from a
+     *   cold start it stops at its own "Who's watching?" first).
+     * - Nuvio and the forks built from it: its main screen with launchMode=stream opens the title's sources, where
+     *   its own auto-play goes on (read in NuvioMedia/NuvioTV; a film only: an episode needs its own id).
+     */
+    fun play(ctx: Context, target: String, item: HeroItem): Boolean {
+        val made = runCatching {
+        val t = if (item.type.equals("movie", true)) "movie" else "series"
+        val id = item.id.trim()
+        val pkg = TARGETS.getValue(target)
+        val i = when {
+            target == "legacy" -> { NuvioWatch.opened(t, id)
+                Intent(Intent.ACTION_VIEW, Uri.Builder().scheme("nuvio-legacy").authority("play").appendPath(t).appendPath(id).build()).setPackage(pkg) }
+            target != "stremio" && t == "movie" -> (ctx.packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: ctx.packageManager.getLaunchIntentForPackage(pkg))
+                ?.putExtra("launchMode", "stream")?.putExtra("contentId", id)?.putExtra("contentType", t)?.putExtra("videoId", id)?.putExtra("name", item.name)
+                ?.putExtra("poster", item.poster)?.putExtra("backdrop", item.background)?.putExtra("logo", item.logo)
+            else -> null
+        }
+        i?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }.onFailure { Glog.w("Play ${item.type} ${item.id} in $target", it) }.getOrNull() ?: return openIn(ctx, target, item)
+        return runCatching { ctx.startActivity(made) }.onFailure { Glog.w("Play ${item.type} ${item.id} in $target", it) }.isSuccess
+    }
 
     /**
      * Streaming apps by the names TMDB gives the platform (network) a title is on: name keyword → package.
@@ -94,7 +124,7 @@ object NuvioLaunch {
         } else if (target == "legacy") {
             Uri.Builder().scheme("nuvio-legacy").authority("meta").appendPath(t).appendPath(id.trim()).build()
         } else {
-            // Official Nuvio TV, Nuvio Arc and Re-Shaped all read nuvio://meta?type=…&id=…
+            // Official Nuvio TV, Nuvio Arc, Re-Shaped, Nuvio One and Nuvio+IPTV all read nuvio://meta?type=…&id=…
             Uri.Builder().scheme("nuvio").authority("meta")
                 .appendQueryParameter("type", t).appendQueryParameter("id", id.trim()).build()
         }
@@ -108,7 +138,7 @@ object NuvioLaunch {
     fun sourceTarget(ctx: Context, source: String?): String? = when (source) {
         "Nuvio Legacy" -> "legacy".takeIf { installed(ctx, LEGACY_PKG) }
         // The Nuvio account: the official app or a fork that syncs with it, then Legacy.
-        "Nuvio" -> listOf("official", "arc", "reshaped", "legacy").firstOrNull { installed(ctx, TARGETS.getValue(it)) }
+        "Nuvio" -> listOf("official", "arc", "reshaped", "one", "iptv", "legacy").firstOrNull { installed(ctx, TARGETS.getValue(it)) }
         "Stremio" -> "stremio".takeIf { installed(ctx, STREMIO_PKG) }
         else -> null  // Trakt, Simkl: no app of their own
     }

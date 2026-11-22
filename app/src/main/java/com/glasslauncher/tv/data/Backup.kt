@@ -86,7 +86,10 @@ object Backup {
                 is Float -> ed.putFloat(k, v); is String -> ed.putString(k, v)
                 is Set<*> -> ed.putStringSet(k, v.map { it.toString() }.toSet())
             }
+            // (The agreement to the accessibility service is given on each TV, by the person in front of it.)
+            val agreed = sp.getBoolean("a11yConsent", false)
             for (k in o.keys()) {
+                if (k == "a11yConsent") continue
                 val e = o.optJSONObject(k) ?: continue
                 when (e.optString("t")) {
                     "b" -> ed.putBoolean(k, e.optBoolean("v"))
@@ -97,6 +100,7 @@ object Backup {
                     "set" -> ed.putStringSet(k, e.optJSONArray("v")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() } ?: emptySet())
                 }
             }
+            if (agreed) ed.putBoolean("a11yConsent", true)
             ed.commit(); n++
         }
         // A profile this TV has and the backup doesn't goes too (restoring replaces everything, nothing is merged).

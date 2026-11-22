@@ -476,7 +476,7 @@ def lab(what, bits):
 
 # ---------------------------------------------------------------- CPU profile
 def demap_lines(lines):
-    mp = os.path.join(ROOT, "app/build/outputs/mapping/release/mapping.txt")
+    mp = os.path.join(ROOT, "app/build/outputs/mapping/githubRelease/mapping.txt")
     cls, meth, cur = {}, {}, None
     if os.path.exists(mp):
         for l in open(mp):
@@ -608,7 +608,7 @@ def security():
     print("security:", "ok" if not issues else f"{len(issues)} issue(s)")
     for i in issues:
         print(" -", i)
-    lint = subprocess.run(["./gradlew", "-q", ":app:lintDebug"], capture_output=True, text=True)
+    lint = subprocess.run(["./gradlew", "-q", ":app:lintGithubDebug"], capture_output=True, text=True)
     print("lint:", "ok" if lint.returncode == 0 else "FAILED (app/build/reports/lint-results-debug.html)")
     return issues, lint.returncode == 0
 
@@ -651,10 +651,19 @@ def main():
         print(__doc__); return
     c, a = sys.argv[1], sys.argv[2:]
     if c == "install":
-        apk = a[0] if a else os.path.join(ROOT, "app/build/outputs/apk/release/app-release.apk")
+        files = [x for x in a if not x.startswith("--")]
+        apk = files[0] if files else os.path.join(ROOT, "app/build/outputs/apk/github/release/app-github-release.apk")
         wake()
         print(adb("install", "-r", apk).strip())
         am("")
+        # A fresh install runs in the interpreter (page changes then have frames of 100-240 ms): the profile shipped
+        # in the APK is applied and the code compiled, as Glassio does itself a minute after its start.
+        if "--no-compile" not in a:
+            time.sleep(6)
+            sh(f"am broadcast -a androidx.profileinstaller.action.INSTALL_PROFILE -n {PKG}/androidx.profileinstaller.ProfileInstallReceiver")
+            time.sleep(2)
+            print("compile:", sh(f"cmd package compile -m speed-profile -f {PKG}").strip())
+            sh(f"am force-stop {PKG}"); am("")
     elif c == "keys": keys(a)
     elif c == "shot": print(shot(a[0] if a else "shot"))
     elif c == "perf": perf(a[0], a[1:])

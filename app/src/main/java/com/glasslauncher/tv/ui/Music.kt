@@ -68,7 +68,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.Text
 import com.glasslauncher.tv.GlassApp
 import com.glasslauncher.tv.data.NowPlaying
 import kotlinx.coroutines.delay
@@ -471,15 +470,15 @@ fun MusicIsland(app: GlassApp, s: Float) {
                         // it plays and the island shows: scrolling for ever (also paused, also faded away) kept the
                         // whole home screen redrawing 60 times a second, about half of one processor core.
                         if (st.islandMarquee && tr.playing && !away) androidx.compose.runtime.key(tr.title) {
-                            Text(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            Plain(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                                 // (Kept to the island's own small width, about its progress line: the whole name laid out
                                 // in one line made the island as wide as it could get.)
                                 modifier = Modifier.widthIn(max = (160 * k).dp).basicMarquee(iterations = 3, initialDelayMillis = 1500, repeatDelayMillis = 2500,
                                     velocity = (28 * k).dp))
                         }
-                        else Text(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        else Plain(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = if (st.islandMarquee) Modifier.widthIn(max = (160 * k).dp) else Modifier)
-                        if (tr.artist.isNotBlank()) Text(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        if (tr.artist.isNotBlank()) Plain(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = if (st.islandMarquee) Modifier.widthIn(max = (160 * k).dp) else Modifier)
                     }
                     if (st.islandProgress) {
@@ -500,8 +499,8 @@ fun MusicIsland(app: GlassApp, s: Float) {
                     }
                     Spacer(Modifier.width((12 * k).dp))
                     Column(Modifier.width((262 * k).dp)) {
-                        Text(tr.title, color = ink, fontSize = (13 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (tr.artist.isNotBlank()) Text(tr.artist, color = ink.copy(alpha = 0.65f), fontSize = (11 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Plain(tr.title, color = ink, fontSize = (13 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (tr.artist.isNotBlank()) Plain(tr.artist, color = ink.copy(alpha = 0.65f), fontSize = (11 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.width((10 * k).dp))
                     MusicBars(tr.playing, color, Modifier.size((22 * k).dp, (18 * k).dp))
@@ -672,9 +671,9 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
            // jumped to the left of the old one, then back to the middle).
            Column(Modifier.width((560 * k).dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height((16 * k).dp))
-            Text(title, color = Color.White, fontSize = (19 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            Plain(title, color = Color.White, fontSize = (19 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = (520 * k).dp))
-            if (artist.isNotBlank()) Text(artist, color = Color.White.copy(alpha = 0.7f), fontSize = (13 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (artist.isNotBlank()) Plain(artist, color = Color.White.copy(alpha = 0.7f), fontSize = (13 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
            }
           }
             Spacer(Modifier.height((12 * k).dp))
@@ -796,8 +795,8 @@ fun MusicMenuPage(app: GlassApp, s: Float, light: Boolean, first: FocusRequester
             }
             Spacer(Modifier.width((10 * s).dp))
             Column(Modifier.weight(1f)) {
-                Text(tr.title, color = ink, fontSize = (11.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Plain(tr.title, color = ink, fontSize = (11.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Plain(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(NowPlaying.appLabel(tr.pkg), color = ink.copy(alpha = 0.4f), fontSize = (8 * s).sp, maxLines = 1)
             }
         }

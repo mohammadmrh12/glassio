@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +41,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 65
+    const val ID = 67
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -56,7 +55,7 @@ object WhatsNew {
     ), "github.com/mohammadmrh12/glassio", qr = GITHUB)
 
     /** Always the last page when this build can send support: a PSN gift card, typed and sent from here. */
-    private val SUPPORT_PAGE = Page("Support Glassio", listOf(
+    private val SUPPORT_PAGE get() = if (com.glasslauncher.tv.data.Store.PLAY) null else Page("Support Glassio", listOf(
         "Glassio is free, with no ads, made in my spare time.",
         "If you enjoy it, a PlayStation gift card (PSN, USA) helps a lot. Maybe for GTA VI 😉",
         "Press OK, type the code and press Send: it comes straight to me. Thank you!",
@@ -64,31 +63,22 @@ object WhatsNew {
 
     // A welcome first, then what's new in this version, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("Welcome to Glassio 4.0", listOf(
-            "A big update: profiles, your streaming apps and new Settings. Your setup stays as it is.",
+        Page("Welcome to Glassio 4.1", listOf(
+            "Search for films, series, videos and songs, and Glassio in nine languages. Your setup stays as it is.",
             "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
         ), "Settings → About"),
-        Page("New: profiles", listOf(
-            "One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.",
-            "Who is watching? at start or from the menu, with Nuvio's pictures. Your setup so far is your profile as it is.",
-        ), "Settings → Accounts & profiles"),
-        Page("New: your streaming apps", listOf(
-            "Catalogs for apps: select Netflix, Apple TV or Prime Video in the dock and the carousel shows its catalogs.",
-            "Play can open a title's own page in its streaming app.",
-            "Platform rows in the Library: what is on each service in your country.",
-        ), "Settings → Catalogs & add-ons · Continue Watching & Library"),
-        Page("New: Settings", listOf(
-            "11 sections instead of 19, every setting in one place, long lists on their own pages.",
-            "New: the settings this version added. Changed: everything you changed, with Back to default.",
-            "Search finds any setting, also inside those pages.",
-        ), "Settings: under the search"),
-        Page("New: smoother", listOf(
-            "The Library scrolls as one smooth movement, also with a button held down.",
-            "Screensaver trailers start once, and show the posters when there is nothing to play.",
-        ), "Settings → Background & screensaver"),
+        Page("New: Search", listOfNotNull(
+            "Find a film or a series and open it where it can be watched: your streaming apps, Nuvio or Stremio.",
+            if (com.glasslauncher.tv.data.Store.PLAY) null else "YouTube videos and songs under the titles; a song plays while you stay in Glassio.",
+            "Its icon is in the dock. Turn Search off in Settings if you don't want it.",
+        ), "Settings → Continue Watching & Library → Search"),
+        Page("New: nine languages", listOf(
+            "Every screen of Glassio in your language, changed at once.",
+            "The translations were made by machine: tell us where the wording is wrong.",
+        ), "Settings → System → Language"),
         GITHUB_PAGE,
-        SUPPORT_PAGE.takeIf { com.glasslauncher.tv.data.Support.ready },
+        SUPPORT_PAGE?.takeIf { com.glasslauncher.tv.data.Support.ready },
     )
 
     val open = mutableStateOf(false)
@@ -188,7 +178,7 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    if (WhatsNew.PAGES[i].support) {
+                    if (!com.glasslauncher.tv.data.Store.PLAY && WhatsNew.PAGES[i].support) {
                         val c = WhatsNew.choice.intValue
                         Row(horizontalArrangement = Arrangement.spacedBy((8 * s).dp)) {
                             TourPill("🎁  Send a gift card", c == 0, ink, light, s)

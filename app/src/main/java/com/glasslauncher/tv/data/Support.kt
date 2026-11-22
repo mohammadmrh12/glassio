@@ -13,7 +13,7 @@ import java.net.URLEncoder
  * (SUPPORT_FORM, SUPPORT_CODE_ENTRY, SUPPORT_NOTE_ENTRY); a build without them shows the option as unavailable.
  */
 object Support {
-    val ready: Boolean get() = BuildConfig.SUPPORT_FORM.isNotBlank() && BuildConfig.SUPPORT_CODE_ENTRY.isNotBlank()
+    val ready: Boolean get() = !Store.PLAY && BuildConfig.SUPPORT_FORM.isNotBlank() && BuildConfig.SUPPORT_CODE_ENTRY.isNotBlank()
 
     /** A PSN gift card code: 12 letters and digits (written XXXX-XXXX-XXXX). Null if it isn't one. */
     fun clean(code: String): String? {
@@ -22,7 +22,7 @@ object Support {
     }
 
     /** Sends it; true when the form took it. Blocking (call off the main thread). */
-    fun send(code: String, note: String, version: String): Boolean = runCatching {
+    fun send(code: String, note: String, version: String): Boolean = !Store.PLAY && runCatching {
         fun e(s: String) = URLEncoder.encode(s, "UTF-8")
         val body = buildString {
             append("entry.").append(BuildConfig.SUPPORT_CODE_ENTRY).append('=').append(e(code))

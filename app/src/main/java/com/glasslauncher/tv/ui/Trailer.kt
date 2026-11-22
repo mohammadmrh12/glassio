@@ -111,7 +111,7 @@ object Trailers {
 
     /** Last resort: YouTube's own search for "<title> <year> official trailer". Blocking. */
     fun searchIds(name: String, year: String, type: String): List<String> {
-        if (name.isBlank()) return emptyList()
+        if (com.glasslauncher.tv.data.Store.PLAY || name.isBlank()) return emptyList()
         val q = "$name ${year.take(4)} ${if (type.equals("movie", true)) "" else "series "}official trailer".replace(Regex("\\s+"), " ").trim()
         cache["yt:$q"]?.let { return it.split(',').filter { s -> s.isNotBlank() } }
         val ids = runCatching {
@@ -168,6 +168,7 @@ object Trailers {
      * Blocking. Returns the id and the streams (null streams = YouTube's player).
      */
     fun prepare(app: GlassApp, type: String, imdb: String, name: String = "", year: String = "", fullOverride: Boolean? = null): Pair<String, com.glasslauncher.tv.data.TrailerSource.Streams?>? {
+        if (com.glasslauncher.tv.data.Store.PLAY) return null   // no trailers in the play build (see TrailerSource there)
         // Always the best the source has that this TV can show (up to its screen, 4K on a 4K TV).
         val full = fullOverride ?: true
         val tried = HashSet<String>()
@@ -206,6 +207,7 @@ fun TrailerLayer(app: GlassApp, s: Float, dockInset: Float = 0f) {
     val st = app.settings
     val mode = st.trailerSize
     val streams = req.streams ?: return
+    if (com.glasslauncher.tv.data.Store.PLAY) return
     androidx.compose.runtime.key(req.rev) { NativeTrailer(app, s, req, streams, mode, dockInset) }
 }
 
@@ -474,6 +476,7 @@ fun LibraryTrailer(app: GlassApp, s: Float) {
     val req = Trailers.playing.value?.takeIf { it.overlay } ?: return
     if (!onScreen()) return
     val streams = req.streams ?: return
+    if (com.glasslauncher.tv.data.Store.PLAY) return
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         androidx.compose.runtime.key(req.rev) { NativeTrailer(app, s, req, streams, "original", 0f) }
     }
@@ -592,6 +595,7 @@ object SaverTest {
 
 @Composable
 fun SaverTrailers(app: GlassApp) {
+    if (com.glasslauncher.tv.data.Store.PLAY) return
     val st = app.settings
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val raw by app.catalogs.items.collectAsState()

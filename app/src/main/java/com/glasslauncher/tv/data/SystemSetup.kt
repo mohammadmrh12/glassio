@@ -31,7 +31,7 @@ object SystemSetup {
         "adb shell appops set com.glasslauncher.tv SYSTEM_ALERT_WINDOW allow"
 
     /** Glassio may change the TV's secure settings itself (given once from a computer, or over its own ADB). */
-    fun secureOk(ctx: Context): Boolean =
+    fun secureOk(ctx: Context): Boolean = !Store.PLAY &&
         ctx.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
     fun homeKeyOn(ctx: Context): Boolean = runCatching {
@@ -41,6 +41,8 @@ object SystemSetup {
 
     /** Turns on the Home button service. Blocking. */
     fun enableHomeKey(ctx: Context): Boolean {
+        // The play build: only the person turns the service on, in the TV's Accessibility settings.
+        if (Store.PLAY) return homeKeyOn(ctx)
         val svc = "${pkg(ctx)}/com.glasslauncher.tv.HomeKeyService"
         // Without ADB (Fire TV): the right to change the secure settings is enough.
         if (secureOk(ctx)) runCatching {
@@ -101,6 +103,7 @@ object SystemSetup {
     /** Glassio opens when the TV starts. Blocking. */
     fun startWithTv(ctx: Context, st: Settings): Boolean {
         st.bootStart = true
+        if (Store.PLAY) return android.provider.Settings.canDrawOverlays(ctx)
         return LocalShell.run(ctx, "appops set ${pkg(ctx)} SYSTEM_ALERT_WINDOW allow; true").isSuccess
     }
 }

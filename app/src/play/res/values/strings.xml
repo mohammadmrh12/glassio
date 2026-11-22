@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown by the TV's Accessibility settings (Google Play: what the service does, in full). -->
+    <string name="accessibility_description">Notices the buttons of your remote and when the TV\'s own home screen comes up, so the Home button opens Glassio, the remote buttons you choose do what you set, and a camera or the doorbell can show over another app. It does not read what is on the screen or what you type, and collects nothing.</string>
+</resources>

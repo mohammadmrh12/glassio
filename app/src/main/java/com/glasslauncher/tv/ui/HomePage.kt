@@ -6,7 +6,7 @@ import com.glasslauncher.tv.data.NowPlaying
 import com.glasslauncher.tv.data.Settings
 
 /** The page in the carousel's place (for reading the state and for tests; the flags below decide what is drawn). */
-enum class PageKind { Carousel, Rows, Player, IdlePlayer, MusicApps, Inputs }
+enum class PageKind { Carousel, Rows, Player, IdlePlayer, MusicApps, Inputs, Search }
 
 /**
  * What stands in the carousel's place right now and how the page behind the dock is drawn for it.
@@ -70,14 +70,14 @@ internal fun homePage(settings: Settings, musicWas: BooleanArray): HomePage {
     // (Rows chosen for the selected app, read at once: "shown" comes a frame later, and the music page flashed.)
     val rowsNow = ChannelsUi.stagePkg.value != null || ChannelsUi.shown.value
     val dockMid = settings.bgMode != "carousel" && settings.dockPos == "center"
-    val stageWanted = !dockMid && stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value && !InputsUi.on.value &&
+    val stageWanted = !dockMid && stageRaw && (songShown != null || idleNow) && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value && !InputsUi.on.value && !SearchUi.on.value &&
         (!rowsNow || musicWas[0])
     if (!rowsNow) musicWas[0] = stageWanted
     // The hero has this page itself: the player, or an app's idle player (its icon and Play, on the grey page).
     // (A music app's own player too, playing or idle: right after Play on its idle player the page waited a moment
     // for the music page, the hero was hidden meanwhile and the selection fell to the first app.)
     val heroOwn = stageWanted || (settings.musicOn && MusicUi.dockApp.value != null && !rowsNow && !MusicUi.carouselApp.value)
-    val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null || InputsUi.on.value)
+    val otherPageNow = !MusicUi.carouselApp.value && (stageWanted || rowsNow || MusicUi.appsShowing || idleNow || MusicUi.dockApp.value != null || InputsUi.on.value || SearchUi.on.value)
     // (Over your own picture, video or the screensaver, the song's page is only its player with a song: an idle
     // player and an app's rows show your background, and so does the glass. The song's artwork was left in the
     // dock (and over the whole screen with a picture) after the player, until another app was chosen.)
@@ -86,9 +86,10 @@ internal fun homePage(settings: Settings, musicWas: BooleanArray): HomePage {
     val musicToRows = rowsNow && musicWas[0] && !ChannelsUi.pageOn.value && !MusicUi.carouselApp.value && !ownBg
     // (The music apps and an idle player have their own grey page: the dark one under them, never the song's
     // picture.)
-    val greyPage = MusicUi.appsShowing || InputsUi.on.value || (idleNow && !stageWanted)
+    val greyPage = MusicUi.appsShowing || InputsUi.on.value || SearchUi.on.value || (idleNow && !stageWanted)
     val kind = when {
         InputsUi.on.value -> PageKind.Inputs
+        SearchUi.on.value -> PageKind.Search
         MusicUi.appsShowing -> PageKind.MusicApps
         stageWanted && songShown != null -> PageKind.Player
         rowsNow -> PageKind.Rows

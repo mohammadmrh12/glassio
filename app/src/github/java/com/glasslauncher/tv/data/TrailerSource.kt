@@ -45,7 +45,7 @@ object TrailerSource {
         }
     }
 
-    @Synchronized private fun init() {
+    @Synchronized internal fun init() {
         if (ready) return
         NewPipe.init(Net)
         ready = true

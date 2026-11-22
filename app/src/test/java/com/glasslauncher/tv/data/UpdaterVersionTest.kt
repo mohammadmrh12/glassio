@@ -24,6 +24,11 @@ class UpdaterVersionTest {
         assertFalse(Updater.newer("3.8.0", "4.0.0-beta1"))
         assertTrue(Updater.newer("4.0.0", "4.0.0-beta1"))
         assertFalse(Updater.newer("4.0.0-beta1", "4.0.0"))
+        // 4.1.0: newer than its beta and than 4.0.0; a TV on the beta is offered it.
+        assertTrue(Updater.newer("4.1.0", "4.1.0-beta1"))
+        assertTrue(Updater.newer("4.1.0-beta1", "4.0.0"))
+        assertTrue(Updater.newer("4.1.0", "4.0.0"))
+        assertFalse(Updater.newer("4.1.0-beta1", "4.1.0"))
         assertTrue(Updater.newer("4.0.1-beta1", "4.0.0"))
         assertFalse(Updater.newer("4.0.0", "4.0.1-beta1"))
     }

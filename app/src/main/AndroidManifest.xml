@@ -32,6 +32,8 @@
         <intent><action android:name="org.adw.launcher.icons.ACTION_PICK_ICON"/></intent>
         <package android:name="space.nuvio.nativelegacy"/>
         <package android:name="com.nuvioreshaped.tv"/>
+        <package android:name="app.onetube.tv"/>
+        <package android:name="com.nuvio.livetv"/>
     </queries>
 
     <application

@@ -42,7 +42,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -442,14 +441,23 @@ internal fun HeroSection(
     val cwKeys = remember(cwItems) { cwItems.map { it.key } }
     LaunchedEffect(cwKeys) { cwItems.forEach { app.catalogs.enrich(it) } }
     val cwShown = cwItems.map { c -> (enriched[c.key] ?: c).let { withArtwork(it, settings.artChoice, settings.artPick(it.key)) } }
-    LaunchedEffect(cwShown.map { it.background + it.logo }, settings.imageQuality, settings.blurRadius, ownBg) {
+    // The slide each app's own list opens on is kept ready too (not on small TVs): going to an app with catalogs,
+    // from the search or any other icon, shows its picture at once instead of after a download (it took over a
+    // second, the page waiting on the last one meanwhile).
+    val appFirst = if (settings.memTier == 0 || !settings.appCatalogsOn) emptyList() else appAll.entries.mapNotNull { (pkg, list) ->
+        list.filterNot { it.key in hiddenKeys }.getOrNull(places[pkg] ?: 0)
+    }
+    LaunchedEffect(appFirst.map { it.key }) { appFirst.forEach { app.catalogs.enrich(it) } }
+    val appFirstShown = appFirst.map { c -> (enriched[c.key] ?: c).let { withArtwork(it, settings.artChoice, settings.artPick(it.key)) } }
+    androidx.compose.runtime.SideEffect { appFirstShown.map { it.background }.filter { it.isNotBlank() }.take(3).let { if (HeroAhead.urls.value != it) HeroAhead.urls.value = it } }
+    LaunchedEffect((cwShown.take(10) + appFirstShown).map { it.background + it.logo }, settings.imageQuality, settings.blurRadius, ownBg) {
         // Not shown with your own background: what was kept for them is let go (tens of MB).
         if (ownBg) { GlassCache.keepOnly(emptySet()); return@LaunchedEffect }
         val loader = SingletonImageLoader.get(ctx)
         val high = pageCopy(settings)
         val keep = mutableSetOf<String>()
         // Kept in memory: the first few only on smaller TVs (each full picture is a few MB).
-        for (c in cwShown.take(when (settings.memTier) { 0 -> 2; 2 -> 10; else -> 5 })) {
+        for (c in cwShown.take(when (settings.memTier) { 0 -> 2; 2 -> 10; else -> 5 }) + appFirstShown) {
             val bg = c.background
             if (bg.isNotBlank()) {
                 keep += bg
@@ -566,7 +574,7 @@ internal fun HeroSection(
     var waitOver by remember { mutableStateOf(false) }
     LaunchedEffect(waitRaw) { waitOver = false; if (waitRaw) { delay(1500); waitOver = true } }
     val waitPic = waitRaw && !waitOver
-    val alphaA by animateFloatAsState(if (hidden || waitPic) 0f else 1f, if (hidden && quickHide) androidx.compose.animation.core.snap() else tween(if (hidden) 150 else 220), label = "heroAlpha")
+    val alphaA by animateFloatAsState(if (hidden || waitPic) 0f else 1f, if (hidden && quickHide) androidx.compose.animation.core.snap() else tween(if (hidden) 120 else 150), label = "heroAlpha")
     // (Hidden for another page in the same frame its background comes: animated, the title stayed one frame more.)
     val alpha = if (hidden && quickHide) 0f else alphaA
     // A trailer playing: the dots step aside with the dock (back when it stops or ends).
@@ -627,7 +635,9 @@ internal fun HeroSection(
             if (fromStage) MusicUi.stageFocused = false
             delay(120)
             // (Not when the selection went down to the dock itself: the player closing then is that move's doing.)
-            val lostWithIt = !pageFocus[0] && pageLostAt[0] >= changedAt - 100 && !DockFocus.dock
+            // (Nor with the search up: the selection is in the search's page, not lost. A song started from the search
+            // changed the player's state just as Glassio came back, and the selection was sent to the first app.)
+            val lostWithIt = !pageFocus[0] && pageLostAt[0] >= changedAt - 100 && !DockFocus.dock && !SearchUi.on.value && !SearchUi.full.value
             // (On the Music icon (paused, or stopped): back to the icon, not the first app.)
             val onMusicIcon = MusicUi.appsOn.value || MusicUi.forced.value
             if ((fromStage || lostWithIt) && onMusicIcon) runCatching { MusicUi.tileFor(MusicUi.DOCK_PKG)?.requestFocus() }
@@ -680,7 +690,7 @@ internal fun HeroSection(
                             val now = app.library.toggle(shown)
                             toast(ctx, if (now) "Saved to Library · ${shown.name}" else "Removed from Library · ${shown.name}")
                         },
-                        PopOption(if (Trailers.isPlaying(shown.key)) "Stop trailer" else "Trailer") { startTrailer(shown) },
+                        if (com.glasslauncher.tv.data.Store.PLAY) null else PopOption(if (Trailers.isPlaying(shown.key)) "Stop trailer" else "Trailer") { startTrailer(shown) },
                         PopOption(if (liked) "Liked" else "Like", if (liked) "♥" else "") {
                             val now = app.library.toggleLike(shown)
                             toast(ctx, if (now) "Liked · ${shown.name}" else "Like removed · ${shown.name}")
@@ -933,10 +943,13 @@ private val LocalPlainText = androidx.compose.runtime.compositionLocalOf<android
  * fixed height made wide logos tiny and tall ones huge, so every logo gets the same visual *area*,
  * then is capped in width and height.
  */
+/** The pictures of the slides the apps' own carousels open on, for the home screen to prepare ahead. */
+internal object HeroAhead { val urls = androidx.compose.runtime.mutableStateOf<List<String>>(emptyList()) }
+
 @Composable
 internal fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
     if (mode == "hidden") return
-    @Composable fun asText() = Text(
+    @Composable fun asText() = Plain(
         item.name, color = Color.White, fontSize = (30 * s * scale).sp, fontWeight = FontWeight.Light,
         letterSpacing = (4 * scale).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
     )

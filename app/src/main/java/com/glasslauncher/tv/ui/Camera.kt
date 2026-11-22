@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +76,7 @@ fun CameraView(cam: Cam, s: Float, modifier: Modifier = Modifier) {
             Spacer(Modifier.width((5 * s).dp))
             Text("LIVE", color = Color.White, fontSize = (8.5f * s).sp, fontWeight = FontWeight.Bold, letterSpacing = (0.8f * s).sp)
         }
-        Text(cam.name, color = Color.White, fontSize = (10 * s).sp, fontWeight = FontWeight.SemiBold,
+        Plain(cam.name, color = Color.White, fontSize = (10 * s).sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.align(Alignment.BottomStart).padding((9 * s).dp))
     }
 }

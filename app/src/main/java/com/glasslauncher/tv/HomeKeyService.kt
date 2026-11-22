@@ -90,6 +90,9 @@ class HomeKeyService : AccessibilityService() {
     /** Home key events reach this service on this TV: the window-change fallback is then never needed. */
     private val sp by lazy { getSharedPreferences("glass_home_key", MODE_PRIVATE) }
 
+    /** The play build: nothing is done with the service until the person agreed to what it is for. */
+    private fun agreed(): Boolean = !com.glasslauncher.tv.data.Store.PLAY || (application as? GlassApp)?.settings?.a11yConsent == true
+
     override fun onKeyEvent(event: KeyEvent): Boolean {
         // The camera in the corner: Back closes it (holding Home again too); every other key goes to the app as usual.
         multi?.takeIf { it.showing }?.let { m ->
@@ -98,8 +101,9 @@ class HomeKeyService : AccessibilityService() {
         camera?.takeIf { it.showing }?.let { c ->
             if (event.keyCode == KeyEvent.KEYCODE_BACK) { if (event.action == KeyEvent.ACTION_UP) { c.close(); camera = null }; return true }
         }
+        if (!agreed()) return false
         // Glassio's own buttons (shuffle, "press the button you want"): every remote button reaches this service first.
-        (application as? GlassApp)?.let { if (KeyHub.handle(it, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true }
+        (application as? GlassApp)?.let { if (KeyHub.handle(it, KeyHub.idOf(event), event.action == KeyEvent.ACTION_DOWN)) return true }
         if (event.keyCode != KeyEvent.KEYCODE_HOME || !enabled()) return false
         if (!sp.getBoolean("keys", false)) sp.edit().putBoolean("keys", true).apply()
         val recents = (application as? GlassApp)?.settings?.homeLong.let { it != null && it != "off" }
@@ -148,7 +152,7 @@ class HomeKeyService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || !agreed()) return
         // The window on screen, for Nuvio's playback sent to Home Assistant.
         event.packageName?.toString()?.let { p ->
             com.glasslauncher.tv.data.NuvioWatch.onWindow(p, event.className?.toString().orEmpty())

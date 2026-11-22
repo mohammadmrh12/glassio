@@ -58,7 +58,7 @@ object NowPlaying {
     private val VIDEO_APPS = setOf(
         "space.nuvio.nativelegacy", "com.nuvio.tv", "com.nuvio.tv.test", "com.nuvioreshaped.tv", "com.stremio.one", "com.netflix.ninja",
         "com.apple.atve.androidtv.appletv", "com.amazon.amazonvideo.livingroom", "com.disney.disneyplus",
-        "org.videolan.vlc", "org.xbmc.kodi", "net.mbc.shahidTV", "com.glasslauncher.tv",
+        "org.videolan.vlc", "org.xbmc.kodi", "net.mbc.shahidTV", "com.glasslauncher.tv", "com.glasslauncher.tv.play",
     )
 
     private fun listener(ctx: Context) = ComponentName(ctx, MusicListener::class.java)
@@ -71,6 +71,8 @@ object NowPlaying {
     fun grant(ctx: Context): Boolean {
         val comp = listener(ctx).flattenToString()
         if (hasAccess(ctx)) return true
+        // The play build never gives itself a right: the person turns it on in the TV's settings (Notification access).
+        if (Store.PLAY) return false
         LocalShell.run(ctx, "cmd notification allow_listener $comp")
         if (!hasAccess(ctx)) runCatching {
             val cur = android.provider.Settings.Secure.getString(ctx.contentResolver, "enabled_notification_listeners").orEmpty()
@@ -348,6 +350,10 @@ object NowPlaying {
     }
     /** Play (never pause): for an app just woken, which may not take it at first. */
     fun play() { val c = controller ?: return; Bg.io("glass-play") { runCatching { c.transportControls.play() } } }
+    /** [pkg]'s media session, null when it has none or Glassio may not read the sessions. */
+    fun sessionOf(ctx: Context, pkg: String): MediaController? = runCatching {
+        ctx.getSystemService(MediaSessionManager::class.java)?.getActiveSessions(listener(ctx))?.firstOrNull { it.packageName == pkg }
+    }.getOrNull()
     /** What the app itself reports now (not what Glassio shows ahead of it). */
     fun reallyPlaying(): Boolean = controller?.playbackState?.state == PlaybackState.STATE_PLAYING
     fun next() { controller?.transportControls?.skipToNext() }

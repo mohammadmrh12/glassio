@@ -56,7 +56,7 @@ import com.glasslauncher.tv.ui.clockText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import androidx.compose.material3.Text
+import com.glasslauncher.tv.ui.Text
 
 /** Full-screen aerial video (or backdrop slideshow). Any key press or touch dismisses it. */
 class ScreensaverActivity : ComponentActivity() {
@@ -142,6 +142,7 @@ class ScreensaverActivity : ComponentActivity() {
         SaverControl.out.value = true
         window.decorView.postDelayed({
             com.glasslauncher.tv.ui.SaverGate.cover.floatValue = 1f
+            com.glasslauncher.tv.ui.VideoFrames.saverClosed()
             finish(); @Suppress("DEPRECATION") overridePendingTransition(0, 0)
         }, 230)
     }
@@ -193,7 +194,7 @@ internal fun Slideshow(app: GlassApp) {
                     model = it.logo, contentDescription = it.name, contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomStart,
                     modifier = Modifier.size(380.dp, 150.dp),
-                ) else Text(it.name, color = Color.White, fontSize = 40.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                ) else com.glasslauncher.tv.ui.Plain(it.name, color = Color.White, fontSize = 40.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
         }
     }

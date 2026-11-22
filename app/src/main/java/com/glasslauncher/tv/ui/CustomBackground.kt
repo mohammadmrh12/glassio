@@ -147,6 +147,14 @@ object VideoFrames {
     /** Bumped by [clear]: a copy finishing late (on its own thread) from a video that's gone is dropped. */
     @Volatile var gen = 0; private set
     @Synchronized fun clear() { gen++; sharp.value = null; soft.value = null; showing.value = false }
+    /**
+     * The screensaver has closed: its copies are let go at once and none of its loops may publish again for a
+     * moment. Its own clean-up only runs when its screen is destroyed, which is after the home screen is back: until
+     * then the home screen took a video to be behind it, drew no carousel picture (black for ~0.4 s) and its glass
+     * showed the screensaver's last frame. A time, not a switch: nothing can leave the glass frozen for good.
+     */
+    @Volatile var quietUntil = 0L
+    fun saverClosed() { quietUntil = android.os.SystemClock.uptimeMillis() + 3000; clear() }
     @Synchronized fun publish(g: Int, s: androidx.compose.ui.graphics.ImageBitmap?, f: androidx.compose.ui.graphics.ImageBitmap?) {
         if (g != gen) return
         sharp.value = s; soft.value = f
@@ -463,6 +471,7 @@ suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean
             if (!v.holder.surface.isValid || !rendered()) continue
             // (Read each time, like the video background: frames cleared by something else (a video background
             // going, the screensaver ending) moved the number on, and every copy after it was dropped: the glass froze.)
+            if (android.os.SystemClock.uptimeMillis() < VideoFrames.quietUntil) continue
             val myGen = VideoFrames.gen
             if (!VideoFrames.showing.value) VideoFrames.showing.value = true
             if (!inFlight.compareAndSet(false, true)) continue

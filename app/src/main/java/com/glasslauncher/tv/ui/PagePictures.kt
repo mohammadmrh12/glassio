@@ -121,7 +121,7 @@ internal object GlassHalf {
     fun of(b: ImageBitmap): ImageBitmap {
         peek(b)?.let { return it }
         val a = b.asAndroidBitmap()
-        val h = immutable(android.graphics.Bitmap.createScaledBitmap(a, a.width / 2, a.height / 2, true)).asImageBitmap()
+        val h = roomFor(PictureMemory.GLASS, { w, hh, _ -> immutable(android.graphics.Bitmap.createScaledBitmap(a, w, hh, true)).asImageBitmap() }, a.width / 2, a.height / 2)
         synchronized(this) { map[b] = h }
         return h
     }
@@ -137,8 +137,12 @@ internal object BakeCache {
     private val map = object : LinkedHashMap<String, Pair<Int, ImageBitmap>>(8, 0.75f, true) {
         override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pair<Int, ImageBitmap>>?) = size > max
     }
+    /** Made ahead and never pushed out by browsing: the opening slide of each app's own carousel (three at most). */
+    private val ahead = HashMap<String, Pair<Int, ImageBitmap>>()
     @Synchronized fun get(url: String, src: ImageBitmap): ImageBitmap? =
-        map[url]?.takeIf { it.first == src.width * 10000 + src.height }?.second
+        (map[url] ?: ahead[url])?.takeIf { it.first == src.width * 10000 + src.height }?.second
+    @Synchronized fun keep(url: String, src: ImageBitmap, baked: ImageBitmap) { ahead[url] = (src.width * 10000 + src.height) to baked }
+    @Synchronized fun keepOnly(urls: Set<String>) { ahead.keys.retainAll(urls) }
     @Synchronized fun put(url: String, src: ImageBitmap, baked: ImageBitmap) { map[url] = (src.width * 10000 + src.height) to baked }
 }
 
@@ -179,11 +183,44 @@ private fun sharpen(b: android.graphics.Bitmap) {
     b.setPixels(px, 0, w, 0, 0, w, h)
 }
 
-internal fun bakeBackdrop(src: ImageBitmap, w: Int, h: Int, hScrim: Boolean = true): ImageBitmap {
+/**
+ * A large picture, made again smaller when memory is short instead of ending Glassio. On a TV with little memory
+ * (an onn 4K Pro, #24) a page picture asked for while aerial videos and cameras had been running ended the app with
+ * OutOfMemoryError in createBitmap. First the prepared pictures and half the decoded ones are let go and it is
+ * tried again; then in 16-bit colour; then at half the size (a page picture is drawn scaled, so it only looks softer).
+ */
+internal fun <T> roomFor(what: String, make: (w: Int, h: Int, small: Boolean) -> T, w: Int, h: Int): T {
+    try { if (PictureMemory.failNext > 0) { PictureMemory.failNext--; throw OutOfMemoryError("test") }; return make(w, h, false) } catch (e: OutOfMemoryError) { com.glasslauncher.tv.data.Glog.w("Low memory making $what ${w}x$h: freeing pictures", e) }
+    PictureMemory.relieve()
+    try { return make(w, h, false) } catch (_: OutOfMemoryError) { }
+    try { return make(w, h, true) } catch (_: OutOfMemoryError) { }
+    PictureMemory.relieve()
+    return make((w / 2).coerceAtLeast(1), (h / 2).coerceAtLeast(1), true)
+}
+
+/** What can be let go at once when a picture can't be made: the prepared pages and half the decoded pictures. */
+internal object PictureMemory {
+    @Volatile var ctx: android.content.Context? = null
+    // (What a log line names; constants, so the collector of screen words doesn't take them for words to translate.)
+    val PAGE = "page" + " picture"; val GLASS = "glass" + " copy"
+    /** Test only (dev hook oom_test): this many next pictures fail once as if memory had run out. */
+    @Volatile var failNext = 0
+    fun relieve() {
+        BakeCache.clear()
+        runCatching { ctx?.let { c -> coil3.SingletonImageLoader.get(c).memoryCache?.let { it.trimToSize(it.maxSize / 2) } } }
+        GlassCache.trim()
+        System.gc()
+    }
+}
+
+internal fun bakeBackdrop(src: ImageBitmap, w: Int, h: Int, hScrim: Boolean = true): ImageBitmap =
+    roomFor(PictureMemory.PAGE, { ww, hh, small -> bakeBackdropAt(src, ww, hh, hScrim, small) }, w, h)
+
+private fun bakeBackdropAt(src: ImageBitmap, w: Int, h: Int, hScrim: Boolean, small: Boolean): ImageBitmap {
     var bmp = src.asAndroidBitmap()
     if (bmp.config == android.graphics.Bitmap.Config.HARDWARE) bmp = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
     // Performance (small memory tier): 16-bit colour, dithered. Half the memory and half the GPU reads per frame.
-    val out = android.graphics.Bitmap.createBitmap(w, h, if (backdrop565) android.graphics.Bitmap.Config.RGB_565 else android.graphics.Bitmap.Config.ARGB_8888)
+    val out = android.graphics.Bitmap.createBitmap(w, h, if (backdrop565 || small) android.graphics.Bitmap.Config.RGB_565 else android.graphics.Bitmap.Config.ARGB_8888)
     val c = android.graphics.Canvas(out)
     val scale = maxOf(w / bmp.width.toFloat(), h / bmp.height.toFloat())
     val dw = bmp.width * scale; val dh = bmp.height * scale

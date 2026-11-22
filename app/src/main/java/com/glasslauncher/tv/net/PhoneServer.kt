@@ -14,8 +14,9 @@ import java.net.URLDecoder
 import java.security.MessageDigest
 
 /**
- * Tiny LAN-only web page ("Manage from phone"). It only runs while the settings page is open and every
- * request must carry the one-time token embedded in the QR code. Secrets (TMDB token) are write-only.
+ * Tiny LAN-only web server for "Manage from phone" (the page itself is [PhonePage]). It runs while Settings →
+ * System → Manage from phone is open (and for as long after as chosen there), and every request must carry the
+ * one-time token embedded in the QR code. Secrets (tokens, keys, passwords) are write-only.
  */
 class PhoneServer(private val app: GlassApp, private val token: String) {
     @Volatile private var running = false
@@ -79,9 +80,11 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         }
         val path = target.substringBefore('?'); val q = target.substringAfter('?', "")
         if (!MessageDigest.isEqual(query(q, "t").toByteArray(), token.toByteArray())) { respond(c, 403, "text/plain", "Forbidden"); return }
-        if (method == "GET" && path == "/") { respond(c, 200, "text/html", PAGE); return }
+        if (method == "GET" && path == "/") { respond(c, 200, "text/html", PhonePage.PAGE); return }
         // The settings button's picture: one button that sends a picture from the phone (the QR code in Settings → Menu & themes).
-        if (method == "GET" && path == "/button") { respond(c, 200, "text/html", BUTTON_PAGE); return }
+        if (method == "GET" && path == "/button") { respond(c, 200, "text/html", PhonePage.BUTTON); return }
+        // The page's background: Glassio's own soft lights (the setup's picture), made once.
+        if (method == "GET" && path == "/bg.jpg") { respond(c, 200, "image/jpeg", lights, "Cache-Control: max-age=86400\r\n"); return }
         if (method == "GET" && path == "/api/state") { respond(c, 200, "application/json", state().toString()); return }
         if (method == "GET" && path == "/api/backup") {
             respond(c, 200, "application/json", com.glasslauncher.tv.data.Backup.export(app, app.settings.backupSignIns).toString(1),
@@ -201,11 +204,13 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         return "Downloading to the TV… (this page shows when it's done)"
     }
     @Volatile private var lastDownload = ""
+    /** The problem report the phone is reading before it is sent. */
+    @Volatile private var report: com.glasslauncher.tv.data.Report.Data? = null
 
     private fun post(path: String, j: JSONObject): String = when (path) {
         "/api/bg/mode" -> {
             val m = j.optString("mode")
-            require(m in listOf("carousel", "image", "video", "aerial")) { "Unknown mode" }
+            require(m in listOf("carousel", "image", "video", "photos", "aerial")) { "Unknown mode" }
             require(m != "image" || app.settings.bgImage.isNotBlank()) { "Add a picture first" }
             require(m != "video" || app.settings.bgVideo.isNotBlank()) { "Add a video first" }
             app.settings.bgMode = m; "Background changed"
@@ -296,6 +301,47 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             require(name.isNotBlank()) { "Type a name" }
             app.settings.cameras = app.settings.cameras.mapIndexed { k, l -> if (k == i) name + "|" + l.substringAfter('|') else l }; "Camera renamed"
         }
+        // ---- Things typed more easily on a phone than with the remote
+        "/api/weather" -> { val c = j.optString("city").trim(); require(c.isNotBlank()) { "Type a city" }; app.settings.weatherCity = c; app.weather.reload(); "Weather city: $c" }
+        "/api/profile/name" -> {
+            val P = com.glasslauncher.tv.data.Profiles; val id = P.active(app); val n = j.optString("name").trim()
+            P.setName(app, id, n)
+            app.library.nuvio.setProfile(id, P.known(app).firstOrNull { it.id == id }?.name ?: n)
+            if (n.isBlank()) "The profile's name is the one in Nuvio again" else "Profile name: $n"
+        }
+        "/api/app/hide" -> {
+            val pkg = j.optString("pkg"); require(app.apps.ordered(includeHidden = true).any { it.pkg == pkg }) { "Unknown app" }
+            app.apps.toggleHidden(pkg)
+            if (pkg in app.settings.hiddenApps) "Hidden from the dock" else "Back in the dock"
+        }
+        "/api/photos/source" -> {
+            val src = j.optString("source"); require(com.glasslauncher.tv.data.Photos.SOURCES.any { it.first == src }) { "Unknown source" }
+            app.settings.photoSource = src; app.settings.bgMode = "photos"
+            "The background now shows: " + com.glasslauncher.tv.data.Photos.SOURCES.first { it.first == src }.second
+        }
+        "/api/doorbell/text" -> {
+            j.optString("title").trim().takeIf { it.isNotBlank() }?.let { app.settings.doorbellTitle = it }
+            j.optString("message").trim().takeIf { it.isNotBlank() }?.let { app.settings.doorbellMessage = it }
+            "Doorbell words saved"
+        }
+        "/api/hue" -> { app.settings.hueIp = j.optString("ip").trim(); if (app.settings.hueIp.isBlank()) "Hue bridge address removed" else "Saved. Now on the TV: Settings → Smart home → Philips Hue → Connect" }
+        // A problem report typed on the phone: built and cleaned on the TV, read in full on the phone, then sent by the TV.
+        "/api/report/preview" -> {
+            val said = j.optString("text").trim(); require(said.length in 10..500) { "Between 10 and 500 characters" }
+            val R = com.glasslauncher.tv.data.Report
+            val d = R.build(app, app.settings, app.updater.current, said, mapOf("Nuvio" to app.library.nuvio.connected, "Trakt" to app.cw.trakt.connected,
+                "Simkl" to app.cw.simkl.connected, "Stremio" to app.cw.stremio.connected))
+            report = d; R.preview(d)
+        }
+        "/api/report/send" -> {
+            val R = com.glasslauncher.tv.data.Report
+            val d = report ?: error("Write the report again")
+            val sent = R.send(app, d)
+            // Not sent from the TV (no relay, or it didn't answer): the phone can open the same report on GitHub itself.
+            if (!sent.ok) error((sent.note.ifBlank { "Not sent" }) + " " + R.issueLink(d))
+            report = null
+            (sent.note.ifBlank { "Sent: issue #${sent.number}" }) + " " + sent.url
+        }
         "/api/camera/remove" -> { val i = j.optInt("i", -1); app.settings.cameras = app.settings.cameras.filterIndexed { k, _ -> k != i }; "Camera removed" }
         else -> error("Unknown action")
     }
@@ -305,11 +351,12 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         app.catalogs.addons.sorted().forEach { addons.put(JSONObject().put("url", it).put("name", app.catalogs.addonName(it)).put("host", runCatching { java.net.URI(it).host }.getOrNull() ?: "")) }
         app.catalogs.accountOnly().forEach { addons.put(JSONObject().put("url", it).put("name", app.catalogs.addonName(it)).put("host", runCatching { java.net.URI(it).host }.getOrNull() ?: "").put("account", true)) }
         val apps = JSONArray()
+        val hidden = app.settings.hiddenApps.toSet()
         // First: Glassio's own settings button (Settings → Menu & themes → Settings button → Your picture).
         val sb = com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON
-        apps.put(JSONObject().put("pkg", sb).put("label", "Settings button (Glassio)").put("custom", app.icons.fileFor(sb).exists()))
+        apps.put(JSONObject().put("pkg", sb).put("label", "Settings button (Glassio)").put("custom", app.icons.fileFor(sb).exists()).put("own", true))
         app.apps.ordered(includeHidden = true).forEach {
-            apps.put(JSONObject().put("pkg", it.pkg).put("label", it.label).put("custom", app.icons.fileFor(it.pkg).exists()))
+            apps.put(JSONObject().put("pkg", it.pkg).put("label", it.label).put("custom", app.icons.fileFor(it.pkg).exists()).put("hidden", it.pkg in hidden))
         }
         val aerial = JSONArray(); app.settings.aerialUrls.forEach { aerial.put(it) }
         val st = app.settings
@@ -330,204 +377,29 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             .put("login", if (nv.custom) nv.loginPage else "")
         return JSONObject().put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc).put("nuvioServer", nuvioServer)
             .put("tmdb", app.settings.tmdbToken.isNotBlank()).put("ha", app.settings.haWebhook.isNotBlank())
+            .put("simklClient", app.cw.simkl.clientId.isNotBlank()).put("city", st.weatherCity)
+            .put("profile", JSONObject().put("name", com.glasslauncher.tv.data.Profiles.nameOverride(app, com.glasslauncher.tv.data.Profiles.active(app))))
+            // (Keys are write-only: only whether one is set.)
+            .put("photos", JSONObject().put("source", st.photoSource).put("unsplash", st.unsplashKey.isNotBlank()).put("reddit", st.redditAppId.isNotBlank()).put("subs", st.photoSubreddit)
+                .put("sources", JSONArray().apply { com.glasslauncher.tv.data.Photos.SOURCES.forEach { put(JSONObject().put("id", it.first).put("name", it.second)) } }))
+            .put("home", JSONObject().put("url", st.haUrl).put("title", st.doorbellTitle).put("message", st.doorbellMessage).put("hue", st.hueIp))
+            .put("backup", JSONObject().put("moves", com.glasslauncher.tv.data.Backup.MOVES).put("stays", com.glasslauncher.tv.data.Backup.STAYS))
+            .put("version", app.updater.current).put("tv", android.os.Build.MODEL.let { m -> if (m.startsWith(android.os.Build.MANUFACTURER, ignoreCase = true)) m else android.os.Build.MANUFACTURER + " " + m })
     }
 
     private fun err(m: String) = JSONObject().put("ok", false).put("error", m).toString()
 
-    private fun respond(c: Socket, code: Int, type: String, body: String, extra: String = "") {
-        val bytes = body.toByteArray(Charsets.UTF_8)
-        val reason = when (code) { 200 -> "OK"; 400 -> "Bad Request"; 403 -> "Forbidden"; else -> "Not Found" }
-        val head = "HTTP/1.1 $code $reason\r\nContent-Type: $type; charset=utf-8\r\nContent-Length: ${bytes.size}\r\n" +
-            "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\n" + extra + "Connection: close\r\n\r\n"
-        val out = c.getOutputStream()
-        out.write(head.toByteArray(Charsets.UTF_8)); out.write(bytes); out.flush()
+    private val lights: ByteArray by lazy {
+        ByteArrayOutputStream().also { o -> com.glasslauncher.tv.ui.orbsPicture(640, 360).let { b -> b.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, o); b.recycle() } }.toByteArray()
     }
 
-    private companion object {
-        /** A small page with one big button: pick a picture on the phone, and it becomes Glassio's settings button. */
-        const val BUTTON_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="color-scheme" content="light dark"><title>Glassio · Settings button</title><style>
-:root{--bg:#f2f2f7;--card:#fff;--text:#1c1c1e;--sub:#6e6e73;--accent:#6e5bff;--ok:#34c759;--bad:#ff3b30}
-@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f2f2f7;--sub:#98989f}}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font:17px/1.4 -apple-system,system-ui,sans-serif;
-display:flex;align-items:center;justify-content:center;padding:24px 16px}
-.card{width:100%;max-width:380px;background:var(--card);border-radius:22px;padding:28px 22px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.08)}
-h1{font-size:22px;margin:0 0 6px}p{margin:0;color:var(--sub);font-size:15px}
-.pv{width:96px;height:96px;margin:22px auto;border-radius:22px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden}
-.pv img{width:100%;height:100%;object-fit:cover}.pv svg{width:40px;height:40px;fill:var(--sub)}
-button{width:100%;border:0;border-radius:14px;padding:16px;font:600 17px -apple-system,system-ui,sans-serif;background:var(--accent);color:#fff}
-button:active{opacity:.8}button[disabled]{opacity:.5}
-.msg{margin-top:14px;font-size:15px;min-height:21px}.ok{color:var(--ok)}.bad{color:var(--bad)}
-</style></head><body><div class="card">
-<h1>Settings button</h1><p>Choose a picture: it becomes the button at the top of Glassio, on your TV.</p>
-<div class="pv" id="pv"><svg viewBox="0 0 16 16"><path d="M16 13.25A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h.94l.03-.03 6.077-6.078a1.75 1.75 0 0 1 2.412-.06L14.5 10.31V2.75a.25.25 0 0 0-.25-.25Zm12.5 11a.25.25 0 0 0 .25-.25v-.917l-4.298-3.889a.25.25 0 0 0-.344.009L4.81 13.5ZM7 6a2 2 0 1 1-3.999.001A2 2 0 0 1 7 6ZM5.5 6a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0Z"/></svg></div>
-<input type="file" id="f" accept="image/*" hidden>
-<button id="b" onclick="document.getElementById('f').click()">Upload a picture</button>
-<div class="msg" id="m"></div></div>
-<script>
-var T=new URLSearchParams(location.search).get('t')||'',f=document.getElementById('f'),b=document.getElementById('b'),m=document.getElementById('m');
-function say(t,c){m.textContent=t;m.className='msg '+(c||'')}
-f.onchange=function(){var x=f.files[0];if(!x)return;b.disabled=true;say('Sending…');
-var im=new Image();im.onload=function(){
-// Made small on the phone first (a photo can be many MB): 512 px on its longer side, as PNG.
-var s=Math.min(1,512/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
-c.getContext('2d').drawImage(im,0,0,c.width,c.height);document.getElementById('pv').innerHTML='<img src="'+c.toDataURL()+'">';
-c.toBlob(function(bl){fetch('/api/icon/upload?pkg=glassio.settingsbutton&t='+encodeURIComponent(T),{method:'POST',body:bl})
-.then(function(r){return r.json()}).then(function(r){say(r.ok?'Done ✓  Look at your TV':(r.error||'Failed'),r.ok?'ok':'bad');b.disabled=false;b.textContent='Choose another'})
-.catch(function(){say('Couldn\'t reach the TV. Same Wi-Fi?','bad');b.disabled=false})},'image/png')};
-im.onerror=function(){say('That file is not a picture','bad');b.disabled=false};im.src=URL.createObjectURL(x);f.value=''}
-</script></body></html>"""
+    private fun respond(c: Socket, code: Int, type: String, body: String, extra: String = "") = respond(c, code, type, body.toByteArray(Charsets.UTF_8), extra)
 
-        const val PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="color-scheme" content="light dark"><title>Glassio</title><style>
-:root{--bg:#f2f2f7;--card:#fff;--ink:#000;--sub:#8a8a8e;--line:rgba(60,60,67,.18);--field:#f2f2f7;--blue:#007aff;--red:#ff3b30;--green:#34c759}
-@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--ink:#fff;--sub:#8d8d93;--line:rgba(84,84,88,.6);--field:#2c2c2e;--blue:#0a84ff;--red:#ff453a;--green:#30d158}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
-main{max-width:640px;margin:0 auto;padding:max(18px,env(safe-area-inset-top)) 16px 90px}
-h1{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:18px 4px 2px}.lead{color:var(--sub);font-size:15px;margin:0 4px 14px}
-#q{width:100%;border:0;border-radius:10px;background:rgba(118,118,128,.12);color:var(--ink);font-size:17px;padding:9px 12px;outline:none;margin-bottom:6px}
-section{margin-top:26px}h2{font-size:13px;font-weight:400;text-transform:uppercase;color:var(--sub);margin:0 16px 7px;letter-spacing:.01em}
-.list{background:var(--card);border-radius:12px;overflow:hidden}
-.it{padding:11px 16px;position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.list>*,.list>div>*{position:relative}.list>*+*:before,.list>div>*+*:before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--line)}.act{display:block}.hide:before{display:none}
-.it .t{flex:1;min-width:0}.it .t b{font-weight:400;display:block;overflow:hidden;text-overflow:ellipsis}.it .t small{display:block;color:var(--sub);font-size:13px;word-break:break-all}
-.foot{color:var(--sub);font-size:13px;margin:7px 16px 0}
-input[type=text],input[type=password]{width:100%;border:0;background:transparent;color:var(--ink);font-size:17px;padding:2px 0;outline:none}
-.it.f{padding:12px 16px}
-a.b,button{appearance:none;border:0;background:none;color:var(--blue);font-size:17px;padding:0;cursor:pointer}
-button.x{color:var(--red)}button.p{background:var(--blue);color:#fff;border-radius:10px;padding:8px 14px;font-weight:600;font-size:15px}
-.act{color:var(--blue);text-align:left;width:100%;padding:12px 16px;font-size:17px}
-.seg{display:flex;background:rgba(118,118,128,.12);border-radius:9px;padding:2px;gap:2px;width:100%}.seg button{flex:1;color:var(--ink);font-size:13px;padding:6px 4px;border-radius:7px}
-.seg button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.15);font-weight:600}
-.tag{font-size:12px;color:var(--sub);margin-left:6px}.ok{color:var(--green)}.dim{color:var(--sub)}
-.btns{display:flex;gap:16px}
-#msg{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(140%);background:rgba(30,30,32,.92);color:#fff;font-size:15px;padding:11px 18px;border-radius:22px;transition:transform .25s;max-width:90%;text-align:center;z-index:9}
-#msg.show{transform:translateX(-50%) translateY(0)}#msg.bad{background:rgba(180,30,30,.95)}
-.hide{display:none}
-</style></head><body><main>
-<h1>Glassio</h1><p class="lead">Manage your TV from here &middot; &#1573;&#1583;&#1575;&#1585;&#1577; &#1575;&#1604;&#1578;&#1604;&#1601;&#1586;&#1610;&#1608;&#1606; &#1605;&#1606; &#1607;&#1606;&#1575;</p>
-<input id="q" type="search" placeholder="Search" oninput="filt()">
-<div id="msg"></div>
-
-<section data-k="accounts stremio simkl nuvio trakt sign in"><h2>Accounts</h2><div class="list">
-<div class="it"><div class="t"><b id="acc" style="font-size:15px"></b></div></div>
-<div class="it f"><input type="text" id="se" placeholder="Stremio email" autocomplete="username"></div>
-<div class="it f"><input type="password" id="sp" placeholder="Stremio password" autocomplete="current-password"></div>
-<button class="act" onclick="send('/api/stremio/login',{email:v('se'),password:v('sp')},'sp')">Sign in to Stremio</button>
-<div class="it f"><input type="text" id="sk" placeholder="Simkl client ID"></div>
-<button class="act" onclick="send('/api/simkl/client',{id:v('sk')},'sk')">Save Simkl client ID</button>
-</div><p class="foot">Nuvio, Trakt and Simkl sign in with a code on the TV: Settings &rarr; Accounts &amp; profiles.</p></section>
-
-<section data-k="nuvio server self-hosted supabase backend email sign in"><h2>Nuvio server</h2><div class="list">
-<div class="it"><div class="t"><b>Server</b></div><span id="nvs" class="dim"></span></div>
-<div class="it f"><input type="text" id="nu" placeholder="https://your-project.supabase.co (empty: official)"></div>
-<div class="it f"><input type="text" id="nk" placeholder="Anon (public) key"></div>
-<div class="it f"><input type="text" id="nl" placeholder="TV sign-in page (optional)"></div>
-<button class="act" onclick="send('/api/nuvio/server',{url:v('nu'),key:v('nk'),login:v('nl')},'nk')">Save server</button>
-<div class="it f"><input type="text" id="ne" placeholder="Nuvio email" autocomplete="username"></div>
-<div class="it f"><input type="password" id="np" placeholder="Nuvio password" autocomplete="current-password"></div>
-<button class="act" onclick="send('/api/nuvio/login',{email:v('ne'),password:v('np')},'np')">Sign in to Nuvio</button>
-</div><p class="foot">Only for a self-hosted Nuvio backend. The anon key: Supabase &rarr; Project Settings &rarr; API. Without a TV sign-in page, sign in here with email and password. Changing the server signs out.</p></section>
-
-<section data-k="add-ons addons catalogs manifest stremio"><h2>Add-ons</h2><div class="list"><div id="addons"></div>
-<div class="it f"><input type="text" id="au" placeholder="https://&hellip;/manifest.json or stremio://&hellip;"></div>
-<button class="act" onclick="addAddon()">Add add-on</button></div></section>
-
-<section data-k="background picture video wallpaper upload"><h2>Background</h2><div class="list">
-<div class="it"><div class="seg" id="bgm"></div></div>
-<div class="it" id="bgnowr"><div class="t"><small id="bgnow"></small></div></div>
-<div class="it f"><input type="text" id="bi" placeholder="Picture link"></div>
-<div class="it"><div class="btns"><button onclick="bgLink('image','bi')">Use link</button><button onclick="bgSave('bi')">Save to the TV</button></div></div>
-<div class="it f"><input type="text" id="bv" placeholder="Video link"></div>
-<div class="it"><div class="btns"><button onclick="bgLink('video','bv')">Use link</button><button onclick="bgSave('bv')">Save to the TV</button></div></div>
-<input type="file" id="bf" accept="image/*,video/*" class="hide" onchange="bgUp()"><button class="act" onclick="document.getElementById('bf').click()">Upload from this phone&hellip;</button>
-</div><p class="foot" id="bgp"></p>
-<div class="list" id="bgfiles" style="margin-top:10px"></div></section>
-
-<section data-k="app icons dock"><h2>App icons</h2><div class="list">
-<div class="it f"><input type="text" id="af" placeholder="Find an app" oninput="drawApps()"></div><div id="apps"></div></div>
-<p class="foot">Use an image link, or upload an image from this phone.</p></section>
-
-<section data-k="screensaver video links aerial"><h2>Screensaver videos</h2><div class="list"><div id="aerial"></div>
-<div class="it f"><input type="text" id="av" placeholder="https://&hellip;/video.mp4"></div>
-<button class="act" onclick="send('/api/aerial/add',{url:v('av')},'av')">Add video</button></div></section>
-
-<section data-k="cameras rtsp multi view"><h2>Cameras</h2><div class="list"><div id="cams"></div>
-<div class="it f"><input type="text" id="cn" placeholder="Name, e.g. Garden"></div>
-<div class="it f"><input type="text" id="cu" placeholder="rtsp://user:pass@camera:554/stream"></div>
-<button class="act" onclick="send('/api/camera/add',{name:v('cn'),url:v('cu')},'cu')">Add camera</button></div></section>
-
-<section data-k="tmdb token unsplash key logos ratings"><h2>Keys</h2><div class="list">
-<div class="it"><div class="t"><b>TMDB</b><small>Logos, synopsis, ratings</small></div><span id="tks" class="dim"></span></div>
-<div class="it f"><input type="text" id="tk" placeholder="API Read Access Token (starts eyJ&hellip;)"></div>
-<button class="act" onclick="send('/api/tmdb',{token:v('tk')},'tk')">Save TMDB token</button>
-<div class="it"><div class="t"><b>Unsplash</b><small>Photos as the background</small></div></div>
-<div class="it f"><input type="text" id="uk" placeholder="Access Key"></div>
-<button class="act" onclick="send('/api/unsplash',{key:v('uk')},'uk')">Save Unsplash key</button>
-<div class="it"><div class="t"><b>Subreddit wallpapers</b><small>Subreddits (comma separated) and your Reddit app id</small></div></div>
-<div class="it f"><input type="text" id="rs" placeholder="EarthPorn, wallpapers"></div>
-<div class="it f"><input type="text" id="ri" placeholder="Reddit app id"></div>
-<button class="act" onclick="send('/api/reddit',{subs:v('rs'),id:v('ri')},'ri')">Save</button>
-</div><p class="foot">TMDB: themoviedb.org &rarr; Settings &rarr; API, the long Read Access Token (not the short API Key). Unsplash: unsplash.com/developers &rarr; New application.</p></section>
-
-<section data-k="home assistant doorbell webhook"><h2>Home Assistant</h2><div class="list">
-<div class="it"><div class="t"><b>Webhook</b><small>Called when you open an app</small></div><span id="has" class="dim"></span></div>
-<div class="it f"><input type="text" id="ha" placeholder="http://homeassistant.local:8123/api/webhook/&hellip;"></div>
-<button class="act" onclick="send('/api/ha',{url:v('ha')},'ha')">Save webhook</button>
-<div class="it"><div class="t"><b>Doorbell</b><small>Glassio watches it itself</small></div></div>
-<div class="it f"><input type="text" id="hu" placeholder="http://homeassistant.local:8123"></div>
-<div class="it f"><input type="password" id="ht" placeholder="Long-lived access token"></div>
-<button class="act" onclick="send('/api/ha/doorbell',{url:v('hu'),token:v('ht')},'ht')">Save</button>
-</div><p class="foot">Token: Home Assistant &rarr; your profile &rarr; Security &rarr; Long-lived access tokens.</p></section>
-
-<section data-k="backup restore settings"><h2>Backup</h2><div class="list">
-<button class="act" onclick="location.href='/api/backup?t='+encodeURIComponent(T)">Download backup</button>
-<input type="file" id="rf" accept=".json,application/json" class="hide" onchange="restore()"><button class="act" onclick="document.getElementById('rf').click()">Restore from a file&hellip;</button>
-</div><p class="foot"><b>Another TV:</b> download the backup here, open this page on the other TV and restore it there.</p>
-<p class="foot">${com.glasslauncher.tv.data.Backup.MOVES}</p><p class="foot">${com.glasslauncher.tv.data.Backup.STAYS}</p>
-<p class="foot"><b>Before restoring:</b> ${com.glasslauncher.tv.data.Backup.WARN}</p></section>
-</main><script>
-var T=new URLSearchParams(location.search).get('t')||'',D=null,mt=0;
-function v(i){return document.getElementById(i).value.trim()}
-function say(t,ok){var m=document.getElementById('msg');m.textContent=t;m.className=(ok?'':'bad')+' show';clearTimeout(mt);mt=setTimeout(function(){m.className=ok?'':'bad'},3200)}
-function api(p,b){return fetch(p+'?t='+encodeURIComponent(T),b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(function(r){return r.json()})}
-function send(p,b,clear){api(p,b).then(function(r){say(r.ok?r.message:r.error,r.ok);if(r.ok){if(clear)document.getElementById(clear).value='';load()}}).catch(function(){say('Cannot reach the TV',false)})}
-function addAddon(){var u=v('au');if(u)send('/api/addon/add',{url:u},'au')}
-function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
-function item(title,sub,tags){var c=el('div','it'),t=el('div','t'),b=el('b','',title);(tags||[]).forEach(function(g){b.appendChild(el('span','tag',g))});t.appendChild(b);if(sub)t.appendChild(el('small','',sub));c.appendChild(t);return c}
-function btn(label,cls,fn){var b=el('button',cls||'',label);b.onclick=fn;return b}
-function filt(){var q=v('q').toLowerCase();document.querySelectorAll('section').forEach(function(s){s.classList.toggle('hide',q&&(s.dataset.k+' '+s.textContent).toLowerCase().indexOf(q)<0)})}
-function up(pkg,f){say('Uploading…',true);fetch('/api/icon/upload?pkg='+encodeURIComponent(pkg)+'&t='+encodeURIComponent(T),{method:'POST',body:f}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok);load()}).catch(function(){say('Upload failed',false)})}
-function bgLink(k,i){var u=v(i);if(u)send('/api/bg/link',{kind:k,url:u},i)}
-function bgSave(i){var u=v(i);if(u)send('/api/bg/download',{url:u,use:true},i)}
-function bgUp(){var f=document.getElementById('bf').files[0];if(!f)return;var x=new XMLHttpRequest(),p=document.getElementById('bgp');
-x.open('POST','/api/bg/upload?use=1&name='+encodeURIComponent(f.name)+'&t='+encodeURIComponent(T));
-x.upload.onprogress=function(e){if(e.lengthComputable)p.textContent='Uploading '+Math.round(e.loaded*100/e.total)+'%'};
-x.onload=function(){p.textContent='';try{var r=JSON.parse(x.responseText);say(r.ok?r.message:r.error,r.ok)}catch(e){say('Upload failed',false)}document.getElementById('bf').value='';load()};
-x.onerror=function(){p.textContent='';say('Upload failed',false)};say('Uploading…',true);x.send(f)}
-function restore(){var f=document.getElementById('rf').files[0];if(!f)return;if(!confirm('Replace every setting on this TV with this backup? Nothing is merged, and Glassio restarts. Icons you made, background pictures and TV access (ADB) stay as they are on this TV.'))return;f.text().then(function(t){say('Restoring…',true);return fetch('/api/restore?t='+encodeURIComponent(T),{method:'POST',headers:{'Content-Type':'application/json'},body:t})}).then(function(r){return r.json()}).then(function(r){say(r.ok?r.message:r.error,r.ok)}).catch(function(){say('Restore failed',false)})}
-function drawApps(){if(!D)return;var q=v('af').toLowerCase(),p=document.getElementById('apps');p.textContent='';D.apps.filter(function(x){return !q||x.label.toLowerCase().indexOf(q)>=0}).forEach(function(x){var c=item(x.label,'',x.custom?['custom']:[]);var r=el('div','btns');
-r.appendChild(btn('Link','',function(){var u=prompt('Image link for '+x.label);if(u)send('/api/icon/url',{pkg:x.pkg,url:u})}));
-var fi=el('input');fi.type='file';fi.accept='image/*';fi.className='hide';fi.onchange=function(){if(fi.files[0])up(x.pkg,fi.files[0])};
-r.appendChild(btn('Upload','',function(){fi.click()}));r.appendChild(fi);if(x.custom)r.appendChild(btn('Reset','x',function(){send('/api/icon/reset',{pkg:x.pkg})}));c.appendChild(r);p.appendChild(c)})}
-var BGM=[['carousel','Titles'],['image','Picture'],['video','Video'],['aerial','Screensaver']],poll=0;
-function load(){api('/api/state').then(function(d){D=d;
-var a=document.getElementById('addons');a.textContent='';d.addons.forEach(function(x){var c=item(x.name,x.host,x.account?['Nuvio account']:[]);if(!x.account)c.appendChild(btn('Remove','x',function(){if(confirm('Remove '+x.name+'?'))send('/api/addon/remove',{url:x.url})}));a.appendChild(c)});
-var g=d.bg,m=document.getElementById('bgm');m.textContent='';BGM.forEach(function(o){m.appendChild(btn(o[1],g.mode==o[0]?'on':'',function(){send('/api/bg/mode',{mode:o[0]})}))});
-var now=(g.image?'Picture: '+g.image+'  ':'')+(g.video?'Video: '+g.video:'');document.getElementById('bgnow').textContent=now;document.getElementById('bgnowr').classList.toggle('hide',!now);
-var bp=document.getElementById('bgp');if(g.downloading){bp.textContent='Downloading '+g.downloading+'…';clearTimeout(poll);poll=setTimeout(load,2000)}else if(g.last&&bp.textContent.indexOf('Downloading')==0){bp.textContent=g.last}
-var bl=document.getElementById('bgfiles');bl.textContent='';bl.classList.toggle('hide',!g.files.length);g.files.forEach(function(f){var c=item(f.name,f.mb+' MB',[f.video?'video':'picture'].concat(f.used?['in use']:[]));var r=el('div','btns');
-r.appendChild(btn('Use','',function(){send('/api/bg/use',{name:f.name})}));r.appendChild(btn('Delete','x',function(){if(confirm('Delete '+f.name+'?'))send('/api/bg/delete',{name:f.name})}));c.appendChild(r);bl.appendChild(c)});
-drawApps();
-var ks=document.getElementById('tks');ks.textContent=d.tmdb?'✓ Set':'Not set';ks.className=d.tmdb?'ok':'dim';
-document.getElementById('tk').placeholder=d.tmdb?'Saved · type a new one to replace, empty to remove':'API Read Access Token (starts eyJ…)';
-var hs=document.getElementById('has');hs.textContent=d.ha?'✓ Set':'';hs.className=d.ha?'ok':'dim';
-var z=document.getElementById('aerial');z.textContent='';d.aerial.forEach(function(u){var c=item(u.replace(/^(https?:\/\/[^\/]+).*/,'$1'),'');c.appendChild(btn('Remove','x',function(){send('/api/aerial/remove',{url:u})}));z.appendChild(c)});
-var N=d.nuvioServer||{};var ns=document.getElementById('nvs');ns.textContent=N.custom?N.host:'Official';ns.className=N.custom?'ok':'dim';
-var A=d.accounts||{};document.getElementById('acc').innerHTML=['nuvio','stremio','trakt','simkl'].map(function(k){return k.charAt(0).toUpperCase()+k.slice(1)+(A[k]?' <span class="ok">✓</span>':' <span class="dim">–</span>')}).join(' &nbsp;&middot;&nbsp; ');
-var cm=document.getElementById('cams');cm.textContent='';(d.cams||[]).forEach(function(x,i){var c=item(x.name,x.host);var r=el('div','btns');r.appendChild(btn('Rename','',function(){var n=prompt('Camera name',x.name);if(n)send('/api/camera/rename',{i:i,name:n})}));r.appendChild(btn('Remove','x',function(){if(confirm('Remove '+x.name+'?'))send('/api/camera/remove',{i:i})}));c.appendChild(r);cm.appendChild(c)});
-}).catch(function(){say('Cannot reach the TV',false)})}
-load();
-</script></body></html>"""
+    private fun respond(c: Socket, code: Int, type: String, bytes: ByteArray, extra: String = "") {
+        val reason = when (code) { 200 -> "OK"; 400 -> "Bad Request"; 403 -> "Forbidden"; else -> "Not Found" }
+        val head = "HTTP/1.1 $code $reason\r\nContent-Type: $type${if (type.startsWith("image/")) "" else "; charset=utf-8"}\r\nContent-Length: ${bytes.size}\r\n" +
+            (if (extra.contains("Cache-Control")) "" else "Cache-Control: no-store\r\n") + "Referrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\n" + extra + "Connection: close\r\n\r\n"
+        val out = c.getOutputStream()
+        out.write(head.toByteArray(Charsets.UTF_8)); out.write(bytes); out.flush()
     }
 }

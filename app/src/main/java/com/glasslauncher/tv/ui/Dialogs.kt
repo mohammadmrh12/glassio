@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,7 +56,7 @@ import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
 
 fun toast(ctx: Context, msg: String) {
-    Handler(Looper.getMainLooper()).post { Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show() }
+    Handler(Looper.getMainLooper()).post { Toast.makeText(ctx, com.glasslauncher.tv.data.I18n.tr(msg), Toast.LENGTH_LONG).show() }
 }
 
 sealed interface DialogState
@@ -107,6 +106,11 @@ fun appCatalogsDialog(app: com.glasslauncher.tv.GlassApp, pkg: String, label: St
 
 /** A problem report before it goes: what will be sent, Send, and a QR code for the phone when it can't be sent from here. */
 class ReportDialog(val data: com.glasslauncher.tv.data.Report.Data, val send: (com.glasslauncher.tv.data.Report.Data) -> com.glasslauncher.tv.data.Report.Sent) : DialogState
+/**
+ * What a right is used for, read before it is asked for (Google Play: the accessibility service needs the person's
+ * agreement first). [onAgree] runs on the first button; the second, or Back, changes nothing.
+ */
+class ConsentDialog(val title: String, val text: String, val agree: String, val onAgree: () -> Unit) : DialogState
 class SupportDialog(val clean: (String) -> String?, val send: (String, String) -> Boolean) : DialogState
 
 @Composable
@@ -116,11 +120,12 @@ fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
         when (state) {
             is TextEntry -> TextEntryDialog(state, onDismiss)
             is MenuDialog -> MenuDialogView(state, onDismiss)
+            is ConsentDialog -> ConsentDialogView(state, onDismiss)
             is QrCodeDialog -> QrCodeDialogView(state, onDismiss)
             is ThumbDialog -> ThumbDialogView(state, onDismiss)
             is ReorderDialog -> ReorderDialogView(state, onDismiss)
             is KeyCaptureDialog -> KeyCaptureView(state, onDismiss)
-            is SupportDialog -> SupportDialogView(state, onDismiss)
+            is SupportDialog -> if (!com.glasslauncher.tv.data.Store.PLAY) SupportDialogView(state, onDismiss)
             is ReportDialog -> ReportDialogView(state, onDismiss)
             is PickDialog -> PickDialogView(state, onDismiss)
         }
@@ -129,11 +134,38 @@ fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
 
 @Composable
 private fun DialogSurface(width: Int = 420, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    // A lighter window on a screen that is dimmed less (his ask, 2026-11-21): near-black on the system's own dim
+    // (0.6) it read as a black box over Settings and the setup.
+    val dv = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(Unit) { (dv.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setDimAmount(0.28f) }
     Column(
-        modifier.width(width.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xF0181820))
-            .border(0.8.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(16.dp)).padding(14.dp),
+        modifier.width(width.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xEB3A3A46))
+            .border(0.8.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(16.dp)).padding(14.dp),
     ) { content() }
 }
+
+@Composable
+private fun ConsentDialogView(d: ConsentDialog, onDismiss: () -> Unit) {
+    val fr = remember { FocusRequester() }
+    Dialog(onDismissRequest = onDismiss) {
+        DialogSurface(width = 520) {
+            Text(d.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+            Text(d.text, color = Color.White.copy(alpha = 0.82f), fontSize = 12.5.sp, lineHeight = 18.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
+            // "Not now" is where the selection starts: agreeing is a choice, never a slip of the OK button.
+            DialogButton("Not now", Modifier.fillMaxWidth().padding(bottom = 3.dp).focusRequester(fr)) { onDismiss() }
+            DialogButton(d.agree, Modifier.fillMaxWidth()) { onDismiss(); d.onAgree() }
+        }
+        LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+    }
+}
+
+/** The play build's words about the accessibility service (shown before the TV's Accessibility settings open). */
+const val A11Y_TITLE = "Glassio's accessibility service"
+const val A11Y_TEXT = "Glassio uses Android's Accessibility API for one thing: to notice the buttons of your remote, and when the TV's own home screen comes up. " +
+    "That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set, " +
+    "and how a camera or the doorbell can show over another app.\n\n" +
+    "The service does not read what is on the screen, does not read what you type, and collects or shares nothing. " +
+    "It only works after you turn it on yourself in the TV's Accessibility settings, and you can turn it off there at any time."
 
 @Composable
 private fun DialogButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
@@ -213,8 +245,10 @@ private fun KeyCaptureView(d: KeyCaptureDialog, onDismiss: () -> Unit) {
     var armed by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss) {
         DialogSurface(width = 330, modifier = Modifier.focusRequester(fr).onPreviewKeyEvent { ev ->
-            val code = ev.nativeKeyEvent.keyCode
+            val code = com.glasslauncher.tv.KeyHub.idOf(ev.nativeKeyEvent)
             if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
+            // (A button with neither a key code nor a scan code can't be told from any other: left alone.)
+            if (code == 0) { hint = "This button sends nothing Glassio can tell apart: pick another button"; return@onPreviewKeyEvent true }
             when (code) {
                 android.view.KeyEvent.KEYCODE_BACK -> onDismiss()
                 android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_DPAD_UP,
@@ -239,6 +273,8 @@ private fun KeyCaptureView(d: KeyCaptureDialog, onDismiss: () -> Unit) {
 /** A remote button's name for Settings ("Red", "Play/Pause"…). */
 fun keyName(code: Int): String = when (code) {
     0 -> "Not set"
+    // (A button known by its scan code only: see KeyHub.idOf.)
+    in Int.MIN_VALUE..-1 -> "Button " + -code
     else -> android.view.KeyEvent.keyCodeToString(code).removePrefix("KEYCODE_").split('_')
         .joinToString(" ") { w -> w.lowercase().replaceFirstChar { it.uppercase() } }
 }
