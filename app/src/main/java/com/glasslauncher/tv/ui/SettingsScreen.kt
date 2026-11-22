@@ -105,6 +105,8 @@ private val NEW_IN = mapOf(
     "4.0.0" to listOf("Profile", "At start", "Name", "Picture", "Greeting", "Catalogs for apps", "Apps and their catalogs",
         "Continue Watching in app carousels", "Play opens the streaming app", "Apps", "Find links with JustWatch", "Country",
         "Platform rows", "Rows per platform", "Carousel shade", "Button look", "Music & Inputs page"),
+    "4.1.1" to listOf("Rows above the dock", "Same video as the screensaver", "Let the video go while away", "Pexels", "  · Pexels key", "  · Pexels words",
+        "Hold OK asks", "Hidden videos"),
     "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
         "Nuvio and Stremio apps", "Nuvio plays at once", "Stremio for a film", "Quality", "Largest file", "HDR and Dolby Vision",
         "Leave out cinema recordings", "Torrents", "Add-ons asked", "Keep the words searched", "Search in the menu", "Page behind the search", "Titles as", "Stay in the search", "First row", "More results", "Card size", "Rating",
@@ -1214,6 +1216,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     { when (st.bgMode) { "image" -> "My picture"; "video" -> "My video"; "aerial" -> "Screensaver (aerials)"; "photos" -> "Photos (4K)"; else -> "Title backdrops" } },
                     { st.bgMode = cycle(listOf("carousel", "image", "photos", "video", "aerial"), st.bgMode, it) }))
                 add(Act("Next", "The next video, picture or photo now", "") { CustomBackground.nextNow(st); toast(ctx, "Next") })
+                if (st.bgMode == "video" || st.bgMode == "aerial") add(Toggle("Let the video go while away", "In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV", { st.bgLetGo }, { st.bgLetGo = it }))
 
                 if (st.bgMode == "photos") {
                     add(Note("Photos"))
@@ -1270,6 +1273,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         if (st.bgAerialQuality == "saver") "Screensaver's quality" else "1080p"
                     }, { st.bgAerialQuality = cycle(listOf("1080", "saver"), st.bgAerialQuality, it) }))
                     add(Toggle("Shuffle", "A new one when each ends, fading through black like the screensaver", { st.bgShuffle }, { st.bgShuffle = it }))
+                    add(Toggle("Same video as the screensaver", "The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory", { st.saverSameVideo }, { st.saverSameVideo = it }))
                 }
 
                 if (st.bgMode != "carousel") {
@@ -1373,6 +1377,18 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                 AerialSource.SOURCES.forEach { src ->
                                     add(Toggle(src.name, "", { src.key in st.saverSources }, { on -> st.saverSources = if (on) st.saverSources + src.key else st.saverSources - src.key; st.saverPick = "" }))
                                 }
+                                // Pexels (#22): its videos with the person's own key; each title names its maker, as Pexels asks.
+                                val px = AerialSource.PEXELS
+                                add(Toggle("Pexels", if (st.pexelsKey.isBlank()) "Free videos from pexels.com for the words below. Needs your own Pexels key" else "Free videos from pexels.com for the words below",
+                                    { px in st.saverSources && st.pexelsKey.isNotBlank() }, { on ->
+                                        if (on && st.pexelsKey.isBlank()) toast(ctx, "Add your Pexels key first")
+                                        else { st.saverSources = if (on) st.saverSources + px else st.saverSources - px; st.saverPick = "" } }))
+                                add(Act("  · Pexels key", "Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only", if (st.pexelsKey.isBlank()) "Not set" else "Set") {
+                                    dialog = TextEntry("Pexels key", st.pexelsKey, "") { k -> st.pexelsKey = k; if (k.isNotBlank()) st.saverSources = st.saverSources + px }
+                                })
+                                add(Act("  · Pexels words", "What its videos show: aerial, ocean, forest, city…", st.pexelsQuery) {
+                                    dialog = TextEntry("Pexels words", st.pexelsQuery, "aerial") { q -> st.pexelsQuery = q.ifBlank { "aerial" } }
+                                })
                             }
                         }))
                     add(pageRow("My videos", "Your links and the videos in the backgrounds folder", more(if (st.saverMine) "On · ${st.aerialUrls.size}" else "Off"), sp = SubPage("My videos") {
@@ -1393,7 +1409,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                         "${mine.size} videos"
                                     }
                                 })
-                                add(Act("Add video link", "A direct .mp4 / .mov link (Manage from phone can also save it to the TV)", "") {
+                                add(Act("Add video link", if (com.glasslauncher.tv.data.Store.PLAY) "A direct .mp4 / .mov link (Manage from phone can also save it to the TV)" else "A direct .mp4 / .mov link, or a YouTube video's link (Manage from phone can also save it to the TV)", "") {
                                     dialog = TextEntry("Video link", "", "https://…/video.mp4") { u ->
                                         if (u.startsWith("http")) st.aerialUrls = (st.aerialUrls + u.trim()).distinct() else toast(ctx, "The link must start with http")
                                     }
@@ -1427,10 +1443,18 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Act("  · Delete saved videos", "", "") { com.glasslauncher.tv.saver.VideoCache.clear(ctx); toast(ctx, "Deleted") })
 
                     add(Note("Screensaver · Locked videos"))
+                    if (st.saverHidden.isNotEmpty()) add(pageRow("Hidden videos", "Videos you chose never to see again. OK on one shows it again", more(st.saverHidden.size), sp = SubPage("Hidden videos") {
+                        buildList {
+                            st.saverHidden.forEach { h ->
+                                add(Act(h.substringAfter('\t').ifBlank { "Video" }, "", "Show again") { st.saverHidden = st.saverHidden - h })
+                            }
+                        }
+                    }))
                     add(Toggle("Lock & release", "Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it", { st.saverLock }, { st.saverLock = it }))
                     if (st.saverLock) {
                         add(Toggle("  · Only locked videos", "Plays just the videos you locked (when there are some). Also in the menu's Screensaver page", { st.saverLockedOnly }, { st.saverLockedOnly = it }))
                         add(Act("  · Clear locked videos", "${st.saverLocked.size} locked", "") { st.saverLocked = emptyList() })
+                        add(Toggle("Hold OK asks", "Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again", { st.saverHoldMenu }, { st.saverHoldMenu = it }))
                     }
                 }
 
@@ -1534,6 +1558,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("Layout", "Rows one above the other, or one row in the middle that ▲ / ▼ switch", { if (st.channelsLayout == "single") "One row" else "Rows" },
                         { st.channelsLayout = cycle(listOf("stack", "single"), st.channelsLayout, it) }))
                     if (st.channelsLayout != "single") add(Adjust("Rows", "How many rows show at once (1 or 2): an app's other rows come in with ▲ / ▼", { "${st.channelsRows}" }, { st.channelsRows += it }))
+                    add(Toggle("Rows above the dock", "One row sits right above the dock instead of in the middle, so the large clock and the top of the page stay in view", { st.channelsLow }, { st.channelsLow = it }))
                     add(Adjust("Cards in a row", "How many cards fit across a row at first (posters are narrower: more of them show)", { "${st.channelsCards}" }, { st.channelsCards += it }))
                     add(Adjust("Background", "Behind the rows: the Library's grey page, or the selected card's picture blurred (like the music page)",
                         { if (st.channelsBg == "blur") "Blurred card" else "Grey" }, { st.channelsBg = cycle(listOf("grey", "blur"), st.channelsBg, it) }))

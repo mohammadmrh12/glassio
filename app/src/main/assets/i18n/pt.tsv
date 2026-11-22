@@ -1,6 +1,7 @@
 1080p H.264 (plays everywhere)	1080p H.264 (roda em qualquer lugar)
 Aerial	Aéreo
 Apple aerial	Aéreos da Apple
+Pexels video	Vídeo do Pexels
 Code saved	Código salvo
 Current code	Código atual
 New code · OK saves it	Novo código · OK salva
@@ -160,10 +161,15 @@ This profile has a PIN in Nuvio: it can't be opened from here yet	Este perfil te
 Who is watching?	Quem está assistindo?
 Credit	Crédito
 Date	Data
+Don't show it again	Não mostrar de novo
+Keep this video	Manter este vídeo
 Place	Local
+Release this video	Soltar este vídeo
 Storage	Armazenamento
 Time	Hora
+Video	Vídeo
 Weather	Clima
+Won't show again · Settings → Background & screensaver → Hidden videos	Não voltará a aparecer · Definições → Fundo e proteção de ecrã → Vídeos ocultos
 Allow USB debugging for Glassio to use the TV screensaver	Permita a depuração USB para o Glassio usar o protetor de tela da TV
 Asking the add-ons…	Consultando os complementos…
 Film	Filme
@@ -209,6 +215,7 @@ Plan to watch	Planejo assistir
 A button of your remote (Netflix, YouTube, a colour button…) opens what you choose; Glassio's own: shuffle, multi-view, corner camera	Um botão do seu controle (Netflix, YouTube, um botão colorido…) abre o que você escolher; os do próprio Glassio: aleatório, multivisão, câmera no canto
 A colour each	Uma cor para cada
 A direct .mp4 / .mov link (Manage from phone can also save it to the TV)	Um link direto .mp4 / .mov (Gerenciar pelo celular também pode salvá-lo na TV)
+A direct .mp4 / .mov link, or a YouTube video's link (Manage from phone can also save it to the TV)	Um link direto .mp4 / .mov, ou o link de um vídeo do YouTube (Gerir a partir do telemóvel também o guarda na TV)
 A list of the places it can be watched in, the first of them at once (services first, then Nuvio, then Stremio), or always one app: the list comes up when that app can't open the title	Uma lista dos lugares onde assistir, o primeiro abre na hora (primeiro os serviços, depois o Nuvio, depois o Stremio), ou sempre um só app: a lista aparece quando esse app não consegue abrir o título
 A list of your earlier searches under the bar while it is empty: OK on one searches it again	Uma lista das suas buscas anteriores sob a barra quando ela está vazia: OK em uma busca de novo
 A live camera in the corner, over any app	Uma câmera ao vivo no canto, sobre qualquer app
@@ -246,6 +253,7 @@ Add or remove it in Nuvio; it updates here on the next refresh	Adicione ou remov
 Add the Home Assistant link and token first	Adicione primeiro o link e o token do Home Assistant
 Add the Home Assistant link and token first (Doorbell → Home Assistant link)	Adicione primeiro o link e o token do Home Assistant (Campainha → Link do Home Assistant)
 Add video link	Adicionar link de vídeo
+Add your Pexels key first	Adicione primeiro a sua chave do Pexels
 Add-on	Complemento
 Add-on link	Link do complemento
 Add-on picture	Imagem do complemento
@@ -543,6 +551,9 @@ Forget	Esquecer
 Forget the bridge	Esquecer o Bridge
 Forget them	Esquecê-los
 Frame	Moldura
+Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	Grátis em pexels.com/api: inicie sessão lá e copie a sua chave. Fica só nesta TV
+Free videos from pexels.com for the words below	Vídeos grátis de pexels.com para as palavras abaixo
+Free videos from pexels.com for the words below. Needs your own Pexels key	Vídeos grátis de pexels.com para as palavras abaixo. Precisa da sua própria chave do Pexels
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	Grátis: unsplash.com/developers → New application → Access Key. Mais fácil colar pelo celular (Gerenciar pelo celular)
 From a computer or phone with ADB, connected to this Fire TV, type once:	De um computador ou celular com ADB, conectado a esta Fire TV, digite uma vez:
 From Home Assistant	Do Home Assistant
@@ -597,6 +608,7 @@ Hello and the profile's name at the top of the menu, with its picture (the name 
 Hidden	Oculto
 Hidden titles	Títulos ocultos
 Hidden titles · pick one to show it again	Títulos ocultos · escolha um para mostrar de novo
+Hidden videos	Vídeos ocultos
 Hidden while you browse the apps	Oculta enquanto você navega pelos apps
 Hide from dock	Ocultar da dock
 Hide the dock	Ocultar a dock
@@ -609,6 +621,7 @@ Highest resolution	Maior resolução
 Hint	Dica
 Hint under the digits	Dica sob os dígitos
 Hold Home	Segurar Home
+Hold OK asks	Manter OK pergunta
 Hold OK on a title asks "Remove?" first	Segurar OK em um título pergunta "Remover?" antes
 Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it	Segure OK em um vídeo de que gosta para travá-lo (um cadeado de vidro se fecha); segure OK de novo para soltá-lo
 Hold OK on Play → Hide this title. Pick one here to show it again	Segure OK em Reproduzir → Ocultar este título. Escolha um aqui para mostrar de novo
@@ -659,6 +672,7 @@ Icon zoom on focus	Zoom do ícone no foco
 Icons	Ícones
 Idle time on the launcher	Tempo ocioso no launcher
 Import icons from the folder	Importar ícones da pasta
+In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	Noutra app ou na proteção de ecrã, o vídeo do fundo é solto após alguns segundos e retomado ao voltar: menos memória numa TV pequena
 In its own colour	Na própria cor
 In the carousel	No carrossel
 In the last colours	Nas últimas cores
@@ -717,6 +731,7 @@ Leave them	Deixá-los
 Left (column)	Esquerda (coluna)
 Left shade	Sombra à esquerda
 Left, like Apple TV	À esquerda, como no Apple TV
+Let the video go while away	Soltar o vídeo quando sai
 Library look	Aparência da Biblioteca
 Library rows	Linhas da Biblioteca
 Lift selected icon	Elevar ícone selecionado
@@ -867,6 +882,7 @@ Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio, Trakt, Simkl ou 
 Off	Desligado
 Off (OK opens Settings)	Desligado (OK abre os Ajustes)
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	Desligado: qualquer dispositivo em casa pode mostrar o pop-up. Ligado: o Home Assistant adiciona o cabeçalho X-Glassio-Token (ou ?token= no link)
+Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	Desligado: manter OK bloqueia um vídeo, como sempre. Ligado: um pequeno menu para o manter ou nunca mais o mostrar
 Off: in the collections' order	Desligado: na ordem das coleções
 Off: only the icons, no glass behind them	Desligado: só os ícones, sem vidro atrás
 Off: the trailers play muted	Desligado: os trailers tocam sem som
@@ -894,6 +910,7 @@ One colour	Uma cor
 One Inputs icon (move, hide and change it like an app): its inputs show above the dock, like the Music icon's music apps. Hold OK on an input there: its icon, order, hide	Um ícone de Entradas (mova, oculte e mude como um app): suas entradas aparecem acima da dock, como os apps de música do ícone de Música. Segure OK em uma entrada ali: ícone, ordem, ocultar
 One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)	Uma só aparência para a dock, os ícones e o menu. Os pretos mantêm a dock transparente (fosca)
 One row	Uma linha
+One row sits right above the dock instead of in the middle, so the large clock and the top of the page stay in view	Uma única fila fica logo acima da dock em vez de ao centro, e o relógio grande e o topo da página continuam à vista
 One strip with every app: the selected app stays in the middle and the strip moves	Uma faixa com todos os apps: o app selecionado fica no meio e a faixa se move
 One that gives no sources is simply skipped	Um que não dá fontes é simplesmente ignorado
 One that's already here isn't added twice	Um que já está aqui não é adicionado duas vezes
@@ -932,6 +949,8 @@ Paste a manifest link	Cole um link de manifesto
 Pause sharing	Pausar compartilhamento
 Performance	Desempenho
 Person	Pessoa
+Pexels key	Chave do Pexels
+Pexels words	Palavras do Pexels
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork	Luzes Philips Hue nas cores do que está na tela: o fundo, o pôster ou o logo, vídeos e trailers, a capa da música
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork	Luzes Philips Hue nas cores do que está na tela: o fundo, o pôster ou o logo, vídeos, a capa da música
 Photos	Fotos
@@ -1031,11 +1050,13 @@ Restore backup	Restaurar backup
 Right, by Settings	À direita, junto aos Ajustes
 Room	Cômodo
 Rows	Linhas
+Rows above the dock	Filas acima da dock
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	Linhas uma sobre a outra, ou uma linha no meio que ▲ / ▼ alternam
 Rows per platform	Linhas por plataforma
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://usuario:senha@ip:554/… , um link HLS (.m3u8) ou de vídeo
 Run setup again	Executar a configuração de novo
 Runs on its own every 30 minutes	Roda sozinho a cada 30 minutos
+Same video as the screensaver	O mesmo vídeo da proteção de ecrã
 Saved. Allow TV access (ADB) so the TV lets Glassio open	Salvo. Permita o acesso à TV (ADB) para que a TV deixe o Glassio abrir
 Saved:	Salvo:
 Scan a QR code with your phone and approve	Leia um código QR com o celular e aprove
@@ -1093,6 +1114,7 @@ Sharpest: original pictures, slow fades, full glass	Mais nítido: imagens origin
 Show	Mostrar
 Show a hint	Mostrar uma dica
 Show a note when synced	Mostrar um aviso ao sincronizar
+Show again	Mostrar de novo
 Show Apps folder	Mostrar a pasta Apps
 Show clock	Mostrar relógio
 Show code	Mostrar código
@@ -1263,6 +1285,7 @@ The open apps, like the Apple TV app switcher	Os apps abertos, como o alternador
 The others open a title as usual	Os outros abrem um título como de costume
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	O modo de desempenho e o que ele define: qualidade da imagem, detalhe e refração do vidro, animação dos slides, galeria de fundos, caches e qualidade do protetor de tela. Desligado: esta TV mantém os próprios, e uma TV mais fraca continua fluida
 The row at the top of the results. The others follow in their usual order	A fila no topo dos resultados. As outras seguem na ordem habitual
+The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	A proteção de ecrã começa com o vídeo que passa aqui, onde ia, e o fundo continua com aquele em que ela terminou. Mais leve numa TV com pouca memória
 The screensaver: what it shows and how	O protetor de tela: o que mostra e como
 The search opens empty each time. Off: what was typed last is still in the bar	A busca abre vazia toda vez. Desativado: o último texto digitado continua na barra
 The selected app	O app selecionado
@@ -1369,6 +1392,7 @@ Videos from aerial-videos.netlify.app	Vídeos de aerial-videos.netlify.app
 Videos in the folder	Vídeos na pasta
 Videos under the titles; one opens in the app below	Vídeos abaixo dos títulos; um abre no app abaixo
 Videos without it play the nearest one	Vídeos sem isso tocam o mais próximo
+Videos you chose never to see again. OK on one shows it again	Vídeos que escolheu não voltar a ver. OK num deles mostra-o de novo
 Vivid	Vívido
 Waiting…	Aguardando…
 Weather city	Cidade do clima
@@ -1380,6 +1404,7 @@ What happened, and what you did just before	O que aconteceu e o que você fez lo
 What holding the Home button does, in any app	O que segurar o botão Home faz, em qualquer app
 What is searched	O que é pesquisado
 What it shows	O que mostra
+What its videos show: aerial, ocean, forest, city…	O que os vídeos mostram: aéreo, oceano, floresta, cidade…
 What plays	O que toca
 What the lights take their colours from	De onde as luzes tiram as cores
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	O que o menu mostra: o relógio, o clima, a Biblioteca, temas, o perfil, o plano de fundo e mais

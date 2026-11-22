@@ -32,6 +32,9 @@ import kotlinx.coroutines.sync.withLock
  */
 object CustomBackground {
     val exts = setOf("jpg", "jpeg", "png", "webp")
+    /** The background video Glassio left (another app or the screensaver came in front) and where it was in it. */
+    @Volatile var leftVideo: String? = null
+    @Volatile var leftPos = 0L
     /** Screensaver as background: the aerial video playing now (one per start of Glassio). */
     val aerial = androidx.compose.runtime.mutableStateOf<String?>(null)
     @Volatile var aerials: List<String> = emptyList()
@@ -304,7 +307,34 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
             VideoFrames.clear(); dim.floatValue = 0f
         }
     }
-    androidx.compose.runtime.LaunchedEffect(playing) { player.playWhenReady = playing }
+    // Away from Glassio (another app or the screensaver in front) for a few seconds: the video's decoder and its
+    // buffer (up to 50 s of video) are let go, and taken again on the way back. Kept, they stayed in memory under
+    // whatever was in front: on a TV with little memory the screensaver's own video then had two to carry (#22).
+    // Only while Glassio is really away (stopped), never for its own screens (the Library, Settings).
+    val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val let = remember { BooleanArray(1) }
+    androidx.compose.runtime.LaunchedEffect(playing) {
+        player.playWhenReady = playing
+        if (!playing) {
+            CustomBackground.leftVideo = player.currentMediaItem?.localConfiguration?.uri?.toString()
+            CustomBackground.leftPos = player.currentPosition
+            kotlinx.coroutines.delay(5000)
+            if (st.bgLetGo && !life.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) && player.playbackState != androidx.media3.common.Player.STATE_IDLE) {
+                CustomBackground.leftPos = player.currentPosition
+                player.stop(); let[0] = true
+                Glog.i("Background video: let go while away")
+            }
+        } else if (let[0]) {
+            let[0] = false
+            // Back from the screensaver with *Same video*: on with the one it ended on, where it was.
+            val sv = com.glasslauncher.tv.saver.SaverControl
+            val title = sv.endedTitle.takeIf { st.saverSameVideo && st.bgMode == "aerial" && android.os.SystemClock.uptimeMillis() - sv.endedAt < 10 * 60_000L }
+            val at = title?.let { t -> list.indexOfFirst { CustomBackground.aerialTitles[it] == t } }?.takeIf { it >= 0 }
+            if (at != null) { player.seekTo(at, sv.endedPos); sv.endedTitle = null; Glog.i("Background video: on from the screensaver's (${title})") }
+            else player.seekTo(CustomBackground.leftPos)
+            player.prepare()
+        }
+    }
     // Never left "not drawn" while the video plays on (a video following another without a new first-frame
     // report): the glass copies would stop and everything glass froze on the last picture.
     androidx.compose.runtime.LaunchedEffect(rendered, ready, view) {

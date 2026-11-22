@@ -66,6 +66,13 @@ object SaverControl {
     val showRev = androidx.compose.runtime.mutableIntStateOf(0)
     /** Whether the info is on screen right now (written while it draws). */
     @Volatile var infoOnScreen = false
+    /** What the screensaver was playing when it ended, and where in it (the background goes on with it: Same video). */
+    @Volatile var endedTitle: String? = null
+    @Volatile var endedPos = 0L
+    @Volatile var endedAt = 0L
+    @Volatile var playingTitle: String? = null
+    @Volatile var playingSince = 0L
+    @Volatile var playingFrom = 0L
     /** The link of the video on screen (for Lock & release). */
     @Volatile var currentUrl: String? = null
     /** Shown after a hold of OK: true = just locked, false = released; [lockRev] restarts the animation. */
@@ -137,7 +144,17 @@ object SaverControl {
         return true
     }
 
-    private fun toggleLock(st: com.glasslauncher.tv.data.Settings) {
+    /** The video on screen: its id and title (for the held-OK menu). */
+    fun currentId(): String? = currentUrl?.let { AerialSource.idOfUrl[it] }
+    fun locked(st: com.glasslauncher.tv.data.Settings) = currentId()?.let { it in st.saverLocked } == true
+    /** Never shows the video on screen again and goes on to the next one. */
+    fun hideCurrent(st: com.glasslauncher.tv.data.Settings, title: String) {
+        val id = currentId() ?: return
+        st.saverHidden = (st.saverHidden.filter { it.substringBefore('\t') != id } + "$id\t${title.replace('\t', ' ')}")
+        st.saverLocked = st.saverLocked - id
+        step = 1
+    }
+    internal fun toggleLock(st: com.glasslauncher.tv.data.Settings) {
         val id = currentUrl?.let { AerialSource.idOfUrl[it] } ?: return
         val l = st.saverLocked
         val now = id !in l
@@ -175,8 +192,17 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
     val trailers = !forceSlideshow && st.saverMode == "trailer"
     val slideshow = forceSlideshow || st.saverMode == "slideshow" || trailers
     // null while the list loads: black meanwhile (the posters showed a title's logo for a moment).
+    // Where the first video starts (Same video: where the background was in it).
+    var sameFrom = 0L
     val items by produceState<List<Pair<String, String>>?>(if (slideshow) emptyList() else null) {
-        if (!slideshow) value = withContext(Dispatchers.IO) { AerialSource.playlistItems(app) }
+        if (!slideshow) value = withContext(Dispatchers.IO) { AerialSource.playlistItems(app) }.let { l ->
+            // *Same video*: with the aerial background, the screensaver starts with the video the background was
+            // showing, where it was, instead of loading a second one (on a TV with little memory that was felt, #22).
+            val bg = com.glasslauncher.tv.ui.CustomBackground.leftVideo?.let { com.glasslauncher.tv.ui.CustomBackground.aerialTitles[it] }
+            val i = if (st.saverSameVideo && st.bgMode == "aerial" && bg != null) l.indexOfFirst { it.first == bg } else -1
+            if (i > 0) listOf(l[i]) + l.filterIndexed { k, _ -> k != i } else l
+        }.also { l -> sameFrom = if (st.saverSameVideo && st.bgMode == "aerial" && l.firstOrNull()?.first != null &&
+            l.first().first == com.glasslauncher.tv.ui.CustomBackground.leftVideo?.let { com.glasslauncher.tv.ui.CustomBackground.aerialTitles[it] }) com.glasslauncher.tv.ui.CustomBackground.leftPos else 0L }
     }
     var title by remember { mutableStateOf("") }
     var change by remember { mutableIntStateOf(0) }
@@ -187,6 +213,23 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
         val list = items
         if (list == null) { /* loading: black */ }
         else if (list.isNotEmpty() && !failed) {
+            // *Hold OK asks* (off: hold OK locks, as always): keep the video (lock it), or never show it again.
+            var pop by remember { mutableStateOf<com.glasslauncher.tv.ui.PopState?>(null) }
+            if (st.saverHoldMenu) {
+                DisposableEffect(Unit) {
+                    val mine: () -> Unit = {
+                        // (The name of the video really on screen: [title] follows a moment later, after the fade.)
+                        val t = list.firstOrNull { it.second == SaverControl.currentUrl }?.first ?: title
+                        pop = com.glasslauncher.tv.ui.PopState(t.ifBlank { "Video" }, listOf(
+                            com.glasslauncher.tv.ui.PopOption(if (SaverControl.locked(st)) "Release this video" else "Keep this video", if (SaverControl.locked(st)) "✓" else "") { SaverControl.toggleLock(st) },
+                            com.glasslauncher.tv.ui.PopOption("Don't show it again") { SaverControl.hideCurrent(st, t); com.glasslauncher.tv.ui.toast(ctx, "Won't show again · Settings → Background & screensaver → Hidden videos") },
+                        ), null)
+                    }
+                    SaverControl.onLong = mine
+                    onDispose { if (SaverControl.onLong === mine) SaverControl.onLong = null; SaverControl.popOpen.value = false }
+                }
+                LaunchedEffect(pop) { SaverControl.popOpen.value = pop != null }
+            }
             val factory = remember { VideoCache.factory(ctx, st.saverCache, st.saverCacheGb) }
             // A frame of the new video is on screen (the fade back in waits for it).
             val rendered = remember { BooleanArray(1) }
@@ -323,7 +366,9 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 fun start(i: Int) {
                     rendered[0] = false
                     SaverControl.currentUrl = list[i.mod(list.size)].second
-                    p.setMediaItem(MediaItem.fromUri(list[i.mod(list.size)].second)); p.prepare(); p.play()
+                    val from = if (i == 0 && sameFrom > 0) sameFrom.also { sameFrom = 0L } else 0L
+                    p.setMediaItem(MediaItem.fromUri(list[i.mod(list.size)].second), from); p.prepare(); p.play()
+                    SaverControl.playingTitle = list[i.mod(list.size)].first; SaverControl.playingSince = android.os.SystemClock.uptimeMillis(); SaverControl.playingFrom = from
                     com.glasslauncher.tv.data.Glog.i("Saver: #${i.mod(list.size)}/${list.size} ${list[i.mod(list.size)].first}")
                 }
                 suspend fun waitFrame() {
@@ -364,6 +409,18 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                     if (!quick || now - lastBump > 6_000) { change++ }
                     lastBump = now
                     if (fade) black.animateTo(0f, tween(if (quick) 380 else 1000)) else black.snapTo(0f)
+                }
+            }
+                    // The held-OK menu, on the screensaver's own glass (as the trailers' one).
+            if (pop != null) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+                val s = maxWidth.value / 960f
+                val env = remember(constraints.maxWidth, constraints.maxHeight, st.blurRadius) {
+                    val blank = androidx.compose.ui.graphics.ImageBitmap(1, 1)
+                    com.glasslauncher.tv.ui.GlassEnv(blank, blank, blank, constraints.maxWidth, constraints.maxHeight, st.glassTint, st.refraction, blurDp = st.blurRadius * 0.45f)
+                }
+                val envRef = androidx.compose.runtime.rememberUpdatedState(env)
+                androidx.compose.runtime.CompositionLocalProvider(com.glasslauncher.tv.ui.LocalGlassEnv provides env, com.glasslauncher.tv.ui.LocalGlassEnvRef provides envRef) {
+                    com.glasslauncher.tv.ui.PopMenuHost(pop, s, st.menuStyle) { pop = null }
                 }
             }
         } else if (trailers) {

@@ -1,6 +1,7 @@
 1080p H.264 (plays everywhere)	1080p H.264 (работает везде)
 Aerial	Аэросъёмка
 Apple aerial	Аэросъёмка Apple
+Pexels video	Видео с Pexels
 Code saved	Код сохранён
 Current code	Текущий код
 New code · OK saves it	Новый код · OK сохранит его
@@ -161,10 +162,15 @@ This profile has a PIN in Nuvio: it can't be opened from here yet	У этого 
 Who is watching?	Кто смотрит?
 Credit	Автор
 Date	Дата
+Don't show it again	Больше не показывать
+Keep this video	Оставить это видео
 Place	Место
+Release this video	Открепить это видео
 Storage	Память
 Time	Время
+Video	Видео
 Weather	Погода
+Won't show again · Settings → Background & screensaver → Hidden videos	Больше не будет показано · Настройки → Фон и заставка → Скрытые видео
 Allow USB debugging for Glassio to use the TV screensaver	Разрешите отладку по USB, чтобы Glassio мог стать заставкой ТВ
 Asking the add-ons…	Опрашиваем дополнения…
 Film	Фильм
@@ -210,6 +216,7 @@ Plan to watch	Буду смотреть
 A button of your remote (Netflix, YouTube, a colour button…) opens what you choose; Glassio's own: shuffle, multi-view, corner camera	Кнопка пульта (Netflix, YouTube, цветная кнопка…) открывает выбранное вами; свои у Glassio: случайный выбор, мультипросмотр, камера в углу
 A colour each	Свой цвет для каждого
 A direct .mp4 / .mov link (Manage from phone can also save it to the TV)	Прямая ссылка на .mp4 / .mov (через «Управление с телефона» её тоже можно сохранить на ТВ)
+A direct .mp4 / .mov link, or a YouTube video's link (Manage from phone can also save it to the TV)	Прямая ссылка .mp4 / .mov или ссылка на видео YouTube (через «Управление с телефона» его тоже можно сохранить на ТВ)
 A list of the places it can be watched in, the first of them at once (services first, then Nuvio, then Stremio), or always one app: the list comes up when that app can't open the title	Список мест, где можно посмотреть, первое открывается сразу (сначала сервисы, потом Nuvio, потом Stremio), либо всегда одно приложение: список появляется, когда это приложение не может открыть заголовок
 A list of your earlier searches under the bar while it is empty: OK on one searches it again	Список прежних запросов под строкой, пока она пуста: OK на одном ищет его снова
 A live camera in the corner, over any app	Живая камера в углу поверх любого приложения
@@ -247,6 +254,7 @@ Add or remove it in Nuvio; it updates here on the next refresh	Добавьте 
 Add the Home Assistant link and token first	Сначала добавьте ссылку и токен Home Assistant
 Add the Home Assistant link and token first (Doorbell → Home Assistant link)	Сначала добавьте ссылку и токен Home Assistant (Дверной звонок → Ссылка Home Assistant)
 Add video link	Добавить ссылку на видео
+Add your Pexels key first	Сначала добавьте ключ Pexels
 Add-on	Дополнение
 Add-on link	Ссылка на дополнение
 Add-on picture	Картинка дополнения
@@ -551,6 +559,9 @@ Forget	Забыть
 Forget the bridge	Забыть мост
 Forget them	Забыть их
 Frame	Рамка
+Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	Бесплатно на pexels.com/api: войдите там и скопируйте ключ. Хранится только на этом ТВ
+Free videos from pexels.com for the words below	Бесплатные видео с pexels.com по словам ниже
+Free videos from pexels.com for the words below. Needs your own Pexels key	Бесплатные видео с pexels.com по словам ниже. Нужен ваш ключ Pexels
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	Бесплатно: unsplash.com/developers → New application → Access Key. Проще вставить с телефона (Управление с телефона)
 From a computer or phone with ADB, connected to this Fire TV, type once:	С компьютера или телефона с ADB, подключённого к этому Fire TV, введите один раз:
 From Home Assistant	Из Home Assistant
@@ -607,6 +618,7 @@ Hello and the profile's name at the top of the menu, with its picture (the name 
 Hidden	Скрыто
 Hidden titles	Скрытые фильмы
 Hidden titles · pick one to show it again	Скрытые фильмы · выберите, чтобы показать снова
+Hidden videos	Скрытые видео
 Hidden while you browse the apps	Скрыто, пока вы листаете приложения
 Hide from dock	Скрыть из дока
 Hide the dock	Скрыть док
@@ -619,6 +631,7 @@ Highest resolution	Наивысшее разрешение
 Hint	Подсказка
 Hint under the digits	Подсказка под цифрами
 Hold Home	Удержание Home
+Hold OK asks	Удержание OK спрашивает
 Hold OK on a title asks "Remove?" first	Удержание OK на фильме сначала спрашивает «Удалить?»
 Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it	Удерживайте OK на понравившемся видео, чтобы закрепить его (закроется стеклянный замок); ещё раз — чтобы отпустить
 Hold OK on Play → Hide this title. Pick one here to show it again	Удерживайте OK на «Смотреть» → Скрыть этот фильм. Выберите здесь, чтобы показать снова
@@ -669,6 +682,7 @@ Icon zoom on focus	Увеличение значка при выборе
 Icons	Значки
 Idle time on the launcher	Время простоя в лаунчере
 Import icons from the folder	Импорт значков из папки
+In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	В другом приложении или в заставке видео фона освобождается через несколько секунд и загружается снова при возврате: меньше памяти на слабом ТВ
 In its own colour	Своим цветом
 In the carousel	В карусели
 In the last colours	В последних цветах
@@ -728,6 +742,7 @@ Leave them	Оставить
 Left (column)	Слева (колонка)
 Left shade	Левое затемнение
 Left, like Apple TV	Слева, как в Apple TV
+Let the video go while away	Освобождать видео, пока вас нет
 Library look	Вид Библиотеки
 Library rows	Ряды Библиотеки
 Lift selected icon	Приподнимать выбранный значок
@@ -881,6 +896,7 @@ Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio, Trakt, Simkl и�
 Off	Выкл.
 Off (OK opens Settings)	Выкл. (OK открывает Настройки)
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	Выкл.: окно может показать любое устройство дома. Вкл.: Home Assistant добавляет заголовок X-Glassio-Token (или ?token= в ссылке)
+Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	Выкл.: удержание OK, как обычно, закрепляет видео. Вкл.: небольшое меню — оставить его или больше не показывать
 Off: in the collections' order	Выкл.: в порядке коллекций
 Off: only the icons, no glass behind them	Выкл.: только значки, без стекла под ними
 Off: the trailers play muted	Выкл.: трейлеры играют без звука
@@ -908,6 +924,7 @@ One colour	Один цвет
 One Inputs icon (move, hide and change it like an app): its inputs show above the dock, like the Music icon's music apps. Hold OK on an input there: its icon, order, hide	Один значок входов (двигайте, скрывайте и меняйте, как приложение): его входы показываются над доком, как музыкальные приложения у значка музыки. Удерживайте OK на входе там: значок, порядок, скрытие
 One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)	Один вид для дока, значков и меню. Чёрные оставляют док прозрачным (матовым)
 One row	Один ряд
+One row sits right above the dock instead of in the middle, so the large clock and the top of the page stay in view	Один ряд стоит прямо над доком, а не посередине, и большие часы и верх страницы остаются видны
 One strip with every app: the selected app stays in the middle and the strip moves	Одна лента со всеми приложениями: выбранное остаётся посередине, лента движется
 One that gives no sources is simply skipped	Тот, что не даёт источников, просто пропускается
 One that's already here isn't added twice	Уже имеющийся не добавляется повторно
@@ -948,6 +965,8 @@ Paste a manifest link	Вставьте ссылку на манифест
 Pause sharing	Приостановить обмен
 Performance	Производительность
 Person	Человек
+Pexels key	Ключ Pexels
+Pexels words	Слова для Pexels
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork	Лампы Philips Hue в цветах происходящего на экране: фон, постер или логотип, видео и трейлеры, обложка музыки
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork	Лампы Philips Hue в цветах происходящего на экране: фон, постер или логотип, видео, обложка музыки
 Photos	Фото
@@ -1047,11 +1066,13 @@ Restore backup	Восстановить копию
 Right, by Settings	Справа, у настроек
 Room	Комната
 Rows	Ряды
+Rows above the dock	Ряды над доком
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	Ряды друг над другом или один ряд посередине, который переключают ▲ / ▼
 Rows per platform	Рядов на сервис
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… , HLS (.m3u8) или ссылка на видео
 Run setup again	Запустить настройку заново
 Runs on its own every 30 minutes	Запускается сама каждые 30 минут
+Same video as the screensaver	То же видео, что в заставке
 Saved. Allow TV access (ADB) so the TV lets Glassio open	Сохранено. Разрешите доступ к ТВ (ADB), чтобы ТВ позволил Glassio открываться
 Saved:	Сохранено:
 Scan a QR code with your phone and approve	Отсканируйте QR-код телефоном и подтвердите
@@ -1109,6 +1130,7 @@ Sharpest: original pictures, slow fades, full glass	Максимальная ч�
 Show	Показать
 Show a hint	Показывать подсказку
 Show a note when synced	Показывать уведомление при синхронизации
+Show again	Показать снова
 Show Apps folder	Показывать папку приложений
 Show clock	Показывать часы
 Show code	Показать код
@@ -1281,6 +1303,7 @@ The open apps, like the Apple TV app switcher	Открытые приложен�
 The others open a title as usual	Остальные открывают фильм как обычно
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	Режим производительности и то, что он задаёт: качество картинки, детали и преломление стекла, анимация слайдов, галерея фонов, кэши и качество заставки. Выкл.: этот ТВ сохраняет свои, так что слабый ТВ остаётся плавным
 The row at the top of the results. The others follow in their usual order	Ряд вверху результатов. Остальные идут в обычном порядке
+The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	Заставка начинается с видео, которое идёт здесь, с того же места, а фон продолжает тем, на котором она закончилась. Легче для ТВ с малой памятью
 The screensaver: what it shows and how	Заставка: что она показывает и как
 The search opens empty each time. Off: what was typed last is still in the bar	Поиск каждый раз открывается пустым. Выкл.: последний запрос остаётся в строке
 The selected app	Выбранное приложение
@@ -1391,6 +1414,7 @@ Videos from aerial-videos.netlify.app	Видео с aerial-videos.netlify.app
 Videos in the folder	Видео в папке
 Videos under the titles; one opens in the app below	Видео под названиями; одно открывается в приложении ниже
 Videos without it play the nearest one	Видео без него воспроизводят ближайшее
+Videos you chose never to see again. OK on one shows it again	Видео, которые вы решили больше не смотреть. OK на одном показывает его снова
 Vivid	Яркий
 Volume	Громкость
 Waiting…	Ожидание…
@@ -1403,6 +1427,7 @@ What happened, and what you did just before	Что произошло и что 
 What holding the Home button does, in any app	Что делает удержание кнопки Home в любом приложении
 What is searched	Что ищется
 What it shows	Что она показывает
+What its videos show: aerial, ocean, forest, city…	Что показывают его видео: с воздуха, океан, лес, город…
 What plays	Что воспроизводится
 What the lights take their colours from	Откуда лампы берут цвета
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	Что показывает меню: часы, погоду, Библиотеку, темы, профиль, фон и другое

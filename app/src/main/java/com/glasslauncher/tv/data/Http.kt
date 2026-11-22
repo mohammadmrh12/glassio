@@ -15,7 +15,7 @@ class Http(ctx: Context) {
     private fun key(url: String) =
         MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
 
-    fun text(url: String, ttlMs: Long, bearer: String? = null): String {
+    fun text(url: String, ttlMs: Long, bearer: String? = null, key: String? = null): String {
         val f = File(dir, key(url) + ".json")
         if (f.exists() && System.currentTimeMillis() - f.lastModified() < ttlMs) {
             runCatching { return f.readText() }
@@ -26,6 +26,8 @@ class Http(ctx: Context) {
             c.setRequestProperty("Accept", "application/json")
             c.setRequestProperty("User-Agent", "GlassLauncher/1.0")
             if (bearer != null) c.setRequestProperty("Authorization", "Bearer $bearer")
+            // (A key sent as it is, without "Bearer": Pexels.)
+            if (key != null) c.setRequestProperty("Authorization", key)
             try {
                 if (c.responseCode !in 200..299) throw IllegalStateException("HTTP ${c.responseCode}")
                 val body = c.inputStream.bufferedReader().use { it.readText() }
@@ -38,7 +40,7 @@ class Http(ctx: Context) {
         }
     }
 
-    fun json(url: String, ttlMs: Long, bearer: String? = null) = JSONObject(text(url, ttlMs, bearer))
+    fun json(url: String, ttlMs: Long, bearer: String? = null, key: String? = null) = JSONObject(text(url, ttlMs, bearer, key))
     fun jsonArray(url: String, ttlMs: Long = 0) = JSONArray(text(url, ttlMs))
 
     /** Never cached and never falls back: used for the local Nuvio add-on server. */

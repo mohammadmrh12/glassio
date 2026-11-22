@@ -1,6 +1,7 @@
 1080p H.264 (plays everywhere)	1080p H.264 (روی همه‌جا پخش می‌شود)
 Aerial	هوایی
 Apple aerial	تصاویر هوایی Apple
+Pexels video	ویدیوی Pexels
 Code saved	کد ذخیره شد
 Current code	کد فعلی
 New code · OK saves it	کد جدید · OK ذخیره می‌کند
@@ -160,10 +161,15 @@ This profile has a PIN in Nuvio: it can't be opened from here yet	این پرو�
 Who is watching?	چه کسی تماشا می‌کند؟
 Credit	اعتبار
 Date	تاریخ
+Don't show it again	دیگر نشانش نده
+Keep this video	این ویدیو را نگه دار
 Place	مکان
+Release this video	رها کردن این ویدیو
 Storage	حافظه
 Time	ساعت
+Video	ویدیو
 Weather	آب‌وهوا
+Won't show again · Settings → Background & screensaver → Hidden videos	دیگر نشان داده نمی‌شود · تنظیمات ← پس‌زمینه و محافظ صفحه ← ویدیوهای پنهان
 Allow USB debugging for Glassio to use the TV screensaver	برای استفاده‌ی Glassio به‌عنوان محافظ صفحه، اشکال‌زدایی USB را مجاز کنید
 Asking the add-ons…	در حال پرسش از افزونه‌ها…
 Film	فیلم
@@ -208,6 +214,7 @@ Plan to watch	برنامه‌ی تماشا
 A button of your remote (Netflix, YouTube, a colour button…) opens what you choose; Glassio's own: shuffle, multi-view, corner camera	یک دکمه‌ی ریموت (Netflix، YouTube، دکمه‌ی رنگی…) آنچه انتخاب کنید را باز می‌کند؛ دکمه‌های خود Glassio: پخش تصادفی، چندنما، دوربین گوشه
 A colour each	برای هرکدام یک رنگ
 A direct .mp4 / .mov link (Manage from phone can also save it to the TV)	لینک مستقیم .mp4 / .mov (مدیریت از گوشی هم می‌تواند آن را روی تلویزیون ذخیره کند)
+A direct .mp4 / .mov link, or a YouTube video's link (Manage from phone can also save it to the TV)	پیوند مستقیم ‎.mp4 / .mov‎ یا پیوند یک ویدیوی YouTube (از «مدیریت با تلفن» هم می‌توان روی تلویزیون ذخیره‌اش کرد)
 A list of the places it can be watched in, the first of them at once (services first, then Nuvio, then Stremio), or always one app: the list comes up when that app can't open the title	فهرستی از جاهایی که می‌شود تماشا کرد و اولی بلافاصله باز می‌شود (اول سرویس‌ها، بعد Nuvio، بعد Stremio)، یا همیشه یک برنامه: فهرست وقتی نشان داده می‌شود که آن برنامه نتواند عنوان را باز کند
 A list of your earlier searches under the bar while it is empty: OK on one searches it again	فهرست جستجوهای قبلی زیر نوار وقتی خالی است: با OK روی هر کدام دوباره جستجو می‌شود
 A live camera in the corner, over any app	دوربین زنده در گوشه، روی هر برنامه‌ای
@@ -245,6 +252,7 @@ Add or remove it in Nuvio; it updates here on the next refresh	در Nuvio اضا
 Add the Home Assistant link and token first	اول لینک و توکن Home Assistant را اضافه کنید
 Add the Home Assistant link and token first (Doorbell → Home Assistant link)	اول لینک و توکن Home Assistant را اضافه کنید (زنگ در → لینک Home Assistant)
 Add video link	افزودن لینک ویدیو
+Add your Pexels key first	اول کلید Pexels را وارد کنید
 Add-on	افزونه
 Add-on link	لینک افزونه
 Add-on picture	تصویر افزونه
@@ -549,6 +557,9 @@ Forget	فراموش کردن
 Forget the bridge	فراموش کردن پل
 Forget them	فراموش کردنشان
 Frame	قاب
+Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	رایگان در pexels.com/api: آنجا وارد شوید و کلیدتان را کپی کنید. فقط روی همین تلویزیون نگه داشته می‌شود
+Free videos from pexels.com for the words below	ویدیوهای رایگان pexels.com برای واژه‌های زیر
+Free videos from pexels.com for the words below. Needs your own Pexels key	ویدیوهای رایگان pexels.com برای واژه‌های زیر. کلید Pexels خودتان لازم است
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	رایگان: unsplash.com/developers → New application → Access Key. از گوشی راحت‌تر می‌شود چسباند (مدیریت از گوشی)
 From a computer or phone with ADB, connected to this Fire TV, type once:	از کامپیوتر یا گوشی دارای ADB که به این Fire TV وصل است، یک بار بنویسید:
 From Home Assistant	از Home Assistant
@@ -604,6 +615,7 @@ Hello and the profile's name at the top of the menu, with its picture (the name 
 Hidden	پنهان
 Hidden titles	عنوان‌های پنهان
 Hidden titles · pick one to show it again	عنوان‌های پنهان · یکی را انتخاب کنید تا دوباره نمایش داده شود
+Hidden videos	ویدیوهای پنهان
 Hidden while you browse the apps	هنگام مرور برنامه‌ها پنهان است
 Hide from dock	پنهان کردن از داک
 Hide the dock	پنهان کردن داک
@@ -616,6 +628,7 @@ Highest resolution	بالاترین وضوح
 Hint	راهنما
 Hint under the digits	راهنما زیر ارقام
 Hold Home	نگه داشتن Home
+Hold OK asks	نگه داشتن OK می‌پرسد
 Hold OK on a title asks "Remove?" first	نگه داشتن OK روی عنوان اول می‌پرسد «حذف شود؟»
 Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it	روی ویدیوی موردعلاقه OK را نگه دارید تا قفل شود (قفل شیشه‌ای بسته می‌شود)؛ دوباره نگه دارید تا آزاد شود
 Hold OK on Play → Hide this title. Pick one here to show it again	روی پخش OK را نگه دارید ← پنهان کردن این عنوان. اینجا یکی را انتخاب کنید تا دوباره نمایش داده شود
@@ -666,6 +679,7 @@ Icon zoom on focus	بزرگ‌نمایی آیکون هنگام انتخاب
 Icons	آیکون‌ها
 Idle time on the launcher	زمان بی‌کاری روی لانچر
 Import icons from the folder	وارد کردن آیکون‌ها از پوشه
+In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	در برنامهٔ دیگر یا محافظ صفحه، ویدیوی پس‌زمینه پس از چند ثانیه رها و هنگام برگشت دوباره گرفته می‌شود: حافظهٔ کمتر در تلویزیون کوچک
 In its own colour	با رنگ خودش
 In the carousel	در کاروسل
 In the last colours	با آخرین رنگ‌ها
@@ -725,6 +739,7 @@ Leave them	رهایشان کن
 Left (column)	چپ (ستونی)
 Left shade	سایه‌ی چپ
 Left, like Apple TV	چپ، مثل Apple TV
+Let the video go while away	رها کردن ویدیو هنگام دوری
 Library look	ظاهر کتابخانه
 Library rows	ردیف‌های کتابخانه
 Lift selected icon	بالا آوردن آیکون انتخاب‌شده
@@ -877,6 +892,7 @@ Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio، Trakt، Simkl �
 Off	خاموش
 Off (OK opens Settings)	خاموش (OK تنظیمات را باز می‌کند)
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	خاموش: هر دستگاه در خانه می‌تواند پنجره را نشان دهد. روشن: Home Assistant هدر X-Glassio-Token را اضافه می‌کند (یا ?token= در لینک)
+Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	خاموش: نگه داشتن OK مثل همیشه ویدیو را قفل می‌کند. روشن: منوی کوچکی برای نگه داشتن یا دیگر نشان ندادنش
 Off: in the collections' order	خاموش: به ترتیب مجموعه‌ها
 Off: only the icons, no glass behind them	خاموش: فقط آیکون‌ها، بدون شیشه پشتشان
 Off: the trailers play muted	خاموش: تریلرها بی‌صدا پخش می‌شوند
@@ -904,6 +920,7 @@ One colour	یک رنگ
 One Inputs icon (move, hide and change it like an app): its inputs show above the dock, like the Music icon's music apps. Hold OK on an input there: its icon, order, hide	یک آیکون ورودی‌ها (مثل برنامه جابه‌جا، پنهان و تغییرش دهید): ورودی‌هایش بالای داک نمایش داده می‌شوند، مثل برنامه‌های موسیقی آیکون موسیقی. آنجا روی ورودی OK را نگه دارید: آیکون، ترتیب، پنهان کردن
 One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)	یک ظاهر برای داک، آیکون‌ها و منو. حالت‌های مشکی داک را شفاف (مات) نگه می‌دارند
 One row	یک ردیف
+One row sits right above the dock instead of in the middle, so the large clock and the top of the page stay in view	یک ردیف درست بالای داک می‌نشیند نه در وسط، تا ساعت بزرگ و بالای صفحه دیده شوند
 One strip with every app: the selected app stays in the middle and the strip moves	یک نوار با همه‌ی برنامه‌ها: برنامه‌ی انتخاب‌شده وسط می‌ماند و نوار حرکت می‌کند
 One that gives no sources is simply skipped	آنکه منبعی ندهد ساده رد می‌شود
 One that's already here isn't added twice	آنکه از قبل هست دوباره اضافه نمی‌شود
@@ -944,6 +961,8 @@ Paste a manifest link	لینک manifest را بچسبانید
 Pause sharing	توقف اشتراک‌گذاری
 Performance	کارایی
 Person	فرد
+Pexels key	کلید Pexels
+Pexels words	واژه‌های Pexels
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork	چراغ‌های Philips Hue با رنگ‌های آنچه روی صفحه است: تصویر پس‌زمینه، پوستر یا لوگو، ویدیوها و تریلرها، تصویر موسیقی
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork	چراغ‌های Philips Hue با رنگ‌های آنچه روی صفحه است: تصویر پس‌زمینه، پوستر یا لوگو، ویدیوها، تصویر موسیقی
 Photos	عکس‌ها
@@ -1042,11 +1061,13 @@ Restore backup	بازیابی پشتیبان
 Right, by Settings	راست، کنار تنظیمات
 Room	اتاق
 Rows	ردیف‌ها
+Rows above the dock	ردیف‌ها بالای داک
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	ردیف‌ها بالای هم، یا یک ردیف در وسط که ▲ / ▼ عوضش می‌کنند
 Rows per platform	ردیف برای هر پلتفرم
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… ، یا لینک HLS (.m3u8) یا ویدیو
 Run setup again	اجرای دوباره‌ی راه‌اندازی
 Runs on its own every 30 minutes	هر 30 دقیقه خودکار اجرا می‌شود
+Same video as the screensaver	همان ویدیوی محافظ صفحه
 Saved. Allow TV access (ADB) so the TV lets Glassio open	ذخیره شد. دسترسی به تلویزیون (ADB) را مجاز کنید تا تلویزیون اجازه‌ی باز شدن Glassio را بدهد
 Saved:	ذخیره شد:
 Scan a QR code with your phone and approve	کد QR را با گوشی اسکن و تأیید کنید
@@ -1104,6 +1125,7 @@ Sharpest: original pictures, slow fades, full glass	واضح‌ترین: تصا�
 Show	نمایش
 Show a hint	نمایش راهنما
 Show a note when synced	نمایش یادداشت هنگام همگام‌سازی
+Show again	دوباره نشان بده
 Show Apps folder	نمایش پوشه‌ی برنامه‌ها
 Show clock	نمایش ساعت
 Show code	نمایش کد
@@ -1277,6 +1299,7 @@ The open apps, like the Apple TV app switcher	برنامه‌های باز، م�
 The others open a title as usual	بقیه عنوان را مثل همیشه باز می‌کنند
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	حالت کارایی و آنچه تنظیم می‌کند: کیفیت تصویر، جزئیات و شکست شیشه، انیمیشن اسلاید، گالری تصاویر پس‌زمینه، حافظه‌های نهان و کیفیت محافظ صفحه. خاموش: این تلویزیون تنظیم خودش را نگه می‌دارد، پس تلویزیون ضعیف‌تر روان می‌ماند
 The row at the top of the results. The others follow in their usual order	ردیفی که بالای نتیجه‌ها می‌آید. بقیه به ترتیب همیشگی دنبالش می‌آیند
+The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	محافظ صفحه با ویدیوی در حال پخش همین‌جا از همان لحظه شروع می‌شود و پس‌زمینه با ویدیویی که آن پایان داد ادامه می‌دهد. برای تلویزیون کم‌حافظه سبک‌تر
 The screensaver: what it shows and how	محافظ صفحه: چه نشان می‌دهد و چطور
 The search opens empty each time. Off: what was typed last is still in the bar	جستجو هر بار خالی باز می‌شود. خاموش: آخرین متن تایپ‌شده در نوار می‌ماند
 The selected app	برنامه‌ی انتخاب‌شده
@@ -1387,6 +1410,7 @@ Videos from aerial-videos.netlify.app	ویدیوها از aerial-videos.netlify.
 Videos in the folder	ویدیوهای داخل پوشه
 Videos under the titles; one opens in the app below	ویدیوها زیر عنوان‌ها؛ یکی در برنامه‌ی زیر باز می‌شود
 Videos without it play the nearest one	ویدیوهای بدون آن نزدیک‌ترین را پخش می‌کنند
+Videos you chose never to see again. OK on one shows it again	ویدیوهایی که خواستید دیگر نبینید. OK روی هرکدام دوباره نشانش می‌دهد
 Vivid	پرجلوه
 Volume	صدا
 Waiting…	در انتظار…
@@ -1399,6 +1423,7 @@ What happened, and what you did just before	چه اتفاقی افتاد، و د
 What holding the Home button does, in any app	نگه داشتن دکمه‌ی Home چه می‌کند، در هر برنامه
 What is searched	چه چیزی جستجو می‌شود
 What it shows	چه چیزی نشان می‌دهد
+What its videos show: aerial, ocean, forest, city…	آنچه ویدیوهایش نشان می‌دهند: هوایی، اقیانوس، جنگل، شهر…
 What plays	چه چیزی پخش شود
 What the lights take their colours from	چراغ‌ها رنگشان را از چه می‌گیرند
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	آنچه منو نشان می‌دهد: ساعت، آب‌وهوا، کتابخانه، تم‌ها، پروفایل، پس‌زمینه و بیشتر

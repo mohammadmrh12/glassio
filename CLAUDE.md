@@ -52,8 +52,8 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is 4.0.0 (code 69, stable). 4.0.0-beta1 (code 68) was its one beta, the same code.
-    **4.1.0-beta1 (code 70) is the beta out now** (released 2026-11-21). Work goes on on the local `beta` branch.
+  - The last published version is **4.1.0 (code 71, stable, 2026-11-22)**; 4.1.0-beta1 (code 70) was its one beta.
+    4.0.0 (code 69) before it. Work goes on on the local `beta` branch.
   - `versionCode` must always go up, for betas and stable releases alike.
 
 ### Main files (app/src/main/java/com/glasslauncher/tv)
@@ -1411,6 +1411,34 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   after the change, anything in the setup.
 - Languages, not seen: the other six languages on the TV, the side menu, the setup, dialogs and the tour in any of
   them, a text too long for its row (titles are one line and cut with "…").
+- **4.1.0 released as stable (2026-11-22, "سوي ريليس ستيبل"):** the public commit `6b59a79` (one commit on
+  `origin/main` c1795a2, the tree of local `beta` at `8a3376a`) is `origin/main`, tagged `v4.1.0`, the *latest*
+  release with `Glassio.apk` and `Glassio-4.1.0.apk` (sha256 `548de0ea…07992ce`, downloaded and compared, also
+  through the `releases/latest/download/Glassio.apk` link the Downloader code uses; the same file is on the
+  Streamer). `origin/beta` stays at `e6ae176` (4.1.0-beta1). The tour's first page says 4.1 (`WhatsNew.ID` 67;
+  his `tourSeen` put back to 66 so he sees it himself). #21, #22 and #23 were told it is out (left open for their
+  authors to confirm). Not seen: the updater offering 4.1.0 to a TV on 4.0.0 or on the beta.
+- **After 4.1.0, his "do them" from #21 / #22 (2026-11-22, not released):**
+  - *Rows above the dock* (`channelsLow`, off: as before): an app's single row sits right above the dock, so the
+    large clock and the page's top stay in view (#21's photo). Seen with SmartTube's row, off and on.
+  - *Same video as the screensaver* (`saverSameVideo`, on; shown with the aerial background): the screensaver
+    starts with the background's video where it was (`CustomBackground.leftVideo` / `leftPos`, matched by title),
+    and the background goes on with the one the screensaver ended on (`SaverControl.ended*`). Seen: background
+    *Sand Dunes* → screensaver #0 *Sand Dunes* → back, "on from the screensaver's (Sand Dunes)"; `live` ok.
+  - **The background video is let go while Glassio is away** (stopped for 5 s: another app, the screensaver):
+    `player.stop()`, prepared again on the way back (never for the Library or Settings). Seen after the screensaver
+    and after 9 s in the TV's settings: "let go while away", the video and its glass back (`live` ok). PSS on the
+    screensaver 371-382 MB against 543 on the home screen with the aerial background (not compared with 4.1.0).
+  - *Pexels* in the screensaver's *Collections* (`pexelsKey`, the TV's; `pexelsQuery` "aerial"; source key
+    `pexels`): Pexels' video search with the person's own key, landscape, 1080p and 4K files, each title naming
+    its maker and Pexels. **Not tried: no key here** (making one needs a Pexels account: his).
+  - *A YouTube link among My videos* (github build: `AerialSource.youtubeId`, `TrailerSource.resolve`; the cache's
+    data source sends the trailers' user agent to `googlevideo.com` only; the play build leaves such links out).
+    Seen: Big Buck Bunny's YouTube link as the only screensaver video, 1080p H.264, playing. Plays in the
+    screensaver and in the aerial background (both read My videos); not as *Your video* (`bgVideo`).
+  - Excluding a video: asked him how (long OK already locks one).
+  His settings put back (bgMode carousel, aerialUrls his one link, saverMine off, no pick, channelsLow off,
+  tourSeen 66).
 - **After 4.1.0-beta1, from the issues (2026-11-22; looked into and answered, nothing built yet):**
   - **#24 (his report from the TV, the same person as #22): the crash is an `OutOfMemoryError` in
     `Bitmap.createBitmap` making a page picture (`bakeBackdrop`, from the carousel's slide in `HomeScreen`)**, on an
@@ -1453,8 +1481,8 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
 - Next beta or the stable 4.1.0: the public commit goes on `origin/beta` (a beta) or `origin/main` (stable) with
   the last public commit of `origin/main` as parent, made with `commit-tree`; code 71+. The local `beta` keeps its
   own history.
-- The stable 4.1.0 keeps `NEW_IN`'s 4.1.0 rows (the same list as the beta) and needs the tour's first page
-  without "beta" (`WhatsNew.ID` 67 then).
+- The next release must replace `NEW_IN`'s 4.1.0 entry with its own rows and bump `WhatsNew.ID` (67) if the tour
+  changes. Code 72+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and
     not their home or a profile picker) is only known from the intent in front.

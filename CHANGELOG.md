@@ -2,6 +2,26 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.1.1-beta1 — what 4.1.0's testers asked for (beta)
+
+A beta: new features first, a little less tested. Get it with Settings → About → Updates → *Beta*. Everything new is
+a choice: with the settings left as they are, Glassio behaves as 4.1.0 except where noted.
+
+- **Search icon**: OK on it right after moving onto it opened nothing (the page wasn't up yet); now it goes
+  straight into typing.
+- **Rows above the dock** (Settings → Music & app rows, off): an app's single row sits right above the dock, so the
+  large clock and the top of the page stay in view.
+- **Screensaver and background share their video** (*Same video as the screensaver*, shown with the screensaver's
+  videos as background, on): the screensaver starts with the background's video where it was, and the background
+  goes on with the one the screensaver ended on: one video to load instead of two.
+- **Lighter while away** (*Let the video go while away*, on): in another app or the screensaver, the background
+  video is let go after a few seconds and taken again on the way back.
+- **Hide a screensaver video** (*Hold OK asks*, off): holding OK on a video opens a small menu: keep it (the lock,
+  as before) or never show it again. *Hidden videos* brings any of them back.
+- **Pexels** in the screensaver's *Collections*: free videos from pexels.com for the words you choose, with your
+  own free Pexels key.
+- **A YouTube link** can be one of *My videos* (screensaver and the screensaver-videos background).
+
 ## 4.1.0 — Search, nine languages
 
 First out as 4.1.0-beta1 on the Beta channel; this is it for everyone, with what the beta's testers asked for.

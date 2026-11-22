@@ -26,7 +26,13 @@ object VideoCache {
 
     fun factory(ctx: Context, on: Boolean, gb: Int): MediaSource.Factory {
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(10_000).setReadTimeoutMs(20_000)
-        val upstream = DefaultDataSource.Factory(ctx, http)
+        // (A YouTube video among your own videos: its picture stream answers a browser's user agent only, as the
+        // trailers' player sends it. Every other address is asked as before.)
+        val yt = androidx.media3.datasource.ResolvingDataSource.Factory(http) { spec ->
+            if (!com.glasslauncher.tv.data.Store.PLAY && spec.uri.host?.endsWith("googlevideo.com") == true && com.glasslauncher.tv.data.TrailerSource.UA.isNotBlank())
+                spec.withAdditionalHeaders(mapOf("User-Agent" to com.glasslauncher.tv.data.TrailerSource.UA)) else spec
+        }
+        val upstream = DefaultDataSource.Factory(ctx, yt)
         if (!on) return DefaultMediaSourceFactory(upstream)
         val cached = CacheDataSource.Factory().setCache(get(ctx, gb)).setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)

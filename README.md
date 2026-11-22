@@ -33,6 +33,9 @@ Tested on the Google TV Streamer (4K).
 Latest: **4.1.0** — Search (films, series, YouTube and songs, opened in your apps), nine languages, Nuvio One and Nuvio+IPTV. What changed in every version:
 [CHANGELOG](CHANGELOG.md).
 
+Latest beta: **4.1.1-beta1** — rows above the dock, one video for the screensaver and the background, hide a screensaver video, Pexels
+([release](https://github.com/mohammadmrh12/glassio/releases/tag/v4.1.1-beta1); Settings → About → Updates → *Beta*).
+
 - **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
   logos, backdrop galleries and Continue Watching; opens titles in Nuvio or Stremio.
 - **Liquid glass** — real refraction, six themes, a glass colour (black or petrol), bold text, round or sharp corners.

@@ -140,6 +140,10 @@ class ScreensaverActivity : ComponentActivity() {
         if (exiting || isFinishing) return
         exiting = true
         SaverControl.out.value = true
+        // What it was showing, for the background (Same video).
+        SaverControl.endedTitle = SaverControl.playingTitle
+        SaverControl.endedPos = SaverControl.playingFrom + (android.os.SystemClock.uptimeMillis() - SaverControl.playingSince)
+        SaverControl.endedAt = android.os.SystemClock.uptimeMillis()
         window.decorView.postDelayed({
             com.glasslauncher.tv.ui.SaverGate.cover.floatValue = 1f
             com.glasslauncher.tv.ui.VideoFrames.saverClosed()

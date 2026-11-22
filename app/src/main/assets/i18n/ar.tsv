@@ -1,6 +1,7 @@
 1080p H.264 (plays everywhere)	1080p H.264 (يعمل في كل مكان)
 Aerial	مناظر جوية
 Apple aerial	مناظر Apple الجوية
+Pexels video	مقطع من Pexels
 Code saved	تم حفظ الرمز
 Current code	الرمز الحالي
 New code · OK saves it	الرمز الجديد · اضغط OK للحفظ
@@ -159,10 +160,15 @@ This profile has a PIN in Nuvio: it can't be opened from here yet	هذا الم�
 Who is watching?	من يشاهد؟
 Credit	الشكر والتقدير
 Date	التاريخ
+Don't show it again	لا تعرضه مجددًا
+Keep this video	احتفظ بهذا المقطع
 Place	المكان
+Release this video	ألغِ تثبيت هذا المقطع
 Storage	التخزين
 Time	الوقت
+Video	مقطع
 Weather	الطقس
+Won't show again · Settings → Background & screensaver → Hidden videos	لن يُعرض مجددًا · الإعدادات ← الخلفية وشاشة التوقف ← المقاطع المخفية
 Allow USB debugging for Glassio to use the TV screensaver	اسمح بتصحيح USB لكي يستخدم Glassio شاشة توقف التلفاز
 Asking the add-ons…	جارٍ سؤال الإضافات…
 Film	فيلم
@@ -207,6 +213,7 @@ Plan to watch	أخطط لمشاهدته
 A button of your remote (Netflix, YouTube, a colour button…) opens what you choose; Glassio's own: shuffle, multi-view, corner camera	زر في جهاز التحكم (Netflix أو YouTube أو زر ملوّن…) يفتح ما تختاره؛ وأزرار Glassio الخاصة: العشوائي، العرض المتعدد، كاميرا الزاوية
 A colour each	لون لكلٍّ منها
 A direct .mp4 / .mov link (Manage from phone can also save it to the TV)	رابط مباشر بصيغة .mp4 / .mov (يمكن أيضًا حفظه على التلفاز من التحكم عبر الهاتف)
+A direct .mp4 / .mov link, or a YouTube video's link (Manage from phone can also save it to the TV)	رابط ‎.mp4 / .mov‎ مباشر، أو رابط مقطع YouTube (يمكن أيضًا حفظه على التلفاز من «الإدارة من الهاتف»)
 A list of the places it can be watched in, the first of them at once (services first, then Nuvio, then Stremio), or always one app: the list comes up when that app can't open the title	قائمة بالأماكن التي يمكن المشاهدة فيها، ويُفتح أولها فورًا (الخدمات أولًا ثم Nuvio ثم Stremio)، أو تطبيق واحد دائمًا: تظهر القائمة عندما يتعذّر على ذلك التطبيق فتح العنوان
 A list of your earlier searches under the bar while it is empty: OK on one searches it again	قائمة بعمليات بحثك السابقة أسفل الشريط عندما يكون فارغًا: اضغط OK على إحداها للبحث عنها مجددًا
 A live camera in the corner, over any app	كاميرا مباشرة في الزاوية فوق أي تطبيق
@@ -244,6 +251,7 @@ Add or remove it in Nuvio; it updates here on the next refresh	أضفه أو أ�
 Add the Home Assistant link and token first	أضف رابط Home Assistant والرمز المميّز أولًا
 Add the Home Assistant link and token first (Doorbell → Home Assistant link)	أضف رابط Home Assistant والرمز المميّز أولًا (جرس الباب → رابط Home Assistant)
 Add video link	إضافة رابط فيديو
+Add your Pexels key first	أضف مفتاح Pexels أولًا
 Add-on	إضافة
 Add-on link	رابط الإضافة
 Add-on picture	صورة الإضافة
@@ -548,6 +556,9 @@ Forget	نسيان
 Forget the bridge	نسيان الجسر
 Forget them	نسيانها
 Frame	إطار
+Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	مجاني في pexels.com/api: سجّل الدخول هناك ثم انسخ مفتاحك. يُحفظ على هذا التلفاز فقط
+Free videos from pexels.com for the words below	مقاطع مجانية من pexels.com للكلمات أدناه
+Free videos from pexels.com for the words below. Needs your own Pexels key	مقاطع مجانية من pexels.com للكلمات أدناه. يتطلب مفتاح Pexels الخاص بك
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	مجاني: unsplash.com/developers → New application → Access Key. ولصقه أسهل من هاتفك (التحكم عبر الهاتف)
 From a computer or phone with ADB, connected to this Fire TV, type once:	من حاسوب أو هاتف يدعم ADB ومتصل بجهاز Fire TV هذا، اكتب مرة واحدة:
 From Home Assistant	من Home Assistant
@@ -603,6 +614,7 @@ Hello and the profile's name at the top of the menu, with its picture (the name 
 Hidden	مخفي
 Hidden titles	العناوين المخفية
 Hidden titles · pick one to show it again	العناوين المخفية · اختر عنوانًا لإظهاره مجددًا
+Hidden videos	المقاطع المخفية
 Hidden while you browse the apps	مخفي أثناء تصفح التطبيقات
 Hide from dock	إخفاء من شريط التطبيقات
 Hide the dock	إخفاء شريط التطبيقات
@@ -615,6 +627,7 @@ Highest resolution	أعلى دقة
 Hint	تلميح
 Hint under the digits	تلميح تحت الأرقام
 Hold Home	الضغط المطول على Home
+Hold OK asks	الضغط المطوّل على OK يسأل
 Hold OK on a title asks "Remove?" first	الضغط المطول على OK على عنوان يسأل "إزالة؟" أولًا
 Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it	اضغط مطولًا على OK على فيديو يعجبك لقفله (يُغلق قفل زجاجي)؛ واضغط مطولًا مرة أخرى لإلغاء القفل
 Hold OK on Play → Hide this title. Pick one here to show it again	اضغط مطولًا على OK على Play → إخفاء هذا العنوان. اختر عنوانًا هنا لإظهاره مجددًا
@@ -665,6 +678,7 @@ Icon zoom on focus	تكبير الأيقونة عند التحديد
 Icons	الأيقونات
 Idle time on the launcher	مدة الخمول في الشاشة الرئيسية
 Import icons from the folder	استيراد الأيقونات من المجلد
+In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	في تطبيق آخر أو في شاشة التوقف، يُحرَّر مقطع الخلفية بعد ثوانٍ ويُعاد عند الرجوع: ذاكرة أقل على التلفاز الصغير
 In its own colour	بلونه الخاص
 In the carousel	في العرض الدوّار
 In the last colours	بالألوان الأخيرة
@@ -724,6 +738,7 @@ Leave them	تركها
 Left (column)	اليسار (عمود)
 Left shade	التظليل الأيسر
 Left, like Apple TV	اليسار، كما في Apple TV
+Let the video go while away	تحرير المقطع أثناء الابتعاد
 Library look	مظهر المكتبة
 Library rows	صفوف المكتبة
 Lift selected icon	رفع الأيقونة المحددة
@@ -878,6 +893,7 @@ Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio أو Trakt أو S
 Off	إيقاف
 Off (OK opens Settings)	إيقاف (OK يفتح الإعدادات)
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	إيقاف: يمكن لأي جهاز في المنزل إظهار النافذة. تشغيل: يضيف Home Assistant الترويسة X-Glassio-Token (أو ?token= في الرابط)
+Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	عند الإيقاف: الضغط المطوّل على OK يثبّت المقطع كالمعتاد. عند التشغيل: قائمة صغيرة للاحتفاظ به أو عدم عرضه مجددًا
 Off: in the collections' order	إيقاف: بترتيب المجموعات
 Off: only the icons, no glass behind them	إيقاف: الأيقونات فقط، دون زجاج خلفها
 Off: the trailers play muted	إيقاف: تُشغَّل الإعلانات التشويقية بصمت
@@ -905,6 +921,7 @@ One colour	لون واحد
 One Inputs icon (move, hide and change it like an app): its inputs show above the dock, like the Music icon's music apps. Hold OK on an input there: its icon, order, hide	أيقونة مداخل واحدة (انقلها أو أخفها أو غيّرها كأي تطبيق): تظهر مداخلها فوق شريط التطبيقات، كتطبيقات الموسيقى في أيقونة الموسيقى. اضغط مطولًا على OK على مدخل هناك: أيقونته وترتيبه وإخفاؤه
 One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)	مظهر واحد لشريط التطبيقات والأيقونات والقائمة. تبقي الأنماط السوداء شريط التطبيقات شفافًا (غير لامع)
 One row	صف واحد
+One row sits right above the dock instead of in the middle, so the large clock and the top of the page stay in view	يظهر الصف مباشرةً فوق شريط التطبيقات بدل منتصف الشاشة، فتبقى الساعة الكبيرة وأعلى الصفحة ظاهرين
 One strip with every app: the selected app stays in the middle and the strip moves	شريط واحد يضم كل التطبيقات: يبقى التطبيق المحدد في المنتصف ويتحرك الشريط
 One that gives no sources is simply skipped	ما لا يعطي مصادر يُتخطى ببساطة
 One that's already here isn't added twice	ما هو موجود هنا لا يُضاف مرتين
@@ -945,6 +962,8 @@ Paste a manifest link	الصق رابط الملف التعريفي (manifest)
 Pause sharing	إيقاف المشاركة مؤقتًا
 Performance	الأداء
 Person	الشخص
+Pexels key	مفتاح Pexels
+Pexels words	كلمات Pexels
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork	إضاءات Philips Hue بألوان ما يظهر على الشاشة: الخلفية أو الملصق أو الشعار، والفيديوهات والإعلانات التشويقية، وصورة الموسيقى
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork	إضاءات Philips Hue بألوان ما يظهر على الشاشة: الخلفية أو الملصق أو الشعار، والفيديوهات، وصورة الموسيقى
 Photos	الصور
@@ -1043,11 +1062,13 @@ Restore backup	استعادة النسخة الاحتياطية
 Right, by Settings	اليمين، بجانب الإعدادات
 Room	الغرفة
 Rows	الصفوف
+Rows above the dock	الصفوف فوق شريط التطبيقات
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	صفوف فوق بعضها، أو صف واحد في المنتصف يبدّله ▲ / ▼
 Rows per platform	الصفوف لكل منصة
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… ، أو رابط HLS (.m3u8) أو رابط فيديو
 Run setup again	تشغيل الإعداد مرة أخرى
 Runs on its own every 30 minutes	يعمل تلقائيًا كل 30 دقيقة
+Same video as the screensaver	المقطع نفسه في شاشة التوقف
 Saved. Allow TV access (ADB) so the TV lets Glassio open	تم الحفظ. اسمح بالوصول إلى التلفاز (ADB) لكي يسمح التلفاز بفتح Glassio
 Saved:	تم الحفظ:
 Scan a QR code with your phone and approve	امسح رمز QR بهاتفك ووافق
@@ -1105,6 +1126,7 @@ Sharpest: original pictures, slow fades, full glass	الأحدّ: صور أصل�
 Show	إظهار
 Show a hint	إظهار تلميح
 Show a note when synced	إظهار ملاحظة عند المزامنة
+Show again	اعرضه مجددًا
 Show Apps folder	إظهار مجلد التطبيقات
 Show clock	إظهار الساعة
 Show code	إظهار الرمز
@@ -1276,6 +1298,7 @@ The open apps, like the Apple TV app switcher	التطبيقات المفتوح�
 The others open a title as usual	أما البقية فتفتح العنوان كالمعتاد
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	وضع الأداء وما يضبطه: جودة الصورة وتفاصيل الزجاج وانكساره وحركة الشرائح ومعرض الخلفيات والذاكرة المؤقتة وجودة شاشة التوقف. إيقاف: يحتفظ هذا التلفاز بإعداداته الخاصة، فيبقى التلفاز الأضعف سلسًا
 The row at the top of the results. The others follow in their usual order	الصف الذي يظهر أعلى النتائج. تتبعه الصفوف الأخرى بترتيبها المعتاد
+The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	تبدأ شاشة التوقف بالمقطع المعروض هنا من حيث توقف، وتكمل الخلفية بالمقطع الذي انتهت عنده. أخف على التلفاز ذي الذاكرة القليلة
 The screensaver: what it shows and how	شاشة التوقف: ما تعرضه وكيف
 The search opens empty each time. Off: what was typed last is still in the bar	يُفتح البحث فارغًا في كل مرة. إيقاف: يبقى آخر ما كُتب في الشريط
 The selected app	التطبيق المحدد
@@ -1385,6 +1408,7 @@ Videos from aerial-videos.netlify.app	فيديوهات من aerial-videos.netlif
 Videos in the folder	الفيديوهات في المجلد
 Videos under the titles; one opens in the app below	مقاطع فيديو أسفل العناوين؛ ويُفتح أحدها في التطبيق أدناه
 Videos without it play the nearest one	الفيديوهات التي لا تحتويه تشغّل الأقرب إليه
+Videos you chose never to see again. OK on one shows it again	مقاطع اخترت ألا تراها مجددًا. OK على أحدها يعيد عرضه
 Vivid	زاهٍ
 Volume	مستوى الصوت
 Waiting…	جارٍ الانتظار…
@@ -1397,6 +1421,7 @@ What happened, and what you did just before	ما الذي حدث، وماذا ف
 What holding the Home button does, in any app	ما يفعله الضغط المطول على زر Home، في أي تطبيق
 What is searched	ما يتم البحث فيه
 What it shows	ما يعرضه
+What its videos show: aerial, ocean, forest, city…	ما تعرضه مقاطعه: مناظر جوية، محيط، غابة، مدينة…
 What plays	ما يُعرض
 What the lights take their colours from	مصدر ألوان الإضاءات
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	ما تعرضه القائمة: الساعة والطقس والمكتبة والسمات والملف الشخصي والخلفية وغيرها

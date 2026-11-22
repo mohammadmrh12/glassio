@@ -111,6 +111,8 @@ object SearchUi {
     fun held() = busy || android.os.SystemClock.uptimeMillis() < holdUntil
     /** The selection is only passing over the Search icon (walking along the dock): its page waits, the island stays. */
     val passing = mutableStateOf(false)
+    /** OK on the icon was pressed: the page goes straight into typing as soon as it is there. */
+    @Volatile var typeAsked = false
     /** OK on the icon: straight into typing. */
     val type = mutableIntStateOf(0)
     /** Asked for from outside its icon (the menu's row, a remote button): the page comes up and the bar is selected. */
@@ -216,7 +218,12 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
     // OK on the dock's icon: into the bar, typing.
     // (Only a press made while the page is up: the count kept from an earlier visit opened the keyboard by itself.)
     val typeSeen = remember { intArrayOf(SearchUi.type.intValue) }
-    LaunchedEffect(SearchUi.type.intValue) { if (SearchUi.type.intValue != typeSeen[0]) { typeSeen[0] = SearchUi.type.intValue; runCatching { SearchUi.entry.requestFocus() }; editing = true } }
+    LaunchedEffect(SearchUi.type.intValue) {
+        if (SearchUi.type.intValue == typeSeen[0] && !SearchUi.typeAsked) return@LaunchedEffect
+        typeSeen[0] = SearchUi.type.intValue; SearchUi.typeAsked = false
+        // (The page may have just been made: the bar is asked for until it takes the selection.)
+        repeat(10) { if (runCatching { SearchUi.entry.requestFocus() }.isSuccess) { editing = true; return@LaunchedEffect }; delay(40) }
+    }
     // Opened from the menu's row or a remote button: the bar is selected (asked for until it is there).
     LaunchedEffect(SearchUi.want.intValue) {
         if (!SearchUi.pending) return@LaunchedEffect

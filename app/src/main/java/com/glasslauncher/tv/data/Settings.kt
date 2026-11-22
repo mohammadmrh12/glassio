@@ -677,6 +677,15 @@ class Settings(private val ctx: Context) {
     var photoEvery: Int get() = i("photoEvery", 60); set(v) = putI("photoEvery", if (v <= 0) 0 else v.coerceIn(30, 86_400))
     /** Photos in a random order (else in the source's order). */
     var photoShuffle: Boolean get() = b("photoShuffle", true); set(v) = putB("photoShuffle", v)
+    /** Pexels' own API key (pexels.com/api, free): its videos in the screensaver's collections. The TV's. */
+    var pexelsKey: String get() = s("pexelsKey", ""); set(v) = putS("pexelsKey", v.trim())
+    var pexelsQuery: String get() = s("pexelsQuery", "aerial"); set(v) = putS("pexelsQuery", v.trim())
+    /** The screensaver starts with the video the aerial background is showing, and the background goes on with the one the screensaver ended on. */
+    var saverSameVideo: Boolean get() = b("saverSameVideo", true); set(v) = putB("saverSameVideo", v)
+    /** An app's single row sits right above the dock (the large clock stays in view) instead of in the middle. */
+    /** The background video is let go while Glassio is away (another app, the screensaver), taken again on return. */
+    var bgLetGo: Boolean get() = b("bgLetGo", true); set(v) = putB("bgLetGo", v)
+    var channelsLow: Boolean get() = b("channelsLow", false); set(v) = putB("channelsLow", v)
     var unsplashKey: String get() = s("unsplashKey", ""); set(v) = putS("unsplashKey", v.trim())
     /** The photo on screen (url, place, credit), so it comes back at once after a restart. */
     var photoLast: String get() = sp("photoLast").getString("photoLast", "") ?: ""; set(v) { sp("photoLast").edit().putString("photoLast", v).apply() }
@@ -709,6 +718,10 @@ class Settings(private val ctx: Context) {
     var islandHome: Boolean get() = b("islandHome", true); set(v) = putB("islandHome", v)
     var saverLocked: List<String> get() = list("saverLocked"); set(v) = putList("saverLocked", v)
     /** Only the locked videos play (when there are some). */
+    /** Videos never shown again, as "id<TAB>title" (hold OK on one in the screensaver, with *Hold OK asks*). */
+    var saverHidden: List<String> get() = list("saverHidden"); set(v) = putList("saverHidden", v)
+    /** Hold OK on a screensaver video: off = locks it (as always), on = a small menu: keep it, or never show it again. */
+    var saverHoldMenu: Boolean get() = b("saverHoldMenu", false); set(v) = putB("saverHoldMenu", v)
     var saverLockedOnly: Boolean get() = b("saverLockedOnly", false); set(v) = putB("saverLockedOnly", v)
     /** Large clock: moved up (negative) or down, as a part of the screen's height. */
     var bgClockOffset: Float get() = f("bgClockOffset", -0.06f); set(v) = putF("bgClockOffset", v.coerceIn(-0.2f, 0.3f))

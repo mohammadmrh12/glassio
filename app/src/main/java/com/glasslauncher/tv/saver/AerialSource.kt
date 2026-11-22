@@ -70,9 +70,21 @@ object AerialSource {
         }
     }.getOrElse { emptyList() }
 
-    /** Your own videos: links you added and the videos in the backgrounds folder. */
+    /** A YouTube video's id in a link (watch, youtu.be, shorts, live), or null. */
+    fun youtubeId(u: String): String? = Regex("""(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})""").find(u)?.groupValues?.get(1)
+
+    /**
+     * Your own videos: links you added and the videos in the backgrounds folder. A YouTube link is played from the
+     * video's own picture stream, found when the list is made (the github build: NewPipe Extractor, as for the
+     * trailers; in the play build it is left out). Blocking.
+     */
     fun mine(app: GlassApp): List<Video> =
-        app.settings.aerialUrls.filter { it.startsWith("http") }.map { Video(it, "", "mine", mapOf("1080-H264" to it), "") } +
+        app.settings.aerialUrls.filter { it.startsWith("http") }.mapNotNull { u ->
+            val yt = youtubeId(u) ?: return@mapNotNull Video(u, "", "mine", mapOf("1080-H264" to u), "")
+            val s = runCatching { com.glasslauncher.tv.data.TrailerSource.resolve(yt, 1080) }.onFailure { com.glasslauncher.tv.data.Glog.w("YouTube video $yt", it) }.getOrNull()
+                ?: return@mapNotNull null.also { com.glasslauncher.tv.data.Glog.i("YouTube video $yt: no stream to play (left out)") }
+            Video(u, s.title, "mine", mapOf("1080-H264" to s.video), "")
+        } +
             com.glasslauncher.tv.ui.CustomBackground.files(app, true).map { Video(it.absolutePath, it.nameWithoutExtension, "mine", mapOf("1080-H264" to "file://" + it.absolutePath), it.absolutePath) }
 
     /** Blocking. Every video of the collections that are on (for choosing one). */
@@ -80,6 +92,43 @@ object AerialSource {
         val st = app.settings
         if (st.saverMine) addAll(mine(app))
         SOURCES.filter { it.key in st.saverSources }.forEach { addAll(videos(app, it)) }
+        if (PEXELS in st.saverSources) addAll(pexels(app))
+    }
+
+    /** Pexels' free videos (pexels.com), with the person's own API key; off until a key is given. */
+    const val PEXELS = "pexels"
+
+    /**
+     * Blocking. Pexels' videos for the search words ("aerial" at first), landscape, the 40 most relevant; kept a day.
+     * Each one's title carries its maker and Pexels, as Pexels asks of apps that show its videos.
+     */
+    fun pexels(app: GlassApp): List<Video> {
+        val st = app.settings
+        if (st.pexelsKey.isBlank()) return emptyList()
+        return runCatching {
+            val q = java.net.URLEncoder.encode(st.pexelsQuery.ifBlank { "aerial" }, "UTF-8")
+            val d = app.http.json("https://api.pexels.com/videos/search?query=$q&orientation=landscape&size=large&per_page=40", 24L * 3600 * 1000, key = st.pexelsKey)
+            val a = d.optJSONArray("videos") ?: return emptyList()
+            (0 until a.length()).mapNotNull { i ->
+                val o = a.optJSONObject(i) ?: return@mapNotNull null
+                val files = o.optJSONArray("video_files") ?: return@mapNotNull null
+                val mp4 = (0 until files.length()).mapNotNull { files.optJSONObject(it) }
+                    .filter { it.optString("file_type") == "video/mp4" && it.optString("link").startsWith("http") && it.optInt("width") >= it.optInt("height") }
+                val hd = mp4.filter { it.optInt("height") in 700..1080 }.maxByOrNull { it.optInt("height") }
+                val uhd = mp4.filter { it.optInt("height") >= 2000 }.minByOrNull { it.optInt("height") }
+                val urls = buildMap {
+                    hd?.let { put("1080-H264", it.optString("link")) }
+                    uhd?.let { put("4K-SDR", it.optString("link")) }
+                }
+                if (urls.isEmpty()) return@mapNotNull null
+                // The name is in the page's address: https://www.pexels.com/video/aerial-view-of-a-beach-1234/
+                val slug = o.optString("url").trimEnd('/').substringAfterLast('/').substringBeforeLast('-')
+                val name = slug.replace('-', ' ').trim().replaceFirstChar { it.uppercase() }.ifBlank { "Pexels video" }
+                val by = o.optJSONObject("user")?.optString("name").orEmpty()
+                Video("pexels:" + o.optLong("id"), if (by.isNotBlank()) "$name · $by, Pexels" else "$name · Pexels", PEXELS, urls,
+                    o.optString("image").takeIf { it.startsWith("http") }.orEmpty())
+            }
+        }.getOrElse { com.glasslauncher.tv.data.Glog.w("Pexels videos", it); emptyList() }
     }
 
     /** Blocking. What the screensaver plays, as (title, link), in play order. */
@@ -91,6 +140,9 @@ object AerialSource {
         val all = all(app)
         val pick = st.saverPick
         var chosen = if (pick.isNotBlank()) all.filter { it.id == pick }.ifEmpty { all } else all
+        // The videos hidden from the screensaver's menu (*Don't show it again*): never, unless that is all there is.
+        val hidden = st.saverHidden.map { it.substringBefore('\t') }.toSet()
+        if (hidden.isNotEmpty() && pick.isBlank()) chosen.filter { it.id !in hidden }.takeIf { it.isNotEmpty() }?.let { chosen = it }
         // Only the locked videos (Lock & release), when that is on and there are some.
         if (forSaver && st.saverLock && st.saverLockedOnly && pick.isBlank()) {
             val locked = st.saverLocked.toSet()

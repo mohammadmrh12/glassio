@@ -86,7 +86,7 @@ object Profiles {
         // App locks (a profile must not be a way around them)
         "lockCode", "lockedApps", "lockHintOn", "lockHint",
         // Keys of outside services
-        "tmdbToken", "unsplashKey", "redditAppId",
+        "tmdbToken", "unsplashKey", "redditAppId", "pexelsKey",
         // Where the TV is: the country its streaming offers are read for
         "watchCountry",
     )

@@ -1,6 +1,7 @@
 1080p H.264 (plays everywhere)	1080p H.264 (her yerde oynar)
 Aerial	Havadan görüntü
 Apple aerial	Apple havadan görüntü
+Pexels video	Pexels videosu
 Code saved	Kod kaydedildi
 Current code	Geçerli kod
 New code · OK saves it	Yeni kod · OK ile kaydet
@@ -160,10 +161,14 @@ This profile has a PIN in Nuvio: it can't be opened from here yet	Bu profilin Nu
 Who is watching?	Kim izliyor?
 Credit	Katkı
 Date	Tarih
+Don't show it again	Bir daha gösterme
+Keep this video	Bu videoyu sakla
 Place	Yer
+Release this video	Bu videoyu bırak
 Storage	Depolama
 Time	Saat
 Weather	Hava durumu
+Won't show again · Settings → Background & screensaver → Hidden videos	Bir daha gösterilmeyecek · Ayarlar → Arka plan ve ekran koruyucu → Gizli videolar
 Allow USB debugging for Glassio to use the TV screensaver	Glassio'nun TV ekran koruyucusunu kullanması için USB hata ayıklamaya izin ver
 Asking the add-ons…	Eklentilere soruluyor…
 Films and series	Filmler ve diziler
@@ -209,6 +214,7 @@ Plan to watch	İzlenecekler
 A button of your remote (Netflix, YouTube, a colour button…) opens what you choose; Glassio's own: shuffle, multi-view, corner camera	Kumandanın bir tuşu (Netflix, YouTube, renkli tuş…) seçtiğini açar; Glassio'nun kendi işlevleri: karıştır, çoklu görünüm, köşe kamerası
 A colour each	Her biri bir renk
 A direct .mp4 / .mov link (Manage from phone can also save it to the TV)	Doğrudan bir .mp4 / .mov bağlantısı (Telefondan yönet de TV'ye kaydedebilir)
+A direct .mp4 / .mov link, or a YouTube video's link (Manage from phone can also save it to the TV)	Doğrudan bir .mp4 / .mov bağlantısı ya da bir YouTube videosunun bağlantısı (Telefondan yönet ile TV'ye de kaydedilebilir)
 A list of the places it can be watched in, the first of them at once (services first, then Nuvio, then Stremio), or always one app: the list comes up when that app can't open the title	İzlenebilecek yerlerin listesi, ilki hemen açılır (önce servisler, sonra Nuvio, sonra Stremio) ya da her zaman tek bir uygulama: o uygulama başlığı açamazsa liste gelir
 A list of your earlier searches under the bar while it is empty: OK on one searches it again	Çubuk boşken altında önceki aramalarınızın listesi: birinde OK onu yeniden arar
 A live camera in the corner, over any app	Köşede, her uygulamanın üstünde canlı kamera
@@ -246,6 +252,7 @@ Add or remove it in Nuvio; it updates here on the next refresh	Nuvio'da ekle ya 
 Add the Home Assistant link and token first	Önce Home Assistant bağlantısını ve belirtecini ekle
 Add the Home Assistant link and token first (Doorbell → Home Assistant link)	Önce Home Assistant bağlantısını ve belirtecini ekle (Kapı zili → Home Assistant bağlantısı)
 Add video link	Video bağlantısı ekle
+Add your Pexels key first	Önce Pexels anahtarınızı ekleyin
 Add-on	Eklenti
 Add-on link	Eklenti bağlantısı
 Add-on picture	Eklenti resmi
@@ -548,6 +555,9 @@ Forget	Unut
 Forget the bridge	Köprüyü unut
 Forget them	Onları unut
 Frame	Çerçeve
+Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	pexels.com/api'de ücretsiz: orada oturum açın, sonra anahtarınızı kopyalayın. Yalnızca bu TV'de tutulur
+Free videos from pexels.com for the words below	Aşağıdaki kelimeler için pexels.com'dan ücretsiz videolar
+Free videos from pexels.com for the words below. Needs your own Pexels key	Aşağıdaki kelimeler için pexels.com'dan ücretsiz videolar. Kendi Pexels anahtarınız gerekir
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	Ücretsiz: unsplash.com/developers → New application → Access Key. Telefondan yapıştırmak daha kolay (Telefondan yönet)
 From a computer or phone with ADB, connected to this Fire TV, type once:	Bu Fire TV'ye bağlı, ADB'li bir bilgisayar ya da telefondan bir kez şunu yaz:
 From Home Assistant	Home Assistant'tan
@@ -603,6 +613,7 @@ Hello and the profile's name at the top of the menu, with its picture (the name 
 Hidden	Gizli
 Hidden titles	Gizli yapımlar
 Hidden titles · pick one to show it again	Gizli yapımlar · tekrar göstermek için birini seç
+Hidden videos	Gizli videolar
 Hidden while you browse the apps	Uygulamalara göz atarken gizli
 Hide from dock	Dock'tan gizle
 Hide the dock	Dock'u gizle
@@ -615,6 +626,7 @@ Highest resolution	En yüksek çözünürlük
 Hint	İpucu
 Hint under the digits	Rakamların altında ipucu
 Hold Home	Home'a basılı tut
+Hold OK asks	OK'a basılı tutunca sor
 Hold OK on a title asks "Remove?" first	Bir yapımda OK'a basılı tutmak önce "Kaldırılsın mı?" diye sorar
 Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it	Beğendiğin videoyu kilitlemek için OK'a basılı tut (cam bir asma kilit kapanır); bırakmak için tekrar basılı tut
 Hold OK on Play → Hide this title. Pick one here to show it again	Oynat üzerinde OK'a basılı tut → Bu yapımı gizle. Tekrar göstermek için burada birini seç
@@ -664,6 +676,7 @@ Icon zoom on focus	Odakta simge yakınlaştırma
 Icons	Simgeler
 Idle time on the launcher	Başlatıcıda boşta kalma süresi
 Import icons from the folder	Simgeleri klasörden içe aktar
+In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	Başka bir uygulamada ya da ekran koruyucudayken arka plan videosu birkaç saniye sonra bırakılır, dönüşte yeniden alınır: küçük TV'de daha az bellek
 In its own colour	Kendi renginde
 In the carousel	Karuselde
 In the last colours	Son renklerde
@@ -723,6 +736,7 @@ Leave them	Olduğu gibi bırak
 Left (column)	Sol (sütun)
 Left shade	Sol gölge
 Left, like Apple TV	Solda, Apple TV gibi
+Let the video go while away	Uzaktayken videoyu bırak
 Library look	Kitaplık görünümü
 Library rows	Kitaplık satırları
 Lift selected icon	Seçili simgeyi yükselt
@@ -875,6 +889,7 @@ Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio, Trakt, Simkl ya 
 Off	Kapalı
 Off (OK opens Settings)	Kapalı (OK Ayarlar'ı açar)
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	Kapalı: evdeki her cihaz pencereyi gösterebilir. Açık: Home Assistant X-Glassio-Token başlığını ekler (ya da bağlantıda ?token=)
+Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	Kapalı: OK'a basılı tutmak videoyu her zamanki gibi kilitler. Açık: saklamak ya da bir daha göstermemek için küçük bir menü
 Off: in the collections' order	Kapalı: koleksiyonların sırasında
 Off: only the icons, no glass behind them	Kapalı: yalnızca simgeler, arkalarında cam yok
 Off: the trailers play muted	Kapalı: fragmanlar sessiz oynar
@@ -902,6 +917,7 @@ One colour	Tek renk
 One Inputs icon (move, hide and change it like an app): its inputs show above the dock, like the Music icon's music apps. Hold OK on an input there: its icon, order, hide	Tek bir Girişler simgesi (uygulama gibi taşı, gizle, değiştir): girişleri, Müzik simgesinin müzik uygulamaları gibi dock'un üstünde görünür. Orada bir girişte OK'a basılı tut: simgesi, sırası, gizleme
 One look for the dock, the icons and the menu. Black ones keep the dock clear (matte)	Dock, simgeler ve menü için tek görünüm. Siyah olanlar dock'u şeffaf (mat) tutar
 One row	Tek satır
+One row sits right above the dock instead of in the middle, so the large clock and the top of the page stay in view	Tek satır ortada değil, dock'un hemen üstünde durur; büyük saat ve sayfanın üstü görünür kalır
 One strip with every app: the selected app stays in the middle and the strip moves	Tüm uygulamalarla tek şerit: seçili uygulama ortada kalır, şerit kayar
 One that gives no sources is simply skipped	Kaynak vermeyen atlanır
 One that's already here isn't added twice	Zaten burada olan ikinci kez eklenmez
@@ -942,6 +958,8 @@ Paste a manifest link	Manifest bağlantısı yapıştır
 Pause sharing	Paylaşımı duraklat
 Performance	Performans
 Person	Kişi
+Pexels key	Pexels anahtarı
+Pexels words	Pexels kelimeleri
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos and trailers, the music's artwork	Philips Hue ışıkları ekrandakinin renklerinde: arka görsel, afiş ya da logo, videolar ve fragmanlar, müziğin görseli
 Philips Hue lights in the colours of what's on screen: the backdrop, the poster or the logo, videos, the music's artwork	Philips Hue ışıkları ekrandakinin renklerinde: arka görsel, afiş ya da logo, videolar, müziğin görseli
 Photos	Fotoğraflar
@@ -1041,11 +1059,13 @@ Restore backup	Yedeği geri yükle
 Right, by Settings	Sağda, Ayarlar'ın yanında
 Room	Oda
 Rows	Satırlar
+Rows above the dock	Satırlar dock'un üstünde
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	Satırlar alt alta ya da ▲ / ▼ ile değişen ortada tek satır
 Rows per platform	Platform başına satır
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… , bir HLS (.m3u8) ya da video bağlantısı
 Run setup again	Kurulumu tekrar çalıştır
 Runs on its own every 30 minutes	Her 30 dakikada bir kendiliğinden çalışır
+Same video as the screensaver	Ekran koruyucuyla aynı video
 Saved. Allow TV access (ADB) so the TV lets Glassio open	Kaydedildi. TV'nin Glassio'yu açmasına izin vermesi için TV erişimine (ADB) izin ver
 Saved:	Kaydedildi:
 Scan a QR code with your phone and approve	Telefonunla bir QR kodu tara ve onayla
@@ -1103,6 +1123,7 @@ Sharpest: original pictures, slow fades, full glass	En keskin: özgün resimler,
 Show	Göster
 Show a hint	İpucu göster
 Show a note when synced	Eşitlenince not göster
+Show again	Yeniden göster
 Show Apps folder	Uygulamalar klasörünü göster
 Show clock	Saati göster
 Show code	Kodu göster
@@ -1275,6 +1296,7 @@ The open apps, like the Apple TV app switcher	Açık uygulamalar, Apple TV uygul
 The others open a title as usual	Diğerleri yapımı her zamanki gibi açar
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	Performans modu ve ayarladıkları: resim kalitesi, cam detayı ve kırılması, slayt animasyonu, arka görsel galerisi, önbellekler ve ekran koruyucu kalitesi. Kapalı: bu TV kendininkini korur, böylece zayıf bir TV akıcı kalır
 The row at the top of the results. The others follow in their usual order	Sonuçların en üstündeki satır. Diğerleri her zamanki sırayla gelir
+The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	Ekran koruyucu burada oynayan videoyla kaldığı yerden başlar, arka plan da onun bittiği videoyla devam eder. Belleği az TV'de daha hafif
 The screensaver: what it shows and how	Ekran koruyucu: ne gösterdiği ve nasıl
 The search opens empty each time. Off: what was typed last is still in the bar	Arama her seferinde boş açılır. Kapalı: son yazılan çubukta kalır
 The selected app	Seçili uygulama
@@ -1384,6 +1406,7 @@ Videos from aerial-videos.netlify.app	aerial-videos.netlify.app'ten videolar
 Videos in the folder	Klasördeki videolar
 Videos under the titles; one opens in the app below	Başlıkların altında videolar; biri aşağıdaki uygulamada açılır
 Videos without it play the nearest one	Olmayan videolar en yakınını oynatır
+Videos you chose never to see again. OK on one shows it again	Bir daha görmek istemediğiniz videolar. Birinin üzerinde OK onu yeniden gösterir
 Vivid	Canlı
 Volume	Ses seviyesi
 Waiting…	Bekleniyor…
@@ -1396,6 +1419,7 @@ What happened, and what you did just before	Ne oldu ve hemen öncesinde ne yapt�
 What holding the Home button does, in any app	Home tuşuna basılı tutmanın her uygulamada yaptığı
 What is searched	Ne aranır
 What it shows	Ne gösterir
+What its videos show: aerial, ocean, forest, city…	Videolarında ne olsun: havadan, okyanus, orman, şehir…
 What plays	Ne oynar
 What the lights take their colours from	Işıkların renklerini aldığı kaynak
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	Menünün gösterdikleri: saat, hava durumu, Kitaplık, temalar, profil, arka plan ve daha fazlası

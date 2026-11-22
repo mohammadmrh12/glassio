@@ -182,7 +182,8 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         val padV = grow + glowPad
         val content = vis * (labelH + cardH + 2 * grow) + (vis - 1) * rowGap
         // One row: in the middle of the room; two: from the dock up.
-        val lift = if (vis == 1) bottom + (room - content) / 2f else bottom
+        // (Right above the dock with *Rows above the dock*: the large clock and the top of the page stay in view, #21.)
+        val lift = if (vis == 1 && !st.channelsLow) bottom + (room - content) / 2f else bottom
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = lift.coerceAtLeast(bottom).dp)
             .onFocusChanged { ChannelsUi.focused = it.hasFocus }
             .focusRequester(ChannelsUi.entry)
