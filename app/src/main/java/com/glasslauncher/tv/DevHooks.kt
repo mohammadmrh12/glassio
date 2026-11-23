@@ -185,6 +185,7 @@ object DevHooks {
         val st = app.settings
         // ---- Settings
         i.getStringArrayExtra("prefs")?.forEach { st.debugSet(it) }
+        i.getStringExtra("pref_unset")?.let { st.debugUnset(it) }
         i.getStringExtra("pref")?.let { st.debugSet(it); com.glasslauncher.tv.ui.GlassTint.apply(st); com.glasslauncher.tv.ui.TextLook.bold.value = st.boldText; com.glasslauncher.tv.data.I18n.lang = st.lang }
         i.getStringExtra("cameras")?.let { st.cameras = it.split(';').filter { l -> l.contains("://") } }
         i.getStringExtra("theme")?.let { st.applyTheme(it) }

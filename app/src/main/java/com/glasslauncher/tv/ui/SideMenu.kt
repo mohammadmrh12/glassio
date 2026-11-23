@@ -25,6 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,6 +90,9 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     var trailerRow by remember { mutableIntStateOf(0) }
     var inputsPage by remember { mutableStateOf(false) }
     var btPage by remember { mutableStateOf(false) }
+    // Manage from phone: its QR code right in the menu, with how long the page stays on.
+    var phonePage by remember { mutableStateOf(false) }
+    var phoneRow by remember { mutableIntStateOf(0) }
     var btRow by remember { mutableIntStateOf(0) }
     // The music player (▶ in the menu, or the dock's Music icon).
     var musicPage by remember { mutableStateOf(MusicUi.openInMenu.value.also { MusicUi.openInMenu.value = false } && st.musicOn) }
@@ -106,10 +112,10 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     LaunchedEffect(Unit) { enter.animateTo(1f, tween(260, easing = EASE)) }
     var inside by remember { mutableStateOf(false) }
     // Take focus from the settings button (or wherever it is): retry until a row has it.
-    LaunchedEffect(themes, bgPage, camPage, saverPage, saverSub, trailerPage, inputsPage, btPage, musicPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
+    LaunchedEffect(themes, bgPage, camPage, saverPage, saverSub, trailerPage, inputsPage, btPage, musicPage, phonePage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
     var themesRow by remember { mutableIntStateOf(0) }
     var bgRow by remember { mutableIntStateOf(0) }
-    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage && saverSub != "") { target = saverSubRow; saverSub = "" } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (btPage) { target = btRow; btPage = false } else if (musicPage) { musicPage = false } else onClose() }
+    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage && saverSub != "") { target = saverSubRow; saverSub = "" } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (btPage) { target = btRow; btPage = false } else if (phonePage) { target = phoneRow; phonePage = false } else if (musicPage) { musicPage = false } else onClose() }
 
     val time by produceState(clockText(st.clock24h), st.clock24h) { while (true) { value = clockText(st.clock24h); delay(5_000) } }
     val date by produceState(longDate(), Unit) { while (true) { value = longDate(); delay(60_000) } }
@@ -285,6 +291,38 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             if (pair.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
+                } else if (phonePage) {
+                    Text("Manage from phone", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
+                        modifier = Modifier.padding(start = (10 * s).dp, bottom = (6 * s).dp))
+                    val back = { target = phoneRow; phonePage = false }
+                    var qr by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+                    var failed by remember { mutableStateOf(false) }
+                    var keep by remember { mutableIntStateOf(com.glasslauncher.tv.net.PhoneHost.keepNow(app)) }
+                    fun show(u: String?) { qr = u?.let { com.glasslauncher.tv.net.Net.qr(it, 360).asImageBitmap() }; failed = u == null }
+                    DisposableEffect(Unit) {
+                        val job = app.scope.launch(kotlinx.coroutines.Dispatchers.IO) { val u = com.glasslauncher.tv.net.PhoneHost.start(app); kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { show(u) } }
+                        onDispose { job.cancel(); com.glasslauncher.tv.net.PhoneHost.leave(app) }
+                    }
+                    Box(Modifier.fillMaxWidth().padding(vertical = (4 * s).dp), contentAlignment = Alignment.Center) {
+                        val code = qr
+                        if (code != null) Image(code, "QR code", Modifier.size((132 * s).dp).clip(RoundedCornerShape((10 * s).dp)))
+                        else if (failed) Text("The TV is not on a network, so the phone page can't start.", color = soft, fontSize = (9 * s).sp)
+                        else Spacer(Modifier.size((132 * s).dp))
+                    }
+                    Text("Scan with your phone (same Wi-Fi) and change any setting there", color = soft, fontSize = (8.5f * s).sp,
+                        modifier = Modifier.padding(start = (10 * s).dp, end = (10 * s).dp, bottom = (6 * s).dp))
+                    // How long the page stays on after the menu closes; OK goes to the next choice (Always last).
+                    MenuRow(s, light, "Keep the page on", com.glasslauncher.tv.net.PhoneHost.keepLabel(keep),
+                        modifier = Modifier.focusRequester(reqs[0]), onFocused = { current = 0 },
+                        first = true, last = true, onLeft = back,
+                        glyph = { c -> glyph(if (keep < 0) "dotOn" else "dotOff", c) },
+                        onClick = {
+                            target = 0
+                            val K = com.glasslauncher.tv.net.PhoneHost.KEEP
+                            val next = K[(K.indexOf(keep).coerceAtLeast(0) + 1).mod(K.size)]
+                            keep = next
+                            app.scope.launch(kotlinx.coroutines.Dispatchers.IO) { val u = com.glasslauncher.tv.net.PhoneHost.setKeep(app, next); kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { show(u) } }
+                        })
                 } else if (camPage) {
                     val cam = cams.getOrNull(camIndex.mod(cams.size.coerceAtLeast(1)))
                     Text("Camera" + (if (cams.size > 1) "  ·  ◀ ▶" else "") + "  ·  OK: multi-view", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
@@ -446,6 +484,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         if (st.menuLibrary) add(Triple("library", "Library") { onLibrary() })
                         if (st.searchOn && st.menuSearch) add(Triple("search", "Search") { SearchUi.open(st); onClose() })
                         add(Triple("sliders", "Glassio settings") { onSettings() })
+                        if (st.menuPhone) add(Triple("phone", "Manage from phone") { target = 0; phonePage = true })
                         if (st.menuAndroid) add(Triple("gear", "Android settings") { open(ctx, android.provider.Settings.ACTION_SETTINGS) })
                         if (st.menuWifi) add(Triple("wifi", "Wi-Fi") { open(ctx, android.provider.Settings.ACTION_WIFI_SETTINGS) })
                         if (st.menuBluetooth) add(Triple("bluetooth", "Bluetooth") { target = 0; btPage = true })
@@ -458,6 +497,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         if (st.menuBackground) add(Triple("background", "Background") { target = BG_MODES.indexOfFirst { it.first == bgKey(st.bgMode) }.coerceAtLeast(0); bgPage = true })
                     }.sortedBy { r -> st.menuOrder.indexOf(r.first).let { if (it < 0) 99 else it } }
                     bgRow = rows.indexOfFirst { it.first == "background" }.coerceAtLeast(0)
+                    phoneRow = rows.indexOfFirst { it.first == "phone" }.coerceAtLeast(0)
                     camRow = rows.indexOfFirst { it.first == "camera" }.coerceAtLeast(0)
                     saverRow = rows.indexOfFirst { it.first == "saver" }.coerceAtLeast(0)
                     btRow = rows.indexOfFirst { it.first == "bluetooth" }.coerceAtLeast(0)
@@ -667,6 +707,11 @@ private fun DrawScope.glyph(kind: String, c: Color) {
             drawLine(c, Offset(w * 0.22f, w * 0.43f), Offset(w * 0.62f, w * 0.43f), w * 0.09f, StrokeCap.Round)
             val p = Path().apply { moveTo(w * 0.50f, w * 0.31f); lineTo(w * 0.64f, w * 0.43f); lineTo(w * 0.50f, w * 0.55f) }
             drawPath(p, c, style = st)
+        }
+        "phone" -> {
+            // A phone with its home bar.
+            drawRoundRect(c, Offset(w * 0.28f, w * 0.06f), Size(w * 0.44f, w * 0.88f), CornerRadius(w * 0.10f), style = st)
+            drawLine(c, Offset(w * 0.42f, w * 0.80f), Offset(w * 0.58f, w * 0.80f), w * 0.08f, StrokeCap.Round)
         }
         "search" -> {
             // A magnifying glass.

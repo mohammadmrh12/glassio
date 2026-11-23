@@ -107,6 +107,7 @@ private val NEW_IN = mapOf(
         "Platform rows", "Rows per platform", "Carousel shade", "Button look", "Music & Inputs page"),
     "4.2.0" to listOf("Recommended for this TV", "  · Where", "Glass over the video", "Plays", "Connect Jellyfin", "One player", "YouTube lists", "Rows above the dock", "Same video as the screensaver", "Let the video go while away", "Pexels", "  · Pexels key", "  · Pexels words",
         "Hold OK asks", "Hidden videos"),
+    "4.3.0" to listOf("  · Nuvio's picture by itself", "QR code in Settings' search", "New code"),
     "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
         "Nuvio and Stremio apps", "Nuvio plays at once", "Stremio for a film", "Quality", "Largest file", "HDR and Dolby Vision",
         "Leave out cinema recordings", "Torrents", "Add-ons asked", "Keep the words searched", "Search in the menu", "Page behind the search", "Titles as", "Stay in the search", "First row", "More results", "Card size", "Rating",
@@ -1170,6 +1171,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     else "Not chosen yet: your Nuvio profile's picture shows (the sliders without one). Add your own from your phone (QR code) or a link", if (hasPic) "Change" else "Add") {
                     pictureDialog()
                 })
+                add(Toggle("  · Nuvio's picture by itself", "With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it",
+                    { st.settingsIconNuvio }, { st.settingsIconNuvio = it }))
                 // ("Hello" and "Menu" are words on their own, and your picture is always round: no frame.)
                 if (icon != "hello" && icon != "menuText" && icon != "picture") add(Adjust("  · Frame", "Around the settings button (it fills in white when selected)",
                     { SETTINGS_FRAMES[st.settingsFrame] ?: "Square" }, { st.settingsFrame = cycle(SETTINGS_FRAMES.keys.toList(), st.settingsFrame, it) }))
@@ -1224,6 +1227,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                 add(Toggle("Inputs", "The TV's HDMI inputs and the devices plugged into them (found by themselves, by name over HDMI-CEC)",
                                     { st.menuInputs }, { st.menuInputs = it; if (it) scope.launch(Dispatchers.IO) { com.glasslauncher.tv.data.Inputs.refresh(ctx) } }))
                                 add(Toggle("Recent apps", "Opens the app switcher (like holding Home)", { st.menuRecents }, { st.menuRecents = it }))
+                                add(Toggle("Manage from phone", "The phone page's QR code: change settings from your phone", { st.menuPhone }, { st.menuPhone = it }))
                                 if (st.searchOn) add(Toggle("Search", "Glassio's search: films, series, videos, songs", { st.menuSearch }, { st.menuSearch = it }))
                                 add(Toggle("Wi-Fi", "", { st.menuWifi }, { st.menuWifi = it }))
                                 add(Toggle("Bluetooth", "The TV's Bluetooth: remotes, headphones, speakers and controllers", { st.menuBluetooth }, { st.menuBluetooth = it }))
@@ -2390,8 +2394,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
     var special by remember { mutableStateOf<String?>(null) }
     val newFocus = remember { FocusRequester() }
     val changedFocus = remember { FocusRequester() }
-    val newMarks = (NEW_IN[newVer].orEmpty() - st.settingsNewSeen.toSet()).toSet()
-    val marks = remember(newMarks) { NewMarks(newMarks) { t -> if (t in st.settingsNewSeen.toSet()) Unit else st.settingsNewSeen = st.settingsNewSeen + t } }
+    // (Compared as `norm` gives them, as the rows do: a row under another, "  · Where", never matched its own mark
+    // and New counted it for ever with nothing on its page.)
+    val newMarks = st.settingsNewSeen.map(::norm).toSet().let { seen -> NEW_IN[newVer].orEmpty().map(::norm).filter { it !in seen }.toSet() }
+    val marks = remember(newMarks) { NewMarks(newMarks) { t -> if (norm(t) in st.settingsNewSeen.map(::norm)) Unit else st.settingsNewSeen = st.settingsNewSeen + norm(t) } }
     /** Where Left (and Back) from the page on the right lead: the entry it belongs to. */
     fun leftOf() = when { searching -> searchFocus; special == "new" -> newFocus; special == "changed" -> changedFocus; else -> catFocus[cat] }
     // A search asked from outside (QA: --es settings_search "words").
@@ -2648,7 +2654,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         ("changed" to "Changed").takeIf { q.isNotEmpty() && listOf("changed", "default", com.glasslauncher.tv.data.I18n.tr("Changed").lowercase()).any { w -> w.contains(q) || q.contains(w) } },
                         ("new" to "New").takeIf { q.isNotEmpty() && newMarks.isNotEmpty() && listOf("new", com.glasslauncher.tv.data.I18n.tr("New").lowercase()).any { w -> w.contains(q) } },
                     )
-                    SearchPane(s, query, { query = it }, pages.map { (_, n) -> com.glasslauncher.tv.data.I18n.tr(n) to com.glasslauncher.tv.data.I18n.tr("Settings") } +
+                    SearchPane(app, s, query, { query = it }, pages.map { (_, n) -> com.glasslauncher.tv.data.I18n.tr(n) to com.glasslauncher.tv.data.I18n.tr("Settings") } +
                         found.map { norm(com.glasslauncher.tv.data.I18n.tr(rowTitle(it.row))) to whereOf(it) }) { k ->
                         if (k < pages.size) {
                             val key = pages[k].first
@@ -2973,9 +2979,36 @@ private fun SettingsPage(s: Float, c: Category, sc: Int, app: GlassApp, listStat
     }
 }
 
+/**
+ * The phone page's QR code where the search is still empty (#33: Manage from phone is four steps away otherwise, and
+ * easily forgotten). It starts the page as System → Manage from phone does, and leaves it on for as long as that page
+ * says when the search closes.
+ */
+@Composable
+private fun PhoneQr(app: GlassApp, s: Float) {
+    var qr by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        val job = app.scope.launch(Dispatchers.IO) {
+            val u = com.glasslauncher.tv.net.PhoneHost.start(app)
+            val bmp = u?.let { Net.qr(it, 420).asImageBitmap() }
+            kotlinx.coroutines.withContext(Dispatchers.Main) { if (bmp != null) qr = bmp else failed = true }
+        }
+        onDispose { job.cancel(); com.glasslauncher.tv.net.PhoneHost.leave(app) }
+    }
+    Column(Modifier.padding(start = (6 * s).dp)) {
+        Text(com.glasslauncher.tv.data.I18n.tr("Find any setting by its name"), color = Color.White.copy(alpha = 0.5f), fontSize = (13 * s).sp)
+        Spacer(Modifier.height((14 * s).dp))
+        qr?.let { Image(it, "QR code", Modifier.size((170 * s).dp).clip(RoundedCornerShape((14 * s).dp))) }
+        if (failed) Text(com.glasslauncher.tv.data.I18n.tr("The TV is not on a network, so the phone page can't start."), color = Color(0xFFFF8F9B), fontSize = (12 * s).sp)
+        Spacer(Modifier.height((8 * s).dp))
+        Text(com.glasslauncher.tv.data.I18n.tr("Or scan with your phone (same Wi-Fi) and change any setting there"), color = Color.White.copy(alpha = 0.6f), fontSize = (12 * s).sp)
+    }
+}
+
 /** Search: the query on Glassio's own keyboard (letters, numbers, space, delete), the matching rows beside it. */
 @Composable
-private fun SearchPane(s: Float, query: String, onQuery: (String) -> Unit, results: List<Pair<String, String>>, onPick: (Int) -> Unit) {
+private fun SearchPane(app: GlassApp, s: Float, query: String, onQuery: (String) -> Unit, results: List<Pair<String, String>>, onPick: (Int) -> Unit) {
     val keys = remember { ("abcdefghijklmnopqrstuvwxyz1234567890").map { it.toString() } }
     // Right from the keyboard's last column goes to the results from any row (they start at the top: from the
     // lower rows the remote found nothing to the right).
@@ -3011,6 +3044,7 @@ private fun SearchPane(s: Float, query: String, onQuery: (String) -> Unit, resul
         Column(Modifier.weight(1f)) {
             Spacer(Modifier.height((44 * s).dp))
             when {
+                query.isBlank() && app.settings.searchPhoneQr -> PhoneQr(app, s)
                 query.isBlank() -> Text(com.glasslauncher.tv.data.I18n.tr("Find any setting by its name"), color = Color.White.copy(alpha = 0.5f), fontSize = (13 * s).sp, modifier = Modifier.padding(start = (6 * s).dp))
                 results.isEmpty() -> Text(com.glasslauncher.tv.data.I18n.tr("No results"), color = Color.White.copy(alpha = 0.5f), fontSize = (13 * s).sp, modifier = Modifier.padding(start = (6 * s).dp))
                 else -> LazyColumn(Modifier.fillMaxSize()) {
@@ -3044,7 +3078,8 @@ private fun PhonePane(app: GlassApp, s: Float) {
         }
         onDispose { job.cancel(); com.glasslauncher.tv.net.PhoneHost.leave(app) }
     }
-    Column(Modifier.fillMaxSize().padding(start = (6 * s).dp)) {
+    // (It scrolls: with the rows added under the code the last one was cut off at the bottom, his photo.)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = (6 * s).dp, bottom = (12 * s).dp)) {
         Text(
             "Scan the code with your phone (same Wi-Fi) to add add-ons, set app icons, set or upload a background picture or video, and paste tokens with a real keyboard.",
             color = Color.White.copy(alpha = 0.7f), fontSize = (12.5f * s).sp,
@@ -3052,17 +3087,37 @@ private fun PhonePane(app: GlassApp, s: Float) {
         Spacer(Modifier.height((14 * s).dp))
         val code = qr
         if (code != null) {
-            Image(code, "QR code", Modifier.size((190 * s).dp).clip(RoundedCornerShape((14 * s).dp)))
+            Image(code, "QR code", Modifier.size((160 * s).dp).clip(RoundedCornerShape((14 * s).dp)))
             Spacer(Modifier.height((8 * s).dp))
             Text(url ?: "", color = Color.White.copy(alpha = 0.6f), fontSize = (11 * s).sp)
+            // The same page by the TV's name: kept when the router gives the TV another IP (the phone's home screen app).
+            com.glasslauncher.tv.net.PhoneHost.byName(app)?.let { Text(it.substringBefore("/?"), color = Color.White.copy(alpha = 0.45f), fontSize = (10 * s).sp) }
         } else if (failed) {
             Text("The TV is not on a network, so the phone page can't start.", color = Color(0xFFFF8F9B), fontSize = (13 * s).sp)
         }
         Spacer(Modifier.height((10 * s).dp))
         val st = app.settings
-        RowView(Adjust("Keep the page on", "After you leave this screen. The code changes each time it starts again", {
-            st.phoneMinutes.let { if (it == 0) "Stops when you leave" else if (it < 60) "$it min" else "${it / 60} h" }
-        }, { st.phoneMinutes = cycle(listOf(0, 10, 30, 60, 180), st.phoneMinutes, it) }), s, app, onApp = {})
+        RowView(Adjust("Keep the page on", "After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs", {
+            com.glasslauncher.tv.net.PhoneHost.keepLabel(com.glasslauncher.tv.net.PhoneHost.keepNow(app))
+        }, { d ->
+            val next = cycle(com.glasslauncher.tv.net.PhoneHost.KEEP, com.glasslauncher.tv.net.PhoneHost.keepNow(app), d)
+            app.scope.launch(Dispatchers.IO) {
+                val u = com.glasslauncher.tv.net.PhoneHost.setKeep(app, next)
+                val bmp = u?.let { Net.qr(it, 480).asImageBitmap() }
+                kotlinx.coroutines.withContext(Dispatchers.Main) { url = u; qr = bmp }
+            }
+        }), s, app, onApp = {})
+        Spacer(Modifier.height((4 * s).dp))
+        RowView(Act("New code", "Every QR code and page saved on a phone stops working; scan the new code", "") {
+            app.scope.launch(Dispatchers.IO) {
+                com.glasslauncher.tv.net.PhoneHost.newCode(app)
+                val u = com.glasslauncher.tv.net.PhoneHost.start(app)
+                val bmp = u?.let { Net.qr(it, 480).asImageBitmap() }
+                kotlinx.coroutines.withContext(Dispatchers.Main) { url = u; qr = bmp }
+            }
+        }, s, app, onApp = {})
+        Spacer(Modifier.height((4 * s).dp))
+        RowView(Toggle("QR code in Settings' search", "While nothing is typed in the search, this code is there too", { st.searchPhoneQr }, { st.searchPhoneQr = it }), s, app, onApp = {})
         Spacer(Modifier.height((6 * s).dp))
         Text("Everything is there: add-ons, backgrounds, icons, tokens, Stremio and Simkl, cameras (RTSP), backup and restore, and every setting.", color = Color.White.copy(alpha = 0.45f), fontSize = (11 * s).sp)
     }

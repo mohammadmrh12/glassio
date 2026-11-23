@@ -41,7 +41,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 68
+    const val ID = 69
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -63,7 +63,7 @@ object WhatsNew {
 
     // A welcome first, then everything new since 4.0.0, newest last, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("Welcome to Glassio 4.2", listOf(
+        Page("Welcome to Glassio 4.3", listOf(
             "Everything new since Glassio 4.0, page by page. Your setup stays as it is: each new thing is a choice.",
             "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
@@ -108,11 +108,17 @@ object WhatsNew {
             "Buttons that send no key code (some remotes' Netflix button) can be given a job too.",
             "A TV inputs button: your inputs over any app.",
         ), "Settings → System → Remote buttons"),
+        Page("Manage from phone", listOf(
+            "Its QR code is in the menu and in Settings' search, ready to scan.",
+            "The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.",
+            "Change the theme, language, screensaver and more from your phone.",
+        ), "Menu → Manage from phone"),
         Page("And more", listOf(
             "The Library scrolls in one smooth movement, also with a button held down.",
             "Rows above the dock: an app's row sits right above the dock, so the clock stays in view.",
             "Report a problem from the TV or the phone, cleaned of anything private before it goes.",
             "Recommended for this TV: the right settings for a weaker TV in one press (Settings → System → Performance).",
+            "With Nuvio connected, the settings button becomes your Nuvio profile's picture.",
         ), "Settings → About → Report a problem"),
         GITHUB_PAGE,
         SUPPORT_PAGE?.takeIf { com.glasslauncher.tv.data.Support.ready },

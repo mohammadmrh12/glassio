@@ -7,11 +7,11 @@ import androidx.compose.runtime.mutableIntStateOf
  * Every launcher option lives here. Reads touch a Compose state counter, so any composable that
  * reads a property recomposes automatically when a setter bumps it.
  */
-val MENU_KEYS = listOf("library", "search", "sliders", "gear", "wifi", "bluetooth", "theme", "camera", "saver", "background", "recents", "inputs", "trailer", "profile")
+val MENU_KEYS = listOf("library", "search", "sliders", "phone", "gear", "wifi", "bluetooth", "theme", "camera", "saver", "background", "recents", "inputs", "trailer", "profile")
 /** The menu's order on a new TV. */
-val MENU_DEFAULT = listOf("profile", "inputs", "library", "search", "camera", "sliders", "recents", "gear", "wifi", "bluetooth", "saver", "trailer", "theme", "background")
+val MENU_DEFAULT = listOf("profile", "inputs", "library", "search", "camera", "sliders", "phone", "recents", "gear", "wifi", "bluetooth", "saver", "trailer", "theme", "background")
 val MENU_NAMES = mapOf("library" to "Library", "sliders" to "Glassio settings", "gear" to "Android settings", "wifi" to "Wi-Fi", "bluetooth" to "Bluetooth",
-    "theme" to "Themes", "camera" to "Camera", "saver" to "Screensaver", "background" to "Background", "recents" to "Recent apps", "inputs" to "Inputs", "trailer" to "Trailer", "search" to "Search", "profile" to "Profile")
+    "theme" to "Themes", "camera" to "Camera", "saver" to "Screensaver", "background" to "Background", "recents" to "Recent apps", "inputs" to "Inputs", "trailer" to "Trailer", "search" to "Search", "profile" to "Profile", "phone" to "Manage from phone")
 
 class Settings(private val ctx: Context) {
     // The TV's own settings are kept once, a profile's in that profile's file (see Profiles). For the profile that
@@ -532,6 +532,9 @@ class Settings(private val ctx: Context) {
     var showClock: Boolean get() = b("showClock", false); set(v) = putB("showClock", v)
     /** The settings button at the top: its glyph (sliders, gear, dots, menu, person or "hello") and its frame (square, circle, none). */
     var settingsIcon: String get() = s("settingsIcon", "sliders"); set(v) = putS("settingsIcon", v)
+    /** With Nuvio connected, the settings button becomes the Nuvio profile's picture by itself, once, while no look
+     *  was ever chosen for it ([settingsIcon] never saved in this profile). A look chosen afterwards stays. */
+    var settingsIconNuvio: Boolean get() = b("settingsIconNuvio", true); set(v) = putB("settingsIconNuvio", v)
     var settingsFrame: String get() = s("settingsFrame", "circle"); set(v) = putS("settingsFrame", v)
     var clock24h: Boolean get() = b("clock24h", false); set(v) = putB("clock24h", v)
     var blurRadius: Int get() = i("blurRadius", 8); set(v) = putI("blurRadius", v.coerceIn(0, 80))
@@ -879,6 +882,8 @@ class Settings(private val ctx: Context) {
     var searchMusicOff: List<String> get() = list("searchMusicOff"); set(v) = putList("searchMusicOff", v)
     /** A Search row in the side menu. */
     var menuSearch: Boolean get() = b("menuSearch", true); set(v) = putB("menuSearch", v)
+    /** "Manage from phone" in the side menu: the phone page's QR code in two presses (#33). */
+    var menuPhone: Boolean get() = b("menuPhone", true); set(v) = putB("menuPhone", v)
     /** The words searched before (newest first, one a line), and whether they are kept at all. */
     var searchRecent: Boolean get() = b("searchRecent", true); set(v) = putB("searchRecent", v)
     var searchHistory: List<String> get() = list("searchHistory"); set(v) = putList("searchHistory", v)
@@ -939,6 +944,9 @@ class Settings(private val ctx: Context) {
     fun firstRun() { if (!dev.contains("setupDone")) putB("setupDone", dev.all.size > 8) }
 
     /** Testing over adb (see DevHooks): key=value — true/false, a number, or text; lists with \n. */
+    /** QA: a setting as if it was never saved (its default again). */
+    fun debugUnset(k: String) { val sp = sp(k); if (sp.contains(k)) { sp.edit().remove(k).apply(); wrote(k) } }
+
     fun debugSet(kv: String) {
         val k = kv.substringBefore('='); val v = kv.substringAfter('=')
         when {
@@ -957,6 +965,10 @@ class Settings(private val ctx: Context) {
     var bootStart: Boolean get() = b("bootStart", true); set(v) = putB("bootStart", v)
     /** Manage from phone: minutes the page stays on after you leave that screen (0 = stops at once). */
     var phoneMinutes: Int get() = i("phoneMinutes", 180); set(v) = putI("phoneMinutes", v.coerceIn(0, 720))
+    /** The phone page always on, with the same address and code (a web app on the phone's home screen keeps working). On by default (his choice). */
+    var phoneAlways: Boolean get() = b("phoneAlways", true); set(v) = putB("phoneAlways", v)
+    /** Settings' search shows the phone page's QR code while nothing is typed (#33). */
+    var searchPhoneQr: Boolean get() = b("searchPhoneQr", true); set(v) = putB("searchPhoneQr", v)
     /** App language, a key of I18n.LANGS. */
     var lang: String get() = s("lang", "en"); set(v) { putS("lang", v); I18n.lang = v }
     /** The first-run setup was finished (or skipped with Later). */

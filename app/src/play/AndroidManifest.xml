@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Google Play build: what Play does not allow is taken out of the merged manifest. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+<!-- (Lint reads this overlay on its own once it declares leanback: the TV launcher activity and the optional
+     touchscreen are in the main manifest, and the merged one has both.) -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="MissingLeanbackLauncher,ImpliedTouchscreenHardware">
     <!-- Updates come from Google Play, and nothing else is installed by Glassio. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove"/>
     <!-- Rights only the system or ADB can give: this build never gives itself any. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:node="remove" tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA" tools:node="remove" tools:ignore="ProtectedPermissions"/>
+    <!-- Google allows the photo permissions only for apps whose main job is photos: the icon picker's Photos shows
+         the drop folder (filled from the phone page) instead. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+    <!-- On Play only TVs get it: a home screen for Android TV / Google TV, never offered to phones, tablets or XR
+         headsets (the GitHub build keeps leanback optional for boxes that don't declare it). -->
+    <uses-feature android:name="android.software.leanback" android:required="true" tools:replace="android:required"/>
     <application>
         <receiver android:name=".data.InstallResultReceiver" tools:node="remove"/>
     </application>

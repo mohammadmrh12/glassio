@@ -1061,7 +1061,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         AC.pkg.value = dockPkg.takeIf { cats }
                         // Another app selected: the player the Music icon opened gives way (its rows stayed away).
                         if (dockPkg != MusicUi.DOCK_PKG) MusicUi.forced.value = false
-                        MusicUi.carouselApp.value = com.glasslauncher.tv.data.Channels.keepsCarousel(dockPkg)
+                        MusicUi.carouselApp.value = com.glasslauncher.tv.data.Channels.keepsCarousel(dockPkg) && !rows
                         // Another app's rows: their background starts from their first card (the card selected on an
                         // earlier visit showed its blur for a moment first).
                         if (rows && ChannelsUi.stagePkg.value != dockPkg) ChannelsUi.art.value =

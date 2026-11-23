@@ -66,7 +66,12 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         ?.substringAfter('=')?.let { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() }.orEmpty()
 
     private fun handle(c: Socket) {
-        val input = c.getInputStream()
+        val input = java.io.PushbackInputStream(c.getInputStream())
+        // A browser trying HTTPS first (Safari upgrades a name to HTTPS): closed at once, so it falls back to HTTP
+        // without waiting (it held the connection until the 15 s timeout).
+        val first = input.read()
+        if (first < 0 || first == 0x16) return
+        input.unread(first)
         val req = readLine(input) ?: return
         val parts = req.split(' ')
         if (parts.size < 2) return
@@ -80,7 +85,12 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         }
         val path = target.substringBefore('?'); val q = target.substringAfter('?', "")
         if (!MessageDigest.isEqual(query(q, "t").toByteArray(), token.toByteArray())) { respond(c, 403, "text/plain", "Forbidden"); return }
-        if (method == "GET" && path == "/") { respond(c, 200, "text/html", PhonePage.PAGE); return }
+        // The page opened by IP checks that the phone finds the TV by its name before moving there.
+        if (method == "GET" && path == "/api/ping") { respond(c, 200, "application/json", "{\"ok\":true}", "Access-Control-Allow-Origin: *\r\n"); return }
+        if (method == "GET" && path == "/") { respond(c, 200, "text/html", PhonePage.PAGE.replace("__T__", token).replace("__C__", top)); return }
+        // A web app on the phone's home screen: its manifest (opens this page, with its code) and its icon.
+        if (method == "GET" && path == "/manifest.webmanifest") { respond(c, 200, "application/manifest+json", manifest().toString()); return }
+        if (method == "GET" && path == "/icon.png") { respond(c, 200, "image/png", icon, "Cache-Control: max-age=86400\r\n"); return }
         // The settings button's picture: one button that sends a picture from the phone (the QR code in Settings → Menu & themes).
         if (method == "GET" && path == "/button") { respond(c, 200, "text/html", PhonePage.BUTTON); return }
         // The page's background: Glassio's own soft lights (the setup's picture), made once.
@@ -208,6 +218,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
     @Volatile private var report: com.glasslauncher.tv.data.Report.Data? = null
 
     private fun post(path: String, j: JSONObject): String = when (path) {
+        "/api/pref" -> setPref(j.optString("k"), j.optString("v"))
         "/api/bg/mode" -> {
             val m = j.optString("mode")
             require(m in listOf("carousel", "image", "video", "photos", "aerial")) { "Unknown mode" }
@@ -373,6 +384,69 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         else -> error("Unknown action")
     }
 
+    private fun manifest(): JSONObject = JSONObject().put("name", "Glassio").put("short_name", "Glassio")
+        .put("start_url", "/?t=$token").put("scope", "/").put("display", "standalone")
+        .put("background_color", "#140c24").put("theme_color", "#140c24")
+        .put("icons", JSONArray().put(JSONObject().put("src", "/icon.png?t=$token").put("sizes", "192x192").put("type", "image/png")))
+
+    /** Glassio's own app icon, for the phone's home screen. */
+    private val icon: ByteArray by lazy {
+        val d = app.packageManager.getApplicationIcon(app.packageName)
+        val b = android.graphics.Bitmap.createBitmap(192, 192, android.graphics.Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(b).let { cv -> d.setBounds(0, 0, 192, 192); d.draw(cv) }
+        ByteArrayOutputStream().also { o -> b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o); b.recycle() }.toByteArray()
+    }
+
+    /**
+     * Settings the page can change directly (pick lists and switches), each with the section it shows in. Values are
+     * strings; only these keys and these values are taken (`/api/pref`).
+     */
+    private class Pref(val key: String, val sec: String, val title: String, val desc: String, val opts: List<Pair<String, String>>?)
+    private val onOff: List<Pair<String, String>>? = null
+    private val prefs: List<Pref> by lazy {
+        listOfNotNull(
+            Pref("theme", "look", "Theme", "One look for the dock, the icons and the menu", listOf("water_still" to "Still Glass", "water" to "Dynamic Glass", "liquid" to "Frosted Glass",
+                "clear" to "Clear", "amoled" to "Black AMOLED", "bow" to "Black on white")),
+            Pref("glassColor", "look", "Glass colour", "A tint through all the glass", com.glasslauncher.tv.ui.GlassTint.NAMES.toList()),
+            Pref("lang", "look", "Language", "Glassio's screens", com.glasslauncher.tv.data.I18n.LANGS.toList()),
+            Pref("showClock", "look", "Clock at the top", "Time and date in the corner of the home screen", onOff),
+            Pref("menuPhone", "look", "Manage from phone in the menu", "This page's QR code in the side menu", onOff),
+            Pref("heroAutoplay", "catalogs", "Slides change on their own", "The carousel moves to the next title by itself", onOff),
+            Pref("saverMode", "bg", "Screensaver shows", "", listOfNotNull("aerial" to "Videos", "slideshow" to "Posters",
+                ("trailer" to "Trailers").takeIf { !com.glasslauncher.tv.data.Store.PLAY }, "system" to "The TV's own")),
+            Pref("idleSeconds", "bg", "Screensaver starts after", "Without a key pressed on the home screen", listOf("0" to "Off", "10" to "10 s", "30" to "30 s", "60" to "1 min",
+                "120" to "2 min", "300" to "5 min", "600" to "10 min")),
+            Pref("saverInHome", "bg", "One player", "The screensaver plays on the home screen itself: back at once", onOff),
+            Pref("saverShuffle", "bg", "Shuffle the screensaver", "", onOff),
+            Pref("bgClock", "bg", "Large clock", "The big glass clock over your own background", onOff),
+            Pref("searchPhoneQr", "system", "QR code in Settings' search", "This page's code where the search is empty", onOff),
+            Pref("updateChannel", "system", "Updates", "Stable releases, or betas too", listOf("stable" to "Stable", "beta" to "Beta"))
+                .takeIf { !com.glasslauncher.tv.data.Store.PLAY },
+        )
+    }
+
+    private fun prefValue(k: String): String { val st = app.settings; return when (k) {
+        "theme" -> st.theme; "glassColor" -> st.glassColor; "lang" -> st.lang; "showClock" -> st.showClock.toString()
+        "menuPhone" -> st.menuPhone.toString(); "heroAutoplay" -> st.heroAutoplay.toString(); "saverMode" -> st.saverMode
+        "idleSeconds" -> st.idleSeconds.toString(); "saverInHome" -> st.saverInHome.toString(); "saverShuffle" -> st.saverShuffle.toString()
+        "bgClock" -> st.bgClock.toString(); "searchPhoneQr" -> st.searchPhoneQr.toString(); "updateChannel" -> st.updateChannel
+        else -> "" } }
+
+    private fun setPref(k: String, v: String): String {
+        val p = prefs.firstOrNull { it.key == k } ?: throw IllegalArgumentException("Unknown setting")
+        val opts = p.opts
+        val label = if (opts == null) { require(v == "true" || v == "false") { "On or off" }; if (v == "true") "On" else "Off" }
+            else opts.firstOrNull { it.first == v }?.second ?: throw IllegalArgumentException("Unknown value")
+        val st = app.settings; val b = v == "true"
+        when (k) {
+            "theme" -> st.applyTheme(v); "glassColor" -> { st.glassColor = v; com.glasslauncher.tv.ui.GlassTint.apply(st) }; "lang" -> st.lang = v
+            "showClock" -> st.showClock = b; "menuPhone" -> st.menuPhone = b; "heroAutoplay" -> st.heroAutoplay = b; "saverMode" -> st.saverMode = v
+            "idleSeconds" -> st.idleSeconds = v.toInt(); "saverInHome" -> st.saverInHome = b; "saverShuffle" -> st.saverShuffle = b
+            "bgClock" -> st.bgClock = b; "searchPhoneQr" -> st.searchPhoneQr = b; "updateChannel" -> st.updateChannel = v
+        }
+        return "${p.title}: $label"
+    }
+
     private fun state(): JSONObject {
         val addons = JSONArray()
         app.catalogs.addons.sorted().forEach { addons.put(JSONObject().put("url", it).put("name", app.catalogs.addonName(it)).put("host", runCatching { java.net.URI(it).host }.getOrNull() ?: "")) }
@@ -404,7 +478,10 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         val nuvioServer = JSONObject().put("custom", nv.custom).put("host", if (nv.custom) runCatching { java.net.URI(nv.server).host }.getOrNull() ?: nv.server else "")
             .put("login", if (nv.custom) nv.loginPage else "")
         val pexels = JSONObject().put("key", app.settings.pexelsKey.isNotBlank()).put("words", app.settings.pexelsQuery).put("on", com.glasslauncher.tv.saver.AerialSource.PEXELS in app.settings.saverSources)
-        return JSONObject().put("pexels", pexels).put("youtube", !com.glasslauncher.tv.data.Store.PLAY).put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc).put("nuvioServer", nuvioServer)
+        val pr = JSONArray()
+        prefs.forEach { p -> pr.put(JSONObject().put("k", p.key).put("sec", p.sec).put("t", p.title).put("d", p.desc).put("v", prefValue(p.key))
+            .put("opts", p.opts?.let { o -> JSONArray().apply { o.forEach { (v, l) -> put(JSONArray().put(v).put(l)) } } } ?: JSONObject.NULL)) }
+        return JSONObject().put("prefs", pr).put("byName", PhoneHost.byName(app) ?: "").put("name", LocalName.host(app) + ".local").put("pexels", pexels).put("youtube", !com.glasslauncher.tv.data.Store.PLAY).put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc).put("nuvioServer", nuvioServer)
             .put("tmdb", app.settings.tmdbToken.isNotBlank()).put("ha", app.settings.haWebhook.isNotBlank())
             .put("simklClient", app.cw.simkl.clientId.isNotBlank()).put("city", st.weatherCity)
             .put("profile", JSONObject().put("name", com.glasslauncher.tv.data.Profiles.nameOverride(app, com.glasslauncher.tv.data.Profiles.active(app))))
@@ -417,6 +494,21 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
     }
 
     private fun err(m: String) = JSONObject().put("ok", false).put("error", m).toString()
+
+    /**
+     * The colour along the top of the page's picture (with its shade), for the browser's own top: it took a black
+     * band from the old theme colour, and Safari paints that part with a colour, never a picture.
+     */
+    private val top: String by lazy {
+        runCatching {
+            val b = com.glasslauncher.tv.ui.orbsPicture(640, 360)
+            var r = 0L; var g = 0L; var bl = 0L; var n = 0
+            for (y in 0 until 24) for (x in 0 until b.width step 4) { val c = b.getPixel(x, y); r += (c shr 16) and 0xff; g += (c shr 8) and 0xff; bl += c and 0xff; n++ }
+            b.recycle()
+            fun mix(v: Long, k: Int) = ((v / n) * 0.72 + k * 0.28).toInt().coerceIn(0, 255)
+            String.format("#%02x%02x%02x", mix(r, 5), mix(g, 6), mix(bl, 11))
+        }.getOrDefault("#2a1838")
+    }
 
     private val lights: ByteArray by lazy {
         ByteArrayOutputStream().also { o -> com.glasslauncher.tv.ui.orbsPicture(640, 360).let { b -> b.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, o); b.recycle() } }.toByteArray()

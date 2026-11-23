@@ -2,6 +2,29 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.3.0 — Manage from phone, always at hand
+
+As always, each new thing is a choice: with your settings left as they are, Glassio behaves as before except where
+noted.
+
+- **Manage from phone**:
+  - Its QR code is in the menu (*Manage from phone*, with *Keep the page on*) and in Settings' search while nothing
+    is typed.
+  - *Keep the page on* → **Always** (now the default): the page runs whenever Glassio runs, with one code for this
+    TV that no longer changes with the timer. *New code* (Settings → System → Manage from phone) makes another one.
+  - Save the page to your phone's home screen as an app. The TV also answers to a name on your network
+    (`glassio-<your TV>.local`), so the saved page keeps working when the router gives the TV another address: open
+    the page's System → *Address by name*, then add it to the home screen.
+  - More settings from the phone: theme, glass colour, language, the clock at the top, autoplay, the screensaver's
+    type, start and *One player*, the large clock and more.
+  - Glassio's lights reach the top of the phone's screen (it showed a black band), and the TV's Manage from phone
+    page scrolls (its last row was cut off).
+- **Nuvio's and Stremio's apps** (and their forks) show their own rows when they publish any, like every app with
+  rows.
+- **Settings button**: with Nuvio connected it becomes your Nuvio profile's picture by itself, as long as you never
+  chose a look for it (*Nuvio's picture by itself*, on).
+- Settings → New no longer counts rows it can't show.
+
 ## 4.2.1 — fixes
 
 Fixes for what was reported after 4.2.0. Nothing new to set up.

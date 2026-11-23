@@ -52,9 +52,10 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.2.0 (code 73, stable, 2026-11-23)**: public `86aad11` on `origin/main`
-    (parent 6b59a79), tag `v4.2.0`, *latest*, `Glassio.apk` and `Glassio-4.2.0.apk` (sha256 `b4b1a4a1…28990e4f`,
+  - The last published version is **4.2.1 (code 74, stable, 2026-11-23)**: public `85cfac8` on `origin/main`
+    (parent 86aad11, 4.2.0), tag `v4.2.1`, *latest*, `Glassio.apk` and `Glassio-4.2.1.apk` (sha256 `9da263f6…8c3034e`,
     downloaded and compared, also through `releases/latest/download/Glassio.apk`; the same file is on the Streamer).
+    4.2.0 (code 73, `86aad11`) before it.
     `origin/beta` stays at `4e92df7` (4.1.1-beta1, code 72). 4.1.0 (code 71) before it.
     4.0.0 (code 69) before it. Work goes on on the local `beta` branch.
   - `versionCode` must always go up, for betas and stable releases alike.
@@ -237,7 +238,13 @@ One Glassio per profile of the Nuvio account. A profile's number is Nuvio's (`pr
     a picture no profile uses any more is deleted. Fetched whenever the profiles are read (chooser, setup) and 6 s
     after the start. Shown in the chooser, on the setup's profile buttons, and as the settings button when it is
     set to *Your picture* and none was chosen in Glassio.
-  - **The menu's greeting** (`menuHello`, on by default; Settings → Menu & themes → *Greeting*): "Hello, <name>" at
+  - **The settings button turns into it by itself** (`settingsIconNuvio`, on; Look & menu → *Settings button* →
+    *Nuvio's picture by itself*): when the profile in use has Nuvio's picture ready and `settingsIcon` was never
+    saved in this profile, the top bar writes `settingsIcon = "picture"` once (log "Settings button: Nuvio's profile
+    picture"; asked again whenever `NuvioAvatars.rev` changes). A look chosen by hand (saved) is never changed. A new
+    profile starts without `settingsIcon` (`NOT_COPIED`), so it gets its own Nuvio picture. QA (dev key):
+    `--es pref_unset <key>` removes one saved setting.
+  - **The menu's greeting** (`menuHello`, off by default (the code and `DefaultsTest`); Settings → Menu & themes → *Greeting*): "Hello, <name>" at
     the top of the menu with the profile's picture (`Face`), for the profile in use, with the name as Glassio shows
     it. It goes with the settings button above and never repeats it (`menuGreeting` in `ui/SideMenu.kt`): under a
     *Hello* / *hello* button only the name, under a *Your picture* button no picture. No known profile (not signed
@@ -1870,8 +1877,90 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   (Fire OS 8), then `.ui.SettingsActivity`, then the action as before; `<queries>` for the two Amazon packages.
   **No Fire TV here: not seen on one.** Seen on the Streamer and the TCL: the normal way unchanged, and with
   `--ez fire_settings_test true` (dev key) the Fire TV way falls back to the TV's own Settings, no crash.
-- The next release must replace `NEW_IN`'s 4.2.0 entry with its own rows; bump `WhatsNew.ID` only if the tour
-  changes. Code 74+.
+- **4.2.1 released as stable (2026-11-23, "سوي ريليس", his choice: stable):** #22, #25 and #29's fixes only. Public
+  `85cfac8` (tree of local `beta` at `51e4c54`) on `origin/main`, tag `v4.2.1`, *latest*, both APKs (sha256
+  `9da263f6…8c3034e`, the Streamer's file). Tests, lint (both flavors), play scan clean, `nav` clean on the Streamer.
+  A fixes release with no `NEW_IN` entry now keeps its minor version's New rows (`newVer` falls back to X.Y.0), so
+  4.2.0's marks and what was seen of them stay. Tour unchanged (`WhatsNew.ID` 68). #22, #25, #29 told (his "وجاوبهم"; one
+  comment each, no link); #22 and #25 stay closed, #29 left open for its author to confirm on a Fire TV. Not seen: the updater offering 4.2.1 to a TV on 4.2.0.
+- **The play build brought up to 4.2.1 (2026-11-23, his "سوي النقاط وافحص ع الستريمر"; local commits only):** the
+  accessibility agreement (`A11Y_TEXT`), the service's description (`src/play/res`), the Console's wording
+  (`docs/play/README.md`) now say the service also knows which app is in front (its name only: Recent apps, back
+  from an app Glassio opened, waiting on the TV's USB debugging window, cameras over apps); `docs/PRIVACY.md` has
+  Jellyfin, Pexels, the search (JustWatch) and YouTube / SoundCloud search (github build); the listing names Search,
+  Jellyfin, One player and the remote's three presses. **Found: New's rows under another row ("  · Where", Pexels'
+  key and words) never matched their marks** (the seen list is kept trimmed, rows are compared by `norm`): New counted
+  3 with an empty page, also on 4.2.0; both sides now go through `norm` (in the next github release too). The play
+  AAB and APK (4.2.1, code 74, upload key `d1d9d86b…8d5434`) are in the Desktop folder with the policy and listing
+  copied from the repo (4.0.0's files moved to `old 4.0.0`). Seen on the Streamer (installed fresh, then removed
+  again): setup → Later, no New chip, the agreement window whole with Not now selected (pressed), About without
+  updates or the gift card, Settings' search finding Jellyfin and no YouTube rows, the home search with titles and
+  no YouTube row. Then, his "سويهن كلهن": **the AAB itself** through bundletool (1.18.3 from the Gradle cache:
+  its jar has no main class; classpath with a `-jre` Guava, kotlin-stdlib, protobuf, aapt2-proto, dagger, gson,
+  jose4j, apksig, and `--aapt2` from the SDK's build tools): `build-apks --connected-device` gave base-master,
+  armeabi_v7a (TensorFlow Lite and androidx graphics libraries) and en, installed with `install-apks`, setup, home
+  and Settings ran from them; **the service on in the play build**: Agree on the agreement page opened the TV's
+  Accessibility page, the service was switched to the play build's with `settings put secure` (his yes), and a real
+  Home (a virtual remote made with `hid`, consumer usage AC Home 0x0223: `input keyevent` never reaches the service)
+  from the TV's settings brought the play build up while the TV's own home app is Google TV's. Put back after:
+  `enabled_accessibility_services` the GitHub build's (as before), the play build removed, Home brings the GitHub
+  build. The new privacy policy is public: `ea23eb4` on `origin/main` (docs only, parent 85cfac8 = 4.2.1; his "سوي push").
+  The developer account's verification finished the same day (2026-11-23): *Create app* is open in the Console.
+- **Settings button → Nuvio's picture by itself (2026-11-23, his ask; local, not released):** see **Profiles**.
+  Seen on the Streamer in his profile: `settingsIcon` removed → after a restart the button showed Moss (his Nuvio
+  picture) and the log line; `sliders` chosen → stayed sliders after a restart; the switch off with nothing chosen →
+  stayed sliders; the row found by Settings' search. His `settingsIcon` put back to `picture`, `settingsIconNuvio`
+  removed again. Its row is not in `NEW_IN` yet (add it to the next release's entry). Seen once while testing:
+  after several `am start` hooks the TV had **no focused window** (`dumpsys input` → FocusedWindows empty): keys did
+  nothing, no frame drawn, no ANR; opening the TV's settings and coming back fixed it. Not looked into.
+- **The play build is for TVs only** (2026-11-23, his yes): `src/play/AndroidManifest.xml` makes
+  `android.software.leanback` required (`tools:replace`), so Play never offers it to phones, tablets or XR headsets;
+  the GitHub build keeps it optional. Lint reads that overlay alone and asked for a TV launcher and an optional
+  touchscreen (both are in the main manifest): ignored on that file. The rebuilt AAB (4.2.1, code 74) ran on the
+  Streamer from bundletool's split APKs and is in the Desktop folder. Play Console progress is in CLAUDE.local.md.
+- **#33 and the phone page (2026-11-23 evening, his asks; not released, nothing posted):**
+  - Settings' empty search shows the phone page's QR code (`searchPhoneQr`, on; `PhoneQr` in `SettingsScreen.kt`),
+    started as System → Manage from phone starts it and left on for as long as that page says. Seen on the Streamer.
+  - *Manage from phone* in the side menu (`menuPhone`, on; key `phone` in `MENU_KEYS` / `MENU_DEFAULT`, a phone
+    glyph): its own page in the menu (his ask: not Settings) with the QR code and *Keep the page on* (OK → the next
+    of `PhoneHost.KEEP`, Always last; `PhoneHost.setKeep` is shared with Settings). A saved menu order gets it at the
+    end. Seen: the QR in the menu; 3 h → Always (the code changed to the lasting one; after a force-stop and a start
+    the same address answered 200 with nothing opened); cycled back to 3 h (`phoneAlways` false, 180).
+  - *Keep the page on* → **Always** (`phoneAlways`, **on by default** since his ask, the TV's, never synced): the page runs whenever Glassio runs
+    (started in `GlassApp`, retried while the network comes up) with one code kept in `phone_access` (not a `glass…`
+    file: never in a backup, sync or report); switching Always off forgets that code. Not yet seen across a TV restart.
+  - The page as a web app: `/manifest.webmanifest` (start URL with the code, standalone), `/icon.png` (Glassio's
+    icon, 192 px), Apple's web-app tags; the page is served with its code filled in (`__T__`). No `theme-color` any
+    more and `html` has the lights picture, so the browser's top (his photo: a black band) shows Glassio's lights.
+    Checked in Chrome at a phone's size; **not seen on his iPhone** (Safari's top and Add to Home Screen).
+  - **One code per TV, and a name** (his ask: the saved web app must keep working): the page's code is always the
+    lasting one in `phone_access` (Settings → Manage from phone → *New code* makes another and stops the old pages);
+    changing *Keep the page on* no longer changes it. While the page runs the TV answers multicast DNS for
+    `glassio-<device name>.local` (`net/LocalName.kt`: A questions for that one name, the TV's own IPv4; a
+    `MulticastLock`, permission `CHANGE_WIFI_MULTICAST_STATE`), so the address stays when the router gives another IP.
+    The QR stays the IP address (every phone opens it); the page's System → *Address by name* checks the name
+    (`/api/ping`, CORS) and moves there, to be added to the home screen. Seen from the Mac: `dns-sd` and `curl` reach
+    `glassio-google-tv.local:9090` (HTTP 200). The test Chrome could not (macOS Local Network permission for that
+    browser). **Not seen on his iPhone.** The browser's top: `theme-color` and `html`'s colour are the lights
+    picture's top colour (`#231830` here, `__C__`), not black. Not seen in Safari.
+    **The web app's black screen then Safari's "Not Secure" warning** (his photos): the name had only an A record, so
+    every lookup waited ~5 s for an IPv6 answer, and Safari's HTTPS try held the connection until the server's 15 s
+    timeout. Now any other question for the name gets an NSEC "only A" answer (`LocalName.answer`), and a connection
+    whose first byte is a TLS handshake (0x16) is closed at once (`PhoneServer.handle`). From the Mac: lookup
+    5.0 s → 0.003 s, HTTPS try 20 s → 0.006 s. Safari may still show its warning once for a plain-HTTP name
+    (its HTTPS-first rule); *Continue* is remembered for that site.
+    **After the fix, on his iPhone:** the page opens normally in Safari, but the home-screen web app still starts
+    slowly. He said to leave it (2026-11-23); cause not looked into.
+  - Settings from the phone: `/api/pref` with an allowlist (`Pref` table in `PhoneServer`: theme, glass colour,
+    language, clock at the top, menu row, autoplay, screensaver type / start / One player / shuffle, large clock,
+    the search QR, updates channel on the github build); any other key is refused. Rows under *Settings* in each
+    section (`prefRows`). Seen: Clock at the top on and back off from the page, an unknown key refused.
+  - **Nuvio's and Stremio's apps (and forks) show their rows again** (his ask: they were left out on purpose once;
+    #33's Nuvio One rows stayed blank because of it): `Channels.read` no longer drops them; `carouselApp` only while
+    such an app shows no rows. On his Streamer only Stremio publishes rows (Continue Watching, Library); it is listed
+    under *Apps with channels* now; not opened from the dock (it is in his Apps folder). Nuvio Legacy publishes none.
+  - Its rows are not in `NEW_IN` yet (the next release's entry). `nav` clean, tests and lint for both builds.
+- The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 75+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and
     not their home or a profile picker) is only known from the intent in front.

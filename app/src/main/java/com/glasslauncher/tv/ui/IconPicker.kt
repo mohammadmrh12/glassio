@@ -312,7 +312,9 @@ private fun PackGrid(app: GlassApp, s: Float, list: List<PackIcon>?, empty: Stri
 private fun PhotoGrid(app: GlassApp, s: Float, onPick: (Uri) -> Unit) {
     val ctx = LocalContext.current
     val perm = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
-    var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, perm) == PackageManager.PERMISSION_GRANTED) }
+    // The play build has no photo permission (Google allows it only for photo apps): the folder and the phone page.
+    val canAsk = !com.glasslauncher.tv.data.Store.PLAY
+    var granted by remember { mutableStateOf(canAsk && ContextCompat.checkSelfPermission(ctx, perm) == PackageManager.PERMISSION_GRANTED) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
     val list by produceState<List<Uri>?>(null, granted) {
         value = withContext(Dispatchers.IO) {
@@ -331,7 +333,7 @@ private fun PhotoGrid(app: GlassApp, s: Float, onPick: (Uri) -> Unit) {
         }
     }
     Column(Modifier.fillMaxSize()) {
-        if (!granted) {
+        if (!granted && canAsk) {
             Row(Modifier.padding((14 * s).dp), verticalAlignment = Alignment.CenterVertically) {
                 PickButton("Allow access to photos on this TV", s) { launcher.launch(perm) }
             }
@@ -339,7 +341,8 @@ private fun PhotoGrid(app: GlassApp, s: Float, onPick: (Uri) -> Unit) {
         val l = list
         when {
             l == null -> Hint("Loading…", s)
-            l.isEmpty() -> Hint("No images yet. Allow access above, or copy images into ${app.icons.dropFolder.absolutePath}", s)
+            l.isEmpty() -> Hint(if (canAsk) "No images yet. Allow access above, or copy images into ${app.icons.dropFolder.absolutePath}"
+                else "No images yet. Send one from your phone (Settings → System → Manage from phone), or copy images into ${app.icons.dropFolder.absolutePath}", s)
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive((112 * s).dp),
                 contentPadding = PaddingValues((14 * s).dp),

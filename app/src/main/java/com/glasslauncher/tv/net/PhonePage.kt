@@ -12,10 +12,12 @@ package com.glasslauncher.tv.net
 internal object PhonePage {
     const val PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="color-scheme" content="dark"><meta name="theme-color" content="#05060b"><link rel="icon" href="data:,"><title>Glassio</title><style>
+<meta name="color-scheme" content="dark"><meta name="theme-color" content="__C__"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Glassio">
+<link rel="manifest" href="/manifest.webmanifest?t=__T__"><link rel="apple-touch-icon" href="/icon.png?t=__T__"><link rel="icon" href="/icon.png?t=__T__"><title>Glassio</title><style>
 /* Liquid glass over Glassio's own lights (the setup's picture, sent by the TV), always dark; the accent is burgundy. */
 :root{color-scheme:dark;--ink:#fff;--sub:rgba(255,255,255,.64);--line:rgba(255,255,255,.12);--field:rgba(255,255,255,.11);--accent:#8c1c3a;--hi:#e08aa0;--red:#ff9a8f;--green:#6fe7a4;--pic:none}
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;background:#05060b}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;background:__C__ var(--pic) center/cover no-repeat}
 body{margin:0;min-height:100vh;color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 body:before{content:"";position:fixed;inset:-4%;z-index:-1;background:linear-gradient(rgba(5,6,11,.28),rgba(5,6,11,.5)),var(--pic) center/cover no-repeat,#05060b}
 button,input,textarea{font:inherit;color:inherit}button{appearance:none;border:0;background:none;padding:0;cursor:pointer;text-align:inherit}
@@ -139,7 +141,11 @@ function model(){var d=D,A=d.accounts,N=d.nuvioServer,g=d.bg,P=d.photos,H=d.home
   d.cams.forEach(function(x,i){r.push({t:x.name,d:x.host,go:function(){pick(x.name,x.host,[{t:'Rename',go:function(){edit({t:'Camera name',f:[{k:'name',ph:'Name',val:x.name}],save:function(v){if(v.name)act('/api/camera/rename',{i:i,name:v.name})}})}},
    {t:'Remove',red:true,go:function(){act('/api/camera/remove',{i:i})}}])}})});return r}
  var connected=['nuvio','stremio','trakt','simkl','jellyfin'].filter(function(k){return A[k]}).length;
- return [
+ function prefRows(sec){var l=(d.prefs||[]).filter(function(p){return p.sec==sec});if(!l.length)return [];var r=[{h:'Settings'}];
+  l.forEach(function(p){if(p.opts){var cur=p.opts.filter(function(o){return o[0]==p.v})[0];
+   r.push({t:p.t,d:p.d,v:cur?cur[1]:p.v,k:'setting',go:function(){pick(p.t,p.d,p.opts.map(function(o){return {t:o[1],on:o[0]==p.v,go:function(){act('/api/pref',{k:p.k,v:o[0]})}}}))}})}
+   else{var on=p.v=='true';r.push({t:p.t,d:p.d,v:on?'On':'Off',ok:on,k:'setting',go:function(){act('/api/pref',{k:p.k,v:on?'false':'true'})}})}});return r}
+ var M=[
  {id:'accounts',t:'Accounts & profiles',v:connected+' of 5',rows:function(){return [
   {h:'Profile'},
   txt('Name','As Glassio shows this profile. Empty: the name it has in Nuvio',d.profile.name||'As in Nuvio',{e:{t:'Profile name',f:[{k:'name',ph:'Empty: the name in Nuvio',val:d.profile.name}],save:function(v){act('/api/profile/name',v)}}}),
@@ -199,8 +205,15 @@ function model(){var d=D,A=d.accounts,N=d.nuvioServer,g=d.bg,P=d.photos,H=d.home
   {t:'Download a backup',d:'Every setting of this TV, as one file',go:function(){location.href='/api/backup?t='+encodeURIComponent(T)}},
   {t:'Restore from a file',d:'Replaces everything on this TV',go:function(){choose('.json,application/json',restore)}},
   {note:'Another TV: download the backup here, open this page on the other TV and restore it there. '+d.backup.moves+' '+d.backup.stays},
+  {h:'This page on your phone'},
+  d.byName?{t:'Address by name',d:'Stays the same when the TV gets another IP from the router. Open it, then Share → Add to Home Screen',v:d.name,k:'web app home screen ip address fixed',go:function(){
+   if(location.hostname==d.name){say('This page is already open by its name',true);return}
+   say('Looking for the TV by its name…',true,true);
+   fetch(d.byName.replace('/?','/api/ping?'),{mode:'cors'}).then(function(r){if(!r.ok)throw 0;location.href=d.byName})
+   .catch(function(){say('This phone can\'t find the TV by its name. Give the TV a fixed address in your router instead',false)})}}:null,
   {h:'Help'},
-  {t:'Report a problem',d:'Typed here, sent from the TV to GitHub with its log',go:report,k:'bug issue feedback'}]}}]}
+  {t:'Report a problem',d:'Typed here, sent from the TV to GitHub with its log',go:report,k:'bug issue feedback'}]}}];
+ M.forEach(function(s){var f=s.rows;s.rows=function(){return f().concat(prefRows(s.id))}});return M}
 
 /* ---- Drawing ---- */
 var GROUPS=[['accounts','catalogs'],['dock','look','bg'],['home','system']];
@@ -223,7 +236,7 @@ function draw(){if(!D)return;var M=model(),h=location.hash.replace(/^#/,'').spli
  if(!sec){ti.textContent='Glassio';var m=G('menu'),q=G('q').value.trim().toLowerCase();m.textContent='';
   if(q){var f=found(q,M);if(f.length)rows(m,f,null);else m.appendChild(el('p','empty','Nothing found for "'+q+'"'))}
   else GROUPS.forEach(function(g){var c=el('div','card');c.style.marginTop='12px';g.forEach(function(id){var s=M.filter(function(x){return x.id==id})[0];c.appendChild(rowEl({t:s.t,v:s.v,more:1,go:function(){location.hash=s.id}},s))});m.appendChild(c)});
-  G('about').textContent='Glassio '+D.version+' · '+D.tv+' · This page works while Settings → System → Manage from phone keeps it on.';return}
+  G('about').textContent='Glassio '+D.version+' · '+D.tv+' · This page works while Settings → System → Manage from phone keeps it on (Always: whenever Glassio runs). To keep it as an app: Share → Add to Home Screen.';return}
  var v=G('view'),keep=sub&&sub.find&&G('sf')?G('sf').value:'';v.textContent='';
  if(sub){ti.appendChild(el('span','',sec.t+' › '));ti.appendChild(document.createTextNode(sub.t));
   if(sub.find){var i=el('input','find');i.id='sf';i.type='search';i.placeholder='Find';i.setAttribute('aria-label','Find in this list');i.value=keep;var box=el('div');i.oninput=function(){box.textContent='';rows(box,sub.rows(),sec,i.value.trim().toLowerCase())};v.appendChild(i);v.appendChild(box);rows(box,sub.rows(),sec,keep.trim().toLowerCase())}

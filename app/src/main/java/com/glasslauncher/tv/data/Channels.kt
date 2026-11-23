@@ -22,7 +22,7 @@ object Channels {
     const val PERMISSION = "android.permission.READ_TV_LISTINGS"
     const val WATCH_NEXT_NAME = "Continue watching"
 
-    /** Nuvio's and Stremio's apps keep the carousel (it is made of their titles): no rows, no music player there. */
+    /** Nuvio's and Stremio's apps keep the carousel (it is made of their titles) unless they show rows: no music player there. */
     fun keepsCarousel(pkg: String) = pkg.contains("nuvio", ignoreCase = true) || pkg.contains("stremio", ignoreCase = true)
 
     /** Every app's rows that have something in them (read on the main thread's behalf, see [refresh]). */
@@ -84,7 +84,9 @@ object Channels {
         val next = runCatching { programs(ctx, WATCH_NEXT, "package_name") }.getOrDefault(emptyMap())
         (next.entries.mapIndexed { i, (pkg, l) -> Channel(-1L - i, pkg, WATCH_NEXT_NAME, l) } +
             chans.mapNotNull { (id, pkg, name) -> byChannel[id.toString()]?.takeIf { it.isNotEmpty() }?.let { Channel(id, pkg, name.ifBlank { "Recommended" }, it) } })
-            .filterNot { keepsCarousel(it.pkg) || it.pkg == ctx.packageName }
+            // (Nuvio's and Stremio's apps and their forks too, like any other app: their rows were left out once, and
+            // Nuvio One's "Show its rows" stayed blank, #33. Each app's rows can still be switched off in Settings.)
+            .filterNot { it.pkg == ctx.packageName }
     }
 
     @Volatile private var started = false

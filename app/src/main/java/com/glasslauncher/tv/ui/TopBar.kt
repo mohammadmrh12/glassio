@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.asAndroidBitmap
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.focus.focusProperties
@@ -122,6 +123,17 @@ internal fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: 
     }
     var barFocused by remember { mutableStateOf(false) }
     LaunchedEffect(barFocused) { DockFocus.top = barFocused }
+    // Nuvio connected and its profile's picture here: the button shows it, once, while no look was ever chosen for it
+    // (`settingsIconNuvio`). Asked again whenever Nuvio's pictures change (they arrive a few seconds after the start).
+    val nuvioPics = com.glasslauncher.tv.data.NuvioAvatars.rev.intValue
+    LaunchedEffect(nuvioPics, settings.settingsIconNuvio) {
+        if (!settings.settingsIconNuvio || settings.setKeys(listOf("settingsIcon")).isNotEmpty()) return@LaunchedEffect
+        val P = com.glasslauncher.tv.data.Profiles
+        val ready = withContext(Dispatchers.IO) {
+            P.known(app).firstOrNull { it.id == P.active(app) }?.let { com.glasslauncher.tv.data.NuvioAvatars.ready(app, it) } != null
+        }
+        if (ready && settings.setKeys(listOf("settingsIcon")).isEmpty()) { settings.settingsIcon = "picture"; com.glasslauncher.tv.data.Glog.i("Settings button: Nuvio's profile picture") }
+    }
     // Auto-hide: the clock and the settings button stay hidden while you move around the home screen
     // and only appear when focus goes up to the settings button. (A few seconds at first, so you see where it is.)
     var intro by remember { mutableStateOf(true) }

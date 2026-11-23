@@ -81,7 +81,7 @@ object Profiles {
         // Nuvio's link to this TV, and what opens a title
         "nuvioPush", "nuvioToken", "nuvioTarget",
         // The TV's own things: start-up, the Home button, the phone page, updates, sync, backups, the system's screensaver
-        "interceptHome", "a11yConsent", "bootStart", "phoneMinutes", "updateChannel", "recentsAdb", "setupDone", "tourSeen", "syncAll", "backupSignIns",
+        "interceptHome", "a11yConsent", "bootStart", "phoneMinutes", "phoneAlways", "updateChannel", "recentsAdb", "setupDone", "tourSeen", "syncAll", "backupSignIns",
         "saverSys", "settingsLastCat", "settingsLastRow", "settingsLayout",
         // App locks (a profile must not be a way around them)
         "lockCode", "lockedApps", "lockHintOn", "lockHint",

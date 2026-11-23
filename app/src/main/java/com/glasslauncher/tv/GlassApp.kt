@@ -205,6 +205,10 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(r, f)
         }
         Bg.io("glass-start") { runCatching { DevHooks.key(this) } }
+        // Manage from phone set to Always: the page is there whenever Glassio runs (the network may come a moment later).
+        if (settings.phoneAlways) Bg.io("glass-phone") {
+            repeat(12) { if (com.glasslauncher.tv.net.PhoneHost.start(this@GlassApp) != null) return@io; kotlinx.coroutines.delay(5000L) }
+        }
         com.glasslauncher.tv.ui.Glow.amount = settings.glowSize
         // The menu's TV numbers are ready before it first opens.
         if (settings.menuSys) Bg.io("glass-start") { runCatching { com.glasslauncher.tv.data.SystemInfo.read(this, settings.sysCpu || settings.sysGpu) }.onFailure { com.glasslauncher.tv.data.Glog.w("System info", it) } }

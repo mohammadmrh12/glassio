@@ -165,10 +165,10 @@ private fun ConsentDialogView(d: ConsentDialog, onDismiss: () -> Unit) {
 
 /** The play build's words about the accessibility service (shown before the TV's Accessibility settings open). */
 const val A11Y_TITLE = "Glassio's accessibility service"
-const val A11Y_TEXT = "Glassio uses Android's Accessibility API for one thing: to notice the buttons of your remote, and when the TV's own home screen comes up. " +
-    "That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set, " +
-    "and how a camera or the doorbell can show over another app.\n\n" +
-    "The service does not read what is on the screen, does not read what you type, and collects or shares nothing. " +
+const val A11Y_TEXT = "Glassio uses Android's Accessibility API for two things: to notice the buttons of your remote, and to know which app is in front (its name only). " +
+    "That is how the Home button opens Glassio instead of the TV's own home screen, the remote buttons you choose do what you set, Recent apps lists the apps you used, " +
+    "Glassio comes back when you leave an app it opened, it waits while the TV asks you to allow USB debugging, and a camera or the doorbell can show over another app.\n\n" +
+    "The service does not read what is on the screen, does not read what you type, and collects or shares nothing: what it notices stays on this TV. " +
     "It only works after you turn it on yourself in the TV's Accessibility settings, and you can turn it off there at any time."
 
 @Composable

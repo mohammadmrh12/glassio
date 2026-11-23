@@ -37,8 +37,11 @@ Before the TV's Accessibility settings open, the play build shows what the servi
 does nothing even when it is on (`HomeKeyService.agreed`, `a11yConsent`); the agreement can be taken back.
 
 In the Play Console (App content → Accessibility API): not an accessibility tool (`isAccessibilityTool` is not set);
-purpose: "Detects remote-control key presses so the Home button opens this home screen, and so user-chosen remote
-buttons and camera pop-ups work. No screen content is read; no data is collected." A short video of the agreement
+purpose: "Detects remote-control key presses so the Home button opens this home screen and user-chosen remote buttons
+work; reads which app's window is in front (package and class name only, from window-state events) for the Recent
+apps list, to return to the home screen after an app it opened, to wait while the system asks to allow USB debugging,
+and to show camera pop-ups over other apps. No screen content is read (canRetrieveWindowContent is false); nothing
+leaves the device." A short video of the agreement
 page and the Home button is asked for.
 
 ## Before the first upload (not code)
@@ -69,14 +72,19 @@ without other companies' logos where possible), and nothing that sounds like fre
 
   - Make it yours: themes, glass styles, dock layouts, icon packs, your own picture, photos or video as the background.
   - Profiles: each person has their own look, dock and lists.
-  - Your lists in one place: Continue Watching and Library from the accounts you connect (Trakt, Simkl and others).
+  - Search: films and series, and where you can watch them among the apps on your TV.
+  - Your lists in one place: Continue Watching and Library from the accounts you connect (Trakt, Simkl, your own
+    Jellyfin server and others).
   - Music: what is playing in your music app, as an island or a full player.
   - Smart home: Philips Hue colours, Home Assistant, cameras and the doorbell.
-  - A screensaver with your posters or videos, a big clock and the weather.
+  - A screensaver with your posters or videos (also Pexels with your own key), a big clock and the weather; it can
+    play on the home screen itself.
+  - Remote buttons: give any button a job for a press, a double press and a hold.
   - No ads, no tracking. Open source (GPL-3.0).
 
   Glassio shows information about titles and opens them in the apps you have. It does not play or provide films or
   series itself.
 
-  Accessibility: Glassio offers an optional accessibility service, used only to notice remote-control buttons so the
-  Home button can open Glassio. It reads no screen content and collects nothing.
+  Accessibility: Glassio offers an optional accessibility service, used to notice remote-control buttons so the Home
+  button can open Glassio, and which app is in front (its name only) for Recent apps and returning to Glassio. It
+  reads no screen content and collects nothing.

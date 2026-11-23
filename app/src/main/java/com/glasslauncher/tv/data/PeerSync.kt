@@ -56,7 +56,7 @@ object PeerSync {
     // ---- What belongs to each TV (never synced)
     private val NEVER = setOf(
         "interceptHome", "a11yConsent", "inputs", "inputPlayer", "setupDone", "tourSeen", "musicLastPkg", "bootStart", "recentsAdb",
-        "nuvioToken", "nuvioTarget", "cameraDecoder", "phoneMinutes", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
+        "nuvioToken", "nuvioTarget", "cameraDecoder", "phoneMinutes", "phoneAlways", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
         // (Which of this TV's own links are off: the links stay on each TV, so does this.)
         "saverYtOff",
     )
