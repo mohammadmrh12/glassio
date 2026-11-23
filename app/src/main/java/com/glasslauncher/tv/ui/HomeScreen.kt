@@ -132,6 +132,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val scope = rememberCoroutineScope()
     var backdrop by remember { mutableStateOf<String?>(null) }
     var expanded by remember { mutableStateOf(false) }
+    // The search asked for (OK on its icon, the menu's row, a remote button) while the dock is open on its lower rows:
+    // the dock folds, or the search's page can't show (#23: the icon in the second row, OK did nothing).
+    val searchAsked = remember { intArrayOf(SearchUi.want.intValue) }
+    LaunchedEffect(SearchUi.want.intValue) { if (SearchUi.want.intValue != searchAsked[0]) { searchAsked[0] = SearchUi.want.intValue; expanded = false } }
     var movingPkg by remember { mutableStateOf<String?>(null) }
     var dialog by remember { mutableStateOf<DialogState?>(null) }
     var settingsCat by remember { mutableIntStateOf(0) }
@@ -144,6 +148,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     val folderFocus = remember { FocusRequester() }
     var pickerFor by remember { mutableStateOf<AppEntry?>(null) }
     var folderOpen by remember { mutableStateOf(false) }
+    androidx.compose.runtime.SideEffect { com.glasslauncher.tv.saver.HomeSaver.folderOpen = folderOpen }
     var libFromDock by remember { mutableStateOf(false) }
     /** When the dock's selection last moved (see the Search icon's wait while it is only passed over). */
     val dockMovedAt = remember { longArrayOf(0L) }
@@ -196,10 +201,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     }
     // The music apps' and inputs' own background (Glassio's lights, or the carousel's picture blurred) made ahead on
     // the quiet thread, the carousel's again after each new picture has settled: the page then comes up at once.
+    // (On a weak TV, memory tier 0, only while one of those icons is selected: made after every slide it was three
+    // blurs of the whole page each time, for a page that may never be opened. The grey page covers the wait.)
+    val stageIcon = ChannelsUi.dockPkg.value.let { it == MusicUi.DOCK_PKG || it == SearchUi.DOCK_PKG || it == com.glasslauncher.tv.data.Inputs.DOCK_PKG }
     LaunchedEffect(settings.stagePageBg, settings.bgMode, settings.musicOn, settings.inputsIcon, settings.searchOn, if (settings.stagePageBg == "carousel") shownUrl.value else null,
-        settings.blurRadius, settings.glassRes, settings.pageScale, settings.channelsBlurBri) {
+        settings.blurRadius, settings.glassRes, settings.pageScale, settings.channelsBlurBri, if (settings.memTier == 0) stageIcon else true) {
         val mode = settings.stagePageBg
         if (mode == "grey" || settings.bgMode != "carousel" || !(settings.musicOn || settings.inputsIcon || settings.searchOn)) return@LaunchedEffect
+        if (settings.memTier == 0 && !stageIcon) return@LaunchedEffect
         val u = shownUrl.value?.takeIf { !it.startsWith("glassio:") }
         if (mode == "carousel" && u == null) return@LaunchedEffect
         delay(if (mode == "carousel") 900 else 3_000)
@@ -243,7 +252,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // Left shade switch and its bottom shade.)
     (if (settings.bgMode != "carousel") settings.sideShadeOff else settings.carouselShade == "off").let { if (Scrims.sideOff != it) Scrims.sideOff = it }
     (settings.bgMode == "carousel" && settings.carouselShade == "off").let { if (Scrims.bottomOff != it) Scrims.bottomOff = it }
-    LaunchedEffect(backdrop, Scrims.key, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value || SearchUi.page.value, settings.stagePageBg, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null) {
+    // The backdrop whose picture couldn't be had (see NetState).
+    val backFailed = remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(backdrop, Scrims.key, settings.blurRadius, settings.glassRes, settings.slideAnim, settings.pageScale, settings.memTier, settings.bgMode, settings.bgImage, settings.bgVideo, CustomBackground.aerial.value, CustomBackground.frameRev.intValue, com.glasslauncher.tv.data.Photos.current.value, ChannelsUi.shown.value || MusicUi.idleOn.value || InputsUi.page.value || SearchUi.page.value, settings.stagePageBg, if (ChannelsUi.shown.value && settings.channelsBg == "blur") ChannelsUi.art.value?.let { it.first + (if (it.second != null) "#" else "") } else null,
+        // (A backdrop that failed after its tries is asked again when the network is back or the screen shows again.)
+        if (backFailed.value != null && backFailed.value == backdrop) com.glasslauncher.tv.data.NetState.rev.intValue else 0) {
         GlassCache.res = settings.glassRes
         // The channels' rows on screen: the page and the glass show their background (the Library's grey, or the
         // selected card's picture blurred), crossfaded together. Coming from the music page it fades from that page
@@ -391,7 +404,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             if (fullBmp == null) com.glasslauncher.tv.data.Glog.w("Backdrop $u failed (try ${tries + 1})", (res as? coil3.request.ErrorResult)?.throwable)
             tries++
         }
-        if (fullBmp == null) return@LaunchedEffect
+        if (fullBmp == null) { backFailed.value = u; com.glasslauncher.tv.data.NetState.failed(); return@LaunchedEffect }
+        if (backFailed.value == u) backFailed.value = null
         val first = backImgs == null
         // (Back from a page of the dock's own icons or an app's rows: a short crossfade, not a slide's length. It took
         // the slides' time, 560 ms and more, and the search felt slow to leave.)
@@ -500,14 +514,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     LaunchedEffect(app.requestFolder.value) { if (app.requestFolder.value) { openFolder(); folderByKey = true; app.requestFolder.value = false } }
     // Nothing selected on the home screen (back from the screensaver, or the Apps folder closed by its remote
     // button): the remote did nothing until Home. The Play button (or the first app) is selected again.
-    val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    val lifeNow by life.currentStateFlow.collectAsState()
-    val isResumed = lifeNow.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
-    LaunchedEffect(isResumed, folderOpen, screen, menuOpen) {
-        if (!isResumed || folderOpen || screen != Screen.Home || menuOpen || SearchUi.full.value) return@LaunchedEffect
+    // (Whether Glassio is in front is read in a small composable of its own, [WhenResumed]: read here, every start
+    // and every return (from an app, from the screensaver) composed the whole home screen again, twice: one frame
+    // of 200-330 ms on the main thread each time, the "heavy" return he reported.)
+    WhenResumed(folderOpen, screen, menuOpen) { isResumed ->
+        if (!isResumed || folderOpen || screen != Screen.Home || menuOpen || SearchUi.full.value) return@WhenResumed
         repeat(3) {
             delay(250)
-            if (homeHasFocus[0] || pop != null || dialog != null || pickerFor != null) return@LaunchedEffect
+            if (homeHasFocus[0] || pop != null || dialog != null || pickerFor != null) return@WhenResumed
             // (With your own background the hidden spot above the dock opens the menu: the first app then.)
             // (The search page up: its bar. The carousel's button isn't there then, and the page went away with the selection.)
             val first = if (SearchUi.page.value) SearchUi.entry else if (settings.bgMode != "carousel") firstTile else heroFocus
@@ -519,8 +533,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // pop-up that went away with the selection in it), something is selected again. The fixes for each case missed
     // others; this catches them all.
     val winInfo = androidx.compose.ui.platform.LocalWindowInfo.current
-    LaunchedEffect(isResumed) {
-        if (!isResumed) return@LaunchedEffect
+    WhenResumed { isResumed ->
+        if (!isResumed) return@WhenResumed
         var lost = 0; var tries = 0
         while (true) {
             delay(250)
@@ -568,8 +582,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     BackHandler(enabled = screen == Screen.Home && movingPkg != null) { movingPkg = null }
     BackHandler(enabled = screen == Screen.Home && movingPkg == null && expanded && !folderOpen) { runCatching { firstTile.requestFocus() } }
     BackHandler(enabled = settings.backSaver && screen == Screen.Home && movingPkg == null && !expanded && !folderOpen && pickerFor == null) {
-        SaverGate.opening.value = true
-        runCatching { ctx.startActivity(android.content.Intent(ctx, com.glasslauncher.tv.saver.ScreensaverActivity::class.java)) }
+        runCatching { (ctx as? android.app.Activity)?.let { com.glasslauncher.tv.saver.HomeSaver.begin(it) } }
     }
     // A trailer playing (also with the dock selected while it is hidden): Back stops it first.
     BackHandler(enabled = screen == Screen.Home && Trailers.playing.value != null && movingPkg == null && !folderOpen && pickerFor == null) { Trailers.stop() }
@@ -828,7 +841,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 else FadeBackdrop(prevBackdrop, shownBackdrop, mix)
             }
             // Screensaver as background: one of its aerial videos (your links and / or Apple's feed).
-            val aerialKey = settings.saverSources.joinToString() + settings.saverQuality + settings.saverPick + settings.saverMine + settings.bgAerialQuality
+            val aerialKey = settings.saverSources.joinToString() + settings.saverQuality + settings.saverPick + settings.saverMine + settings.bgAerialQuality +
+                settings.bgVideos + settings.aerialUrls.joinToString() + settings.saverYtOff.joinToString() + settings.saverHidden.joinToString()
             var lastAerialKey by remember { mutableStateOf(aerialKey) }
             LaunchedEffect(settings.bgMode, aerialKey) {
                 // The screensaver's video choice changed: pick again from the new list.
@@ -837,7 +851,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     CustomBackground.aerial.value = withContext(Dispatchers.IO) {
                         runCatching {
                             // 1080 H.264 (light behind the glass), or the screensaver's own quality (its saved videos).
-                            val items = if (settings.bgAerialQuality == "saver") com.glasslauncher.tv.saver.AerialSource.playlistItems(app)
+                            // (*Plays: My videos*: only yours, from the same library.)
+                            val items = if (settings.bgVideos == "mine") com.glasslauncher.tv.saver.AerialSource.mineItems(app, if (settings.bgAerialQuality == "saver") settings.saverQuality else "1080-H264")
+                                else if (settings.bgAerialQuality == "saver") com.glasslauncher.tv.saver.AerialSource.playlistItems(app)
                                 else com.glasslauncher.tv.saver.AerialSource.playlistItems(app, "1080-H264")
                             CustomBackground.aerialTitles = items.associate { (t, u) -> u to t }
                             // The videos already on the TV first: they start at once.
@@ -848,12 +864,13 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     }
                         .also { com.glasslauncher.tv.data.Glog.i("Screensaver background: ${it ?: "no aerial videos (screensaver links / Apple feed)"}") }
             }
+            // *Glass over a video: See-through* counts only while the background is a video.
+            androidx.compose.runtime.SideEffect { VideoGlass.clear.value = settings.videoGlass == "clear" && (settings.bgMode == "video" || settings.bgMode == "aerial") }
             val videoSrc = when (settings.bgMode) { "video" -> settings.bgVideo.ifBlank { null }; "aerial" -> CustomBackground.aerial.value; else -> null }
             // No video any more (another background chosen mid-fade): nothing stays dark.
             LaunchedEffect(videoSrc == null) { if (videoSrc == null) VideoFrames.dim.floatValue = 0f }
             if (videoSrc != null && !folderOpen) {
                 val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-                val state by life.currentStateFlow.collectAsState()
                 // Back from the system screensaver / another app: a fresh player and surface (the old surface
                 // came back black).
                 var resumes by remember { mutableIntStateOf(0) }
@@ -868,8 +885,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 }
                 listOf(settings.dockStyle, settings.tileStyle, settings.menuStyle).let { st ->
                     // The large clock's glass digits are drawn from the sharp copy (blurred on the GPU), like the Still Glass.
-                    VideoFrames.wantSharp = st.any { it.startsWith("water") } || settings.bgClock
-                    VideoFrames.wantSoft = st.any { it == "liquid" || it == "clear" }
+                    // (See-through glass: the glass needs no copies; only the large clock's glass digits still read them.)
+                    val through = settings.videoGlass == "clear"
+                    VideoFrames.wantSharp = if (through) settings.bgClock || (com.glasslauncher.tv.saver.HomeSaver.state.value == 1 && settings.saverBigClock) else st.any { it.startsWith("water") } || settings.bgClock || com.glasslauncher.tv.saver.HomeSaver.state.value == 1
+                    VideoFrames.wantSoft = !through && st.any { it == "liquid" || it == "clear" }
                     // The frosted copy of the video follows the Glass blur setting, like the pictures' glass copies.
                     VideoFrames.softRadius = (settings.blurRadius / 13).coerceIn(1, 6)
                 }
@@ -881,8 +900,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 // Not rebuilt when you come back from another app or the screensaver: the player keeps going on the new
                 // surface (a new player showed the last frame frozen in the glass, then black, until it started).
                 androidx.compose.runtime.key(if (aerialMode) list else videoSrc) {
-                    VideoBackground(list, start = list.indexOf(videoSrc).coerceAtLeast(0),
-                        playing = screen == Screen.Home && state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && DebugHide.intValue and 4096 == 0,
+                    // (In front or not is read inside it, for the same reason as WhenResumed.)
+                    VideoBackgroundInFront(list, start = list.indexOf(videoSrc).coerceAtLeast(0),
+                        // (The screensaver on the home screen with its own player: this one waits, paused.)
+                        wanted = screen == Screen.Home && DebugHide.intValue and 4096 == 0 &&
+                            !(com.glasslauncher.tv.saver.HomeSaver.state.value != 0 && !com.glasslauncher.tv.saver.HomeSaver.onBackground),
                         advance = if (aerialMode) settings.bgShuffle else settings.bgVideoShuffle,
                         onItem = { if (aerialMode) CustomBackground.aerial.value = it })
                 }
@@ -933,7 +955,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 if (screen != Screen.Library && libFromDock) { androidx.compose.runtime.snapshotFlow { libScroll.value }.first { it < 0.01f }; libFromDock = false }
             }
             // Fully covered by settings or the folder: stop drawing it at all.
-            val homeAlphaState = animateFloatAsState(if ((screen == Screen.Home || (screen == Screen.Library && libFromDock)) && !folderOpen) 1f else 0f, tween(180), label = "homeAlpha")
+            // (The screensaver on the home screen: everything on the page fades away, slowly; back at once.)
+            val saverUp = com.glasslauncher.tv.saver.HomeSaver.state.value == 1
+            val homeAlphaState = animateFloatAsState(if ((screen == Screen.Home || (screen == Screen.Library && libFromDock)) && !folderOpen && !saverUp) 1f else 0f, tween(if (saverUp) 700 else 180), label = "homeAlpha")
             // (The glass on the page reads the picture by its place in the page, not on screen: nothing to tell it
             // while the page slides or is away, see GlassPage.)
             val libFull by remember { androidx.compose.runtime.derivedStateOf { libScroll.value >= 0.999f } }
@@ -1190,8 +1214,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                 val chanIsland = chanIsland0 && !playerUp
                 val islandA by animateFloatAsState(if ((homeIsland && !searchUp) || chanIsland) 1f else 0f, tween(if (searchUp) 70 else if (chanIsland) 260 else 200), label = "chanIsland")
                 LaunchedEffect(chanIsland, homeIsland) { if (!chanIsland && !homeIsland) MusicUi.islandOpen.value = false }
+                androidx.compose.runtime.SideEffect { com.glasslauncher.tv.saver.HomeSaver.homeIsland = settings.musicOn && !MusicUi.forced.value && ((homeIsland && !searchUp) || chanIsland) }
                 if (settings.musicOn && !MusicUi.forced.value && (homeIsland || settings.musicMode))
-                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = islandA }) { if (islandA > 0f || (homeIsland && !searchUp)) MusicIsland(app, s) }
+                    // (The screensaver on the home screen draws the island while it shows, and hands it back in one frame.)
+                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (com.glasslauncher.tv.saver.HomeSaver.ownsIsland(settings)) 0f else islandA }) { if (islandA > 0f || (homeIsland && !searchUp)) MusicIsland(app, s) }
             }
             // The folder fades out over the home screen instead of vanishing: the dock's glass is drawn again under it
             // first (it showed black for a couple of frames as the folder closed).
@@ -1365,4 +1391,34 @@ object NavGate {
     @Volatile private var until = 0L
     fun hold(keyCode: Int, ms: Long) { key = keyCode; until = android.os.SystemClock.uptimeMillis() + ms }
     fun blocks(keyCode: Int): Boolean = keyCode == key && android.os.SystemClock.uptimeMillis() < until
+}
+
+
+/** Whether Glassio is in front (resumed), as a state that changes once per return, not at every step of the lifecycle. */
+@Composable
+internal fun inFront(): androidx.compose.runtime.State<Boolean> {
+    val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val first = remember(life) { life.currentStateFlow.value.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) }
+    return androidx.compose.runtime.produceState(first, life) {
+        life.currentStateFlow.collect { value = it.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) }
+    }
+}
+
+/**
+ * Runs [block] again whenever Glassio comes in front or leaves it (and when a key changes), like a LaunchedEffect.
+ * A composable of its own, so that change composes only this and not the screen that calls it. [block] must read
+ * the screen's state through its state objects (delegated properties do), not through values captured earlier.
+ */
+@Composable
+internal fun WhenResumed(vararg keys: Any?, block: suspend kotlinx.coroutines.CoroutineScope.(Boolean) -> Unit) {
+    val resumed by inFront()
+    val now = androidx.compose.runtime.rememberUpdatedState(block)
+    LaunchedEffect(resumed, *keys) { now.value.invoke(this, resumed) }
+}
+
+/** The video background, playing while Glassio is in front and [wanted]. */
+@Composable
+internal fun VideoBackgroundInFront(list: List<String>, start: Int, wanted: Boolean, advance: Boolean, onItem: (String) -> Unit) {
+    val resumed by inFront()
+    VideoBackground(list, start, playing = wanted && resumed, advance = advance, onItem = onItem)
 }

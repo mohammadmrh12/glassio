@@ -45,4 +45,26 @@ object MediaSearch {
 
     fun youtube(query: String) = Pager(ServiceList.YouTube, query, "videos")
     fun soundcloud(query: String) = Pager(ServiceList.SoundCloud, query, "tracks")
+
+    private val lists = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<Clip>>>()
+    /**
+     * Blocking. The videos of a public YouTube playlist (200 at most), kept 6 hours. Each one's address is its
+     * YouTube page; the picture stream is looked up when it is about to play (VideoCache).
+     */
+    fun playlist(url: String): List<Clip> {
+        lists[url]?.takeIf { System.currentTimeMillis() - it.first < 6 * 3600_000L }?.let { return it.second }
+        TrailerSource.init()
+        val first = org.schabi.newpipe.extractor.playlist.PlaylistInfo.getInfo(ServiceList.YouTube, url)
+        first.name?.takeIf { it.isNotBlank() }?.let { com.glasslauncher.tv.saver.AerialSource.ytTitles[url] = it }
+        val out = ArrayList<StreamInfoItem>(first.relatedItems)
+        var next = first.nextPage
+        while (next != null && out.size < 200) {
+            val p = org.schabi.newpipe.extractor.playlist.PlaylistInfo.getMoreItems(ServiceList.YouTube, url, next)
+            out += p.items; next = if (p.hasNextPage()) p.nextPage else null
+        }
+        val clips = out.take(200).mapNotNull { i -> val u = i.url ?: return@mapNotNull null; Clip(u, i.name.orEmpty(), i.uploaderName.orEmpty(), i.duration.coerceAtLeast(0), "") }
+        lists[url] = System.currentTimeMillis() to clips
+        Glog.i("YouTube playlist: ${clips.size} videos")
+        return clips
+    }
 }

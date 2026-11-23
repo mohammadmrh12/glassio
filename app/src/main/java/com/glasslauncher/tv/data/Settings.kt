@@ -103,6 +103,9 @@ class Settings(private val ctx: Context) {
 
     // ---- Hero / carousel
     var heroAutoplay: Boolean get() = b("heroAutoplay", true); set(v) = putB("heroAutoplay", v)
+    /** Where slides change on their own: "always", or "carousel" (only while the carousel itself is selected: a weak TV
+     *  then draws nothing while you sit on the dock). */
+    var heroAutoplayWhere: String get() = s("heroAutoplayWhere", "always"); set(v) = putS("heroAutoplayWhere", v)
     /** auto | performance | balanced | quality | custom */
     var perfMode: String get() = s("perfMode", "auto"); set(v) = putS("perfMode", v)
 
@@ -124,6 +127,35 @@ class Settings(private val ctx: Context) {
     }
     /** The tier Auto picked, for display. */
     val autoTier: String by lazy { deviceTier() }
+    /** What this TV is, in a few words (memory, Android, cores, graphics). */
+    val tvKind: String by lazy {
+        runCatching {
+            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val mi = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+            val gb = Math.round(mi.totalMem / (1024.0 * 1024 * 1024) * 2) / 2.0
+            val gles = am.deviceConfigurationInfo.reqGlEsVersion
+            val g = gb.toString().removeSuffix(".0")
+            listOf(android.os.Build.MODEL, "$g GB", "Android ${android.os.Build.VERSION.RELEASE}",
+                "${Runtime.getRuntime().availableProcessors()} cores", "OpenGL ES ${gles shr 16}.${gles and 0xffff}").joinToString(" · ")
+        }.getOrDefault(android.os.Build.MODEL)
+    }
+    /**
+     * The performance settings changed by hand while a mode is in use: the mode leaves them as they are (only that
+     * setting is your own; the mode goes on choosing the rest). Was: any change made the whole mode Custom.
+     */
+    var perfOwn: Set<String> get() = list("perfOwn").toSet(); set(v) = putList("perfOwn", v.sorted())
+    /** [key] set by hand (see [perfOwn]). */
+    fun ownPerf(key: String) { if (perfMode != "custom" && key !in perfOwn) perfOwn = perfOwn + key }
+    /** The keys a mode sets. */
+    val PERF_KEYS = listOf("imageQuality", "prefetchDepth", "transitionMs", "refraction", "heroGallery", "galleryShots", "glassRes", "pageScale",
+        "slideAnim", "memTier", "saverQuality", "cacheMb", "heroAutoplayWhere")
+    /** Recommended for this TV: Auto, every performance setting back to what Auto picks here (your own ones too). */
+    fun recommendedMode() {
+        perfOwn = emptySet()
+        PERF_KEYS.forEach { k -> sp(k).edit().remove(k).apply() }
+        PERF_KEYS.forEach { wrote(it) }
+        applyMode("auto")
+    }
 
     /** The page picture is prepared at this fraction of the screen size (2/3 in Performance: 2.25× less memory and drawing). */
     var pageScale: Float get() = f("pageScale", 1f); set(v) = putF("pageScale", if (v < 0.9f) 0.667f else 1f)
@@ -183,15 +215,23 @@ class Settings(private val ctx: Context) {
     fun applyMode(m: String) {
         // Auto: a weak TV gets the light preset; any other keeps the defaults (made on a 4 GB Google TV Streamer).
         val tier = if (m == "auto") deviceTier().takeIf { it == "performance" } else m
+        // (The ones you set by hand stay yours.)
+        val own = perfOwn
+        fun set(k: String, put: () -> Unit) { if (k !in own) put() }
         when (tier) {
             // Performance: pictures at 1280 px and drawn at 2/3 resolution, no rim refraction (no GPU effects at
-            // all), a plain crossfade and small caches: for 2 GB TVs and older graphics chips.
-            "performance" -> { imageQuality = "high"; prefetchDepth = 2; transitionMs = 300; refraction = 0; heroGallery = false; glassRes = 480
-                pageScale = 0.667f; slideAnim = "fade"; memTier = 0; saverQuality = "1080-H264"; cacheMb = 1024 }
-            "balanced" -> { imageQuality = "high"; prefetchDepth = 3; transitionMs = 450; refraction = 6; heroGallery = true; galleryShots = 2; glassRes = 480
-                pageScale = 1f; memTier = 1 }
-            "quality" -> { imageQuality = "max"; prefetchDepth = 6; transitionMs = 700; refraction = 14; heroGallery = true; galleryShots = 3; glassRes = 720
-                pageScale = 1f; memTier = 2 }
+            // all), a plain crossfade, small caches and slides that change on their own only on the carousel: for
+            // 2 GB TVs and older graphics chips.
+            "performance" -> { set("imageQuality") { imageQuality = "high" }; set("prefetchDepth") { prefetchDepth = 2 }; set("transitionMs") { transitionMs = 300 }
+                set("refraction") { refraction = 0 }; set("heroGallery") { heroGallery = false }; set("glassRes") { glassRes = 480 }
+                set("pageScale") { pageScale = 0.667f }; set("slideAnim") { slideAnim = "fade" }; set("memTier") { memTier = 0 }
+                set("saverQuality") { saverQuality = "1080-H264" }; set("cacheMb") { cacheMb = 1024 }; set("heroAutoplayWhere") { heroAutoplayWhere = "carousel" } }
+            "balanced" -> { set("imageQuality") { imageQuality = "high" }; set("prefetchDepth") { prefetchDepth = 3 }; set("transitionMs") { transitionMs = 450 }
+                set("refraction") { refraction = 6 }; set("heroGallery") { heroGallery = true }; set("galleryShots") { galleryShots = 2 }; set("glassRes") { glassRes = 480 }
+                set("pageScale") { pageScale = 1f }; set("memTier") { memTier = 1 } }
+            "quality" -> { set("imageQuality") { imageQuality = "max" }; set("prefetchDepth") { prefetchDepth = 6 }; set("transitionMs") { transitionMs = 700 }
+                set("refraction") { refraction = 14 }; set("heroGallery") { heroGallery = true }; set("galleryShots") { galleryShots = 3 }; set("glassRes") { glassRes = 720 }
+                set("pageScale") { pageScale = 1f }; set("memTier") { memTier = 2 } }
         }
         perfMode = m
     }
@@ -424,6 +464,12 @@ class Settings(private val ctx: Context) {
     var cwNuvioAccount: Boolean get() = b("cwNuvioAccount", true); set(v) = putB("cwNuvioAccount", v)
     /** Catalogs from the add-ons on the Stremio account. */
     var catalogsStremio: Boolean get() = b("catalogsStremio", false); set(v) = putB("catalogsStremio", v)
+    /** Jellyfin (#27): its libraries as catalogs, its titles in progress, its favourites in the Library, its titles in the search, Play opening it. */
+    var catalogsJellyfin: Boolean get() = b("catalogsJellyfin", true); set(v) = putB("catalogsJellyfin", v)
+    var cwJellyfin: Boolean get() = b("cwJellyfin", true); set(v) = putB("cwJellyfin", v)
+    var libraryJellyfin: Boolean get() = b("libraryJellyfin", true); set(v) = putB("libraryJellyfin", v)
+    var searchJellyfin: Boolean get() = b("searchJellyfin", true); set(v) = putB("searchJellyfin", v)
+    var playJellyfin: Boolean get() = b("playJellyfin", true); set(v) = putB("playJellyfin", v)
     /** Continue Watching at the top of the Library: on, card shape (backdrop | poster), size, where it came from. */
     var libraryCw: Boolean get() = b("libraryCw", true); set(v) = putB("libraryCw", v)
     var libraryCwShape: String get() = s("libraryCwShape", "backdrop"); set(v) = putS("libraryCwShape", v)
@@ -490,6 +536,12 @@ class Settings(private val ctx: Context) {
     var clock24h: Boolean get() = b("clock24h", false); set(v) = putB("clock24h", v)
     var blurRadius: Int get() = i("blurRadius", 8); set(v) = putI("blurRadius", v.coerceIn(0, 80))
     var glassTint: Int get() = i("glassTint", 0); set(v) = putI("glassTint", v.coerceIn(0, 40))
+    /**
+     * Glass over a video background (Videos): "bent" shows copies of the video in the glass (bent and blurred, about
+     * 15 a second), "clear" lets the video itself show through (smooth and sharp like the large clock's digits, no
+     * bending or blur, lighter). Only while the background is a video.
+     */
+    var videoGlass: String get() = s("videoGlass", "bent"); set(v) = putS("videoGlass", v)
     var showMobileApps: Boolean get() = b("showMobileApps", true); set(v) = putB("showMobileApps", v)
     var dockOrder: List<String> get() = list("dockOrder"); set(v) = putList("dockOrder", v)
     var hiddenApps: List<String> get() = list("hiddenApps"); set(v) = putList("hiddenApps", v)
@@ -677,6 +729,26 @@ class Settings(private val ctx: Context) {
     var photoEvery: Int get() = i("photoEvery", 60); set(v) = putI("photoEvery", if (v <= 0) 0 else v.coerceIn(30, 86_400))
     /** Photos in a random order (else in the source's order). */
     var photoShuffle: Boolean get() = b("photoShuffle", true); set(v) = putB("photoShuffle", v)
+    /** Pexels' own API key (pexels.com/api, free): its videos in the screensaver's collections. The TV's. */
+    var pexelsKey: String get() = s("pexelsKey", ""); set(v) = putS("pexelsKey", v.trim())
+    var pexelsQuery: String get() = s("pexelsQuery", "aerial"); set(v) = putS("pexelsQuery", v.trim())
+    /** The screensaver starts with the video the aerial background is showing, and the background goes on with the one the screensaver ended on. */
+    var saverSameVideo: Boolean get() = b("saverSameVideo", true); set(v) = putB("saverSameVideo", v)
+    /** The screensaver drawn on the home screen itself (no screen of its own): see HomeSaver. */
+    var saverInHome: Boolean get() = b("saverInHome", true); set(v) = putB("saverInHome", v)
+    /** YouTube links of My videos left out for now (kept in the list, not played). */
+    var saverYtOff: List<String> get() = list("saverYtOff"); set(v) = putList("saverYtOff", v)
+    /** A TV with less than 3 GB of memory (an onn 4K Pro, a Chromecast HD): what saves memory is on from the start there. */
+    private val smallTv by lazy {
+        runCatching {
+            val mi = android.app.ActivityManager.MemoryInfo().also { (ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(it) }
+            mi.totalMem < 3L * 1024 * 1024 * 1024
+        }.getOrDefault(false)
+    }
+    /** The background video is let go while Glassio is away (another app, the screensaver), taken again on return. */
+    var bgLetGo: Boolean get() = b("bgLetGo", smallTv); set(v) = putB("bgLetGo", v)
+    /** An app's single row sits right above the dock (the large clock stays in view) instead of in the middle. */
+    var channelsLow: Boolean get() = b("channelsLow", false); set(v) = putB("channelsLow", v)
     var unsplashKey: String get() = s("unsplashKey", ""); set(v) = putS("unsplashKey", v.trim())
     /** The photo on screen (url, place, credit), so it comes back at once after a restart. */
     var photoLast: String get() = sp("photoLast").getString("photoLast", "") ?: ""; set(v) { sp("photoLast").edit().putString("photoLast", v).apply() }
@@ -690,9 +762,9 @@ class Settings(private val ctx: Context) {
     var bgClockSize: Float get() = f("bgClockSize", 0.8f); set(v) = putF("bgClockSize", v.coerceIn(0.6f, 1.6f))
     /** Depth effect: on a photo, what's in front (a mountain, a person) covers the large clock. */
     var bgDepth: Boolean get() = b("bgDepth", true); set(v) = putB("bgDepth", v)
-    /** Large clock: "theme" (glass numerals in the glass themes, black on Black on white) or "white". */
     /** Sharp corners for the menu, the dock and the icons (no rounding). */
     var squareCorners: Boolean get() = b("squareCorners", false); set(v) = putB("squareCorners", v)
+    /** Large clock: "theme" (glass numerals in the glass themes, black on Black on white) or "white". */
     var bgClockStyle: String get() = s("bgClockStyle", "theme"); set(v) = putS("bgClockStyle", v)
     /** How much of the picture the large clock's glass digits show, 10–100 % (lower: clearer glass, mostly its rim). */
     var bgClockGlass: Int get() = i("bgClockGlass", 20); set(v) = putI("bgClockGlass", v.coerceIn(10, 100))
@@ -702,18 +774,39 @@ class Settings(private val ctx: Context) {
     var saverBigClock: Boolean get() = b("saverBigClock", false); set(v) = putB("saverBigClock", v)
     /** Lock & release on the screensaver: hold OK on a video to keep it (and again to let it go). */
     var saverLock: Boolean get() = b("saverLock", true); set(v) = putB("saverLock", v)
-    /** The locked videos (their ids). */
     /** The screensaver's large clock was left shown (true) or hidden (▲ on the remote). */
     var saverClockShown: Boolean get() = b("saverClockShown", false); set(v) = putB("saverClockShown", v)
     /** The music island at the top of the home screen too (when Music mode is off). */
     var islandHome: Boolean get() = b("islandHome", true); set(v) = putB("islandHome", v)
+    /** The locked videos (their ids). */
     var saverLocked: List<String> get() = list("saverLocked"); set(v) = putList("saverLocked", v)
+    /** Videos never shown again, as "id<TAB>title" (hold OK on one in the screensaver, with *Hold OK asks*). */
+    var saverHidden: List<String> get() = list("saverHidden"); set(v) = putList("saverHidden", v)
+    /** Hold OK on a screensaver video: off = locks it (as always), on = a small menu: keep it, or never show it again. */
+    var saverHoldMenu: Boolean get() = b("saverHoldMenu", true); set(v) = putB("saverHoldMenu", v)
     /** Only the locked videos play (when there are some). */
     var saverLockedOnly: Boolean get() = b("saverLockedOnly", false); set(v) = putB("saverLockedOnly", v)
     /** Large clock: moved up (negative) or down, as a part of the screen's height. */
     var bgClockOffset: Float get() = f("bgClockOffset", -0.06f); set(v) = putF("bgClockOffset", v.coerceIn(-0.2f, 0.3f))
     /** My video / My picture: go round the others in the folder (else the chosen one stays). */
     var bgVideoShuffle: Boolean get() = b("bgVideoShuffle", false); set(v) = putB("bgVideoShuffle", v)
+    /**
+     * Videos as the background (one choice since "My video" and "Screensaver" were merged): "all" the videos of the
+     * library (the collections and My videos, as the screensaver has them) or only "mine" (My videos: the folder,
+     * the links, YouTube). "One video" is bgMode "video" (the chosen one, looping).
+     */
+    var bgVideos: String get() = s("bgVideos", "all"); set(v) = putS("bgVideos", v)
+
+    /**
+     * Once: "My video" with *Shuffle my videos* (the folder's videos one after another) is "Videos · My videos" now.
+     * "My video" without it stays as it is ("One video").
+     */
+    fun mergeVideos() {
+        val k = "videosMerged"
+        if (sp(k).getBoolean(k, false)) return
+        if (bgMode == "video" && bgVideoShuffle) { bgVideos = "mine"; bgMode = "aerial" }
+        sp(k).edit().putBoolean(k, true).apply()
+    }
     var bgImageShuffle: Boolean get() = b("bgImageShuffle", true); set(v) = putB("bgImageShuffle", v)
     /** App lock: your own reminder under the digits (anything, the code itself too), and whether it shows. */
     var lockHintOn: Boolean get() = b("lockHintOn", false); set(v) = putB("lockHintOn", v)
@@ -767,7 +860,8 @@ class Settings(private val ctx: Context) {
     /** The bar starts empty each time the search is opened (true), or keeps what was typed last. */
     var searchFresh: Boolean get() = b("searchFresh", true); set(v) = putB("searchFresh", v)
     /** Before anything is typed: what is popular this week (needs the TMDB token). */
-    var searchTrending: Boolean get() = b("searchTrending", true); set(v) = putB("searchTrending", v)
+    // (Off from the start on a small TV: the search page comes up lighter, with nothing until you type.)
+    var searchTrending: Boolean get() = b("searchTrending", !smallTv); set(v) = putB("searchTrending", v)
     /** A title's rating, the number alone, faint, in its line with the year and Film / Series. */
     var searchRating: Boolean get() = b("searchRating", true); set(v) = putB("searchRating", v)
     /** In the list of places: "services" first (default) or the Nuvio apps and Stremio first ("players"). */

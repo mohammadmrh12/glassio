@@ -21,15 +21,29 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             // Thumbnails of your videos (backgrounds folder, screensaver).
             .components {
                 add(coil3.video.VideoFrameDecoder.Factory())
+                // An app's row pictures handed through its own content provider with the real address inside
+                // (`?src=https://…`, the Jellyfin app's ImageProvider): fetched from that address directly. Through the
+                // provider, the Jellyfin app downloaded and compressed each one on its main thread and waited there until
+                // Glassio read it: opened while its rows were loading, the Jellyfin app froze ("no focused window").
+                add(coil3.map.Mapper<String, String> { data, _ ->
+                    if (!data.startsWith("content://")) null
+                    else runCatching { android.net.Uri.parse(data).getQueryParameter("src") }.getOrNull()?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                })
                 // More downloads at once from one picture site (OkHttp allows 5): logos no longer wait behind backdrops.
                 add(coil3.network.okhttp.OkHttpNetworkFetcherFactory(callFactory = {
-                    okhttp3.OkHttpClient.Builder().dispatcher(okhttp3.Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 12 }).build()
+                    okhttp3.OkHttpClient.Builder().dispatcher(okhttp3.Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 12 })
+                        // (QA only, set with the dev key: downloads fail for a few seconds. One time check, no cost otherwise.)
+                        .addInterceptor { ch ->
+                            if (System.currentTimeMillis() < com.glasslauncher.tv.data.NetState.failUntil) throw java.io.IOException("QA: no network")
+                            ch.proceed(ch.request())
+                        }.build()
                 }))
             }
             // Pictures decoded two at a time: decoding on every core at once (the titles around, their glass copies,
             // the logos, the Library) took the whole processor for seconds after start-up, and the home screen
             // stuttered meanwhile. The one on screen still comes first (the others wait behind it).
-            .decoderCoroutineContext(kotlinx.coroutines.Dispatchers.Default.limitedParallelism(2))
+            // (One at a time on the lightest memory tier: a weak TV's few cores are the home screen's too.)
+            .decoderCoroutineContext(kotlinx.coroutines.Dispatchers.Default.limitedParallelism(if (settings.memTier == 0) 1 else 2))
             // A fixed size by memory tier: a percentage of the (large) heap gave Coil over 100 MB on 2 GB TVs,
             // and Android then closed Glassio while you browsed.
             .memoryCache { coil3.memory.MemoryCache.Builder().maxSizeBytes(when (settings.memTier) { 0 -> 40L; 2 -> 120L; else -> 72L } * 1024 * 1024).build() }
@@ -133,6 +147,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        com.glasslauncher.tv.data.NetState.watch(this)
+        runCatching { settings.mergeVideos() }.onFailure { com.glasslauncher.tv.data.Glog.w("Videos: merging the old choice", it) }
         // A launcher must never vanish silently: keep the last crash for Settings → About.
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
@@ -203,6 +219,9 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         catalogs = CatalogRepository(this, settings, http).also { it.start(scope) }
         cw = com.glasslauncher.tv.data.ContinueWatching(this, settings, http, scope).also { it.start() }
         com.glasslauncher.tv.data.NuvioLaunch.cwSource = { k -> cw.entries.value.firstOrNull { it.key == k }?.app }
+        // Jellyfin (#27): one account for the carousel, Continue Watching, the Library, the search and Play.
+        com.glasslauncher.tv.data.NuvioLaunch.jellyfin = cw.jellyfin
+        com.glasslauncher.tv.data.NuvioLaunch.jellyfinCw = { k -> cw.jellyfinRef(k) }
         com.glasslauncher.tv.ui.SaverPlan.start(this)
         weather = com.glasslauncher.tv.data.Weather(settings, http, scope).also { it.start() }
         library = com.glasslauncher.tv.data.Library(this, settings, http, cw.trakt, scope, cw.simkl)
@@ -234,6 +253,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             }
         }
         // Add-ons from the accounts that are on (Nuvio, Stremio), as one list (each add-on once, see CatalogRepository).
+        catalogs.jellyfin = cw.jellyfin
+        library.jellyfin = cw.jellyfin
         catalogs.account = {
             val n = if (settings.catalogsNuvio && library.nuvio.connected) library.nuvio.addons() else emptyList()
             val s = if (settings.catalogsStremio && cw.stremio.connected) cw.stremio.addons() else emptyList()
@@ -254,7 +275,11 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
                 val sp = getSharedPreferences("compile_done", MODE_PRIVATE)
                 if (sp.getString("build", "") == key) return@runCatching
                 kotlinx.coroutines.delay(60_000)
-                val out = com.glasslauncher.tv.data.LocalShell.run(this@GlassApp, "cmd package compile -m speed-profile -f $packageName").getOrThrow()
+                // (On its own connection: the shared one would hold every other TV command for the tens of seconds the
+                // compile takes, Recent apps and Continue Watching from Nuvio Legacy among them.)
+                val sb = StringBuilder()
+                com.glasslauncher.tv.data.LocalShell.stream(this@GlassApp, "cmd package compile -m speed-profile -f $packageName") { sb.appendLine(it) }
+                val out = sb.toString()
                 if (out.contains("Success")) { sp.edit().putString("build", key).apply(); com.glasslauncher.tv.data.Glog.i("Compiled after the update") }
                 else com.glasslauncher.tv.data.Glog.i("Compiling after the update: ${out.trim().take(80)}")
             }.onFailure { com.glasslauncher.tv.data.Glog.w("Compiling after the update", it) }

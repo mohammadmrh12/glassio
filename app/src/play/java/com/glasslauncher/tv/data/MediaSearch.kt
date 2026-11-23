@@ -10,4 +10,5 @@ object MediaSearch {
     class Pager { val more: Boolean get() = false; fun next(): List<Clip> = emptyList() }
     fun youtube(query: String) = Pager()
     fun soundcloud(query: String) = Pager()
+    fun playlist(url: String): List<Clip> = emptyList()
 }

@@ -105,6 +105,8 @@ private val NEW_IN = mapOf(
     "4.0.0" to listOf("Profile", "At start", "Name", "Picture", "Greeting", "Catalogs for apps", "Apps and their catalogs",
         "Continue Watching in app carousels", "Play opens the streaming app", "Apps", "Find links with JustWatch", "Country",
         "Platform rows", "Rows per platform", "Carousel shade", "Button look", "Music & Inputs page"),
+    "4.2.0" to listOf("Recommended for this TV", "  · Where", "Glass over the video", "Plays", "Connect Jellyfin", "One player", "YouTube lists", "Rows above the dock", "Same video as the screensaver", "Let the video go while away", "Pexels", "  · Pexels key", "  · Pexels words",
+        "Hold OK asks", "Hidden videos"),
     "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
         "Nuvio and Stremio apps", "Nuvio plays at once", "Stremio for a film", "Quality", "Largest file", "HDR and Dolby Vision",
         "Leave out cinema recordings", "Torrents", "Add-ons asked", "Keep the words searched", "Search in the menu", "Page behind the search", "Titles as", "Stay in the search", "First row", "More results", "Card size", "Rating",
@@ -300,6 +302,43 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             if (ok) { st.cwStremio = true; app.cw.pollNow(); tvRev.intValue++ }
         }
     }
+    /**
+     * Jellyfin (#27): the server's address, then Quick Connect (a code approved in another Jellyfin app signed in to
+     * that server, nothing else typed here) or a user name and password.
+     */
+    fun connectJellyfin(quick: Boolean) {
+        val jf = app.cw.jellyfin
+        dialog = TextEntry("Jellyfin server", jf.server, "jellyfin.local:8096") { raw ->
+            if (raw.isBlank()) return@TextEntry
+            scope.launch(Dispatchers.IO) {
+                val base = jf.normalize(raw)
+                val info = jf.check(base).getOrElse { toast(ctx, "Jellyfin: ${it.message}"); return@launch }
+                com.glasslauncher.tv.data.Glog.i("Jellyfin: server found ($info)")
+                suspend fun done() {
+                    toast(ctx, "Jellyfin connected")
+                    app.cw.pollNow(); tvRev.intValue++
+                    runCatching { app.catalogs.refresh() }.onFailure { com.glasslauncher.tv.data.Glog.w("Jellyfin: catalogs", it) }
+                }
+                if (quick) {
+                    val (c, secret) = jf.quickStart(base).getOrElse { toast(ctx, "Jellyfin: ${it.message}"); return@launch }
+                    val code = kotlinx.coroutines.flow.MutableStateFlow<String?>(c)
+                    dialog = QrCodeDialog("Connect Jellyfin", "$base/web/#/quickconnect", code,
+                        "In a Jellyfin app signed in to this server: your profile → Quick Connect, then enter the code (or scan this). This closes by itself.")
+                    val r = jf.quickWait(base, secret) { dialog == null }
+                    code.value = null
+                    r.onSuccess { done() }.onFailure { if (it.message != "Cancelled") toast(ctx, "Jellyfin: ${it.message}") }
+                } else {
+                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        dialog = TextEntry("Jellyfin user name", jf.userName, "User name") { user ->
+                            dialog = TextEntry("Jellyfin password", "", "Password (empty if it has none)") { pw ->
+                                scope.launch(Dispatchers.IO) { jf.signIn(base, user, pw).onSuccess { done() }.onFailure { toast(ctx, "Jellyfin: ${it.message}") } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     fun connectSimkl() {
         val sk = app.cw.simkl
         scope.launch(Dispatchers.IO) {
@@ -483,6 +522,27 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 val sk = app.cw.simkl
                 if (!sk.connected) add(Act("Connect Simkl", "Scan a QR code with your phone and approve" + (if (!sk.available) " (first its app id, from the phone)" else ""), "") { connectSimkl() })
                 else add(Act("Simkl account", "Signed in" + sk.user.takeIf { it.isNotBlank() }?.let { " as $it" }.orEmpty(), "Sign out", ok = true) { signOutAsk("Simkl") { sk.signOut(); tvRev.intValue++; toast(ctx, "Signed out of Simkl") } })
+                // Jellyfin (#27): your own server's films and series in Glassio, opened in the Jellyfin app.
+                val jfa = app.cw.jellyfin
+                if (!jfa.connected) {
+                    add(Act("Connect Jellyfin", "Your server's address, then a code you approve in another Jellyfin app (Quick Connect)", "") { connectJellyfin(true) })
+                    add(Act("  · Sign in with a password", "Your server's address, user name and password (the password isn't kept)", "") { connectJellyfin(false) })
+                } else {
+                    add(Act("Jellyfin account", "${jfa.userName} on ${jfa.serverName.ifBlank { jfa.server.substringAfter("://") }}", "Sign out", ok = true) {
+                        signOutAsk("Jellyfin") { io { jfa.signOut(); tvRev.intValue++; runCatching { app.catalogs.refresh() }; "Signed out of Jellyfin" } }
+                    })
+                    val jfOn = listOf(st.catalogsJellyfin, st.cwJellyfin, st.libraryJellyfin, st.searchJellyfin, st.playJellyfin).count { it }
+                    add(pageRow("  · What Jellyfin brings", "Its libraries in the carousel, what you are watching, your favourites, the search, Play", more("$jfOn / 5"), sp = SubPage("Jellyfin") {
+                        buildList {
+                            if (!com.glasslauncher.tv.data.Jellyfin.installed(ctx)) add(Note("The Jellyfin app isn't on this TV: install it (Google Play: Jellyfin for Android TV) and sign in there to the same server, so titles open in it."))
+                            add(Toggle("Libraries in the carousel", "Each film and series library as a catalog, newest first (Catalogs & add-ons → Catalogs in the carousel)", { st.catalogsJellyfin }, { st.catalogsJellyfin = it }))
+                            add(Toggle("Continue Watching", "What you are watching on the server (titles it knows by IMDb number)", { st.cwJellyfin }, { st.cwJellyfin = it; app.cw.pollNow() }))
+                            add(Toggle("Favourites in the Library", "Your Jellyfin favourites as a row in the Library", { st.libraryJellyfin }, { st.libraryJellyfin = it }))
+                            add(Toggle("In the search", "Your server's titles first in the results, and Jellyfin first among the places to watch", { st.searchJellyfin }, { st.searchJellyfin = it }))
+                            add(Toggle("Play opens Jellyfin", "Any title your server has opens on its page in the Jellyfin app (off: only titles from the server itself)", { st.playJellyfin }, { st.playJellyfin = it }))
+                        }
+                    }))
+                }
                 add(tmdbRow())
 
                 nuvioProfileRows().let { if (it.isNotEmpty()) { add(Note("Profiles")); addAll(it) } }
@@ -767,8 +827,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
 
                 // Where the titles in progress come from: every source in one list (signing in is in Accounts & profiles).
                 add(Note("Where it comes from"))
-                val srcOn = listOf(st.cwLegacy, nvOn && st.cwNuvioAccount, trakt.connected && st.cwTrakt, sm.connected && st.cwStremio, sk.connected && st.cwSimkl)
-                add(pageRow("Sources", "Nuvio Legacy, your Nuvio account, Trakt, Stremio and Simkl: which of them fill Continue Watching", more("${srcOn.count { it }} / 5"), sp = SubPage("Sources") {
+                val jfc = app.cw.jellyfin
+                val srcOn = listOf(st.cwLegacy, nvOn && st.cwNuvioAccount, trakt.connected && st.cwTrakt, sm.connected && st.cwStremio, sk.connected && st.cwSimkl, jfc.connected && st.cwJellyfin)
+                add(pageRow("Sources", "Nuvio Legacy, your Nuvio account, Trakt, Stremio, Simkl and Jellyfin: which of them fill Continue Watching", more("${srcOn.count { it }} / 6"), sp = SubPage("Sources") {
                         tvRev.intValue
                         val cwStatusCw by app.cw.status.collectAsState()
                         val tStatus by app.cw.traktStatus.collectAsState()
@@ -790,6 +851,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             if (sk.connected)
                                 add(Toggle("Simkl", "What you paused in any app that uses Simkl" + (cwStatusCw["Simkl"]?.let { " · $it" } ?: ""), { st.cwSimkl }, { st.cwSimkl = it; app.cw.pollNow() }))
                             else add(link("Accounts & profiles", "Connect Simkl", "Sign in first", title = "Simkl"))
+                            if (jfc.connected)
+                                add(Toggle("Jellyfin", "What you are watching on your Jellyfin server" + (cwStatusCw["Jellyfin"]?.let { " · $it" } ?: ""), { st.cwJellyfin }, { st.cwJellyfin = it; app.cw.pollNow() }))
+                            else add(link("Accounts & profiles", "Connect Jellyfin", "Sign in first", title = "Jellyfin"))
                             add(Note("How it works: Nuvio Legacy writes what you play to the TV's log (title, episode, how far). Glassio reads that log through the TV's own debugging connection (ADB), so this needs ADB once: System → TV access (ADB). Nothing leaves the TV."))
                             add(Note("The official Nuvio app, Nuvio Arc and Re-Shaped don't write that log: connect Trakt (and turn on Trakt in that Nuvio app) and what you pause there shows up here through Trakt."))
                             add(Note("Other apps (YouTube, Netflix, Apple TV…) keep their Continue Watching private on Google TV; only the system launcher may read it."))
@@ -866,10 +930,13 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Note("Slides"))
                 add(Toggle("Auto-play", "Slides change on their own", { st.heroAutoplay }, { st.heroAutoplay = it }))
                 add(Adjust("  · Slide time", "Seconds before the next title", { "${st.heroIntervalSec} s" }, { st.heroIntervalSec += it }))
+                add(Adjust("  · Where", "Only on the carousel: slides change only while the carousel itself is selected (lighter on a weak TV)",
+                    { if (st.heroAutoplayWhere == "carousel") "Only on the carousel" else "Always" },
+                    { st.heroAutoplayWhere = cycle(listOf("always", "carousel"), st.heroAutoplayWhere, it); st.ownPerf("heroAutoplayWhere") }))
                 add(Adjust("Slide animation", "Apple TV: the next picture opens up from the right (from the left going back) · Slide: pushed in · Fade",
                     { when (st.slideAnim) { "apple" -> "Apple TV"; "slide" -> "Slide"; else -> "Fade" } },
                     { st.slideAnim = cycle(listOf("apple", "slide", "fade"), st.slideAnim, it) }))
-                add(Adjust("Transition speed", "Fade between slides (lower = faster)", { "${st.transitionMs} ms" }, { st.transitionMs += it * 100; st.perfMode = "custom" }))
+                add(Adjust("Transition speed", "Fade between slides (lower = faster)", { "${st.transitionMs} ms" }, { st.transitionMs += it * 100; st.ownPerf("transitionMs") }))
 
                 add(Note("What it shows"))
                 add(Adjust("Titles per catalog", "Reload to apply", { "${st.perCatalog}" }, { st.perCatalog += it * 5 }))
@@ -918,7 +985,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Adjust("Artwork", "Which picture each title uses", {
                     when (st.artChoice) { "second" -> "Second picture"; "best" -> "Highest resolution"; "addon" -> "Add-on picture"; else -> "Main (TMDB)" }
                 }, { st.artChoice = cycle(listOf("main", "second", "best", "addon"), st.artChoice, it) }))
-                add(Toggle("Backdrop gallery", "Like Apple TV: each title shows several of its pictures (needs the TMDB token)", { st.heroGallery }, { st.heroGallery = it; st.perfMode = "custom" }))
+                add(Toggle("Backdrop gallery", "Like Apple TV: each title shows several of its pictures (needs the TMDB token)", { st.heroGallery }, { st.heroGallery = it; st.ownPerf("heroGallery") }))
                 add(Adjust("  · Pictures per title", "", { "${st.galleryShots}" }, { st.galleryShots = (st.galleryShots + it).coerceIn(2, 6) }))
                 add(Toggle("Carousel shade", "The dark shades over the title's picture: on the left behind the logo, text and buttons, and at the bottom above the dock. Off: the picture as it is (the writing gets a soft shadow of its own)",
                     { st.carouselShade != "off" }, { st.carouselShade = if (it) "on" else "off" }))
@@ -1075,7 +1142,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
 
                 add(Note("Glass"))
                 add(Adjust("Glass blur", "0 turns blur off", { "${st.blurRadius}" }, { st.blurRadius += it * 4 }))
-                add(Adjust("Glass refraction", "How much the rim bends what is behind it (0 = flat)", { "${st.refraction}" }, { st.refraction += it * 2; st.perfMode = "custom" }))
+                add(Adjust("Glass refraction", "How much the rim bends what is behind it (0 = flat)", { "${st.refraction}" }, { st.refraction += it * 2; st.ownPerf("refraction") }))
                 add(Adjust("Glass brightness", "", { "${st.glassTint}" }, { st.glassTint += it * 2 }))
 
                 add(Note("Shapes & text"))
@@ -1210,10 +1277,21 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     }, { st.photoEvery = cycle(listOf(60, 300, 600, 1800, 3600, 21600, 0), st.photoEvery, it) })
 
                 add(Note("Background"))
-                add(Adjust("Background", "Each title's own picture, or yours: a picture, photos, a video or the screensaver's videos",
-                    { when (st.bgMode) { "image" -> "My picture"; "video" -> "My video"; "aerial" -> "Screensaver (aerials)"; "photos" -> "Photos (4K)"; else -> "Title backdrops" } },
-                    { st.bgMode = cycle(listOf("carousel", "image", "photos", "video", "aerial"), st.bgMode, it) }))
+                add(Adjust("Background", "Each title's own picture, or yours: a picture, photos or videos",
+                    { when (st.bgMode) { "image" -> "My picture"; "video", "aerial" -> "Videos"; "photos" -> "Photos (4K)"; else -> "Title backdrops" } },
+                    { st.bgMode = cycle(listOf("carousel", "image", "photos", "aerial"), if (st.bgMode == "video") "aerial" else st.bgMode, it) }))
+                // Videos: one library for the background and the screensaver (Videos, below); what the background plays of it.
+                if (st.bgMode == "video" || st.bgMode == "aerial") add(Adjust("Plays", "All the videos (the collections and My videos), only My videos, or one video on a loop", {
+                    if (st.bgMode == "video") "One video" else if (st.bgVideos == "mine") "My videos" else "All the videos"
+                }) { dir ->
+                    val now = if (st.bgMode == "video") "one" else st.bgVideos
+                    when (val next = cycle(listOf("all", "mine", "one"), now, dir)) {
+                        "one" -> if (st.bgVideo.isBlank()) toast(ctx, "Choose the video first: My pictures & videos → Video from the folder or a link") else { st.bgVideoShuffle = false; st.bgMode = "video" }
+                        else -> { st.bgVideos = next; st.bgMode = "aerial" }
+                    }
+                })
                 add(Act("Next", "The next video, picture or photo now", "") { CustomBackground.nextNow(st); toast(ctx, "Next") })
+                if (st.bgMode == "video" || st.bgMode == "aerial") add(Toggle("Let the video go while away", "In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV", { st.bgLetGo }, { st.bgLetGo = it }))
 
                 if (st.bgMode == "photos") {
                     add(Note("Photos"))
@@ -1261,15 +1339,16 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Toggle("Shuffle my pictures", "My picture: another picture from the folder every \"Change every\"", { st.bgImageShuffle }, { st.bgImageShuffle = it }))
                     if (st.bgImageShuffle) add(changeEvery())
                 }
-                if (st.bgMode == "video")
-                    add(Toggle("Shuffle my videos", "My video: the other videos in the folder too, one after another (else the chosen one loops)", { st.bgVideoShuffle }, { st.bgVideoShuffle = it }))
-
+                if (st.bgMode == "video" || st.bgMode == "aerial")
+                    add(Adjust("Glass over the video", "Bent: the glass shows the video bent and blurred (copies, about 15 a second). See-through: the video itself shows through the dock, the island and the menus, smooth and sharp like the large clock, without bending or blur; lighter",
+                        { if (st.videoGlass == "clear") "See-through" else "Bent" }, { st.videoGlass = cycle(listOf("bent", "clear"), st.videoGlass, it) }))
                 if (st.bgMode == "aerial") {
-                    add(Note("Screensaver videos as background"))
+                    add(Note("Videos as background"))
                     add(Adjust("Quality", "1080p is lightest behind the glass; the screensaver's quality also plays the videos it saved on the TV", {
                         if (st.bgAerialQuality == "saver") "Screensaver's quality" else "1080p"
                     }, { st.bgAerialQuality = cycle(listOf("1080", "saver"), st.bgAerialQuality, it) }))
                     add(Toggle("Shuffle", "A new one when each ends, fading through black like the screensaver", { st.bgShuffle }, { st.bgShuffle = it }))
+                    add(Toggle("Same video as the screensaver", "The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory", { st.saverSameVideo }, { st.saverSameVideo = it }))
                 }
 
                 if (st.bgMode != "carousel") {
@@ -1313,6 +1392,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Adjust("Start after (on the home screen)", if (ours) "Not needed while Glassio is the TV screensaver" else "Idle time on the launcher", { st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" } }, {
                     st.idleSeconds = cycle(listOf(0, 10, 30, 60, 120, 180, 300, 600, 900, 1800), st.idleSeconds, it)
                 }))
+                if (st.saverMode != "system") add(Toggle("One player", "Shown on the home screen itself instead of a screen of its own: back at once, nothing loaded again. With the aerial background it goes on with the background's own video", { st.saverInHome }, { st.saverInHome = it }))
                 add(Toggle("Glassio is the TV screensaver (ADB)", if (ours) "On: it starts in every app when the TV is idle, not only on the home screen"
                     else if (tvEnabled && comp.isNotBlank()) "Now the TV uses ${comp.substringBefore('/')}" else "Off",
                     { ours }, { on ->
@@ -1341,7 +1421,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Note("Screensaver · What plays"))
                 add(Adjust("Type", "What plays", {
                     when (st.saverMode) {
-                        "aerial" -> "Aerial videos"
+                        "aerial" -> "Videos"
                         "system" -> "The TV's screensaver app (" + (comp.substringBefore('/').substringAfterLast('.').ifBlank { "none" }) + ")"
                         "trailer" -> "Trailers"
                         else -> "Posters with logos"
@@ -1367,12 +1447,24 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
 
                 // The videos: for the screensaver, and for the home screen with the screensaver's videos as the background.
                 if (st.saverMode == "aerial" || st.bgMode == "aerial") {
-                    add(Note("Screensaver · Videos"))
+                    add(Note("Videos · the screensaver's and the background's"))
                     add(pageRow("Collections", "Videos from aerial-videos.netlify.app", more("${AerialSource.SOURCES.count { it.key in st.saverSources }} / ${AerialSource.SOURCES.size}"), sp = SubPage("Collections") {
                             buildList {
                                 AerialSource.SOURCES.forEach { src ->
                                     add(Toggle(src.name, "", { src.key in st.saverSources }, { on -> st.saverSources = if (on) st.saverSources + src.key else st.saverSources - src.key; st.saverPick = "" }))
                                 }
+                                // Pexels (#22): its videos with the person's own key; each title names its maker, as Pexels asks.
+                                val px = AerialSource.PEXELS
+                                add(Toggle("Pexels", if (st.pexelsKey.isBlank()) "Free videos from pexels.com for the words below. Needs your own Pexels key" else "Free videos from pexels.com for the words below",
+                                    { px in st.saverSources && st.pexelsKey.isNotBlank() }, { on ->
+                                        if (on && st.pexelsKey.isBlank()) toast(ctx, "Add your Pexels key first")
+                                        else { st.saverSources = if (on) st.saverSources + px else st.saverSources - px; st.saverPick = "" } }))
+                                add(Act("  · Pexels key", "Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only", if (st.pexelsKey.isBlank()) "Not set" else "Set") {
+                                    dialog = TextEntry("Pexels key", st.pexelsKey, "") { k -> st.pexelsKey = k; if (k.isNotBlank()) st.saverSources = st.saverSources + px }
+                                })
+                                add(Act("  · Pexels words", "What its videos show: aerial, ocean, forest, city…", st.pexelsQuery) {
+                                    dialog = TextEntry("Pexels words", st.pexelsQuery, "aerial") { q -> st.pexelsQuery = q.ifBlank { "aerial" } }
+                                })
                             }
                         }))
                     add(pageRow("My videos", "Your links and the videos in the backgrounds folder", more(if (st.saverMine) "On · ${st.aerialUrls.size}" else "Off"), sp = SubPage("My videos") {
@@ -1393,11 +1485,22 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                         "${mine.size} videos"
                                     }
                                 })
-                                add(Act("Add video link", "A direct .mp4 / .mov link (Manage from phone can also save it to the TV)", "") {
+                                add(Act("Add video link", if (com.glasslauncher.tv.data.Store.PLAY) "A direct .mp4 / .mov link (Manage from phone can also save it to the TV)" else "A direct .mp4 / .mov link, or a YouTube video's link (Manage from phone can also save it to the TV)", "") {
                                     dialog = TextEntry("Video link", "", "https://…/video.mp4") { u ->
                                         if (u.startsWith("http")) st.aerialUrls = (st.aerialUrls + u.trim()).distinct() else toast(ctx, "The link must start with http")
                                     }
                                 })
+                                // (github build) Each YouTube video or playlist link on or off, without removing it.
+                                val yts = st.aerialUrls.filter { AerialSource.isYoutube(it) }
+                                if (!com.glasslauncher.tv.data.Store.PLAY && yts.isNotEmpty())
+                                    add(pageRow("YouTube lists", "Your YouTube videos and playlists: each one on or off", more("${yts.count { it !in st.saverYtOff }} / ${yts.size}"), sp = SubPage("YouTube lists") {
+                                        buildList {
+                                            st.aerialUrls.filter { AerialSource.isYoutube(it) }.forEach { u ->
+                                                add(Toggle(videoName(u), if (AerialSource.isPlaylist(u)) "Playlist" else "Video", { u !in st.saverYtOff }, { on ->
+                                                    st.saverYtOff = if (on) st.saverYtOff - u else (st.saverYtOff + u).distinct(); st.saverPick = "" }))
+                                            }
+                                        }
+                                    }))
                                 if (st.aerialUrls.isNotEmpty()) add(Note("Your links"))
                                 st.aerialUrls.forEach { u ->
                                     add(Act(videoName(u), hostOf(u), "Remove") { st.aerialUrls = st.aerialUrls - u })
@@ -1405,7 +1508,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             }
                         }))
                     add(Adjust("Quality", "Videos without it play the nearest one", { AerialSource.QUALITIES.firstOrNull { it.first == st.saverQuality }?.second ?: st.saverQuality },
-                        { st.saverQuality = cycle(AerialSource.QUALITIES.map { it.first }, st.saverQuality, it) }))
+                        { st.saverQuality = cycle(AerialSource.QUALITIES.map { it.first }, st.saverQuality, it); st.ownPerf("saverQuality") }))
                     add(Toggle("Shuffle", "Off: in the collections' order", { st.saverShuffle }, { st.saverShuffle = it }))
                     add(Act("Play one video only", if (st.saverPick.isBlank()) "All of them" else "One video", if (st.saverPick.isBlank()) "" else "Change") {
                         io {
@@ -1427,10 +1530,18 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Act("  · Delete saved videos", "", "") { com.glasslauncher.tv.saver.VideoCache.clear(ctx); toast(ctx, "Deleted") })
 
                     add(Note("Screensaver · Locked videos"))
+                    if (st.saverHidden.isNotEmpty()) add(pageRow("Hidden videos", "Videos you chose never to see again. OK on one shows it again", more(st.saverHidden.size), sp = SubPage("Hidden videos") {
+                        buildList {
+                            st.saverHidden.forEach { h ->
+                                add(Act(h.substringAfter('\t').ifBlank { "Video" }, "", "Show again") { st.saverHidden = st.saverHidden - h })
+                            }
+                        }
+                    }))
                     add(Toggle("Lock & release", "Hold OK on a video you like to lock it (a glass padlock closes); hold OK again to release it", { st.saverLock }, { st.saverLock = it }))
                     if (st.saverLock) {
                         add(Toggle("  · Only locked videos", "Plays just the videos you locked (when there are some). Also in the menu's Screensaver page", { st.saverLockedOnly }, { st.saverLockedOnly = it }))
                         add(Act("  · Clear locked videos", "${st.saverLocked.size} locked", "") { st.saverLocked = emptyList() })
+                        add(Toggle("Hold OK asks", "Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again", { st.saverHoldMenu }, { st.saverHoldMenu = it }))
                     }
                 }
 
@@ -1534,6 +1645,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("Layout", "Rows one above the other, or one row in the middle that ▲ / ▼ switch", { if (st.channelsLayout == "single") "One row" else "Rows" },
                         { st.channelsLayout = cycle(listOf("stack", "single"), st.channelsLayout, it) }))
                     if (st.channelsLayout != "single") add(Adjust("Rows", "How many rows show at once (1 or 2): an app's other rows come in with ▲ / ▼", { "${st.channelsRows}" }, { st.channelsRows += it }))
+                    add(Toggle("Rows above the dock", "One row sits right above the dock instead of in the middle, so the large clock and the top of the page stay in view", { st.channelsLow }, { st.channelsLow = it }))
                     add(Adjust("Cards in a row", "How many cards fit across a row at first (posters are narrower: more of them show)", { "${st.channelsCards}" }, { st.channelsCards += it }))
                     add(Adjust("Background", "Behind the rows: the Library's grey page, or the selected card's picture blurred (like the music page)",
                         { if (st.channelsBg == "blur") "Blurred card" else "Grey" }, { st.channelsBg = cycle(listOf("grey", "blur"), st.channelsBg, it) }))
@@ -1922,12 +2034,19 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 if (st.shuffleKey == code) st.shuffleKey = 0
                 com.glasslauncher.tv.data.RemoteMap.remove(st, code)
             }
+            // Which press the next choice is for: "" a press, "double", "hold" (#25).
+            var chooseKind = ""
             fun mapTo(code: Int, action: String, label: String) {
-                free(code); com.glasslauncher.tv.data.RemoteMap.set(st, code, action, label); tvRev.intValue++
+                // (Glassio's own buttons give it up; its other presses keep their jobs.)
+                if (st.multiKey == code) st.multiKey = 0
+                if (st.cornerKey == code) st.cornerKey = 0
+                if (st.shuffleKey == code) st.shuffleKey = 0
+                com.glasslauncher.tv.data.RemoteMap.set(st, code, action, label, chooseKind); tvRev.intValue++
                 toast(ctx, "${keyName(code)}: " + com.glasslauncher.tv.data.RemoteMap.describe(com.glasslauncher.tv.data.RemoteMap.Map(code, action, label)).lowercase())
             }
             // What a button should open: an app (with its picture), the Apps folder, the recent apps or a TV input.
-            fun choose(code: Int) {
+            fun choose(code: Int, kind: String = "") {
+                chooseKind = kind
                 val opts = mutableListOf<ThumbItem>()
                 // Glassio itself (its home screen), for a remote whose Home button doesn't work (#13).
                 opts += ThumbItem("Glassio", "Glassio's home screen, from any app", HueArt.home()) { mapTo(code, "glassio", "Glassio") }
@@ -1942,13 +2061,16 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         }
                     }
                 opts += ThumbItem("Recent apps", "The open apps, like holding Home", HueArt.recents()) { mapTo(code, "recents", "Recent apps") }
+                if (com.glasslauncher.tv.data.Inputs.list.value.isNotEmpty())
+                    opts += ThumbItem("TV inputs", "The TV's inputs over any app · press again to close", com.glasslauncher.tv.data.Inputs.dockIcon()) { mapTo(code, "inputs", "TV inputs") }
+                opts += ThumbItem("Close the app in front", "Stops the app on screen and comes back to Glassio. Needs TV access (ADB)", HueArt.home()) { mapTo(code, "closeapp", "Close the app in front") }
                 if (st.searchOn) opts += ThumbItem("Search", "Glassio's search: films, series, videos, songs", null) { mapTo(code, "search", "Search") }
                 com.glasslauncher.tv.data.Inputs.list.value.forEach { inp ->
                     val pic = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == com.glasslauncher.tv.data.Inputs.PREFIX + inp.id }?.let { app.apps.cachedArtwork(it)?.bmp }
                         ?: HueArt.input(inp.label)
                     opts += ThumbItem(inp.label, "TV input", pic) { mapTo(code, com.glasslauncher.tv.data.Inputs.PREFIX + inp.id, inp.label) }
                 }
-                app.apps.ordered(includeHidden = true).filter { !com.glasslauncher.tv.data.Inputs.isInput(it.pkg) && it.pkg != MusicUi.DOCK_PKG && it.pkg != SearchUi.DOCK_PKG }.forEach { e ->
+                app.apps.ordered(includeHidden = true).filter { !com.glasslauncher.tv.data.Inputs.isInput(it.pkg) && it.pkg != MusicUi.DOCK_PKG && it.pkg != SearchUi.DOCK_PKG && it.pkg != com.glasslauncher.tv.data.Inputs.DOCK_PKG }.forEach { e ->
                     opts += ThumbItem(e.label, "App", app.apps.cachedArtwork(e)?.bmp) { mapTo(code, "app:" + e.pkg, e.label) }
                 }
                 dialog = ThumbDialog("${keyName(code)} opens…", opts)
@@ -1961,22 +2083,31 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     else dialog = MenuDialog("$title · ${keyName(get())}", listOf("Choose another button" to { capture() }, "Clear this button" to { set(0); tvRev.intValue++ }))
                 },
             )
-            fun custom() { st.perfMode = "custom" }
             com.glasslauncher.tv.data.PeerSync.rev.intValue
             buildList {
                 // (First in System: asked for 2026-11-22, they were far down the section.)
                 add(Note("Remote & phone"))
-                val mapped = com.glasslauncher.tv.data.RemoteMap.all(st).size + listOf(st.shuffleKey, st.multiKey, st.cornerKey).count { it != 0 }
+                val mapped = com.glasslauncher.tv.data.RemoteMap.all(st).map { it.code }.distinct().size + listOf(st.shuffleKey, st.multiKey, st.cornerKey).count { it != 0 }
                 add(pageRow("Remote buttons", "A button of your remote (Netflix, YouTube, a colour button…) opens what you choose; Glassio's own: shuffle, multi-view, corner camera", more(mapped), sp = SubPage("Remote buttons") {
                         tvRev.intValue
                         buildList {
                             if (!svcOn) add(Note("Buttons in other apps need the Home button service: System → Home button opens Glassio."))
                             add(Note("Buttons that open something"))
-                            com.glasslauncher.tv.data.RemoteMap.all(st).forEach { m ->
-                                add(Act(keyName(m.code), com.glasslauncher.tv.data.RemoteMap.describe(m), "Change") {
-                                    dialog = MenuDialog(keyName(m.code), listOf(
-                                        "Open something else" to { choose(m.code) },
-                                        "Remove this button" to { com.glasslauncher.tv.data.RemoteMap.remove(st, m.code); tvRev.intValue++ },
+                            // One row a button, with its press, double press and hold (#25).
+                            val RM = com.glasslauncher.tv.data.RemoteMap
+                            RM.all(st).groupBy { it.code }.forEach { (code, ms) ->
+                                fun of(k: String) = ms.firstOrNull { it.kind == k }
+                                val desc = listOfNotNull(of("")?.let { RM.describe(it) }, of("double")?.let { "Double press: " + RM.describe(it).replaceFirstChar { c -> c.lowercase() } },
+                                    of("hold")?.let { "Hold: " + RM.describe(it).replaceFirstChar { c -> c.lowercase() } }).joinToString(" · ")
+                                add(Act(keyName(code), desc, "Change") {
+                                    dialog = MenuDialog(keyName(code), listOfNotNull(
+                                        "Press: something else" to { choose(code) },
+                                        (if (of("double") != null) "Double press: something else" else "Double press: set") to { choose(code, "double") },
+                                        (if (of("hold") != null) "Hold: something else" else "Hold: set") to { choose(code, "hold") },
+                                        of("") ?.let { "Press: nothing" to { RM.remove(st, code, ""); tvRev.intValue++ } },
+                                        of("double")?.let { "Double press: nothing" to { RM.remove(st, code, "double"); tvRev.intValue++ } },
+                                        of("hold")?.let { "Hold: nothing" to { RM.remove(st, code, "hold"); tvRev.intValue++ } },
+                                        "Remove this button" to { RM.remove(st, code); tvRev.intValue++ },
                                     ))
                                 })
                             }
@@ -2050,8 +2181,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 })
 
                 add(Note("Performance"))
+                fun tierName(m: String) = when (m) { "performance" -> "Performance"; "quality" -> "Quality"; "balanced" -> "Balanced"; else -> "Custom" }
+                val own = st.perfOwn
                 add(Adjust("Mode", when (st.perfMode) {
-                    "auto" -> "Picked for this TV from its memory and graphics chip"
+                    "auto" -> "Picked for this TV from its memory and graphics chip" + (if (own.isNotEmpty()) " · ${own.size} set by you" else "")
                     "performance" -> "Smoothest: lighter pictures, quick fades, flat glass"
                     "quality" -> "Sharpest: original pictures, slow fades, full glass"
                     "balanced" -> "Sharp pictures, smooth navigation"
@@ -2060,15 +2193,20 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     fun n(m: String) = when (m) { "performance" -> "Performance"; "quality" -> "Quality"; "balanced" -> "Balanced"; else -> "Custom" }
                     if (st.perfMode == "auto") "Auto (${n(st.autoTier)})" else n(st.perfMode)
                 }, { st.applyMode(cycle(listOf("auto", "performance", "balanced", "quality"), st.perfMode.takeIf { m -> m != "custom" } ?: "auto", it)) }))
+                // What this TV is, and the way back to what suits it (also from Custom, and over your own changes).
+                add(Act("Recommended for this TV", st.tvKind, if (st.perfMode == "auto" && own.isEmpty()) "In use" else tierName(st.autoTier),
+                    ok = if (st.perfMode == "auto" && own.isEmpty()) true else null) {
+                    st.recommendedMode(); toast(ctx, com.glasslauncher.tv.data.I18n.tr("Recommended for this TV") + " · " + com.glasslauncher.tv.data.I18n.tr(tierName(st.autoTier)))
+                })
                 add(Adjust("  · Glass detail", "Resolution of the picture the glass bends (higher = crisper glass, more memory)", {
                     when (st.glassRes) { 720 -> "Sharp (720 px)"; else -> "Standard (480 px)" }
-                }, { st.glassRes = cycle(listOf(480, 720), st.glassRes, it); custom() }))
+                }, { st.glassRes = cycle(listOf(480, 720), st.glassRes, it); st.ownPerf("glassRes") }))
                 add(Adjust("  · Picture quality", "Carousel backdrops. 1280 enhanced: the light 1280 px picture, sharpened as it is scaled up",
                     { when (st.imageQuality) { "high" -> "High (1280 px)"; "hd" -> "1280 enhanced"; else -> "Maximum (original)" } },
-                    { st.imageQuality = cycle(listOf("high", "hd", "max"), st.imageQuality, it); custom() }))
+                    { st.imageQuality = cycle(listOf("high", "hd", "max"), st.imageQuality, it); st.ownPerf("imageQuality") }))
                 add(Adjust("  · Picture cache", "Posters, backdrops and logos kept on the TV, so browsing back is instant. Applies after a restart", { "${st.cacheMb / 1024.0}".removeSuffix(".0") + " GB" },
-                    { st.cacheMb = cycle(listOf(512, 1024, 1536, 2048, 3072, 4096), st.cacheMb, it) }))
-                add(Adjust("  · Prepare ahead", "Slides loaded before you get to them", { "${st.prefetchDepth}" }, { st.prefetchDepth += it; custom() }))
+                    { st.cacheMb = cycle(listOf(512, 1024, 1536, 2048, 3072, 4096), st.cacheMb, it); st.ownPerf("cacheMb") }))
+                add(Adjust("  · Prepare ahead", "Slides loaded before you get to them", { "${st.prefetchDepth}" }, { st.prefetchDepth += it; st.ownPerf("prefetchDepth") }))
 
                 add(Note("Other TVs & backups"))
                 add(pageRow("Sync between TVs", when (com.glasslauncher.tv.data.PeerSync.role) {
@@ -2316,7 +2454,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
         while (!done && n++ < 45) {
             val list = pageList(c)
             // (Only scrolled to when it isn't on screen: coming back to a page, the row is where it was left.)
-            if (list != null && list.layoutInfo.totalItemsCount > r && list.layoutInfo.visibleItemsInfo.none { it.index == r }) {
+            // (The first row: the page goes back to its top, its heading in view.)
+            if (list != null && r == 0 && list.firstVisibleItemIndex + list.firstVisibleItemScrollOffset > 0) { runCatching { list.scrollToItem(0) }; androidx.compose.runtime.withFrameNanos { } }
+            else if (list != null && list.layoutInfo.totalItemsCount > r && list.layoutInfo.visibleItemsInfo.none { it.index == r }) {
                 runCatching { list.scrollToItem(r) }; androidx.compose.runtime.withFrameNanos { }
             }
             // (The row asked for, or the first one after it that can be selected: a page may begin with a heading.)
@@ -2468,6 +2608,15 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     // (From a page a row opened, Left goes up one page, to that row, like Back: it went to the
                     // sections with the page still up, and the next Down changed section from inside a sub-page.)
                     .focusProperties {
+                        // Right from the sections: the page's first row (from the top), not the row facing the section
+                        // (his video: it landed in the middle of the page). Searching, the results keep their own way.
+                        enter = { dir ->
+                            // (Pages made of rows only: About is its own pane, and with its rows never found the selection
+                            // went back to the sections, so it took several presses to get in.)
+                            if (dir == androidx.compose.ui.focus.FocusDirection.Right && !searching && subs.isEmpty() && special == null && categories.getOrNull(shownCat)?.kind != Kind.About) {
+                                holding[0] = true; jump = pageSlot() to 0; holdFocus
+                            } else FocusRequester.Default
+                        }
                         exit = { dir ->
                             when (dir) {
                                 androidx.compose.ui.focus.FocusDirection.Left ->
@@ -2968,7 +3117,7 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
                         val R = com.glasslauncher.tv.data.Report
                         val data = kotlinx.coroutines.withContext(Dispatchers.IO) {
                             R.build(ctx, app.settings, app.updater.current, said, mapOf("Nuvio" to app.library.nuvio.connected, "Trakt" to app.cw.trakt.connected,
-                                "Simkl" to app.cw.simkl.connected, "Stremio" to app.cw.stremio.connected))
+                                "Simkl" to app.cw.simkl.connected, "Stremio" to app.cw.stremio.connected, "Jellyfin" to app.cw.jellyfin.connected))
                         }
                         dlg = ReportDialog(data) { d -> R.send(ctx, d) }
                     }
@@ -2992,7 +3141,9 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
 }
 
 /** A video link's file name, readable ("Lofoten_4K.mp4" → "Lofoten 4K"). */
-private fun videoName(u: String): String = runCatching {
+internal fun videoName(u: String): String = com.glasslauncher.tv.saver.AerialSource.ytTitles[u]
+    ?: (if (com.glasslauncher.tv.saver.AerialSource.isPlaylist(u)) "YouTube playlist" else if (com.glasslauncher.tv.saver.AerialSource.youtubeId(u) != null) "YouTube video" else null)
+    ?: runCatching {
     java.net.URLDecoder.decode(u.substringBefore('?').trimEnd('/').substringAfterLast('/'), "UTF-8").substringBeforeLast('.').replace('_', ' ').replace('-', ' ').trim()
 }.getOrNull().orEmpty().ifBlank { "Video link" }
 

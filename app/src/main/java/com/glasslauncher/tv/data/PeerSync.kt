@@ -57,6 +57,8 @@ object PeerSync {
     private val NEVER = setOf(
         "interceptHome", "a11yConsent", "inputs", "inputPlayer", "setupDone", "tourSeen", "musicLastPkg", "bootStart", "recentsAdb",
         "nuvioToken", "nuvioTarget", "cameraDecoder", "phoneMinutes", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
+        // (Which of this TV's own links are off: the links stay on each TV, so does this.)
+        "saverYtOff",
     )
     // (Hue: the bridge and its key are shared on request; the lights and rooms each TV drives stay its own.)
     private val NEVER_PREFIX = listOf("hue", "sys", "saverCache", "settingsLast")
@@ -67,7 +69,7 @@ object PeerSync {
      */
     private val PERF = setOf(
         "perfMode", "memTier", "pageScale", "glassRes", "imageQuality", "cacheMb", "prefetchDepth", "maxItems", "photoCacheMb",
-        "refraction", "transitionMs", "slideAnim", "heroGallery", "galleryShots", "saverQuality",
+        "refraction", "transitionMs", "slideAnim", "heroGallery", "galleryShots", "saverQuality", "perfOwn", "heroAutoplayWhere",
     )
     private val LOOK = setOf(
         "theme", "glass", "glassColor", "glassColorAmount", "glassTint", "blurRadius", "refraction", "tileStyle", "tileBacking", "tileLift",

@@ -31,6 +31,12 @@ class HomeKeyService : AccessibilityService() {
     }
 
     fun closeMulti() { multi?.close(); multi = null }
+
+    /** QA (dev key): the corner camera window on one link, without touching the cameras saved (--es cam_test <link>). */
+    fun testCamera(url: String) {
+        camera?.close()
+        camera = CameraOverlay(this, listOf(com.glasslauncher.tv.ui.Cam("Test", url)), 20).also { it.show() }
+    }
     val multiShowing get() = multi?.showing == true
 
     /** The corner camera from a remote button (like holding Home with "Camera"). */
@@ -161,8 +167,17 @@ class HomeKeyService : AccessibilityService() {
         }
         if (!enabled()) return
         val pkg = event.packageName?.toString() ?: return
+        val prev = lastFront
+        lastFront = pkg
         if (pkg != "com.google.android.apps.tv.launcherx" && pkg != "com.google.android.tvlauncher") return
         val launcherHome = event.className?.toString().orEmpty().let { it.contains("HomeActivity") || it.contains("MainActivity") || it.contains("LauncherActivity") }
+        // Back out of the Jellyfin app (opened from Glassio) lands on the TV's own home (it starts its screens "on
+        // home"): Glassio again, as Back from any other app (#27).
+        if (launcherHome && prev == com.glasslauncher.tv.data.Jellyfin.PKG && System.currentTimeMillis() - com.glasslauncher.tv.data.Jellyfin.openedAt < 6 * 3600_000L) {
+            com.glasslauncher.tv.data.Jellyfin.openedAt = 0L
+            // (As it was left: the search, the Library, the selection.)
+            openGlass("keep_place"); return
+        }
         if (launcherHome) {
             val now = android.os.SystemClock.uptimeMillis()
             launcherHomeAt = now
@@ -178,6 +193,9 @@ class HomeKeyService : AccessibilityService() {
         if (System.currentTimeMillis() - homeDownAt < 1500) return
         showGlass()
     }
+
+    /** The app whose window was on screen before the one now (for Back out of Jellyfin). */
+    @Volatile private var lastFront = ""
 
     override fun onServiceConnected() {
         super.onServiceConnected()

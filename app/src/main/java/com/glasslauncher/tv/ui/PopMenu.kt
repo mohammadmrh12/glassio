@@ -82,7 +82,9 @@ object PopAnchors {
 
 @Composable
 fun PopMenuHost(state: PopState?, s: Float, style: String, onDismiss: () -> Unit) {
+    // (Not over the screensaver on the home screen: it comes back when the screensaver ends.)
     if (state == null) return
+    if (com.glasslauncher.tv.saver.HomeSaver.state.value != 0 && !com.glasslauncher.tv.saver.SaverControl.popOpen.value) return
     androidx.compose.runtime.key(state) { OverSettings {
         // (Over Settings the rest of the screen dims a little, so the menu stands out.)
         if (LocalOverSettings.current != null) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = SettingsGlass.DIM)))

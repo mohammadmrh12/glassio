@@ -45,6 +45,8 @@ class ContinueWatching(
     val trakt = Trakt(ctx)
     val stremio = Stremio(ctx)
     val simkl = Simkl(ctx)
+    /** A Jellyfin server (#27): its titles in progress, and more (catalogs, Library, search) through the app. */
+    val jellyfin = Jellyfin(ctx)
     /** The Nuvio account (kept by the Library); set once it exists. */
     @Volatile var nuvio: NuvioAccount? = null
     private val syncedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -78,6 +80,9 @@ class ContinueWatching(
                     if (settings.cwStremio && stremio.connected && due("Stremio")) { syncedAt["Stremio"] = now; syncStremio() }
                     // Simkl counts every request against a daily limit: every 10 minutes (2 when back on the home screen).
                     if (settings.cwSimkl && simkl.connected && !simkl.limited && now - (syncedAt["Simkl"] ?: 0L) > (if (woke) 120_000L else 600_000L)) { syncedAt["Simkl"] = now; syncSimkl() }
+                    if (settings.cwJellyfin && jellyfin.connected && due("Jellyfin")) { syncedAt["Jellyfin"] = now; syncJellyfin() }
+                    // Signed out (or the switch off): the server's titles leave (nothing would replace them any more).
+                    else if ((!settings.cwJellyfin || !jellyfin.connected) && entries.value.any { it.app == "Jellyfin" }) mirror("Jellyfin", emptyList())
                     val n = nuvio
                     if (settings.cwNuvioAccount && n?.connected == true && due("Nuvio")) { syncedAt["Nuvio"] = now; syncNuvio(n) }
                 }
@@ -250,6 +255,19 @@ class ContinueWatching(
         mirror("Stremio", l.map { Remote(CwEntry(it.imdb, it.season, it.episode, it.percent, it.at, "Stremio"), it.raw.toString()) })
     }
 
+    /** The Jellyfin item id a title in progress has there (to open it on its own page), by its key. */
+    fun jellyfinRef(key: String): String? = refs("Jellyfin").optString(key).ifBlank { null }
+
+    private fun syncJellyfin() {
+        val l = runCatching { jellyfin.continueWatching() }.getOrElse { status.value = status.value + ("Jellyfin" to "Sync failed: ${it.message}"); return }
+        // Only titles the server knows by IMDb id (the rest of Glassio reads a title by it).
+        mirror("Jellyfin", l.filter { it.progress > 0f && it.key.startsWith("tt") }.map { i ->
+            Remote(CwEntry(i.key, i.season, i.episode, (i.progress * 100).toInt(), i.lastPlayed.takeIf { it > 0 } ?: System.currentTimeMillis(), "Jellyfin"), i.id)
+        })
+        // The library's ids, ready for Play and the search ("on your Jellyfin").
+        runCatching { jellyfin.byImdb() }
+    }
+
     private fun syncSimkl() {
         val l = simkl.playback() ?: run { status.value = status.value + ("Simkl" to "Sync failed: ${simkl.lastError}"); return }
         mirror("Simkl", l.map { Remote(CwEntry(it.imdb, it.season, it.episode, it.percent, it.at, "Simkl"), it.id.toString()) })
@@ -341,6 +359,7 @@ class ContinueWatching(
             val ref = refs(e.app).optString(key)
             when (e.app) {
                 "Simkl" -> ref.toLongOrNull()?.let { simkl.removePlayback(it) }
+                "Jellyfin" -> if (ref.isNotBlank()) jellyfin.hideFromResume(ref)
                 "Stremio" -> runCatching { val o = JSONObject(ref); stremio.dismiss(Stremio.Progress(o.optString("_id"), e.imdb, e.season, e.episode, e.percent, e.at, o)) }.onFailure { Glog.w("Continue Watching: remove from Stremio", it) }
                 "Nuvio" -> nuvio?.deleteProgress(ref.ifBlank { if (e.episode > 0) "${e.imdb}_s${e.season}e${e.episode}" else e.imdb })
                 "Nuvio Legacy" -> nuvio?.takeIf { it.connected }?.deleteProgress(if (e.episode > 0) "${e.imdb}_s${e.season}e${e.episode}" else e.imdb)

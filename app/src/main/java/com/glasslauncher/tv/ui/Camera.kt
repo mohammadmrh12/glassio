@@ -60,12 +60,12 @@ fun CameraView(cam: Cam, s: Float, modifier: Modifier = Modifier) {
                 override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) state = "" }
                 override fun onPlayerError(error: PlaybackException) { state = "Can't reach the camera" }
             })
-            com.glasslauncher.tv.CamPlayer.play(ctx, this, cam.url)
         }
     }
-    DisposableEffect(player) { onDispose { player.release() } }
+    DisposableEffect(player) { onDispose { com.glasslauncher.tv.CamPlayer.release(player) } }
     Box(modifier.clip(RoundedCornerShape((14 * s).dp)).background(Color.Black)) {
-        AndroidView(factory = { c -> TextureView(c).also { player.setVideoTextureView(it) } }, modifier = Modifier.fillMaxSize())
+        // (Started once the view is there: a Home Assistant camera without a stream draws its pictures on it.)
+        AndroidView(factory = { c -> TextureView(c).also { tv -> player.setVideoTextureView(tv); com.glasslauncher.tv.CamPlayer.play(ctx, player, cam.url, tv, onFail = { state = "Can't reach the camera" }) { state = "" } } }, modifier = Modifier.fillMaxSize())
         if (state.isNotBlank()) Text(state, color = Color.White.copy(alpha = 0.7f), fontSize = (10 * s).sp, modifier = Modifier.align(Alignment.Center))
         Row(
             Modifier.align(Alignment.TopStart).padding((8 * s).dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.45f))

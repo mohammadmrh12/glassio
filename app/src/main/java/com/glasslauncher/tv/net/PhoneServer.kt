@@ -215,6 +215,12 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             require(m != "video" || app.settings.bgVideo.isNotBlank()) { "Add a video first" }
             app.settings.bgMode = m; "Background changed"
         }
+        // Videos as the background: all the library's videos or only My videos (One video is the mode "video").
+        "/api/bg/videos" -> {
+            val v = j.optString("videos")
+            require(v in listOf("all", "mine")) { "Unknown choice" }
+            app.settings.bgVideos = v; app.settings.bgMode = "aerial"; "Background changed"
+        }
         "/api/bg/link" -> {
             val u = j.optString("url").trim()
             require(u.startsWith("http")) { "The link must start with http" }
@@ -290,6 +296,27 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             val ok = app.cw.stremio.login(j.optString("email").trim(), j.optString("password"))
             if (ok) { Bg.io("glass-stremio-sync") { runCatching { app.cw.syncStremio() }.onFailure { com.glasslauncher.tv.data.Glog.w("Phone page: Stremio sync", it) } }; "Stremio connected as ${app.cw.stremio.email}" } else error("Stremio didn't accept that email and password")
         }
+        // Jellyfin (#27): the server's address, user name and password, typed here (the password isn't kept).
+        "/api/jellyfin/login" -> {
+            val jf = app.cw.jellyfin
+            val server = j.optString("server").trim()
+            require(server.isNotBlank()) { "Type the server's address" }
+            jf.check(jf.normalize(server)).getOrElse { throw IllegalArgumentException(it.message ?: "No Jellyfin server there") }
+            jf.signIn(server, j.optString("user").trim(), j.optString("password")).getOrElse { throw IllegalArgumentException(it.message ?: "Sign-in failed") }
+            app.cw.pollNow()
+            Bg.io("glass-jellyfin-catalogs") { runCatching { app.catalogs.refresh() }.onFailure { com.glasslauncher.tv.data.Glog.w("Phone page: Jellyfin catalogs", it) } }
+            "Jellyfin connected as ${jf.userName}"
+        }
+        "/api/jellyfin/logout" -> { app.cw.jellyfin.signOut(); Bg.io("glass-jellyfin-catalogs") { runCatching { app.catalogs.refresh() }.onFailure { com.glasslauncher.tv.data.Glog.w("Phone page: Jellyfin catalogs", it) } }; "Signed out of Jellyfin" }
+        // Pexels: the key (empty removes it) and the words its videos show; turned on with a key.
+        "/api/pexels" -> {
+            val st = app.settings
+            val key = j.optString("key").trim(); val words = j.optString("words").trim()
+            if (j.has("key")) { st.pexelsKey = key; st.saverSources = if (key.isNotBlank()) (st.saverSources + com.glasslauncher.tv.saver.AerialSource.PEXELS).distinct() else st.saverSources - com.glasslauncher.tv.saver.AerialSource.PEXELS }
+            if (words.isNotBlank()) st.pexelsQuery = words
+            st.saverPick = ""
+            if (key.isNotBlank() || !j.has("key")) "Pexels saved" else "Pexels key removed"
+        }
         "/api/simkl/client" -> { app.cw.simkl.clientId = j.optString("id").trim(); "Simkl client ID saved. Sign in on the TV: Settings → Accounts & profiles" }
         "/api/camera/add" -> {
             val name = j.optString("name").trim().replace("|", " ").ifBlank { "Camera" }; val url = j.optString("url").trim()
@@ -330,7 +357,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             val said = j.optString("text").trim(); require(said.length in 10..500) { "Between 10 and 500 characters" }
             val R = com.glasslauncher.tv.data.Report
             val d = R.build(app, app.settings, app.updater.current, said, mapOf("Nuvio" to app.library.nuvio.connected, "Trakt" to app.cw.trakt.connected,
-                "Simkl" to app.cw.simkl.connected, "Stremio" to app.cw.stremio.connected))
+                "Simkl" to app.cw.simkl.connected, "Stremio" to app.cw.stremio.connected, "Jellyfin" to app.cw.jellyfin.connected))
             report = d; R.preview(d)
         }
         "/api/report/send" -> {
@@ -366,16 +393,18 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
                 .put("used", f.absolutePath == st.bgImage || f.absolutePath == st.bgVideo))
         }
         fun shown(v: String) = if (v.startsWith("http")) v else v.substringAfterLast('/')
-        val back = JSONObject().put("mode", st.bgMode).put("image", shown(st.bgImage)).put("video", shown(st.bgVideo)).put("files", files)
+        val back = JSONObject().put("mode", st.bgMode).put("videos", st.bgVideos).put("image", shown(st.bgImage)).put("video", shown(st.bgVideo)).put("files", files)
             .put("downloading", downloading).put("last", lastDownload)
         val cams = JSONArray()
         st.cameras.forEach { l -> cams.put(JSONObject().put("name", l.substringBefore('|')).put("host", runCatching { java.net.URI(l.substringAfter('|')).host }.getOrNull() ?: "")) }
         val acc = JSONObject().put("nuvio", app.cw.nuvio?.connected == true).put("stremio", app.cw.stremio.connected)
-            .put("trakt", app.cw.trakt.connected).put("simkl", app.cw.simkl.connected)
+            .put("trakt", app.cw.trakt.connected).put("simkl", app.cw.simkl.connected).put("jellyfin", app.cw.jellyfin.connected)
+            .put("jellyfinWho", if (app.cw.jellyfin.connected) "${app.cw.jellyfin.userName} · ${app.cw.jellyfin.serverName.ifBlank { "your server" }}" else "")
         val nv = app.library.nuvio
         val nuvioServer = JSONObject().put("custom", nv.custom).put("host", if (nv.custom) runCatching { java.net.URI(nv.server).host }.getOrNull() ?: nv.server else "")
             .put("login", if (nv.custom) nv.loginPage else "")
-        return JSONObject().put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc).put("nuvioServer", nuvioServer)
+        val pexels = JSONObject().put("key", app.settings.pexelsKey.isNotBlank()).put("words", app.settings.pexelsQuery).put("on", com.glasslauncher.tv.saver.AerialSource.PEXELS in app.settings.saverSources)
+        return JSONObject().put("pexels", pexels).put("youtube", !com.glasslauncher.tv.data.Store.PLAY).put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc).put("nuvioServer", nuvioServer)
             .put("tmdb", app.settings.tmdbToken.isNotBlank()).put("ha", app.settings.haWebhook.isNotBlank())
             .put("simklClient", app.cw.simkl.clientId.isNotBlank()).put("city", st.weatherCity)
             .put("profile", JSONObject().put("name", com.glasslauncher.tv.data.Profiles.nameOverride(app, com.glasslauncher.tv.data.Profiles.active(app))))

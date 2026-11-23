@@ -34,6 +34,7 @@
         <package android:name="com.nuvioreshaped.tv"/>
         <package android:name="app.onetube.tv"/>
         <package android:name="com.nuvio.livetv"/>
+        <package android:name="org.jellyfin.androidtv"/>
     </queries>
 
     <application
@@ -126,6 +127,13 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
+        <activity
+            android:name=".InputsPickActivity"
+            android:taskAffinity="com.glasslauncher.tv.inputs"
+            android:exported="false"
+            android:theme="@style/Theme.Glass.Recents"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask" />
         <activity
             android:name=".RecentsActivity"
             android:exported="false"

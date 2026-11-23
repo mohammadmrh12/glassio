@@ -92,6 +92,9 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     var musicPage by remember { mutableStateOf(MusicUi.openInMenu.value.also { MusicUi.openInMenu.value = false } && st.musicOn) }
     var inputsRow by remember { mutableIntStateOf(0) }
     var saverRow by remember { mutableIntStateOf(0) }
+    // Inside the screensaver page: "" its rows, "col" the collections, "yt" the YouTube links (as in Settings).
+    var saverSub by remember { mutableStateOf("") }
+    var saverSubRow by remember { mutableIntStateOf(0) }
     var camRow by remember { mutableIntStateOf(0) }
     val cams = remember(st.cameras) { st.cameras.mapNotNull { Cam.parse(it) } }
     var camIndex by remember { mutableIntStateOf(0) }
@@ -103,10 +106,10 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     LaunchedEffect(Unit) { enter.animateTo(1f, tween(260, easing = EASE)) }
     var inside by remember { mutableStateOf(false) }
     // Take focus from the settings button (or wherever it is): retry until a row has it.
-    LaunchedEffect(themes, bgPage, camPage, saverPage, trailerPage, inputsPage, btPage, musicPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
+    LaunchedEffect(themes, bgPage, camPage, saverPage, saverSub, trailerPage, inputsPage, btPage, musicPage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
     var themesRow by remember { mutableIntStateOf(0) }
     var bgRow by remember { mutableIntStateOf(0) }
-    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (btPage) { target = btRow; btPage = false } else if (musicPage) { musicPage = false } else onClose() }
+    BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage && saverSub != "") { target = saverSubRow; saverSub = "" } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (btPage) { target = btRow; btPage = false } else if (musicPage) { musicPage = false } else onClose() }
 
     val time by produceState(clockText(st.clock24h), st.clock24h) { while (true) { value = clockText(st.clock24h); delay(5_000) } }
     val date by produceState(longDate(), Unit) { while (true) { value = longDate(); delay(60_000) } }
@@ -309,23 +312,29 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
                     val back = { target = bgRow; bgPage = false }
                     BG_MODES.forEachIndexed { i, (key, label) ->
-                        MenuRow(s, light, label, if (st.bgMode == key) "✓" else "",
+                        MenuRow(s, light, label, if (bgKey(st.bgMode) == key) "✓" else "",
                             modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
                             first = i == 0, last = i == BG_MODES.lastIndex && st.bgMode == "carousel", onLeft = back,
-                            glyph = { c -> glyph(if (st.bgMode == key) "dotOn" else "dotOff", c) },
+                            glyph = { c -> glyph(if (bgKey(st.bgMode) == key) "dotOn" else "dotOff", c) },
                             onClick = {
                                 target = i
                                 when {
                                     key == "image" && st.bgImage.isBlank() -> toast(ctx, "Choose a picture first: Glassio settings → Background & screensaver → My pictures & videos")
-                                    key == "video" && st.bgVideo.isBlank() -> toast(ctx, "Choose a video first: Glassio settings → Background & screensaver → My pictures & videos")
+                                    key == "aerial" && st.bgMode == "video" -> {}
                                     else -> st.bgMode = key
                                 }
                             })
                     }
                     // Your background: shuffle (a new one by itself) and the next one now, for whichever kind it is.
                     val extra: Pair<Pair<String, Boolean>, Pair<String, () -> Unit>>? = when (st.bgMode) {
-                        "aerial" -> ("Shuffle videos" to st.bgShuffle) to ("Next video" to { st.bgShuffle = !st.bgShuffle })
-                        "video" -> ("Shuffle my videos" to st.bgVideoShuffle) to ("Next video" to { st.bgVideoShuffle = !st.bgVideoShuffle })
+                        // Videos: what it plays (all, mine, one) in turn, then the next one now.
+                        "aerial", "video" -> ("Plays" to true) to ("Next video" to {
+                            when (if (st.bgMode == "video") "one" else st.bgVideos) {
+                                "all" -> st.bgVideos = "mine"
+                                "mine" -> if (st.bgVideo.isNotBlank()) { st.bgVideoShuffle = false; st.bgMode = "video" } else st.bgVideos = "all"
+                                else -> { st.bgVideos = "all"; st.bgMode = "aerial" }
+                            }
+                        })
                         "image" -> ("Shuffle my pictures" to st.bgImageShuffle) to ("Next picture" to { st.bgImageShuffle = !st.bgImageShuffle })
                         "photos" -> ("Shuffle photos" to st.photoShuffle) to ("Next photo" to { st.photoShuffle = !st.photoShuffle })
                         else -> null
@@ -333,14 +342,22 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     if (extra != null) {
                         val n = BG_MODES.size
                         val (shuffle, next) = extra
-                        MenuRow(s, light, shuffle.first, if (shuffle.second) "On" else "Off",
+                        // (Videos: what they play, in turn: All the videos, My videos, One video.)
+                        val plays = st.bgMode == "aerial" || st.bgMode == "video"
+                        val playsText = if (st.bgMode == "video") "One video" else if (st.bgVideos == "mine") "My videos" else "All the videos"
+                        MenuRow(s, light, shuffle.first, if (plays) playsText else if (shuffle.second) "On" else "Off",
                             modifier = Modifier.focusRequester(reqs[n]), onFocused = { current = n },
                             first = false, last = false, onLeft = back,
-                            glyph = { c -> glyph(if (shuffle.second) "dotOn" else "dotOff", c) }, onClick = { target = n; next.second() })
+                            glyph = { c -> glyph(if (plays) "more" else if (shuffle.second) "dotOn" else "dotOff", c) }, onClick = { target = n; next.second() })
                         MenuRow(s, light, next.first, "",
                             modifier = Modifier.focusRequester(reqs[n + 1]), onFocused = { current = n + 1 },
-                            first = false, last = true, onLeft = back,
+                            first = false, last = false, onLeft = back,
                             glyph = { c -> glyph("dotOff", c) }, onClick = { target = n + 1; CustomBackground.nextNow(st) })
+                        // The large clock over your own background (as in Settings → Background & screensaver).
+                        MenuRow(s, light, "Large clock", if (st.bgClock) "On" else "Off",
+                            modifier = Modifier.focusRequester(reqs[n + 2]), onFocused = { current = n + 2 },
+                            first = false, last = true, onLeft = back,
+                            glyph = { c -> glyph(if (st.bgClock) "dotOn" else "dotOff", c) }, onClick = { target = n + 2; st.bgClock = !st.bgClock })
                     }
                 } else if (trailerPage) {
                     Text("Trailer", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
@@ -376,20 +393,39 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             onClick = { target = i; act() })
                     }
                 } else if (saverPage) {
-                    Text("Screensaver", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
+                    Text(when (saverSub) { "col" -> "Collections"; "yt" -> "YouTube lists"; else -> "Screensaver" }, color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
-                    val back = { target = saverRow; saverPage = false }
-                    val opts = buildList<Triple<String, String, () -> Unit>> {
-                        com.glasslauncher.tv.saver.AerialSource.SOURCES.forEach { src ->
-                            val on = st.saverMode == "aerial" && src.key in st.saverSources
-                            add(Triple(src.name, if (on) "✓" else "") {
+                    val back = { if (saverSub != "") { target = saverSubRow; saverSub = "" } else { target = saverRow; saverPage = false } }
+                    val AS = com.glasslauncher.tv.saver.AerialSource
+                    val yts = st.aerialUrls.filter { AS.isYoutube(it) }
+                    val opts = if (saverSub == "col") buildList<Triple<String, String, () -> Unit>> {
+                        // The collections, as in Settings (Pexels only with its key).
+                        AS.SOURCES.forEach { src ->
+                            add(Triple(src.name, if (src.key in st.saverSources) "✓" else "") {
                                 st.saverMode = "aerial"; st.saverPick = ""
                                 st.saverSources = if (src.key in st.saverSources) st.saverSources - src.key else st.saverSources + src.key
                             })
                         }
+                        if (st.pexelsKey.isNotBlank()) add(Triple("Pexels", if (AS.PEXELS in st.saverSources) "✓" else "") {
+                            st.saverMode = "aerial"; st.saverPick = ""
+                            st.saverSources = if (AS.PEXELS in st.saverSources) st.saverSources - AS.PEXELS else st.saverSources + AS.PEXELS
+                        })
+                    } else if (saverSub == "yt") buildList<Triple<String, String, () -> Unit>> {
+                        yts.take(reqs.size).forEach { u ->
+                            add(Triple(com.glasslauncher.tv.ui.videoName(u), if (u !in st.saverYtOff) "✓" else "") {
+                                st.saverMode = "aerial"; st.saverPick = ""
+                                st.saverYtOff = if (u in st.saverYtOff) st.saverYtOff - u else (st.saverYtOff + u).distinct()
+                            })
+                        }
+                    } else buildList<Triple<String, String, () -> Unit>> {
+                        add(Triple("Collections", "${AS.SOURCES.count { it.key in st.saverSources } + (if (AS.PEXELS in st.saverSources && st.pexelsKey.isNotBlank()) 1 else 0)} ›") { saverSubRow = current; target = 0; saverSub = "col" })
+                        if (!com.glasslauncher.tv.data.Store.PLAY && yts.isNotEmpty())
+                            add(Triple("YouTube lists", "${yts.count { it !in st.saverYtOff }} / ${yts.size} ›") { saverSubRow = current; target = 0; saverSub = "yt" })
                         add(Triple("My videos", if (st.saverMode == "aerial" && st.saverMine) "✓" else "") { st.saverMode = "aerial"; st.saverMine = !st.saverMine; st.saverPick = "" })
                         add(Triple("Posters", if (st.saverMode == "slideshow") "✓" else "") { st.saverMode = if (st.saverMode == "slideshow") "aerial" else "slideshow" })
                         if (!com.glasslauncher.tv.data.Store.PLAY) add(Triple("Trailers", if (st.saverMode == "trailer") "✓" else "") { st.saverMode = if (st.saverMode == "trailer") "aerial" else "trailer" })
+                        // The screensaver on the home screen itself (one player, back at once).
+                        if (st.saverMode != "system") add(Triple("One player", if (st.saverInHome) "On" else "Off") { st.saverInHome = !st.saverInHome })
                         add(Triple("Shuffle", if (st.saverShuffle) "On" else "Off") { st.saverShuffle = !st.saverShuffle })
                         if (st.saverLock) add(Triple("Locked only", if (st.saverLockedOnly) "On" else "Off · ${st.saverLocked.size}") { st.saverLockedOnly = !st.saverLockedOnly })
                         add(Triple("Large clock", if (st.saverBigClock) "On" else "Off") { st.saverBigClock = !st.saverBigClock })
@@ -401,7 +437,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     opts.forEachIndexed { i, (label, value, act) ->
                         MenuRow(s, light, label, value, modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
                             first = i == 0, last = i == opts.lastIndex, onLeft = back,
-                            glyph = { c -> glyph(if (value == "✓" || value.startsWith("On")) "dotOn" else "dotOff", c) },
+                            glyph = { c -> glyph(if (value == "✓" || value.startsWith("On")) "dotOn" else if (value.endsWith("›")) "more" else "dotOff", c) },
                             onClick = { target = i; act() })
                     }
                 } else if (!themes) {
@@ -419,7 +455,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         if (st.menuCamera && cams.isNotEmpty()) add(Triple("camera", "Camera") { target = 0; camPage = true })
                         if (st.menuSaver) add(Triple("saver", "Screensaver") { target = 0; saverPage = true })
                         if (st.menuTrailer) add(Triple("trailer", "Trailer") { target = 0; trailerPage = true })
-                        if (st.menuBackground) add(Triple("background", "Background") { target = BG_MODES.indexOfFirst { it.first == st.bgMode }.coerceAtLeast(0); bgPage = true })
+                        if (st.menuBackground) add(Triple("background", "Background") { target = BG_MODES.indexOfFirst { it.first == bgKey(st.bgMode) }.coerceAtLeast(0); bgPage = true })
                     }.sortedBy { r -> st.menuOrder.indexOf(r.first).let { if (it < 0) 99 else it } }
                     bgRow = rows.indexOfFirst { it.first == "background" }.coerceAtLeast(0)
                     camRow = rows.indexOfFirst { it.first == "camera" }.coerceAtLeast(0)
@@ -428,8 +464,11 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     trailerRow = rows.indexOfFirst { it.first == "trailer" }.coerceAtLeast(0)
                     themesRow = rows.indexOfFirst { it.first == "theme" }.coerceAtLeast(0)
                     rows.forEachIndexed { i, (icon, label, act) ->
-                        MenuRow(s, light, label, when (icon) { "theme" -> themeLabel(st.theme); "background" -> BG_MODES.firstOrNull { it.first == st.bgMode }?.second.orEmpty(); else -> "" },
-                            chevron = icon == "theme" || icon == "background",
+                        MenuRow(s, light, label, when (icon) { "theme" -> themeLabel(st.theme); "background" -> BG_MODES.firstOrNull { it.first == bgKey(st.bgMode) }?.second.orEmpty()
+                            // What the screensaver plays, like the theme and the background beside theirs.
+                            "saver" -> when (st.saverMode) { "aerial" -> "Videos"; "slideshow" -> "Posters"; "trailer" -> "Trailers"; "system" -> "TV screensaver"; else -> "" }
+                            else -> "" },
+                            chevron = icon == "theme" || icon == "background" || icon == "saver",
                             modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
                             first = i == 0, last = i == rows.lastIndex, onLeft = onClose, glyph = { c -> glyph(icon, c) }, onClick = act,
                             // ▶: the menu turns into the music player.
@@ -534,7 +573,9 @@ private fun DrawScope.plateGlyph(p: String, c: Color) {
     drawRoundRect(c, cornerRadius = r, style = Stroke(size.width * 0.1f))
 }
 
-private val BG_MODES = listOf("carousel" to "Title backdrops", "image" to "My picture", "photos" to "Photos", "video" to "My video", "aerial" to "Screensaver")
+private val BG_MODES = listOf("carousel" to "Title backdrops", "image" to "My picture", "photos" to "Photos", "aerial" to "Videos")
+/** The menu's background choice for a mode: "One video" (mode "video") is one of Videos' choices. */
+private fun bgKey(mode: String) = if (mode == "video") "aerial" else mode
 
 private fun themeLabel(t: String) = THEMES.firstOrNull { it.first == t }?.second ?: "Custom"
 
@@ -639,6 +680,8 @@ private fun DrawScope.glyph(kind: String, c: Color) {
         }
         "dotOn" -> { drawCircle(c, w * 0.42f, Offset(w / 2, w / 2), style = st); drawCircle(c, w * 0.24f, Offset(w / 2, w / 2)) }
         "dotOff" -> drawCircle(c, w * 0.42f, Offset(w / 2, w / 2), style = st)
+        // A page inside (›).
+        "more" -> { drawLine(c, Offset(w * 0.38f, w * 0.22f), Offset(w * 0.66f, w * 0.5f), w * 0.09f, StrokeCap.Round); drawLine(c, Offset(w * 0.66f, w * 0.5f), Offset(w * 0.38f, w * 0.78f), w * 0.09f, StrokeCap.Round) }
         "theme" -> {
             drawCircle(c, w * 0.42f, Offset(w / 2, w / 2), style = st)
             drawArc(c, 90f, 180f, true, Offset(w * 0.08f, w * 0.08f), Size(w * 0.84f, w * 0.84f))

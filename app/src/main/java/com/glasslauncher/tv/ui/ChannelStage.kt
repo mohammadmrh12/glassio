@@ -182,7 +182,8 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         val padV = grow + glowPad
         val content = vis * (labelH + cardH + 2 * grow) + (vis - 1) * rowGap
         // One row: in the middle of the room; two: from the dock up.
-        val lift = if (vis == 1) bottom + (room - content) / 2f else bottom
+        // (Right above the dock with *Rows above the dock*: the large clock and the top of the page stay in view, #21.)
+        val lift = if (vis == 1 && !st.channelsLow) bottom + (room - content) / 2f else bottom
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = lift.coerceAtLeast(bottom).dp)
             .onFocusChanged { ChannelsUi.focused = it.hasFocus }
             .focusRequester(ChannelsUi.entry)
@@ -210,7 +211,11 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
             }
             .focusGroup(),
             verticalArrangement = Arrangement.spacedBy(rowGap.dp)) {
-            shown.forEach { r ->
+            // Built a row a frame (the first at once): all of them in one frame made the frame the page came up in
+            // 40-90 ms on a weak TV (the TCL), the cost of the page at once.
+            var built by remember(pkg) { mutableIntStateOf(1) }
+            LaunchedEffect(pkg, shown.size) { while (built < shown.size) { androidx.compose.runtime.withFrameNanos { }; built++ } }
+            shown.take(built.coerceAtLeast(1)).forEach { r ->
                 val ch = rows[r]
                 androidx.compose.runtime.key(ch.key) {
                     var sel by remember { mutableIntStateOf(-1) }
@@ -280,7 +285,9 @@ private class FirstPlace(private val start: Float) : androidx.compose.foundation
 private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, glowAmt: Float, blurBg: Boolean, hueApp: com.glasslauncher.tv.GlassApp?, modifier: Modifier, onOpen: () -> Unit) {
     val ctx = LocalContext.current
     var focused by remember { mutableStateOf(false) }
-    var failed by remember(p.poster) { mutableStateOf(p.poster.isBlank()) }
+    // (Failed once: asked again when the network is back or the home screen shows again, see NetState.)
+    val netRev = com.glasslauncher.tv.data.NetState.rev.intValue
+    var failed by remember(p.poster, netRev) { mutableStateOf(p.poster.isBlank()) }
     var gc by remember(p.poster) { mutableStateOf(Glow.cached("ch:" + p.poster)) }
     var bmp by remember(p.poster) { mutableStateOf<android.graphics.Bitmap?>(null) }
     // The blurred background follows the selected card; its picture, once loaded, also goes to the first card's
@@ -305,7 +312,7 @@ private fun ChannelCard(p: Channels.Program, s: Float, h: Float, glow: String, g
         .graphicsLayer { scaleX = k; scaleY = k }
         .drawBehind { if (glowA > 0f) with(Glow) { glow(if (glow == "white") Color.White else gc ?: Color.White, glowA, tallShape = !p.wide, corner = (8 * s).dp.toPx(), amt = glowAmt) } }
         .clip(shape).background(Color(0xFF34343A))) {
-        if (!failed) AsyncImage(req, p.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onError = { failed = true },
+        if (!failed) AsyncImage(req, p.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onError = { failed = true; com.glasslauncher.tv.data.NetState.failed() },
             onSuccess = { r ->
                 val b = (r.result.image as? coil3.BitmapImage)?.bitmap
                 bmp = b

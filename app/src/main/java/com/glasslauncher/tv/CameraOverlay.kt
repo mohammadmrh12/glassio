@@ -37,6 +37,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
     private val wm = ctx.getSystemService(WindowManager::class.java)
     private var root: FrameLayout? = null
     private var player: ExoPlayer? = null
+    private var tex: TextureView? = null
     private var name: TextView? = null
     private var status: TextView? = null
     private var index = start.coerceAtLeast(0)
@@ -57,7 +58,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
         val dm = ctx.resources.displayMetrics
         val w = (dm.widthPixels * 0.34f * scale.coerceIn(0.5f, 1.8f)).toInt(); val h = w * 9 / 16
         val r = dm.density * 14
-        val tex = TextureView(ctx)
+        val tex = TextureView(ctx).also { this.tex = it }
         val box = FrameLayout(ctx).apply {
             setBackgroundColor(Color.BLACK)
             outlineProvider = object : ViewOutlineProvider() { override fun getOutline(v: View, o: Outline) { o.setRoundRect(0, 0, v.width, v.height, r) } }
@@ -129,7 +130,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
         val c = cams[index.mod(cams.size)]
         name?.text = c.name
         status?.text = "Connecting…"; status?.visibility = View.VISIBLE
-        CamPlayer.play(ctx, p, c.url)
+        CamPlayer.play(ctx, p, c.url, tex, onFail = { status?.text = "Can't reach the camera"; status?.visibility = View.VISIBLE }) { status?.visibility = View.GONE }
     }
 
     /** The countdown starts again (also when you switch camera). */
@@ -143,7 +144,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
     fun close() {
         handler.removeCallbacks(autoClose)
         handler.removeCallbacks(rotate)
-        runCatching { player?.release() }; player = null
+        player?.let { CamPlayer.release(it) }; player = null
         root?.let { runCatching { wm.removeView(it) } }; root = null
     }
 }

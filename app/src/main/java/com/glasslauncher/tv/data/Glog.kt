@@ -9,6 +9,8 @@ import android.util.Log
  * The last lines are also kept in memory, for a problem report (Settings → About → Report a problem).
  */
 object Glog {
+    /** (Here, not in the screens' files: the words collector would take it for a text to translate.) */
+    const val HOME_SAVER = "Screensaver on the home screen: "
     const val TAG = "Glassio"
     private const val KEEP = 250
     private val lines = ArrayDeque<String>()

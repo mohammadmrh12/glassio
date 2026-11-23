@@ -131,6 +131,12 @@ object Hue {
         ids.mapNotNull { id -> o.optJSONObject(id)?.optJSONObject("state")?.let { id to it } }.toMap()
     }.getOrElse { Glog.w("Hue states", it); emptyMap() }
 
+    /** The lights of a room / zone ("0": every light). Blocking. */
+    fun groupLights(ip: String, user: String, group: String): List<String> = runCatching {
+        if (group == "0") JSONObject(call("GET", "http://$ip/api/$user/lights")).keys().asSequence().toList()
+        else JSONObject(call("GET", "http://$ip/api/$user/groups/$group")).optJSONArray("lights")?.let { a -> List(a.length()) { a.getString(it) } }.orEmpty()
+    }.getOrElse { Glog.w("Hue group $group lights", it); emptyList() }
+
     /** Any light of the group on (group "0" is every light); null when the bridge didn't answer. */
     fun groupAnyOn(ip: String, user: String, group: String): Boolean? = runCatching {
         JSONObject(call("GET", "http://$ip/api/$user/groups/$group")).getJSONObject("state").getBoolean("any_on")
@@ -344,6 +350,8 @@ object HueSync {
 
     /** Rooms / zones turned off with a remote button ("0" = every light): no colours are sent while there are any. */
     val heldOff: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    /** Each light's state just before a remote button turned its room off, and whether the colours were following the screen then. */
+    val beforeOff = java.util.concurrent.ConcurrentHashMap<String, Pair<Map<String, JSONObject>, Boolean>>()
 
     fun ready(st: Settings) = st.hueOn && st.hueIp.isNotBlank() && st.hueUser.isNotBlank() && heldOff.isEmpty()
 

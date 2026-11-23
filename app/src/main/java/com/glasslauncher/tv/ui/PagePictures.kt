@@ -133,7 +133,7 @@ fun trimPageCaches() { BakeCache.clear() }
 internal object BakeCache {
     /** How many prepared backdrops to keep (by memory tier: 2 / 3 / 4). */
     @Volatile var max = 4
-    @Synchronized fun clear() = map.clear()
+    @Synchronized fun clear() { map.clear(); ahead.clear() }
     private val map = object : LinkedHashMap<String, Pair<Int, ImageBitmap>>(8, 0.75f, true) {
         override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pair<Int, ImageBitmap>>?) = size > max
     }

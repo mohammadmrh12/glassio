@@ -5,10 +5,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -111,6 +109,8 @@ object SearchUi {
     fun held() = busy || android.os.SystemClock.uptimeMillis() < holdUntil
     /** The selection is only passing over the Search icon (walking along the dock): its page waits, the island stays. */
     val passing = mutableStateOf(false)
+    /** OK on the icon was pressed: the page goes straight into typing as soon as it is there. */
+    @Volatile var typeAsked = false
     /** OK on the icon: straight into typing. */
     val type = mutableIntStateOf(0)
     /** Asked for from outside its icon (the menu's row, a remote button): the page comes up and the bar is selected. */
@@ -148,8 +148,7 @@ object SearchUi {
 
 /**
  * The Search icon's page: the bar, and under it the words searched before or what was found, in rows: films and
- * series as the Library's posters (with the small icons of the services' apps here that have each), YouTube's
- * videos, songs. OK on the bar types (the TV's own keyboard, with its voice key); OK on a title lists where it can
+ * series as cards (the name and a line inside the picture), YouTube's videos, songs. OK on the bar types (the TV's own keyboard, with its voice key); OK on a title lists where it can
  * be watched (or opens a place at once: Settings → Search); a video or a song opens in its app.
  * ▲ ▼ go from row to row; ▼ from the last row and Back: the Search icon; ▲ from the bar: the menu. ◀ ▶ stay in the row.
  */
@@ -199,16 +198,27 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
         val tube = async(Dispatchers.IO) { tp?.let { p -> runCatching { p.next() }.onFailure { Glog.w("Search: YouTube", it) }.getOrDefault(emptyList()) } ?: emptyList() }
         val cloud = async(Dispatchers.IO) { cp?.let { p -> runCatching { p.next() }.onFailure { Glog.w("Search: SoundCloud", it) }.getOrDefault(emptyList()) } ?: emptyList() }
         val got = withContext(Dispatchers.IO) { runCatching { Search.titles(app.http, st, q) }.onFailure { Glog.w("Search", it) }.getOrNull() }
-        results = got ?: emptyList(); asked = q; videos = emptyList(); songs = emptyList()
+        // Your Jellyfin server's titles first (#27); the same title from TMDB once (its TMDB number).
+        val jfHits = if (!st.searchJellyfin) emptyList() else withContext(Dispatchers.IO) {
+            com.glasslauncher.tv.data.NuvioLaunch.jellyfin?.takeIf { it.connected }?.let { jf ->
+                runCatching { jf.search(q) }.onFailure { Glog.w("Search: Jellyfin", it) }.getOrDefault(emptyList()).map { it to com.glasslauncher.tv.data.heroOf(jf, it) }
+            }.orEmpty()
+        }
+        val jfTmdb = jfHits.mapNotNull { it.first.tmdb.ifBlank { null } }.toSet()
+        results = jfHits.map { it.second } + (got ?: emptyList()).filterNot { r -> r.id.removePrefix("tmdb:") in jfTmdb }; videos = emptyList(); songs = emptyList()
         tubePager[0] = tp; cloudPager[0] = cp; pages[0] = 1; busyMore.clear(); endMore.remove("titles"); endMore.remove("videos"); endMore.remove("music")
         runCatching { scroll.scrollTo(0) }
         videos = tube.await(); songs = cloud.await()
+        // (Only now: set before the videos and songs had come, a search cancelled while they loaded was taken as
+        // done when the same words came back, and its rows stayed empty with "Searching…".)
+        asked = q
         note = when { got == null && videos.isEmpty() && songs.isEmpty() -> "The search didn't answer"; results.isEmpty() && videos.isEmpty() && songs.isEmpty() && !spotify -> "Nothing found"; else -> "" }
     }
-    // Which of the services' apps here have each title (the icons on the posters), a few at a time.
-    LaunchedEffect(results, popularKey.value, st.searchMine, st.searchServices, st.searchServicesOff) {
+    // *Only on my services*: which of the services' apps here have each title found, a few at a time. Every title
+    // the row shows (also the pages added later), never *Popular this week* (it isn't filtered).
+    LaunchedEffect(results, st.searchMine, st.searchServices, st.searchServicesOff) {
         if (!st.searchMine || Search.services(ctx, st).isEmpty()) return@LaunchedEffect
-        for (group in (results.ifEmpty { popularList.value }).take(40).chunked(6)) {
+        for (group in results.filter { it.key !in onApps }.chunked(6)) {
             group.map { item -> async(Dispatchers.IO) { item.key to (Search.watchOnKnown(st, item) ?: Search.watchOn(ctx, app.http, st, item)) } }
                 .forEach { d -> d.await().let { (k, v) -> onApps[k] = v } }
         }
@@ -216,7 +226,12 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
     // OK on the dock's icon: into the bar, typing.
     // (Only a press made while the page is up: the count kept from an earlier visit opened the keyboard by itself.)
     val typeSeen = remember { intArrayOf(SearchUi.type.intValue) }
-    LaunchedEffect(SearchUi.type.intValue) { if (SearchUi.type.intValue != typeSeen[0]) { typeSeen[0] = SearchUi.type.intValue; runCatching { SearchUi.entry.requestFocus() }; editing = true } }
+    LaunchedEffect(SearchUi.type.intValue) {
+        if (SearchUi.type.intValue == typeSeen[0] && !SearchUi.typeAsked) return@LaunchedEffect
+        typeSeen[0] = SearchUi.type.intValue; SearchUi.typeAsked = false
+        // (The page may have just been made: the bar is asked for until it takes the selection.)
+        repeat(10) { if (runCatching { SearchUi.entry.requestFocus() }.getOrDefault(false)) { editing = true; return@LaunchedEffect }; delay(40) }
+    }
     // Opened from the menu's row or a remote button: the bar is selected (asked for until it is there).
     LaunchedEffect(SearchUi.want.intValue) {
         if (!SearchUi.pending) return@LaunchedEffect
@@ -224,7 +239,7 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
         SearchUi.pending = false
     }
     LaunchedEffect(editing) {
-        if (editing) { repeat(8) { if (runCatching { field.requestFocus() }.isSuccess) { keyboard?.show(); return@LaunchedEffect }; delay(30) } }
+        if (editing) { repeat(8) { if (runCatching { field.requestFocus() }.getOrDefault(false)) { keyboard?.show(); return@LaunchedEffect }; delay(30) } }
         else keyboard?.hide()
     }
     SearchUi.busy = dialog != null
@@ -235,7 +250,8 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
     val progress = remember(watching) { watching.filter { it.progress > 0f }.associate { Search.nameKey(it.type, it.name) to it } }
     // New results come in with a short fade.
     val fade = remember { androidx.compose.animation.core.Animatable(1f) }
-    LaunchedEffect(results, videos.isEmpty(), songs.isEmpty()) { fade.snapTo(0.35f); fade.animateTo(1f, tween(200)) }
+    // (A new search only: keyed on the list, every page added while moving along the row faded the whole page.)
+    LaunchedEffect(asked, videos.isEmpty(), songs.isEmpty()) { fade.snapTo(0.35f); fade.animateTo(1f, tween(200)) }
     // The selection is in this page until it leaves by ▼, ▲ or Back. Lost any other way (the card it was on went
     // away with new results, Glassio came back from another app), it goes to the bar: with nothing selected the
     // page closed and the carousel's button took the selection.
@@ -275,18 +291,38 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
     }
 
     /** OK on a title: where it can be watched. */
-    fun open(found: HeroItem) {
+    /** [list]: a held OK, the list of places and the rest always, whatever OK is set to. */
+    fun open(found: HeroItem, list: Boolean = false) {
         Search.remember(st, query)
+        // A card from your Jellyfin server: its page in the Jellyfin app (where the file is), whatever OK is set to;
+        // with *Play opens Jellyfin* off, as any other title.
+        if (!list && found.platform == "Jellyfin" && st.playJellyfin && !found.id.startsWith("jf:")) { com.glasslauncher.tv.data.NuvioLaunch.open(ctx, st, app.http, found); return }
+        // A title only your Jellyfin server knows (no IMDb number): its page in the Jellyfin app (held: the list,
+        // with Jellyfin and Save to the Library).
+        if (found.id.startsWith("jf:") && list) {
+            val rows = mutableListOf(PickRow("Jellyfin", "", { "" }) { close(); com.glasslauncher.tv.data.Jellyfin.open(ctx, found.id.removePrefix("jf:")) })
+            if (!app.library.has(found.key)) rows += PickRow("Save to the Library", "", { "" }) { app.library.toggle(found); toast(ctx, I18n.tr("Saved") + " · ${found.name}"); close() }
+            dialog = PickDialog(found.name, listOf(found.year, I18n.tr(if (found.type == "movie") "Film" else "Series")).filter { it.isNotBlank() }.joinToString("  ·  "), rows, st.menuStyle)
+            return
+        }
+        if (found.id.startsWith("jf:")) {
+            if (!com.glasslauncher.tv.data.Jellyfin.open(ctx, found.id.removePrefix("jf:"))) toast(ctx, "Install the Jellyfin app to open ${found.name}")
+            return
+        }
         scope.launch {
             note = "Looking where it can be watched…"
             SearchUi.holdUntil = android.os.SystemClock.uptimeMillis() + 8000
-            val item = withContext(Dispatchers.IO) { Search.resolve(app.http, st, found) }
+            val got = withContext(Dispatchers.IO) { runCatching { Search.resolve(app.http, st, found) } }
+            if (got.isFailure) { note = ""; toast(ctx, "The search didn't answer"); return@launch }
+            val item = got.getOrNull()
             if (item == null) { note = ""; toast(ctx, "${found.name} can't be opened: it has no IMDb number"); return@launch }
-            val places = withContext(Dispatchers.IO) { withTimeoutOrNull(6000) { runCatching { Search.places(ctx, st, item) { sources(it) } }.onFailure { Glog.w("Search: places", it) }.getOrNull() } } ?: emptyList()
+            // (Interruptible: the places are blocking requests, a plain timeout around them never stopped them.)
+            val places = withTimeoutOrNull(6000) { kotlinx.coroutines.runInterruptible(Dispatchers.IO) { runCatching { Search.places(ctx, st, item) { sources(it) } }.onFailure { Glog.w("Search: places", it) }.getOrNull() } } ?: emptyList()
             note = ""
             if (places.isEmpty()) { toast(ctx, "No app here can open ${item.name}"); return@launch }
             // OK straight into a place: the first of the list, or the one app chosen (the list when that app can't open this title).
-            when (st.searchOk) {
+            // A held OK: always the list.
+            if (!list) when (st.searchOk) {
                 "first" -> { places.first().open(); return@launch }
                 "list" -> {}
                 else -> places.firstOrNull { it.key == st.searchOk }?.let { it.open(); return@launch }
@@ -502,7 +538,7 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
                     }
                     val titlesRow: @Composable (Int) -> Unit = { pos -> if (titles.isNotEmpty() && built >= pos) {
                         heading(if (idle) "Popular this week" else "Films and series")
-                        CompositionLocalProvider(LocalItemMenu provides { item, _ -> open(item) }, LocalGlow provides st.glow) {
+                        run {
                             val list = rememberLazyListState()
                             // (Kept while the row grows at its end: made again with every new page, the selection's
                             // place was forgotten.)
@@ -520,7 +556,7 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
                                     val wide = st.searchShape == "card"
                                     SearchCard(if (wide) item.background.ifBlank { item.poster } else item.poster.ifBlank { item.background }, item.name, sub, s,
                                         (if (wide) 150f else 96f) * z, if (wide) 16f / 9f else 2f / 3f, cw?.progress,
-                                        Modifier.focusRequester(reqs.at(i)).onFocusChanged { if (it.hasFocus) { back[0] = reqs.at(i); sel = i; if (i >= titles.lastIndex - 3) more("titles") } }) { open(item) }
+                                        Modifier.focusRequester(reqs.at(i)).onFocusChanged { if (it.hasFocus) { back[0] = reqs.at(i); sel = i; if (i >= titles.lastIndex - 3) more("titles") } }, onLong = { open(item, list = true) }) { open(item) }
                                 }
                             } }
                         }
@@ -589,7 +625,7 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
 
 /** An app's own icon, small and rounded. */
 @Composable
-private fun AppBadge(pkg: String, s: Float, size: Float = 15f) {
+private fun AppBadge(pkg: String, s: Float, size: Float) {
     val ctx = LocalContext.current
     val icon = remember(pkg) { runCatching { ctx.packageManager.getApplicationIcon(pkg).toBitmap(96, 96).asImageBitmap() }.getOrNull() } ?: return
     Image(icon, null, Modifier.size((size * s).dp).clip(RoundedCornerShape((size * 0.24f * s).dp)))
@@ -671,12 +707,12 @@ private fun List<FocusRequester>.at(i: Int): FocusRequester = getOrNull(i) ?: sp
 
 /**
  * A card of the search, like a Continue Watching card of the Library: the picture, and inside it at the bottom, on
- * a soft shade, the name, one faint line under it and how far it was watched. Selected, it grows a little, gets a
- * bright rim, and a name too long for it scrolls by (as a song's name does in the island).
+ * a soft shade, the name, one faint line under it and how far it was watched. Selected, it grows a little with the
+ * glow, and a name too long for it scrolls by (as a song's name does in the island).
  */
 @Composable
 private fun SearchCard(picture: String, name: String, sub: String, s: Float, width: Float, ratio: Float, progress: Float?, modifier: Modifier,
-                       corner: (@Composable androidx.compose.foundation.layout.BoxScope.() -> Unit)? = null, onOpen: () -> Unit) {
+                       onLong: (() -> Unit)? = null, onOpen: () -> Unit) {
     var f by remember { mutableStateOf(false) }
     // Selected as in the Library: a poster grows by 11 %, a wide card by 6 %, with the glow (Settings → Look: Glow)
     // in the picture's own colour. No white rim (his ask).
@@ -688,7 +724,7 @@ private fun SearchCard(picture: String, name: String, sub: String, s: Float, wid
     val lift by animateFloatAsState(if (f) 1f else 0f, tween(160), label = "lift")
     val shape = RoundedCornerShape((11 * s).dp)
     val cornerPx = with(LocalDensity.current) { (11 * s).dp.toPx() }
-    Box(Modifier.width((width * s).dp).aspectRatio(ratio).then(modifier).onFocusChanged { f = it.isFocused }.tvPress(onClick = onOpen)
+    Box(Modifier.width((width * s).dp).aspectRatio(ratio).then(modifier).onFocusChanged { f = it.isFocused }.tvPress(onLong = onLong, onClick = onOpen)
         .graphicsLayer { scaleX = k; scaleY = k }
         .drawBehind {
             // The Library's soft shadow under every card, deeper under the selected one.
@@ -699,7 +735,6 @@ private fun SearchCard(picture: String, name: String, sub: String, s: Float, wid
         AsyncImage(picture, name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), onSuccess = { r ->
             if (glow == "color" && gc == null) { val b = r.result.image; com.glasslauncher.tv.data.Bg.io("glass-glow") { gc = Glow.colorOf("s:$picture", (b as? coil3.BitmapImage)?.bitmap) } }
         })
-        corner?.invoke(this)
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
             .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.62f), Color.Black.copy(alpha = 0.88f))))
             .padding(start = (7 * s).dp, end = (7 * s).dp, top = (18 * s).dp, bottom = (6 * s).dp)) {

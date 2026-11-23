@@ -21,6 +21,22 @@ import java.io.File
 import java.net.URLEncoder
 import java.util.Locale
 
+/** The "add-on" of a Jellyfin server's catalogs (they are read from the server, not from a manifest). */
+const val JELLYFIN = "jellyfin"
+
+/** A Jellyfin title as the carousel shows it: by its IMDb id when the server has it (so it merges with the rest). */
+fun heroOf(jf: Jellyfin, i: Jellyfin.Item): HeroItem {
+    val id = if (i.isEpisode) i.seriesImdb.ifBlank { "jf:" + i.seriesId } else i.imdb.ifBlank { "jf:" + i.id }
+    return HeroItem(
+        key = "${i.kind}:$id", id = id, type = i.kind, name = if (i.isEpisode) i.seriesName.ifBlank { i.name } else i.name,
+        poster = jf.poster(i), background = jf.backdrop(i), logo = jf.logo(i), overview = i.overview,
+        rating = if (i.rating > 0) "%.1f".format(java.util.Locale.US, i.rating) else "", year = if (i.year > 0) i.year.toString() else "",
+        genres = i.genres, platform = "Jellyfin",
+        progress = if (i.progress > 0f) i.progress else -1f,
+        sub = if (i.isEpisode && i.season > 0) "S${i.season} · E${i.episode}" else "",
+    )
+}
+
 data class CatalogRef(val addon: String, val addonName: String, val type: String, val id: String, val name: String) {
     val key: String get() = "$addon|$type|$id"
 }
@@ -77,6 +93,21 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     }
     /** Reads the account's add-ons; set once the Library (which holds the account) exists. */
     @Volatile var account: (() -> List<String>?)? = null
+    /** A Jellyfin server (#27): each of its film and series libraries is a catalog ("Recently added"). */
+    @Volatile var jellyfin: Jellyfin? = null
+
+    /** Jellyfin's catalogs: one per library, newest first. Blocking. */
+    private fun jellyfinRefs(): List<CatalogRef> {
+        val jf = jellyfin?.takeIf { settings.catalogsJellyfin && it.connected } ?: return emptyList()
+        return runCatching { jf.libraries() }.onFailure { Glog.w("Jellyfin: its libraries", it) }.getOrDefault(emptyList()).map { (id, name, kind) ->
+            CatalogRef(JELLYFIN, "Jellyfin", if (kind == "tvshows") "series" else "movie", id, "$name · Jellyfin")
+        }
+    }
+
+    private fun fetchJellyfin(c: CatalogRef, limit: Int): List<HeroItem> {
+        val jf = jellyfin ?: return emptyList()
+        return jf.latest(c.id, limit).map { heroOf(jf, it) }
+    }
 
     /**
      * An add-on's host, also for links java.net.URI turns down: Torrentio's settings sit in the path with "|" in
@@ -162,7 +193,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
 
     /** Everything the carousel's titles depend on: Settings reloads the catalogs only when this changed. */
     fun signature(): String = listOf(allAddons(), selectedKeys.value.sorted(), settings.catalogsNuvio, settings.catalogsStremio,
-        settings.perCatalog, settings.maxItems, settings.shuffle, settings.surprise, settings.surpriseMin, settings.descLang, settings.tmdbToken.length, Region.of(settings)).toString()
+        settings.catalogsJellyfin, jellyfin?.connected, settings.perCatalog, settings.maxItems, settings.shuffle, settings.surprise, settings.surpriseMin, settings.descLang, settings.tmdbToken.length, Region.of(settings)).toString()
 
     suspend fun refresh() = loadLock.withLock {
         withContext(Dispatchers.IO) {
@@ -183,9 +214,14 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
                     }
                 }.awaitAll()
             }
+            val jfRefs = jellyfinRefs()
+            refs += jfRefs
             val all = refs.sortedWith(compareBy({ it.addonName.lowercase() }, { it.name.lowercase() }))
             catalogs.value = all
             var sel = selectedKeys.value
+            // The server's catalogs are ticked once, the first time they are seen (then they are the person's to change).
+            val jf = jellyfin
+            if (jf != null && jfRefs.isNotEmpty() && !jf.seeded) { sel = sel + jfRefs.map { it.key }; saveSelected(sel); jf.seeded = true }
             if (sel.isEmpty() && all.isNotEmpty()) {
                 sel = all.filter { it.type == "movie" || it.type == "series" }.take(8).map { it.key }.toSet()
                 saveSelected(sel)
@@ -268,6 +304,7 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
     private fun fetchCatalog(c: CatalogRef, limit: Int): List<HeroItem> {
+        if (c.addon == JELLYFIN) return fetchJellyfin(c, limit)
         val base = c.addon.removeSuffix("/manifest.json").trimEnd('/')
         val out = mutableListOf<HeroItem>()
         // Surprise me: start further down the catalog now and then (a different mix each time).

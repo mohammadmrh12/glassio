@@ -299,9 +299,9 @@ internal fun HeroSection(
     val enriched = enrichedRaw
     // Back from Nuvio: open the carousel on what was just watched.
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    val lifeState by lifecycle.currentStateFlow.collectAsState()
+    val inFrontNow by inFront()
     // The screensaver is opening: the carousel holds still (a slide that started under its fade-in showed as a flash).
-    val resumed = lifeState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && !SaverGate.opening.value
+    val resumed = inFrontNow && !SaverGate.opening.value
     // Never stuck: if the screensaver didn't open after all, the carousel goes on.
     LaunchedEffect(SaverGate.opening.value) {
         if (SaverGate.opening.value) { delay(4000); if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) SaverGate.opening.value = false }
@@ -338,7 +338,9 @@ internal fun HeroSection(
             if (!app.browsing()) kotlinx.coroutines.withTimeoutOrNull(2500L) {
                 kotlinx.coroutines.coroutineScope {
                     if (t.logo.isNotBlank()) launch { loader.execute(imgReq(ctx, t.logo, 1000, 400)) }
-                    if (t.background.isNotBlank()) launch { loader.execute(imgReq(ctx, t.background)) }
+                    // (The copy the page itself uses: the original, unused with "1280 enhanced", was a full-size download and
+                    // decode for nothing, a heavy one on a weak TV.)
+                    if (t.background.isNotBlank()) launch { loader.execute(imgReq(ctx, if (pageCopy(settings)) sized(t.background, "w1280") else t.background)) }
                     if (t.background.isNotBlank()) launch { GlassCache.get(ctx, t.background, settings.blurRadius) }
                 }
             }
@@ -490,8 +492,12 @@ internal fun HeroSection(
     val songOn = MusicUi.heldTrack()
     val stageOn = MusicUi.stageOn(settings, songOn)
     LaunchedEffect(stageOn) { if (stageOn && Trailers.playing.value?.overlay != true) Trailers.stop() }
-    LaunchedEffect(index, items.size, settings.heroAutoplay, settings.heroIntervalSec, hidden, paused, resumed, trailerOn, stageOn) {
-        if (settings.heroAutoplay && !hidden && !paused && resumed && !trailerOn && !stageOn && items.size > 1) {
+    // The screensaver on the home screen: the carousel stands still under it.
+    val saverUp = com.glasslauncher.tv.saver.HomeSaver.state.value != 0
+    // (*Where* → Only on the carousel: while the selection is elsewhere, the dock, nothing changes.)
+    val hereOk = settings.heroAutoplayWhere != "carousel" || focused
+    LaunchedEffect(index, items.size, settings.heroAutoplay, settings.heroIntervalSec, hidden, paused, resumed, trailerOn, stageOn, saverUp, hereOk) {
+        if (settings.heroAutoplay && hereOk && !hidden && !paused && resumed && !trailerOn && !stageOn && !saverUp && items.size > 1) {
             val shots = item?.let { i -> if (settings.heroGallery) i.gallery.take(settings.galleryShots).size else 0 } ?: 0
             delay(settings.heroIntervalSec * 1000L * shots.coerceAtLeast(1))
             SlideDir.dir = 1
@@ -525,6 +531,9 @@ internal fun HeroSection(
     LaunchedEffect(item?.key, hidden, resumed, focused) {
         val it = item ?: return@LaunchedEffect
         if (hidden || !resumed || !focused || settings.bgMode != "carousel") return@LaunchedEffect
+        // (A weak TV, memory tier 0: only when trailers start by themselves. Worked out for each title rested on it took
+        // the processor for seconds; pressed, the trailer is worked out then.)
+        if (settings.memTier == 0 && settings.trailerAutoSec <= 0) return@LaunchedEffect
         // Only for a title you stay on (not each one passed while browsing), and never in the first seconds after
         // the home screen comes up; on its own low-priority thread.
         val auto = settings.trailerAutoSec > 0
@@ -543,16 +552,16 @@ internal fun HeroSection(
     // A new title, or leaving the home screen: the trailer stops.
     LaunchedEffect(item?.key, hidden, resumed) { if (Trailers.playing.value?.overlay != true && (Trailers.playing.value?.key != item?.key || hidden || !resumed)) Trailers.stop() }
     // Hue Sync: the lights follow the screen while the home screen shows.
-    HueDriver(app, item, on = !hidden && resumed)
+    HueDriver(app, item, on = !hidden && resumed && !saverUp)
     // When a trailer ends, the next title comes (like the Apple TV app).
     val endedRev = Trailers.endedRev.intValue
     val seenEnded = remember { intArrayOf(endedRev) }
     LaunchedEffect(endedRev) { if (endedRev != seenEnded[0]) { seenEnded[0] = endedRev; if (items.size > 1) { SlideDir.dir = 1; index++ } } }
     // By itself only while the carousel is selected (never with the selection in the dock).
-    LaunchedEffect(item?.key, settings.trailerAutoSec, hidden, paused, resumed, stageOn, focused) {
+    LaunchedEffect(item?.key, settings.trailerAutoSec, hidden, paused, resumed, stageOn, focused, saverUp) {
         val sec = settings.trailerAutoSec
         val it = item ?: return@LaunchedEffect
-        if (sec <= 0 || !focused || hidden || paused || !resumed || stageOn || settings.bgMode != "carousel") return@LaunchedEffect
+        if (sec <= 0 || !focused || hidden || paused || !resumed || stageOn || saverUp || settings.bgMode != "carousel") return@LaunchedEffect
         delay(sec * 1000L)
         if (Trailers.playing.value == null) startTrailer(it, quiet = true)
     }
@@ -587,8 +596,12 @@ internal fun HeroSection(
     // When the selection last left this page (the music player and the carousel come and go under it).
     val pageFocus = remember { booleanArrayOf(false) }
     val pageLostAt = remember { longArrayOf(0L) }
+    // An app's rows right above the dock (*Rows above the dock*) over your own background: the large clock stays,
+    // drawn outside this page's fade (it went with the carousel, #21).
+    val clockThrough = customBg && settings.bgClock && settings.channelsLow && ChannelsUi.shown.value
     // While the music page fades (to or from the channels' rows): one off-screen pass, so its artwork's shadow fades
     // with it (faded piece by piece, the shadow isn't faded: a dark square stayed over the rows and came early).
+    if (clockThrough) BigClock(settings, s)
     Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha
         compositingStrategy = if (alpha in 0.002f..0.998f && (MusicUi.stageCur.value != null || MusicUi.dockApp.value != null))
             androidx.compose.ui.graphics.CompositingStrategy.Offscreen else androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }
@@ -647,15 +660,27 @@ internal fun HeroSection(
         // The subtitles sit above the dock while it shows.
         val dockUp by animateFloatAsState(if (dockShown.value > 0.5f) metrics.collapsedH + metrics.bottomMargin else 0f, tween(300), label = "subsUp")
         if (!customBg && !musicStage && settings.trailerSize != "popup") TrailerLayer(app, s, dockUp)
-        if (musicStage) {
-            MusicStage(app, s, heroFocus, firstTile, onApps = {
+        // (While it fades out over your own background the page keeps a requester of its own: with the carousel's,
+        // Up from the dock in those 220 ms could select its fading button instead of the box that opens the menu.)
+        val fadingFocus = remember { FocusRequester() }
+        val stage: @Composable () -> Unit = {
+            MusicStage(app, s, if (musicStage) heroFocus else fadingFocus, firstTile, onApps = {
                 val apps = installedMusicApps(ctx)
                 if (apps.isEmpty()) toast(ctx, "No music app on this TV")
                 else onPop(PopState("Music apps", apps.map { (pkg, name) -> PopOption(name) { openMusicApp(ctx, pkg) } }, null))
             })
+        }
+        // Over your own background (a picture, a video) the player's page fades in and out in the 220 ms the glass
+        // takes to go from the background to the song's artwork and back (artIn in HomeScreen). It came and went in
+        // one frame: the page was already the player's while the dock's glass still showed the video for a fifth of
+        // a second (his report: "the dock draws its glass late"; read from a recording).
+        if (customBg) androidx.compose.animation.AnimatedVisibility(musicStage, enter = androidx.compose.animation.fadeIn(tween(220)),
+            exit = androidx.compose.animation.fadeOut(tween(220))) { stage() }
+        if (musicStage) {
+            if (!customBg) stage()
         } else if (customBg) {
             // A large clock (with the depth effect on photos), and the place / credit of what's behind.
-            if (settings.bgClock) BigClock(settings, s)
+            if (settings.bgClock && !clockThrough) BigClock(settings, s)
             // The place and credit (and, if chosen, time, date, weather) like the screensaver's info.
             val info = CustomBackground.info(settings)
             val infoChange = remember(info) { (info?.first ?: "").hashCode() }
@@ -938,14 +963,14 @@ private val LocalPlainText = androidx.compose.runtime.compositionLocalOf<android
 
 @Composable private fun plainText() = LocalPlainText.current ?: androidx.compose.material3.LocalTextStyle.current
 
+/** The pictures of the slides the apps' own carousels open on, for the home screen to prepare ahead. */
+internal object HeroAhead { val urls = androidx.compose.runtime.mutableStateOf<List<String>>(emptyList()) }
+
 /**
  * Logos come in every shape: very wide word marks and almost square stacked ones. Sizing them by a
  * fixed height made wide logos tiny and tall ones huge, so every logo gets the same visual *area*,
  * then is capped in width and height.
  */
-/** The pictures of the slides the apps' own carousels open on, for the home screen to prepare ahead. */
-internal object HeroAhead { val urls = androidx.compose.runtime.mutableStateOf<List<String>>(emptyList()) }
-
 @Composable
 internal fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
     if (mode == "hidden") return
@@ -957,11 +982,13 @@ internal fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
     val ctx = LocalContext.current
     val pinnedLogo = GlassCache.pinnedLogo[item.logo] ?: GlassCache.logos.get(item.logo)
     // Logos that fail to download are tried twice more before the title is shown as text.
-    var attempt by remember(item.logo) { mutableIntStateOf(0) }
-    val req = remember(item.logo, attempt) { imgReq(ctx, item.logo, 1000, 400) }
+    // (After the three tries, asked again when the network is back or the home screen shows again: NetState.)
+    val netRev = com.glasslauncher.tv.data.NetState.rev.intValue
+    var attempt by remember(item.logo, netRev) { mutableIntStateOf(0) }
+    val req = remember(item.logo, attempt, netRev) { imgReq(ctx, item.logo, 1000, 400) }
     var ratio by remember(item.logo) { mutableStateOf<Float?>(null) }
-    var failed by remember(item.logo) { mutableStateOf(false) }
-    var retryAt by remember(item.logo) { mutableIntStateOf(0) }
+    var failed by remember(item.logo, netRev) { mutableStateOf(false) }
+    var retryAt by remember(item.logo, netRev) { mutableIntStateOf(0) }
     LaunchedEffect(retryAt) { if (retryAt > 0) { delay(900L * retryAt); attempt = retryAt } }
     // Still loading after a moment (a slow site): the name shows meanwhile, the logo replaces it when it's there.
     var slow by remember(item.logo) { mutableStateOf(false) }
@@ -1006,7 +1033,7 @@ internal fun Title(item: HeroItem, mode: String, scale: Float, s: Float) {
             if (took > 800) com.glasslauncher.tv.data.Glog.i("Logo slow (${took} ms): ${item.name} ${item.logo}")
         },
         onError = { e ->
-            if (retryAt < 2) retryAt++ else failed = true
+            if (retryAt < 2) retryAt++ else { failed = true; com.glasslauncher.tv.data.NetState.failed() }
             com.glasslauncher.tv.data.Glog.w("Logo ${item.logo} failed", e.result.throwable)
         },
         modifier = Modifier.size(w.dp, h.dp).alpha(if (ratio == null) 0f else 1f),

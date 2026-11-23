@@ -9,26 +9,44 @@ import com.glasslauncher.tv.GlassApp
  * apps, like a Netflix button), so it works where button remappers can't (#12).
  *
  * Saved as "code|action|label" lines; the action is "app:<package>", "glassio" (Glassio's home screen, #13), "folder",
- * "recents", "input:<id>" or "hue:<group id>" (those Hue lights off, and on again).
+ * "recents", "input:<id>", "hue:<group id>" (those Hue lights off, and on again), "search" or "closeapp" (the app in
+ * front closed through the TV's adb, #25). A double press or a hold has its own line: "code~double|…", "code~hold|…"
+ * (#25); a plain "code|…" is the single press, as before.
  */
 object RemoteMap {
-    class Map(val code: Int, val action: String, val label: String)
+    /** [kind]: "" a single press, "double", "hold". */
+    class Map(val code: Int, val action: String, val label: String, val kind: String = "")
 
-    fun all(st: Settings): List<Map> = st.keyMaps.mapNotNull { l ->
+    // (Parsed once per change of the setting: every key of the remote asks, D-pad repeats too.)
+    @Volatile private var parsed: Pair<List<String>, List<Map>>? = null
+    fun all(st: Settings): List<Map> {
+        val raw = st.keyMaps
+        parsed?.takeIf { it.first == raw }?.let { return it.second }
+        return parse(raw).also { parsed = raw to it }
+    }
+    private fun parse(lines: List<String>): List<Map> = lines.mapNotNull { l ->
         val p = l.split('|', limit = 3)
-        val code = p.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
+        val head = p.getOrNull(0).orEmpty().split('~')
+        val code = head[0].toIntOrNull() ?: return@mapNotNull null
+        val kind = head.getOrNull(1).orEmpty().takeIf { it == "double" || it == "hold" } ?: ""
         val action = p.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-        Map(code, action, p.getOrNull(2).orEmpty())
+        Map(code, action, p.getOrNull(2).orEmpty(), kind)
+    }
+    private fun line(m: Map) = (if (m.kind.isBlank()) "${m.code}" else "${m.code}~${m.kind}") + "|${m.action}|${m.label.replace('|', ' ')}"
+
+    /** The button [code] does [action] from now on on that kind of press (replacing what it did on it). */
+    fun set(st: Settings, code: Int, action: String, label: String, kind: String = "") {
+        st.keyMaps = all(st).filter { !(it.code == code && it.kind == kind) }.map(::line) + line(Map(code, action, label, kind))
     }
 
-    /** The button [code] does [action] from now on (replacing what it did). */
-    fun set(st: Settings, code: Int, action: String, label: String) {
-        st.keyMaps = all(st).filter { it.code != code }.map { "${it.code}|${it.action}|${it.label}" } + "$code|$action|${label.replace('|', ' ')}"
+    /** Forgets what the button does on [kind] of press; null: on every kind. */
+    fun remove(st: Settings, code: Int, kind: String? = null) {
+        st.keyMaps = all(st).filter { !(it.code == code && (kind == null || it.kind == kind)) }.map(::line)
     }
 
-    fun remove(st: Settings, code: Int) { st.keyMaps = all(st).filter { it.code != code }.map { "${it.code}|${it.action}|${it.label}" } }
-
-    fun find(st: Settings, code: Int): Map? = if (code == 0) null else all(st).firstOrNull { it.code == code }
+    fun find(st: Settings, code: Int, kind: String = ""): Map? = if (code == 0) null else all(st).firstOrNull { it.code == code && it.kind == kind }
+    /** The button has a job for a double press or a hold (its presses are then read before anything is done). */
+    fun hasMore(st: Settings, code: Int) = code != 0 && all(st).any { it.code == code && it.kind.isNotBlank() }
 
     /** What the button does, in words. */
     fun describe(m: Map): String = when {
@@ -38,6 +56,8 @@ object RemoteMap {
         m.action == "folder" -> "Opens the Apps folder"
         m.action == "recents" -> "Opens the recent apps"
         m.action == "search" -> "Opens the search"
+        m.action == "closeapp" -> "Closes the app in front"
+        m.action == "inputs" || m.action == "app:" + Inputs.DOCK_PKG -> "Shows the TV inputs"
         m.action.startsWith("input:") -> "Switches to " + m.label.ifBlank { "the input" }
         else -> m.action
     }
@@ -47,6 +67,13 @@ object RemoteMap {
         val a = m.action
         runCatching {
             when {
+                // The TV's inputs over whatever is on screen (also a button saved earlier with the Inputs icon as its
+                // "app": it said "isn't installed"). Pressed again: closed.
+                a == "inputs" || a == "app:" + Inputs.DOCK_PKG -> {
+                    val open = com.glasslauncher.tv.InputsPickActivity.showing
+                    if (open != null && !open.isFinishing) open.runOnUiThread { open.close() }
+                    else app.startActivity(Intent(app, com.glasslauncher.tv.InputsPickActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
                 a.startsWith("app:") -> {
                     val pkg = a.removePrefix("app:")
                     // A locked app asks for its code in Glassio first.
@@ -69,8 +96,27 @@ object RemoteMap {
                 a == "recents" -> app.startActivity(Intent(app, com.glasslauncher.tv.RecentsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 a.startsWith("input:") -> Inputs.open(app, a)
                 a == "search" -> glass(app) { it.putExtra("open_search", true) }
+                a == "closeapp" -> closeFront(app)
             }
         }.onFailure { Glog.w("Remote button ${m.code}", it) }
+    }
+
+    /**
+     * Closes the app in front through the TV's own adb (am force-stop), then shows Glassio (#25). Never Glassio, the
+     * TV's launcher or its settings. Without TV access (ADB) it says so.
+     */
+    private fun closeFront(app: GlassApp) {
+        Bg.io("glass-close-app") {
+            val out = LocalShell.run(app, "dumpsys activity activities | grep -m1 topResumedActivity").getOrNull()
+            if (out == null) { toastMain(app, "Closing an app needs TV access (ADB): Glassio settings → System"); return@io }
+            val pkg = Regex("""u0 ([A-Za-z0-9_.]+)/""").find(out)?.groupValues?.get(1)
+            val keep = setOf(app.packageName, "com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher", "com.android.tv.settings", "com.google.android.tungsten.setupwraith")
+            if (pkg == null || pkg in keep) { toastMain(app, "No app to close"); return@io }
+            val r = LocalShell.run(app, "am force-stop $pkg")
+            android.os.Handler(android.os.Looper.getMainLooper()).post { glass(app) {} }
+            val name = runCatching { app.packageManager.getApplicationLabel(app.packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+            toastMain(app, if (r.isSuccess) "Closed $name" else "Couldn't close $name")
+        }
     }
 
     /** The room's / zone's lights off (all of them: "0"); if they are all off already, on again. */
@@ -86,22 +132,30 @@ object RemoteMap {
             val on = if (wasOffHere) true else Hue.groupAnyOn(st.hueIp, st.hueUser, group)
             if (on == null) { toastMain(app, "The Hue Bridge didn't answer"); return@io }
             if (on && !wasOffHere) {
-                // Off: the colour sync leaves the lights alone (sends nothing) until this button turns them on again.
+                // Off: each light's state is kept first (brightness, colour), and the colour sync leaves the lights
+                // alone (sends nothing) until this button turns them on again.
+                val ids = Hue.groupLights(st.hueIp, st.hueUser, group)
+                HueSync.beforeOff[group] = Hue.states(st.hueIp, st.hueUser, ids) to (HueSync.active && st.hueOn)
                 HueSync.heldOff += group
                 HueSync.leave(st, "keep")
                 Hue.groupOn(st.hueIp, st.hueUser, group, false)
                 toastMain(app, label.ifBlank { "Hue" } + " lights off")
             } else {
                 HueSync.heldOff -= group
-                Hue.groupOn(st.hueIp, st.hueUser, group, true)
-                if (HueSync.heldOff.isEmpty() && com.glasslauncher.tv.KeyHub.homeInFront) HueSync.resume()
+                // On again exactly as they were before (each light's brightness and colour): turned on as a group
+                // and then given the screen's colours, they came back dimmer than they had been.
+                val before = HueSync.beforeOff.remove(group)
+                if (before != null && before.first.isNotEmpty()) before.first.forEach { (id, s) -> Hue.set(st.hueIp, st.hueUser, id, Hue.restoreCommand(s, 4)) }
+                else Hue.groupOn(st.hueIp, st.hueUser, group, true)
+                // (The screen's colours again only when they were following it before the lights went off.)
+                if (HueSync.heldOff.isEmpty() && com.glasslauncher.tv.KeyHub.homeInFront && before?.second != false) HueSync.resume()
                 toastMain(app, label.ifBlank { "Hue" } + " lights on")
             }
         }
     }
 
     private fun toastMain(app: GlassApp, text: String) = android.os.Handler(android.os.Looper.getMainLooper()).post {
-        android.widget.Toast.makeText(app, text, android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(app, I18n.tr(text), android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun glass(app: GlassApp, extra: (Intent) -> Unit) {

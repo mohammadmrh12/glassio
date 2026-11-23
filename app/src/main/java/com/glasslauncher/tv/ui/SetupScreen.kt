@@ -377,13 +377,15 @@ private fun Pill(label: String, primary: Boolean, modifier: Modifier, face: (@Co
 }
 
 /** The soft lights as a picture ([shade]: darkened by that much, as under the profiles). */
-internal fun orbsPicture(w: Int, h: Int, shade: Float = 0f): android.graphics.Bitmap {
+internal fun orbsPicture(w: Int, h: Int, shade: Float = 0f, bright: Boolean = false): android.graphics.Bitmap {
     val b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
     val c = android.graphics.Canvas(b)
-    c.drawColor(0xFF05060B.toInt())
+    // (Bright: the same lights on a lighter ground and stronger, for a window that must read light, the tour's.)
+    c.drawColor(if (bright) 0xFF3A3550.toInt() else 0xFF05060B.toInt())
     fun orb(col: Int, x: Float, y: Float, r: Float) {
+        val a = if (bright) 0xE6 else 0x8C
         val p = android.graphics.Paint(android.graphics.Paint.DITHER_FLAG).apply {
-            shader = android.graphics.RadialGradient(x, y, r, intArrayOf(col and 0x00FFFFFF or (0x8C shl 24), col and 0x00FFFFFF), null, android.graphics.Shader.TileMode.CLAMP)
+            shader = android.graphics.RadialGradient(x, y, r, intArrayOf(col and 0x00FFFFFF or (a shl 24), col and 0x00FFFFFF), null, android.graphics.Shader.TileMode.CLAMP)
         }
         c.drawCircle(x, y, r, p)
     }

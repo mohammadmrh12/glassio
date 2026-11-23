@@ -34,7 +34,11 @@ object Search {
     fun titles(http: Http, s: Settings, query: String, page: Int = 1): List<HeroItem> {
         val q = query.trim()
         if (q.length < 2) return emptyList()
-        if (s.tmdbToken.isNotBlank()) runCatching { tmdb(http, s, q, page) }.onFailure { Glog.w("Search: TMDB", it) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return withPictures(it) }
+        // (Every source failing is said so, by an error: "nothing found" is for a search that was answered.)
+        var lastError: Throwable? = null
+        var answered = false
+        if (s.tmdbToken.isNotBlank()) runCatching { tmdb(http, s, q, page) }.onFailure { lastError = it; Glog.w("Search: TMDB", it) }.onSuccess { answered = true }
+            .getOrNull()?.takeIf { it.isNotEmpty() }?.let { return withPictures(it) }
         // (Cinemeta's search has one page: nothing more after it.)
         if (page > 1) return emptyList()
         fun of(type: String): List<HeroItem> {
@@ -47,8 +51,9 @@ object Search {
                     "", m.optString("imdbRating").takeIf { r -> r.toDoubleOrNull()?.let { it > 0 } == true }.orEmpty(), m.optString("releaseInfo").ifBlank { m.optString("year") }, emptyList(), "")
             }
         }
-        val movies = if (s.searchMovies) runCatching { of("movie") }.onFailure { Glog.w("Search: films", it) }.getOrDefault(emptyList()) else emptyList()
-        val series = if (s.searchSeries) runCatching { of("series") }.onFailure { Glog.w("Search: series", it) }.getOrDefault(emptyList()) else emptyList()
+        val movies = if (s.searchMovies) runCatching { of("movie") }.onFailure { lastError = it; Glog.w("Search: films", it) }.onSuccess { answered = true }.getOrDefault(emptyList()) else emptyList()
+        val series = if (s.searchSeries) runCatching { of("series") }.onFailure { lastError = it; Glog.w("Search: series", it) }.onSuccess { answered = true }.getOrDefault(emptyList()) else emptyList()
+        if (!answered) lastError?.let { throw it }
         return withPictures(mix(movies, series))
     }
 
@@ -81,13 +86,13 @@ object Search {
 
     /**
      * The title with its IMDb id (the apps and the add-ons go by it): a title found by TMDB carries TMDB's number
-     * until now. Blocking. Null: TMDB has no IMDb id for it.
+     * until now. Blocking. Null: TMDB has no IMDb id for it; an error: TMDB didn't answer.
      */
     fun resolve(http: Http, s: Settings, item: HeroItem): HeroItem? {
         if (!item.id.startsWith("tmdb:")) return item
         val kind = if (item.type == "movie") "movie" else "tv"
         val imdb = runCatching { http.json("https://api.themoviedb.org/3/$kind/${item.id.removePrefix("tmdb:")}/external_ids", 90L * 24 * 3600 * 1000, s.tmdbToken).optString("imdb_id") }
-            .onFailure { Glog.w("Search: the title's IMDb id", it) }.getOrDefault("")
+            .onFailure { Glog.w("Search: the title's IMDb id", it) }.getOrThrow()
         return if (imdb.startsWith("tt")) item.copy(key = "search:${item.type}:$imdb", id = imdb) else null
     }
 
@@ -125,6 +130,12 @@ object Search {
      */
     fun places(ctx: Context, s: Settings, item: HeroItem, onSources: (HeroItem) -> Unit): List<Place> {
         val out = ArrayList<Place>()
+        // Your Jellyfin server when it has the title (#27): its page in the Jellyfin app, always first (the file
+        // is yours, whatever the order of the others).
+        val mine = NuvioLaunch.jellyfin?.takeIf { s.searchJellyfin && it.connected && Jellyfin.installed(ctx) }?.let { jf ->
+            val id = if (item.id.startsWith("jf:")) item.id.removePrefix("jf:") else runCatching { jf.find(item.id)?.id }.getOrNull()
+            id?.let { Place("jellyfin", "Jellyfin", service = true) { Jellyfin.open(ctx, it) } }
+        }
         val apps = services(ctx, s)
         if (apps.isNotEmpty()) for (l in PlatformLinks.offers(ctx, s, item)) {
             if (l.pkg !in apps) continue
@@ -142,14 +153,14 @@ object Search {
             }
         }
         // (Settings → Search → Order: the Nuvio apps and Stremio before the services.)
-        return if (s.searchOrder == "players") out.drop(served) + out.take(served) else out
+        return listOfNotNull(mine) + (if (s.searchOrder == "players") out.drop(served) + out.take(served) else out)
     }
 
     fun appLabel(ctx: Context, pkg: String): String = runCatching {
         ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString()
     }.getOrDefault(pkg)
 
-    // ---- Which of the services' apps on this TV have a title (the small icons on its poster) ----
+    // ---- Which of the services' apps on this TV have a title (*Only on my services*) ----
 
     private val onMem = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
 
@@ -173,7 +184,8 @@ object Search {
             for (k in listOf("flatrate", "free", "ads")) r?.optJSONArray(k)?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.optString("provider_name")?.let(names::add) }
             names.mapNotNull { NuvioLaunch.platformPackage(it) }.distinct().filter { it in apps }
         }.onFailure { Glog.w("Search: where a title is", it) }.getOrNull()
-        else if (item.id.startsWith("tt")) PlatformLinks.offers(ctx, s, item).map { it.pkg }.distinct().filter { it in apps }
+        // (Only a real answer is kept: JustWatch off, resting or failing is "not known", not "on nothing".)
+        else if (item.id.startsWith("tt")) PlatformLinks.offersOrNull(ctx, s, item)?.map { it.pkg }?.distinct()?.filter { it in apps }
         else null
         return (got ?: emptyList()).also { if (got != null) onMem[key] = it }
     }
@@ -373,7 +385,12 @@ object Search {
         if (Store.PLAY) return emptyList()
         val addons = streamAddons(http, s, urls, item.type)
         val found = java.util.Collections.synchronizedList(ArrayList<Pair<Int, List<Source>>>())
-        val pool = java.util.concurrent.Executors.newFixedThreadPool(addons.size.coerceIn(1, 6))
+        // (Named, low-priority threads; and one deadline for all of them: waited one after another, 13 s each
+        // added up with more than six add-ons.)
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(addons.size.coerceIn(1, 6)) { r ->
+            Thread(r, "glass-sources").apply { isDaemon = true; priority = Thread.MIN_PRIORITY + 1 }
+        }
+        val until = System.currentTimeMillis() + 13_000
         try {
             addons.mapIndexed { i, (u, name) ->
                 pool.submit {
@@ -382,7 +399,7 @@ object Search {
                         found += i to parseSources(u, name, JSONObject(get("$base/stream/${item.type}/${enc(item.id)}.json")))
                     }.onFailure { Glog.w("Search: sources of $name: ${it.javaClass.simpleName}") }
                 }
-            }.forEach { f -> runCatching { f.get(13, java.util.concurrent.TimeUnit.SECONDS) } }
+            }.forEach { f -> runCatching { f.get((until - System.currentTimeMillis()).coerceAtLeast(1), java.util.concurrent.TimeUnit.MILLISECONDS) } }
         } finally { pool.shutdownNow() }
         val all = found.sortedBy { it.first }.flatMap { it.second }
         return sortSources(all, s.stremioQuality, s.stremioMaxGb, s.stremioHdr, s.stremioNoCam, s.stremioP2p)

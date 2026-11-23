@@ -226,17 +226,20 @@ object PlatformLinks {
      * "where to watch" list. Not for the main thread. Empty when nothing has it, JustWatch is off or didn't answer
      * (only a real answer is remembered, for this run of Glassio).
      */
-    fun offers(ctx: Context, s: Settings, item: HeroItem): List<Link> {
+    fun offers(ctx: Context, s: Settings, item: HeroItem): List<Link> = offersOrNull(ctx, s, item).orEmpty()
+
+    /** As [offers], but null when nothing was really answered (JustWatch off, resting or failing). */
+    fun offersOrNull(ctx: Context, s: Settings, item: HeroItem): List<Link>? {
         val id = item.id.trim()
-        if (!id.startsWith("tt") || !s.linkJustWatch) return emptyList()
+        if (!id.startsWith("tt") || !s.linkJustWatch) return null
         val apps = usable(ctx)
         if (apps.isEmpty()) return emptyList()
         val key = Region.of(s) + ":" + id
         val all = offersMem[key] ?: run {
-            if (System.currentTimeMillis() < restUntil) return emptyList()
+            if (System.currentTimeMillis() < restUntil) return null
             runCatching { justWatch(id, item.name, item.type.equals("movie", true), Region.of(s)) }
                 .onFailure { restUntil = System.currentTimeMillis() + REST_MS; Glog.w("Places to watch from JustWatch (left alone for 10 minutes)", it) }
-                .getOrNull()?.also { offersMem[key] = it } ?: return emptyList()
+                .getOrNull()?.also { offersMem[key] = it } ?: return null
         }
         return all.filter { it.pkg in apps && intent(it).resolveActivity(ctx.packageManager) != null }
     }
@@ -274,5 +277,5 @@ object PlatformLinks {
         }
     }
 
-    fun forget(ctx: Context) { mem.clear(); restUntil = 0L; store(ctx).edit().clear().apply() }
+    fun forget(ctx: Context) { mem.clear(); offersMem.clear(); restUntil = 0L; store(ctx).edit().clear().apply() }
 }

@@ -83,7 +83,7 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
                         status.text = "Can't reach the camera"; status.visibility = View.VISIBLE
                     }
                 })
-                CamPlayer.play(ctx, this, if (main) c.url else CamPlayer.subStream(c.url))
+                CamPlayer.play(ctx, this, if (main) c.url else CamPlayer.subStream(c.url), tex, onFail = { status.text = "Can't reach the camera"; status.visibility = View.VISIBLE }) { status.visibility = View.GONE }
             }
         }
         // The whole screen: everything behind the cameras (the screensaver's video, the home screen, any app) is
@@ -110,7 +110,7 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
             // Set once (not eased frame by frame: each change re-laid out the window).
             if (blurOk) blurBehindRadius = (30 * dm.density).toInt()
         }
-        runCatching { wm.addView(box, lp) }.onFailure { players.forEach { it.release() }; players.clear(); return }
+        runCatching { wm.addView(box, lp) }.onFailure { players.forEach { CamPlayer.release(it) }; players.clear(); return }
         root = box; row = line; params = lp; this.blurOk = blurOk
         open.value = true
         dim.animate().alpha(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator(1.5f)).start()
@@ -141,7 +141,7 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
             runCatching { wm.removeView(box) }
             // Released one at a time after the window is gone (all at once held the screen for a moment).
             val list = players.toList(); players.clear()
-            list.forEachIndexed { i, p -> handler.postDelayed({ runCatching { p.release() } }, 40L * i) }
+            list.forEachIndexed { i, p -> handler.postDelayed({ CamPlayer.release(p) }, 40L * i) }
         }
         dim?.animate()?.alpha(0f)?.setDuration(180)?.setInterpolator(android.view.animation.AccelerateInterpolator(1.2f))?.start()
         val ease = android.view.animation.PathInterpolator(0.4f, 0f, 1f, 1f)

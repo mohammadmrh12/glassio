@@ -87,6 +87,7 @@ object NuvioLaunch {
         "hulu" to "com.hulu.livingroomplus", "paramount" to "com.cbs.ott", "peacock" to "com.peacocktv.peacockandroid",
         "shahid" to "net.mbc.shahidTV", "youtube" to "com.google.android.youtube.tv", "crunchyroll" to "com.crunchyroll.crunchyroid",
         "osn" to "com.osn.go", "starz" to "com.bydeluxe.d3.android.program.starz", "mubi" to "com.mubi",
+        "jellyfin" to Jellyfin.PKG,
     )
 
     /** Each service's word and its app ("netflix" → Netflix's package), for telling which app a catalog's name means. */
@@ -143,7 +144,30 @@ object NuvioLaunch {
         else -> null  // Trakt, Simkl: no app of their own
     }
 
+    /** A Jellyfin server (#27), and the Jellyfin id of a title in progress there, by its key; set by the app. */
+    @Volatile var jellyfin: Jellyfin? = null
+    @Volatile var jellyfinCw: (String) -> String? = { null }
+
     fun open(ctx: Context, s: Settings, http: Http, item: HeroItem) {
+        // Jellyfin: a title that comes from the server opens on its page in the Jellyfin app; with *Play opens
+        // Jellyfin* any title the server has does too (found by its IMDb id). Otherwise as before.
+        val jf = jellyfin?.takeIf { it.connected && Jellyfin.installed(ctx) }
+        if (jf != null) {
+            val direct = when {
+                item.id.startsWith("jf:") -> item.id.removePrefix("jf:")
+                s.cwOpenSource && cwSource(item.key) == "Jellyfin" -> jellyfinCw(item.key)
+                else -> null
+            }
+            if (direct != null && Jellyfin.open(ctx, direct)) return
+            // (What is known now: Play never waits for the server.)
+            if (s.playJellyfin && item.id.startsWith("tt")) jf.peek(item.id)?.let { if (Jellyfin.open(ctx, it.id)) return }
+        }
+        // A title only a Jellyfin server knows can't open anywhere else.
+        if (item.id.startsWith("jf:")) { Toast.makeText(ctx, I18n.tr("Install the Jellyfin app and sign in to open this title"), Toast.LENGTH_LONG).show(); return }
+        openRest(ctx, s, http, item)
+    }
+
+    private fun openRest(ctx: Context, s: Settings, http: Http, item: HeroItem) {
         // Continue Watching (Settings → Continue Watching → Open where it was watched): that app.
         val own = if (s.cwOpenSource) sourceTarget(ctx, cwSource(item.key)) else null
         // Settings → Carousel → Play opens the streaming app: the title's page in Netflix, Apple TV… when one of the

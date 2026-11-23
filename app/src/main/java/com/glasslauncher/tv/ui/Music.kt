@@ -1,5 +1,7 @@
 package com.glasslauncher.tv.ui
 
+import androidx.compose.ui.layout.layout
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -370,8 +372,11 @@ object MusicUi {
 /** Song progress, moving on by itself. */
 @Composable
 private fun progressOf(t: NowPlaying.Track): Float {
+    val glassApp = androidx.compose.ui.platform.LocalContext.current.applicationContext as GlassApp
     val v by produceState(0f, t) {
-        while (true) { value = if (t.duration > 0) (t.positionNow().toFloat() / t.duration).coerceIn(0f, 1f) else 0f; delay(500) }
+        // (Once a second on a weak TV: each step draws the island again.)
+        val step = if (glassApp.settings.memTier == 0) 1000L else 500L
+        while (true) { value = if (t.duration > 0) (t.positionNow().toFloat() / t.duration).coerceIn(0f, 1f) else 0f; delay(step) }
     }
     return v
 }
@@ -379,11 +384,14 @@ private fun progressOf(t: NowPlaying.Track): Float {
 /** A few bars rising and falling while the music plays (in the artwork's colour or white). */
 @Composable
 fun MusicBars(playing: Boolean, color: Color, modifier: Modifier) {
+    val glassApp = androidx.compose.ui.platform.LocalContext.current.applicationContext as GlassApp
     // About 12 steps a second, and none while paused: at the screen's 60 a second these few bars made the whole
     // home screen draw again all the time (the TV's GPU was always busy, the Library scrolled slower).
     val t by produceState(0f, playing) {
         if (!playing) return@produceState
-        while (true) { value = (android.os.SystemClock.uptimeMillis() % 1400L) / 1400f * 6.2832f; delay(80) }
+        // (About 6 a second on a weak TV, memory tier 0.)
+        val step = if (glassApp.settings.memTier == 0) 160L else 80L
+        while (true) { value = (android.os.SystemClock.uptimeMillis() % 1400L) / 1400f * 6.2832f; delay(step) }
     }
     val on by animateFloatAsState(if (playing) 1f else 0.15f, tween(300), label = "on")
     Canvas(modifier) {
@@ -442,7 +450,14 @@ fun MusicIsland(app: GlassApp, s: Float) {
         // Kept in its own cached texture while it isn't changing size: re-bent on every frame, its glass cost the graphics
         // chip a lot while only the name scrolled inside it.
         val settled = grow < 0.002f || grow > 0.998f
-        if (!bare) GlassPanel(Modifier.matchParentSize(), radius = r, style = look, refract = look.startsWith("water") || look == "liquid", cache = settled) {}
+        // Joined to the top: the panel reaches above the screen by its own corner's size, so its top corners (and the
+        // rim along its top) are off the screen and the island meets the edge flat, like a notch.
+        val up = if (attached) Modifier.layout { m, c ->
+            val extra = r.roundToPx()
+            val p = m.measure(androidx.compose.ui.unit.Constraints.fixed(c.maxWidth, c.maxHeight + extra))
+            layout(c.maxWidth, c.maxHeight) { p.place(0, -extra) }
+        } else Modifier
+        if (!bare) GlassPanel(Modifier.matchParentSize().then(up), radius = r, style = look, refract = look.startsWith("water") || look == "liquid", cache = settled) {}
         androidx.compose.animation.AnimatedContent(
             targetState = open,
             transitionSpec = {
@@ -454,7 +469,8 @@ fun MusicIsland(app: GlassApp, s: Float) {
             modifier = Modifier.clip(shape),
         ) { isOpen ->
           androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides androidx.compose.ui.text.TextStyle(
-              shadow = if (bare) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.7f), blurRadius = 10f) else null)) {
+              // (See-through glass over a video: the same soft shadow, so the writing reads over a bright video.)
+              shadow = if (bare || (VideoGlass.clear.value && VideoFrames.showing.value)) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.7f), blurRadius = 10f) else null)) {
             if (!isOpen) Row(Modifier.padding(start = (8 * k).dp, end = (14 * k).dp, top = ((if (attached) 10 else 7) * k).dp, bottom = (7 * k).dp).widthIn(max = (360 * k).dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 if (st.islandArt) {

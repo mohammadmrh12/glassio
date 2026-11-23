@@ -505,12 +505,14 @@ private fun TilePlate(style: String, focused: Boolean, s: Float, radius: Dp, fla
             // Clear glass that bends nothing (an icon that isn't selected) on a clear dock or on the page itself shows
             // exactly the picture already drawn under it: only its light tint is drawn. (It also lets the whole row of
             // icons be kept as one ready picture while the page moves: see the dock.)
-            "water", "water_still" -> if (!focused && LocalClearBehind.current) {
+            // (Selected too below Android 13: the glass can't bend there, so the plate would only draw the same picture
+            // again, one more glass surface built at every move in the dock.)
+            "water", "water_still" -> if ((!focused || android.os.Build.VERSION.SDK_INT < 33) && LocalClearBehind.current) {
                 // (The glass colour only where no dock glass is under the icon (Dock glass off): on the dock's glass it
                 // is there already, and coloured twice the plates were darker than the dock and than the selected icon.)
                 val gt = if (LocalOnGlass.current) Color.Transparent else GlassTint.color.value
-                Box(fill.clip(shape).background(Color.White.copy(alpha = 0.02f)).then(if (gt.alpha > 0f) Modifier.background(gt) else Modifier)
-                    .border(0.6.dp, Color.White.copy(alpha = 0.16f), shape))
+                Box(fill.clip(shape).background(Color.White.copy(alpha = if (focused) 0.05f else 0.02f)).then(if (gt.alpha > 0f) Modifier.background(gt) else Modifier)
+                    .border(0.6.dp, Color.White.copy(alpha = if (focused) 0.30f else 0.16f), shape))
             } else {
                 LiquidSurface(
                     fill, radius = radius, refraction = if (focused) (env.refractionDp * 1.2f).dp else 0.dp, bezel = (16 * s).dp,

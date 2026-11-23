@@ -252,7 +252,7 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
     // The music island at the top (the screensaver's, or the home screen's over your own background): the date and
     // time move down below it while a song plays, so the two never overlap (further while it is open).
     val song by com.glasslauncher.tv.data.NowPlaying.track.collectAsState()
-    val island = st.musicOn && st.musicIsland && song != null && (inSaver || (st.islandHome && MusicUi.dockApp.value == null))
+    val island = st.musicOn && st.musicIsland && song != null && (inSaver || com.glasslauncher.tv.saver.HomeSaver.state.value == 1 || (st.islandHome && MusicUi.dockApp.value == null))
     val tall = if (MusicUi.islandOpen.value) 118f else 40f
     val drop by androidx.compose.animation.core.animateFloatAsState(if (island) (st.islandOffset + tall * st.islandScale) * s else 0f,
         androidx.compose.animation.core.spring(0.78f, 260f), label = "clockDrop")

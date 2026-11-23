@@ -146,9 +146,10 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val nuvioAll by app.library.nuvioList.collectAsState()
     val nuvioStatus by app.library.nuvioStatus.collectAsState()
     val simklAll by app.library.simklList.collectAsState()
+    val jfAll by app.library.jellyfinList.collectAsState()
     val cwItems by app.cw.items.collectAsState()
     val cwEntries by app.cw.entries.collectAsState()
-    LaunchedEffect(active) { if (active) withContext(Dispatchers.IO) { app.library.refreshWatchlist(); app.library.refreshNuvio(); app.library.refreshSimkl() } }
+    LaunchedEffect(active) { if (active) withContext(Dispatchers.IO) { app.library.refreshWatchlist(); app.library.refreshNuvio(); app.library.refreshSimkl(); app.library.refreshJellyfin() } }
     // Rows per streaming service (Settings → Library → Platform rows), after your own lists.
     val platAll by app.platformRows.rows.collectAsState()
     LaunchedEffect(active, st.libraryPlatforms, st.libraryPlatformRows, st.libraryColumns, st.watchCountry, st.tmdbToken) {
@@ -162,15 +163,18 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     val trakt = if (st.libraryTrakt) watch.filterNot { it.key in savedKeys || it.key in nuvioKeys } else emptyList()
     val traktKeys = remember(trakt) { trakt.map { it.key }.toSet() }
     val simkl = if (st.librarySimkl) simklAll.filterNot { it.key in savedKeys || it.key in nuvioKeys || it.key in traktKeys } else emptyList()
+    val simklKeys = remember(simkl) { simkl.map { it.key }.toSet() }
+    // Jellyfin's favourites (#27), after the other lists.
+    val jf = if (st.libraryJellyfin && app.cw.jellyfin.connected) jfAll.filterNot { it.key in savedKeys || it.key in nuvioKeys || it.key in traktKeys || it.key in simklKeys } else emptyList()
     // Posters loaded ahead (the Library is built a few seconds after the home screen): the first screens straight
     // into memory, so they're there the moment you go down; the rest only onto the TV's disk cache.
     val platItems = remember(plat) { plat.flatMap { it.items } }
-    val preloadKeys = remember(saved, nuvio, trakt, simkl, platItems) { (saved + nuvio + trakt + simkl + platItems).map { it.key } }
+    val preloadKeys = remember(saved, nuvio, trakt, simkl, jf, platItems) { (saved + nuvio + trakt + simkl + jf + platItems).map { it.key } }
     LaunchedEffect(preloadKeys) {
         delay(1_500)
         val loader = coil3.SingletonImageLoader.get(ctx)
         withContext(Dispatchers.IO) {
-            (saved + nuvio + trakt + simkl + platItems).forEachIndexed { i, it ->
+            (saved + nuvio + trakt + simkl + jf + platItems).forEachIndexed { i, it ->
                 val r = posterRequest(ctx, it, s)
                 runCatching { loader.execute(if (i < 40) r else r.newBuilder().memoryCachePolicy(coil3.request.CachePolicy.DISABLED).build()) }
             }
@@ -178,15 +182,15 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     }
     // Its own setting: switching Continue Watching off in the carousel leaves it here.
     val cw = if (st.libraryCw) cwItems else emptyList()
-    val hasAny = saved.isNotEmpty() || trakt.isNotEmpty() || nuvio.isNotEmpty() || simkl.isNotEmpty() || cw.isNotEmpty() || plat.isNotEmpty()
-    val ownEmpty = saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && simkl.isEmpty()
+    val hasAny = saved.isNotEmpty() || trakt.isNotEmpty() || nuvio.isNotEmpty() || simkl.isNotEmpty() || jf.isNotEmpty() || cw.isNotEmpty() || plat.isNotEmpty()
+    val ownEmpty = saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && simkl.isEmpty() && jf.isEmpty()
     // Opened with Down from the dock: Up from the top row goes back to the dock (like the Apple TV home page).
-    val firstList = when { cw.isNotEmpty() -> "c"; saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; simkl.isNotEmpty() || plat.isEmpty() -> "k"; else -> "p0" }
+    val firstList = when { cw.isNotEmpty() -> "c"; saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; simkl.isNotEmpty() -> "k"; jf.isNotEmpty() || plat.isEmpty() -> "j"; else -> "p0" }
     // Down from Continue Watching lands on the poster under the card's left edge (the first card → the first
     // poster). Left to the system it went by the card's centre, and a wide card over narrower posters (more in a
     // row) landed on the second one.
-    val posterFirst = when { saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; simkl.isNotEmpty() || plat.isEmpty() -> "k"; else -> "p0" }
-    val posterFirstSize = when (posterFirst) { "s" -> saved.size; "n" -> nuvio.size; "t" -> trakt.size; "k" -> simkl.size; else -> plat[0].items.size }
+    val posterFirst = when { saved.isNotEmpty() -> "s"; nuvio.isNotEmpty() -> "n"; trakt.isNotEmpty() -> "t"; simkl.isNotEmpty() -> "k"; jf.isNotEmpty() || plat.isEmpty() -> "j"; else -> "p0" }
+    val posterFirstSize = when (posterFirst) { "s" -> saved.size; "n" -> nuvio.size; "t" -> trakt.size; "k" -> simkl.size; "j" -> jf.size; else -> plat[0].items.size }
     @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
     val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState(
         cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
@@ -428,6 +432,14 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                         onRemove = { app.library.removeFromSimkl(it); toast(ctx, "Removed from Simkl · ${it.name}") })
                 }
             }
+            if (jf.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) { Section("Jellyfin · Favourites", s) }
+                itemsIndexed(jf, key = { _, it -> "j:" + it.key }) { i, it ->
+                    Poster(it, s, st.libraryTitles, up("j", i).then(topReq("j", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && simkl.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                        onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
+                        onRemove = { app.library.removeFromJellyfin(it); toast(ctx, "Removed from Jellyfin's favourites · ${it.name}") })
+                }
+            }
             plat.forEachIndexed { r, row ->
                 item(span = { GridItemSpan(maxLineSpan) }, key = "ph:" + row.service.key) { Section("On ${row.service.name}", s) }
                 itemsIndexed(row.items, key = { _, it -> "p:" + row.service.key + ":" + it.key }) { i, it ->
@@ -655,6 +667,7 @@ internal fun Poster(item: HeroItem, s: Float, titles: Boolean, modifier: Modifie
 fun sourceColor(app: String): Color = when (app) {
     "Trakt" -> Color(0xFFED2224)
     "Simkl" -> Color(0xFF1E90FF)
+    "Jellyfin" -> Color(0xFFAA5CC3)
     "Stremio" -> Color(0xFF8A5AAB)
     "Nuvio", "Nuvio Legacy" -> Color(0xFF5B7CFF)
     else -> Color.White

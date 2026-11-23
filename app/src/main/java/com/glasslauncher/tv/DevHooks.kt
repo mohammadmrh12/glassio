@@ -59,7 +59,7 @@ object DevHooks {
         // Starts (or stops) the trailer of the title on screen, like the Play menu: --ez trailer_now true.
         if (i.getBooleanExtra("trailer_now", false)) com.glasslauncher.tv.ui.Trailers.request.intValue++
         if (i.getBooleanExtra("show_setup", false)) app.requestSetup.intValue++
-        if (i.getBooleanExtra("start_saver", false)) a.startActivity(Intent(a, com.glasslauncher.tv.saver.ScreensaverActivity::class.java))
+        if (i.getBooleanExtra("start_saver", false)) com.glasslauncher.tv.saver.HomeSaver.begin(a)
 
         if (!allowed(app, i)) return
         // ---- These change something or print something private: after the key, like the rest below.
@@ -94,6 +94,45 @@ object DevHooks {
         i.getStringExtra("open_legacy")?.let { v -> com.glasslauncher.tv.data.NuvioLaunch.openIn(app, "legacy",
             com.glasslauncher.tv.data.HeroItem(v.substringAfter(':'), v.substringAfter(':'), v.substringBefore(':'), "", "", "", "", "", "", "", emptyList(), "")) }
         // Home Assistant cameras: lists them and asks for the first one's live link (log only).
+        // Jellyfin (#27): sign in ("server|user|password"; "-" signs out), and what Glassio reads from it (tag GlassJellyfin, no addresses).
+        i.getStringExtra("jf_signin")?.let { v -> Bg.io("glass-dev") {
+            val jf = app.cw.jellyfin
+            if (v == "-") { jf.signOut(); return@io }
+            val p = v.split('|')
+            val r = jf.signIn(p[0], p.getOrElse(1) { "" }, p.getOrElse(2) { "" })
+            android.util.Log.i("GlassJellyfin", "sign in: " + (r.exceptionOrNull()?.message ?: "ok"))
+            if (r.isSuccess) { app.cw.pollNow(); runCatching { app.catalogs.refresh() } }
+        } }
+        if (i.getBooleanExtra("jf_dump", false)) Bg.io("glass-dev") {
+            val jf = app.cw.jellyfin
+            fun l(s: String) = android.util.Log.i("GlassJellyfin", s)
+            l("connected=${jf.connected} app=${com.glasslauncher.tv.data.Jellyfin.installed(app)}")
+            runCatching { l("libraries: " + jf.libraries().joinToString { "${it.second} (${it.third})" }) }.onFailure { l("libraries: ${it.message}") }
+            runCatching { l("latest: " + jf.latest(limit = 5).joinToString { it.name }) }
+            runCatching { l("continue: " + jf.continueWatching().joinToString { "${it.name} ${(it.progress * 100).toInt()}% ${it.key}" }) }
+            runCatching { l("favourites: " + jf.favourites().joinToString { it.name }) }
+            runCatching { l("ids: ${jf.byImdb().size}, Dracula=" + (jf.find("tt0021814")?.name ?: "-")) }
+            l("catalogs: " + app.catalogs.catalogs.value.filter { it.addon == com.glasslauncher.tv.data.JELLYFIN }.joinToString { it.name + (if (it.key in app.catalogs.selectedKeys.value) " ✓" else "") })
+            l("carousel jellyfin titles: " + app.catalogs.items.value.count { it.platform == "Jellyfin" } + " of " + app.catalogs.items.value.size)
+            l("cw: " + app.cw.entries.value.filter { it.app == "Jellyfin" }.joinToString { it.key })
+        }
+        // Every thread's stack (tag GlassThreads): what a stuck page waits on.
+        if (i.getBooleanExtra("dump_threads", false)) Thread.getAllStackTraces().forEach { (th, st) ->
+            if (st.isEmpty()) return@forEach
+            android.util.Log.i("GlassThreads", "== ${th.name} ${th.state}")
+            st.take(14).forEach { f -> android.util.Log.i("GlassThreads", "   $f") }
+        }
+        // Picture downloads fail for N seconds, after the picture caches are emptied (the retry after a failure: NetState).
+        i.getIntExtra("net_fail_test", 0).takeIf { it > 0 }?.let { sec ->
+            com.glasslauncher.tv.data.NetState.failUntil = System.currentTimeMillis() + sec * 1000L
+            // (Emptied once the downloads under way have failed: emptied under them, a page waited for ever.)
+            Bg.io("glass-dev") { Thread.sleep(2000); runCatching { coil3.SingletonImageLoader.get(app).let { l -> l.memoryCache?.clear(); l.diskCache?.clear() } } }
+            com.glasslauncher.tv.data.Glog.i("QA: picture downloads fail for $sec s")
+        }
+        // A Home Assistant for cam_test ha://… (a test server; "-" back to the one set).
+        i.getStringExtra("ha_test")?.let { v -> if (v == "-") { com.glasslauncher.tv.CamPlayer.haTestUrl = null; com.glasslauncher.tv.CamPlayer.haTestToken = null }
+            else { com.glasslauncher.tv.CamPlayer.haTestUrl = v.substringBefore('|'); com.glasslauncher.tv.CamPlayer.haTestToken = v.substringAfter('|', "test") } }
+        i.getStringExtra("cam_test")?.let { u -> com.glasslauncher.tv.HomeKeyService.instance?.testCamera(u) }
         if (i.getBooleanExtra("ha_cams", false)) Bg.io("glass-dev") {
             runCatching {
                 val l = com.glasslauncher.tv.net.HaWatch.cameras(app.settings.haUrl, app.settings.haToken)

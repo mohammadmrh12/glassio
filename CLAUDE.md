@@ -52,8 +52,10 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is 4.0.0 (code 69, stable). 4.0.0-beta1 (code 68) was its one beta, the same code.
-    **4.1.0-beta1 (code 70) is the beta out now** (released 2026-11-21). Work goes on on the local `beta` branch.
+  - The last published version is **4.1.0 (code 71, stable, 2026-11-22)**; **4.1.1-beta1 (code 72) is the beta out
+    now** (same day; public `4e92df7` on `origin/beta`, parent 6b59a79; sha256 `13959376…69e9cea9`, the file on
+    the Streamer). 4.1.0-beta1 (code 70) was 4.1.0's beta.
+    4.0.0 (code 69) before it. Work goes on on the local `beta` branch.
   - `versionCode` must always go up, for betas and stable releases alike.
 
 ### Main files (app/src/main/java/com/glasslauncher/tv)
@@ -460,8 +462,9 @@ The agreed plan is `build/settings-plan.json` (not in git). All three phases are
   Dropped: *Next photo* (*Next* does it), *Catalogs from the Nuvio account's add-ons* in Connections (the same key
   as *Add-ons from my Nuvio account*), the brightness under Hue's card switch (the posters' brightness, one key).
 - About is still its own pane (`AboutPane`), not regrouped.
-- In Settings **look at the screen before every OK**: Right from the sections lands on the row nearest in height,
-  not the first (a blind OK switched a setting of his once; put back).
+- In Settings **look at the screen before every OK**. Right from the sections lands on the page's **first row**, the
+  page back at its top (his video, 2026-11-23: it landed on the row facing the section, in the middle of the page;
+  the Pane's `enter` now holds the selection and jumps to row 0). Before that a blind OK switched a setting of his.
 - Each page logs its row count (`GlassSettings: <section>|<rows>`, debug level), for QA. `--es settings_search
   "words"` (no key) opens Settings searching for them.
 
@@ -597,6 +600,39 @@ Nine languages. English is the source and the key: a text is looked up by its En
   fails when a language misses a word). `PureLogicTest.languageFilesAreWhole` checks the files.
 - The translations were made by machine in one pass (2026-11-21) and read by nobody who speaks the languages:
   wrong or clumsy wording is to be expected and fixed as people report it.
+
+## Jellyfin (`data/Jellyfin.kt`, #27)
+
+A Jellyfin server as an account like Stremio / Simkl (the TV's, `glass_jellyfin`, not per profile; in backups as
+a sign-in, `Backup.SECRETS`). Settings → Accounts & profiles → *Connect Jellyfin* (the server's address, then
+Quick Connect: a code approved in another Jellyfin app signed in to that server, a QR to its web page) or *Sign in
+with a password*; signed in: *Jellyfin account* (Sign out) and *What Jellyfin brings* (five switches, all on,
+per profile; `cwJellyfin` and `libraryJellyfin` off in a new profile).
+
+- **Carousel:** each film / series library is a catalog "<library> · Jellyfin" (`CatalogRef` with addon
+  `JELLYFIN`, newest first, `catalogsJellyfin`), ticked once the first time they are seen (`jellyfinSeeded` in
+  `glass_catalogs`, forgotten while signed out). The name carries "Jellyfin", so the Jellyfin app's icon in the
+  dock gets them in *Catalogs for apps* (`NuvioLaunch.PLATFORMS` has "jellyfin"). A title is the server's own
+  pictures (`heroOf`), known by its IMDb id when the server has one (so it merges with the rest), else `jf:<id>`.
+- **Continue Watching** (`cwJellyfin`, a source in *Sources*): `/UserItems/Resume` (+ `/Shows/NextUp`), only
+  titles with an IMDb id; `Remote` ref = the Jellyfin item id; removing hides it from the server's resume list.
+  Signed out or the switch off: its titles leave Continue Watching (seen: 5 → 0 after the sign-out).
+- **Library** (`libraryJellyfin`): the server's favourites, row *Jellyfin · Favourites*; hold OK takes one off.
+- **Search** (`searchJellyfin`): the server's titles first in the titles' row (TMDB's same title, by its TMDB
+  number, left out), and *Jellyfin* always first among the places when the server has the title (`Search.places`).
+  A Jellyfin card opens in Jellyfin directly (with *Play opens Jellyfin*), whatever *OK on a title* says.
+- **Play** (`playJellyfin`): any title the server has (IMDb id, the library's ids kept 30 min, `byImdb`) opens on
+  its page in the Jellyfin app (`org.jellyfin.androidtv`, StartupActivity, extra `ItemId`; read in its source).
+  A `jf:` title always does. Not installed: as before.
+- **The Jellyfin app 0.20.0 crashes** (NullPointerException in it) when it is opened on a title while it is still
+  open behind another app: `Jellyfin.open` starts it on a fresh task (`FLAG_ACTIVITY_CLEAR_TASK`), which never
+  crashed. It starts its screens "on home", so Back out of it showed the TV's own launcher: `HomeKeyService`
+  brings Glassio back (as it was) when the window before the launcher's was Jellyfin's and Glassio opened it.
+- Tested against Jellyfin's public demo (`https://demo.jellyfin.org/stable`, user `demo`, no password; other
+  people use it too, so its resume list changes). Test (dev key): `--es jf_signin "server|user|password"` (`-`
+  signs out), `--ez jf_dump true` (tag `GlassJellyfin`: libraries, latest, in progress, favourites, ids, the
+  carousel's catalogs). A Jellyfin server on the Mac: `brew install --cask jellyfin` is installed but its binary
+  waits (macOS quarantine on the download): he has to open it once himself.
 
 ## Two builds: `github` and `play` (`docs/play/README.md`)
 
@@ -1411,6 +1447,339 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   after the change, anything in the setup.
 - Languages, not seen: the other six languages on the TV, the side menu, the setup, dialogs and the tour in any of
   them, a text too long for its row (titles are one line and cut with "…").
+- **4.1.0 released as stable (2026-11-22, "سوي ريليس ستيبل"):** the public commit `6b59a79` (one commit on
+  `origin/main` c1795a2, the tree of local `beta` at `8a3376a`) is `origin/main`, tagged `v4.1.0`, the *latest*
+  release with `Glassio.apk` and `Glassio-4.1.0.apk` (sha256 `548de0ea…07992ce`, downloaded and compared, also
+  through the `releases/latest/download/Glassio.apk` link the Downloader code uses; the same file is on the
+  Streamer). `origin/beta` stays at `e6ae176` (4.1.0-beta1). The tour's first page says 4.1 (`WhatsNew.ID` 67;
+  his `tourSeen` put back to 66 so he sees it himself). #21, #22 and #23 were told it is out (left open for their
+  authors to confirm). Not seen: the updater offering 4.1.0 to a TV on 4.0.0 or on the beta.
+- **After 4.1.0, his "do them" from #21 / #22 (2026-11-22, not released):**
+  - *Rows above the dock* (`channelsLow`, off: as before): an app's single row sits right above the dock, so the
+    large clock and the page's top stay in view (#21's photo). Seen with SmartTube's row, off and on.
+  - *Same video as the screensaver* (`saverSameVideo`, on; shown with the aerial background): the screensaver
+    starts with the background's video where it was (`CustomBackground.leftVideo` / `leftPos`, matched by title),
+    and the background goes on with the one the screensaver ended on (`SaverControl.ended*`). Seen: background
+    *Sand Dunes* → screensaver #0 *Sand Dunes* → back, "on from the screensaver's (Sand Dunes)"; `live` ok.
+  - **The background video is let go while Glassio is away** (stopped for 5 s: another app, the screensaver):
+    `player.stop()`, prepared again on the way back (never for the Library or Settings). Seen after the screensaver
+    and after 9 s in the TV's settings: "let go while away", the video and its glass back (`live` ok). PSS on the
+    screensaver 371-382 MB against 543 on the home screen with the aerial background (not compared with 4.1.0).
+  - *Pexels* in the screensaver's *Collections* (`pexelsKey`, the TV's; `pexelsQuery` "aerial"; source key
+    `pexels`): Pexels' video search with the person's own key, landscape, 1080p and 4K files, each title naming
+    its maker and Pexels. **Not tried: no key here** (making one needs a Pexels account: his).
+  - *A YouTube link among My videos* (github build: `AerialSource.youtubeId`, `TrailerSource.resolve`; the cache's
+    data source sends the trailers' user agent to `googlevideo.com` only; the play build leaves such links out).
+    Seen: Big Buck Bunny's YouTube link as the only screensaver video, 1080p H.264, playing. Plays in the
+    screensaver and in the aerial background (both read My videos); not as *Your video* (`bgVideo`).
+  - Excluding a video (his choice, all optional): *Hold OK asks* (`saverHoldMenu`, off: held OK locks as always)
+    opens *Keep this video* / *Don't show it again* (`saverHidden`, "id<TAB>title"; left out of both playlists);
+    *Hidden videos* brings them back. Seen: the menu, a video hidden and the next one coming, the list, shown again.
+  - *Let the video go while away* (`bgLetGo`, on) is its own switch now.
+  - **#23: OK on the Search icon did nothing**: pressed before the page had come up (now it waits 50-420 ms) the
+    press was taken as old. `SearchUi.typeAsked`: the page goes into typing as soon as it is there. Seen: two quick
+    Rights then OK at once, the keyboard up.
+  - **The TV's own "Are you still watching?" window** (it shows when the TV says another input was chosen) took
+    an OK meant for Glassio's menu during a test: its selected button was *Don't ask again*. Told him (his TV's
+    setting; not changed back by me). Look at the screen right before every OK, also inside the screensaver.
+  - Full navigation check on the beta's exact file: `nav` 13 steps ok, no crash; by hand: the Music, Search and
+    SmartTube pages up and back, the search from the menu and from outside, the folder, the Library, back from
+    the screensaver. #21, #22, #23 told.
+  His settings put back (bgMode carousel, aerialUrls his one link, saverMine off, no pick, channelsLow off,
+  tourSeen 66).
+- **After 4.1.1-beta1 (2026-11-22 evening, not released): his "the sync isn't right, the return is heavy".**
+  His setup then: `bgMode` aerial, `bgLetGo` off (he turned it off), screensaver 4K, a song playing.
+  - Sync, fixed: with the video not let go, the background stood paused where the screensaver began and jumped
+    back on return (the seek was only in the let-go branch). Now it seeks to the screensaver's real place
+    (`SaverControl.positionNow`, the player's own position) either way. The screensaver's start place was lost
+    (`sameFrom` was a plain local: 0 after a recomposition; `sameFromBox` now). Seen three returns in a row: 45 s →
+    73 s → 101 s of the same video, each the screensaver's 15 s further.
+  - Return, lighter but **not solved**: (1) `VideoFrames.clearForHome()`: with a video background of its own the
+    copies are kept when the screensaver ends (cleared, every glass surface changed to "no video" and back, twice);
+    (2) `inFront()` / `WhenResumed` / `VideoBackgroundInFront` in `HomeScreen.kt`: whether Glassio is in front is
+    read in small composables (read in `HomeScreen`, every return composed the whole screen twice); (3) the
+    shuffle state is asked off the main thread, once a second at most (`NowPlaying.publish` made a
+    `MediaControllerCompat` call at every update). Longest frame on return, main thread: 195-314 ms before;
+    104-131 with the song paused (some returns none over 80); **still 240-290 with a song playing**: what is
+    left belongs to the music state on return (`NowPlaying` callbacks, `pick`, the island composed again),
+    not found yet. `glassqa.py profile` printed an old report all day (it reads a stale file when the record
+    fails): record by hand (`simpleperf record --app … -f 4000 -g --duration 2`, report `--comms
+    com.glasslauncher.tv --children`) and translate with the mapping.
+  - Defaults: `saverHoldMenu` on (his ask); `bgLetGo` on only on a TV with less than 3 GB (`Settings.smallTv`):
+    letting go costs a reload on return.
+  - #23's author on the beta: "OK on the Search icon, then Up, for the bar to show": not reproduced (strip and
+    regular docks, carousel and video background: OK goes into typing); asked for his dock and background.
+    #25 (new): several actions on one button, an action that closes the app in front: asked, not built.
+  - A gift card came through the support form (his photo; code not copied anywhere); thanked on #22 without
+    naming the sender for sure.
+- **Three fixes (2026-11-22 night, not released), each seen on the Streamer:**
+  - #23 (Search icon in the dock's second row did nothing): a search asked for while the dock is open folds it
+    (`SearchUi.want` → `expanded = false` in `HomeScreen`; `AppLock.open` asks `SearchUi.open` from a lower row).
+    Seen: Search moved to row 2 of the regular dock, OK → the search with the keyboard (put back after).
+  - Back from the screensaver over a video background: the stand-in frame (taken when the screensaver began, the
+    small frosted copy enlarged: blurred and lighter, then a jump) is gone; the stand-in is only the sharp copy,
+    never after a Same-video seek; the screensaver's black (`SaverGate.cover`) waits for the video's first frame
+    (`VideoFrames.drawnRev`, 1.5 s at most). Recordings: one fade from black to the video, no jump (0.6-1.5 s of
+    black first). His slow-motion video showed the old way: 87 frames brighter and blurred, then the jump.
+  - The Music icon over a video background: the player's page fades with the glass (`AnimatedVisibility`, 220 ms,
+    in `Hero.kt` when `customBg`); it came in one frame while the dock's glass took 0.2 s ("the dock draws its
+    glass late"). Recordings: page and dock rim change in the same frames, both ways.
+- **The screensaver on the home screen (option 3, 2026-11-22 night, not released):** `saverInHome` (off; Settings →
+  Background & screensaver → *Screensaver · When* → *On the home screen*, hidden with the TV screensaver type),
+  `saver/HomeSaver.kt`. No screen is opened (`HomeSaver.begin` from the idle timer, Back, `start_saver`; the TV
+  screensaver type and Settings' *Preview now* keep their own screen): the home page fades away (`homeAlpha`,
+  700 ms) and MainActivity draws the saver over it (`HomeSaverLayer`), keeping the screen on. Aerial background +
+  aerial screensaver (`onBackground`): the background's own player goes on (◀ ▶ step it: `CustomBackground.next` /
+  `back`; it always moves on unless the video is kept), the place, island, large clock (from `VideoFrames`) and the
+  held-OK menu are drawn over it; Back only fades the home page in. Anything else: `SaverContent` over the home
+  screen (its own player; the home screen's video waits paused), closed through black (`state` 2: the surface is
+  gone before the black fades). Any other key, a touch, Home or `onStop` ends it; the carousel's autoplay, its
+  trailers and Hue's driver wait while it shows. On the Streamer, with a song playing (`pass.py`, Back, longest
+  frame / main thread): on the home screen 72 / 50 and 33 / 17 ms; its own screen 310 / 300 and 329 / 289; the
+  posters on the home screen 35 / 6. Seen: dock and carousel gone, clock and island, ▶ to the next video, Back to
+  the dock at once, the posters and back. **His heavy return with a song is gone only with this switch on**; the
+  old way is unchanged. Not seen: the held-OK menu and ▼ / ▲ on it, the idle timer starting it (his is off), the
+  trailer screensaver, a My video background paused under it, a profile chooser or the TV's dream over it. The
+  4K-while-it-shows idea was not built. His `saverInHome` is off (as before).
+  **One island at a time** (his "follow the glass in this option"): the screensaver's island and the home
+  screen's were both up at the start (one fading out under the other) and on the way back the screensaver's went
+  at once while the home page was still fading in (two frames with no island). Now `HomeSaver.ownsIsland` hides
+  the home screen's while the screensaver shows; going back is `state` 3 for 220 ms (the home page fades in, the
+  screensaver's words fade out, its island stays) and the two islands change in one frame (`HomeSaver.homeIsland`,
+  set by the home screen; when the home screen has no island the screensaver's fades). Recordings read frame by
+  frame (island / dock brightness): start 115 → 117 while the dock fades 54 → 38; back 111 → 110 → 117 (the step
+  is the song name's scroll starting again in the home screen's island, the glass is the same), dock 38 → 54; on
+  ▶ the island's glass darkens with the video's fade and comes back with the next one (147 → 37 → 135); still
+  copies were checked live (0.7 s apart: island 28 / 26 / 18 / 15, background 19 / 15 / 13 / 10).
+- **One player on by default, the menu's screensaver page, #28 (2026-11-22 night, not released):**
+  - `saverInHome` is on by default and its row is called *One player* (Settings and the menu). His is on.
+  - The menu's *Screensaver* page has *Collections ›* (the collections and Pexels with its key, a page of their
+    own as in Settings; Back returns to its row), *YouTube lists ›* (github build, when My videos has YouTube
+    links) and *One player*. `saverSub` in `SideMenu`; a "more" glyph for rows that open a page.
+  - YouTube links can be left out without removing them (`saverYtOff`; Settings → My videos → *YouTube lists*,
+    and the menu). Their names are the playlist's / video's own (`AerialSource.ytTitles`, filled as they are read).
+  - Seen on the Streamer: the page, Collections and back, One player switched on from the menu. Not seen: the
+    YouTube lists page (his My videos has no YouTube link).
+  - **#28 (an onn 4K Pro on 4.1.1-beta1: "crashes when trying to access my IP camera")**: read with the mapping of
+    the released build (rebuilt from `origin/beta` `4e92df7`: the same r8 map id as the release's APK).
+    `RtspClient.MessageListener.handleRtspResponse` (Media3 1.11.1, line 547) takes the reply's `CSeq` with
+    `checkNotNull`: a camera that answers without it threw on the player's thread and Glassio closed. Camera
+    players now have their own playback thread that drops such a message and goes on (`CamPlayer.safeLooper`,
+    `CamPlayer.release` ends it; runtime exceptions only, logged once). Tested with a fake camera on the Mac that
+    answers without CSeq (`--es cam_test <link>`, dev key, opens the corner camera on one link): the same
+    NullPointerException in the log, Glassio's process the same before and after. **Port 8554 on the Mac is his
+    mediamtx**: use another port for a test server.
+- **Hue button, TV inputs button, About (2026-11-23, his reports):**
+  - *Hue lights off / on from a remote button* came back dimmer than before: on again it only switched the group
+    on and the screen's colours followed. Now each light's state is kept before off (`HueSync.beforeOff`,
+    `Hue.groupLights`, `Hue.states`) and put back exactly (`Hue.restoreCommand`); the screen's colours follow
+    again only if they did before. **Not tried on his lights** (3 am; it changes his room).
+  - *A button set to the Inputs icon* said "isn't installed" (the icon was saved as an app). Now action `inputs`
+    (old "app:inputs:all" lines too): `InputsPickActivity` over any app (its own task: in Glassio's task it pulled
+    the home screen up behind it), the inputs as cards, OK switches, Back or the button again closes; its glass on
+    Glassio's bright lights like the tour (his choice: a screenshot of the app behind was tried first, through the
+    TV's adb, and dropped; a file the shell writes can't be read by the app anyway). *TV inputs* in the buttons'
+    choices; the Inputs icon no longer among the apps there. Seen on the Streamer over the TV's settings.
+  - *About* took several Right presses: the jump to the first row (this morning) found no rows in About's own
+    pane and sent the selection back. About (and New / Changed) are left out of it; seen: one press.
+- **The TCL, measured and lightened (2026-11-23, his ask; the local build is installed there now):** BeyondTV2,
+  Android 11, 32-bit, Realtek RTD285O, 4 cores, 2 GB (~100 MB free, swap in use). Its load average of ~20 is the
+  Realtek drivers' threads waiting (D state), not processor use: the CPU is ~70 % idle. Its `perfMode` is
+  `custom`, so the automatic presets never apply there (changing any of six settings makes a TV custom for good).
+  - Measured: moving between plain dock icons is fine (p50 12-16 ms, main thread 2-7 ms, the render thread
+    ~5-7 ms, GPU ~2 ms). The heavy moments are pages coming up as an icon is reached (an app's rows, the
+    search): one frame of 25-60 ms drawing on the main thread and 2-3 frames of 13-20 ms composing, p90 55-95 ms.
+    At rest ~24 % of a core on average, spikes at each automatic slide (pictures to the GPU, Hue colours).
+  - **Run-to-run noise there is larger than these changes' effect** (the same step 27 → 118 ms): before / after
+    could not be shown on it; the changes are by reasoning (less work), not by a measured gain.
+  - Changed (speed fixes, tier-0 = `memTier` 0): the slide's preload asks for the copy the page uses (w1280 with
+    "1280 enhanced", it loaded the original for nothing); no trailer worked out ahead on tier 0 unless trailers
+    start by themselves; the selected dock plate is plain below Android 13 (the glass can't bend there); Coil
+    decodes one picture at a time on tier 0; the island's bars ~6/s and progress 1/s on tier 0; the Music &
+    Inputs page blur only while one of those icons is selected on tier 0 (it ran after every slide); an app's
+    rows page is built a row a frame. Also the player page's fading focus (`fadingFocus` in `Hero.kt`).
+  - Not done, proposed to him: a cleaner Performance section (show what the TV is, a "recommended for this TV"
+    choice, and not losing Auto when one setting is changed), automatic slides only on the carousel, the search
+    page lighter on tier 0.
+- **The large clock with rows above the dock (#21) and in the menu (2026-11-23):** with *Rows above the dock* over
+  your own background the clock is drawn outside the carousel's fade (`clockThrough` in `Hero.kt`), so it stays
+  above an app's row (it went with the carousel). The menu's Background page has *Large clock* (`bgClock`) after
+  *Next video*. Seen on the Streamer: the clock above SmartTube's row; the menu row turned it off. His `bgClock`
+  and `channelsLow` back off.
+- **Performance for weak TVs, his four yeses (2026-11-23):**
+  - *Recommended for this TV* (Settings → System → Performance): the TV's kind (`Settings.tvKind`: model, memory,
+    Android, cores, OpenGL ES) and the tier Auto picks; OK = Auto with every performance key back to what Auto
+    picks here (`recommendedMode`, your own changes too). "In use" when nothing differs.
+  - *Auto isn't lost*: a performance setting changed by hand is kept in `perfOwn` (the TV's, in sync's perf group)
+    and the mode leaves it alone (`applyMode` skips it); the Mode row says "N set by you". Was: any change made the
+    whole mode Custom. A TV already on Custom stays Custom until Recommended or a mode is chosen.
+  - *Slides change on their own · Where* (`heroAutoplayWhere`, "always" / "carousel"; Settings → Carousel; the
+    Performance preset sets "carousel"): only while the carousel itself is selected.
+  - *Popular this week* is off from the start on a TV under 3 GB (`searchTrending` default `!smallTv`).
+  - Seen on the Streamer: Auto + Prepare ahead changed → "Auto (Balanced) · 1 set by you"; Recommended → every key
+    back, "In use"; his values put back (Custom, his 13 values; `perfOwn` left empty). Autoplay over 35 s each:
+    Always on the dock changed, carousel-only on the dock didn't, on the carousel did. On the TCL (local build
+    installed again): the empty search without Popular, Performance showing "BeyondTV2 · 2 GB · Android 11 · 4 cores
+    · OpenGL ES 2.0", Recommended → Performance (not pressed: his TCL stays Custom).
+- **Code review of everything since 4.0.0 (2026-11-23, his ask):** four read-only reviews (search; accounts,
+  Jellyfin, phone page; screensaver and video; remote, cameras, UI), every finding checked in the code, the real
+  ones fixed. The main ones:
+  - *Screensaver on the home screen:* it only starts over the home screen itself (`HomeSaver.homeShown`, read in
+    composition, and `folderOpen`), else its own screen (it started during the setup and took every key, and over
+    Settings / the Library); the key that ended it is eaten up to its release (`eatAfterEnd`: Back held 220 ms
+    started it again); its player stops on ON_STOP; "Same video" state cleared with its players; a mouse / hover
+    ends it. Seen: Back held → it ran once; from Settings → its own screen.
+  - *Video background:* let go also when Glassio is left from Settings or the Library, and while the home
+    screensaver plays its own video (two decoders on small TVs, #22); the list is rebuilt when a video is hidden;
+    *Keep* / *Don't show it again* work for every list (`idOfUrl` adds up, `mineItems` fills it; the toast only when
+    it was hidden); the clock's copies with See-through glass in the home screensaver; `BakeCache.clear` clears the
+    pictures made ahead.
+  - *Search:* a JustWatch failure no longer hides titles as "on no service"; every result is checked for *Only on
+    my services* (pages added later too, not Popular); "Searching…" can't stick (`asked` set last); focus answers
+    read (`getOrDefault(false)`); one fade per search; "didn't answer" when offline (titles / resolve throw when no
+    source answered); places interruptible; one 13 s deadline for all Stremio add-ons; dead code out.
+  - *Jellyfin:* picture links without the token (they were saved in the Library and sent to Nuvio); the device id
+    from the TV (`ANDROID_ID`), never in a backup; a 401 signs out; Play uses the index in memory (`peek`), never
+    waits; a failed index retried after a minute; `jf:` titles never sent to Nuvio and never opened in Nuvio
+    (a toast); the "catalogs ticked once" flag in `glass_jellyfin` (in `glass_catalogs` it travelled with sync);
+    libraries with no type (films and series together) shown; Next up request, `still`, `searchInApp`,
+    `lastError` removed.
+  - *Cameras:* a Home Assistant answer after the player moved on is dropped (`playNo`); the MJPEG stream
+    reconnects; the surface is let go at once on stop; multi-view frees its players through `CamPlayer.release`
+    (it leaked a looper thread per camera).
+  - *Remote:* the double press counts from the second press going down (a slow second press was two singles; seen
+    fixed with a virtual key); the button map parsed once per change; button toasts translated.
+  - *Other:* the update-time compile on its own adb connection (`LocalShell.stream`: it held every other TV command);
+    example addresses `jellyfin.local` (192.168 would be refused by the pre-push hook); doc comments put back
+    beside their settings. Left: the player page's focus during its 220 ms fade over your own background (low risk).
+  `nav` clean, tests and lint for both builds.
+- **Home Assistant cameras without a stream (#28's second report, 2026-11-23):** `HaWatch.streamUrl` asks for HLS
+  (`camera/stream`); an MJPEG or snapshot-only camera (or HA's `stream` integration off) answers with an error, and
+  the player was only stopped: "Connecting…" for ever. Now `CamPlayer.play(ctx, p, url, tex, onFail, onLive)`
+  falls back to `HaPictures`: the camera's MJPEG stream (`/api/camera_proxy_stream/<entity>`, JPEGs cut between
+  their markers) drawn on the same TextureView (the player detached first), else its snapshot
+  (`/api/camera_proxy/<entity>`) every second; nothing after 5 tries: "Can't reach the camera". All three camera
+  windows (corner, multi-view, the menu's `CameraView`) pass their view. QA (dev key): `--es ha_test
+  "http://host:port|token"` (`-` clears) points `cam_test ha://…` at a test server. Seen on the Streamer with a fake
+  HA on the Mac that refuses streams: the MJPEG camera's picture, the snapshot camera's picture, "Can't reach the
+  camera" for one with neither. Not seen: a real HA MJPEG camera (the fake sent all its frames at once, so motion
+  wasn't checked), multi-view with such a camera.
+- **Glass over the video: See-through (2026-11-23, his ask after "why is the clock smooth and the dock not"):**
+  the large clock's glass digits let the video itself show through (its picture inside the digits is faded by
+  *Glass opacity*), while the dock, the island and the menus draw copies of the video (~15 a second, 720×405,
+  bent): late and grainy. `videoGlass` ("bent" default, "clear"; Settings → Background & screensaver, shown only
+  with a video background; `VideoGlass.clear` is set by the home screen only while `bgMode` is video / aerial):
+  `LiquidSurface` then draws nothing of the video (no refraction, no blur, no shade: his ask, fully see-through),
+  only the veil, the shuffle's black and the glass colour; the island's writing gets the soft shadow it has with
+  no glass (`bare`), so it reads over a bright video; the copies are no longer
+  made for the glass (only for the clock's digits). Seen on the Streamer: dock and island show the video itself,
+  the island reads over a bright sky. Frames moving along the dock (p50 / p90, two runs each): bent 25/47, 21/44;
+  see-through 29/47, 20/43 (the same); Glassio's CPU at rest ~57 % against ~59 %. His setting left on Bent.
+- **The phone page and the rest, since 4.0.0 (2026-11-23, his "did you think of the phone page and everywhere"):**
+  the phone page has Jellyfin's sign-in (server, user, password; `/api/jellyfin/login`, `/logout`; Accounts "of
+  5"), the Pexels key and words (`/api/pexels`, under Videos) and *Your videos* mentions YouTube videos and
+  playlists (github build, `youtube` in the state). Tried against the Streamer with curl: the page's script compiles
+  (`node --check`), the Jellyfin demo signed in and out through it, the state carries the new parts. Not seen in a
+  phone's browser. Also found and fixed: `pexelsKey` is a secret in backups (`Backup.SECRETS`), `saverYtOff` stays
+  on each TV (`PeerSync.NEVER`, like `aerialUrls`), problem reports carry `bgVideos`, `saverInHome`, `searchOn`.
+  Already right: `pexelsKey` is the TV's (`Profiles.DEVICE`), Jellyfin's account in backups, Jellyfin in the
+  reports' accounts, `cwJellyfin` / `libraryJellyfin` off in a new profile, the new rows in New, search and
+  Changed, the nine languages, the play build (YouTube left out).
+- **"My video" and "Screensaver" merged into Videos (2026-11-23, his yes to the plan):** the background is Title
+  backdrops / My picture / Photos / **Videos**, and Videos has **Plays**: *All the videos* (bgMode `aerial`,
+  `bgVideos` "all": the library as the screensaver has it), *My videos* (`aerial`, "mine": `AerialSource.mineItems`,
+  the folder, links and YouTube, without the hidden ones), *One video* (bgMode `video`: the chosen one on a loop).
+  Keys unchanged; `Settings.mergeVideos()` (once, from `GlassApp`) turns "My video" with *Shuffle my videos* into
+  Videos · My videos; *Shuffle my videos* is gone from Settings and the menu. One library for both: the group is
+  *Videos · the screensaver's and the background's*, the screensaver's type reads *Videos*. The menu's Background
+  page: the four choices, *Plays* (OK goes to the next choice) and *Next video*. The phone page: *Videos* /
+  *One video* in the list and a *Plays* row (`/api/bg/videos`); its rows may now be null (skipped). Seen on the
+  Streamer from the menu: My videos → 9 (his folder's 8 and his link), One video → his Las Vegas video looping,
+  All → 119; his choice (Videos · All) put back. Not seen: the migration itself on a TV with "My video" and
+  shuffle (his had moved to Screensaver meanwhile), the phone page.
+- **The search's pop-up list (2026-11-23, his photos):** its glass read the background video's copy, so the video
+  showed through it as if the posters weren't there; and the screensaver on the home screen started under an open
+  pop-up, which stayed over the video. Now a pick list that isn't over Settings takes one copy of the screen behind
+  it as it opens (`ScreenGlass.capture` in `ui/Glass.kt`: PixelCopy of the activity's window over the video's latest
+  copy, blurred), frosted for every style and darker (0.42); and `DialogHost` / `PopMenuHost` draw nothing while
+  the home screensaver shows (the pop-up comes back after it). Seen on the Streamer: the list over Inception's
+  posters, frosted and readable; the screensaver started with it open: no list on the video, back: the list again.
+- **Island joined to the top, and a held OK in the search (2026-11-23, his photos):** joined to the top
+  (`islandAttached`) the island's glass still had its top corners and rim (`GlassPanel` takes one radius): its
+  panel now reaches above the screen by its corner's size (a `layout` in `MusicIsland`), so it meets the edge flat
+  like a notch (seen on the Streamer). **Not for the changelog, the tour or GitHub (his ask).** In the search a held
+  OK on a title always opens the list of places, *Save to the Library* and the rest (`open(item, list = true)`),
+  whatever *OK on a title* says, also for a Jellyfin card (seen: his OK goes to Nuvio Legacy, the held OK showed
+  the list).
+- **Jellyfin froze when opened (2026-11-23, his "it hangs and doesn't go into the app"):** the TV's ANR records
+  (`dumpsys dropbox --print data_app_anr`) had the Jellyfin app "no focused window" at 23:34, 23:49, 23:50: its
+  main thread stuck in `org.jellyfin.androidtv.integration.provider.ImageProvider` writing a WebP into a pipe.
+  Its rows' pictures are `content://org.jellyfin.androidtv.integration.provider.ImageProvider?src=<server image
+  url>`: that provider downloads and compresses each one on the app's main thread and waits there until the
+  reader takes it, so Glassio showing its rows (many cards, two decodes at a time) held the Jellyfin app up.
+  Glassio's image loader now maps any `content://…?src=http(s)://…` to the `src` address (a Coil `Mapper` in
+  `GlassApp.newImageLoader`): the pictures come from the server, the Jellyfin app is never asked. Seen: with the
+  cache emptied and the Jellyfin app stopped, its rows' pictures all came up and its process was still not
+  running; OK on Dracula → its page in ~1.5 s; no new ANR. (The Glassio ANR at 23:51 was my first `net_fail_test`
+  emptying the cache on the main thread: fixed in the hook.)
+- **Grey cards and an empty carousel (2026-11-23, his photo of Prime Video's rows):** a picture that failed once
+  stayed failed for as long as the page was up: a row's card (`failed`, the grey under it), the carousel's backdrop
+  (three tries, then nothing) and a logo (three tries, then the name). The Library looked fine (its posters load
+  each time it opens). Likely the TV waking before its network was up. Now `data/NetState.kt`: a failure is noted
+  and the pictures are asked again when the network is back (validated after a loss: `registerDefaultNetworkCallback`)
+  or when the home screen resumes (`MainActivity.onResume`); the cards, the logo and the backdrop effect read
+  `NetState.rev`. QA (dev key): `--ei net_fail_test <s>` (picture downloads fail for that long; the picture caches
+  are emptied 2 s later, once the downloads under way have failed: emptied under them, a page waited for ever)
+  and `--ez dump_threads true` (tag GlassThreads). Seen on the Streamer: Prime Video's cards grey with only their
+  names while it failed, then, back from the TV's settings, "trying again" and every picture there. Not seen: the
+  network really dropping and coming back (adb runs over the same network), the backdrop's retry by itself (a test
+  that emptied the cache under running downloads left the carousel stuck; with the hook fixed it wasn't tried
+  again). A restart had brought his pictures back first.
+- **The What's new tour's window on Glassio's lights (2026-11-22 night, his ask: "only the pop-up"):** the home
+  screen stays dimmed behind it as before; the window's glass reads the setup's soft lights (`GlassEnv` from
+  `orbsPicture`, `ignoreVideo`: over his aerial background the window showed the video), a little lighter (darken
+  0.45, was 0.72 for bright posters). A first try put the whole screen on the lights: not what he wanted. Seen on
+  the Streamer over the aerial video. His `tourSeen` put back to 66.
+  Then (his ask): **no dimming behind it** (the home screen as it is), the window light ("still dark": its own
+  brighter lights, `orbsPicture(bright = true)`: a lighter ground, stronger lights; darken 0.08), **its own look
+  whatever the theme** (frosted `liquid`, white writing; seen the same with Black on white, Black AMOLED and Still
+  Glass, his `menuStyle` water put back), and
+  **the tour covers everything since 4.0.0** (`WhatsNew.ID` 68): welcome, Profiles, Your streaming apps, New
+  Settings, Search, Nine languages, Jellyfin, Screensaver (One player, hold OK, Pexels / YouTube, the menu's page),
+  Remote buttons, And more, GitHub, Support: 12 pages, all seen on the Streamer (the GitHub page's window reaches
+  the dock's top edge). The next release keeps these pages and adds its own.
+- **Jellyfin (#27, 2026-11-22 night, not released):** see **Jellyfin**. On the Streamer with the demo server:
+  sign-in, its two libraries as ticked catalogs (12 titles in the carousel), four titles in the Library's Continue
+  Watching with the Jellyfin mark, OK on one → its page in the Jellyfin app ("Resume from 0:39"), Back → Glassio;
+  the search for "dracula" with the server's Dracula first, OK → Jellyfin; places Jellyfin, Nuvio Legacy, Stremio ›;
+  the Settings search finds every row. The Jellyfin app (0.20.0, from its GitHub release) is installed on the
+  Streamer, signed in to the demo, and in his dock (Glassio adds new apps). Glassio was signed out of the demo
+  after the test. Not seen: Quick Connect from the Settings row (the QC flow was only exercised by the Jellyfin
+  app itself), the password row, the Library's favourites row (the demo user's favourites change), a series in
+  progress (the demo had none), *Catalogs for apps* with the Jellyfin icon (his `appCatalogsOn`), the phone page
+  (no Jellyfin rows there yet), a big library (the ids list is one request).
+- **#25: a button's press, double press and hold; Close the app in front (2026-11-22 night, not released).**
+  `RemoteMap` lines "code~double|…" / "code~hold|…" beside the plain "code|…" (old lines unchanged; an older
+  Glassio drops the new ones). `KeyHub.presses`: with a double press or a hold set, a hold acts after 550 ms
+  held, a second press within 350 ms is the double press, else the press acts 350 ms after release (a button
+  with only a press set acts at once, as before; a button with a hold or double set and no press does nothing on
+  a press). Action `closeapp`: the app in front (`topResumedActivity`) force-stopped through `LocalShell`, then
+  Glassio; never Glassio, the TV's launchers or its settings; without TV access a toast says so. Settings →
+  Remote buttons: one row a button with its three jobs. Seen with a virtual keyboard's F13 (scan code 183, no
+  key code): press → Recent apps, double → the search (from the Play Store and from Glassio), hold with the
+  Play Store in front → it stopped and Glassio came back. His mapping put back. #26 (a report from a Skyworth
+  LEAP-S1 on 4.1.0: "can't change top left side for options to other one"): not understood, not reproduced
+  (the Settings section list moves); a question is drafted, nothing posted.
+- **YouTube playlists in My videos (#22, github build, 2026-11-22 night, not released):** a playlist link
+  (`AerialSource.isPlaylist`: `list=`, not a YouTube mix `RD…`) becomes its videos (`MediaSearch.playlist`,
+  NewPipe's `PlaylistInfo`, 200 at most, kept 6 hours), each with its title. A YouTube video now stays as its page
+  address in the list; its picture stream is looked up when it is about to play (`VideoCache.factory`'s
+  `ResolvingDataSource`, on the loading thread), so the stream never runs out and the copy kept on the TV is
+  found again by the page address. Seen: a public 27-video playlist with one other link and the folder's videos:
+  "YouTube playlist: 27 videos", its videos playing with their titles (1012p-1080p). The play build leaves these
+  links out (scan: no NewPipe, PlaylistInfo or googlevideo). **His `saverSources` was emptied for the test and
+  put back from his own backup on the TV** (`Download/Glassio/Glassio-backup-2026-11-15-1046.json`: robin,
+  amazon); note a setting's value before changing it.
 - **After 4.1.0-beta1, from the issues (2026-11-22; looked into and answered, nothing built yet):**
   - **#24 (his report from the TV, the same person as #22): the crash is an `OutOfMemoryError` in
     `Bitmap.createBitmap` making a page picture (`bakeBackdrop`, from the carousel's slide in `HomeScreen`)**, on an
@@ -1453,8 +1822,8 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
 - Next beta or the stable 4.1.0: the public commit goes on `origin/beta` (a beta) or `origin/main` (stable) with
   the last public commit of `origin/main` as parent, made with `commit-tree`; code 71+. The local `beta` keeps its
   own history.
-- The stable 4.1.0 keeps `NEW_IN`'s 4.1.0 rows (the same list as the beta) and needs the tour's first page
-  without "beta" (`WhatsNew.ID` 67 then).
+- The next release must replace `NEW_IN`'s 4.1.0 entry with its own rows. `WhatsNew.ID` is 68 already (the tour
+  since 4.0.0, see Last session); bump it again only if the tour changes after that. Code 73+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and
     not their home or a profile picker) is only known from the intent in front.

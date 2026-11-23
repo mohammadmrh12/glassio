@@ -25,6 +25,10 @@ class Library(
     val watchlist = MutableStateFlow<List<HeroItem>>(emptyList())
     /** Simkl's "Plan to watch". */
     val simklList = MutableStateFlow<List<HeroItem>>(emptyList())
+    /** A Jellyfin server's favourites (#27), and each one's id on the server (to take it off there). */
+    @Volatile var jellyfin: Jellyfin? = null
+    val jellyfinList = MutableStateFlow<List<HeroItem>>(emptyList())
+    private val jellyfinIds = java.util.concurrent.ConcurrentHashMap<String, String>()
     /** The Nuvio account's Library (shared by Nuvio Legacy, the official app and the forks that sync with it). */
     val nuvio = NuvioAccount(ctx)
     val nuvioList = MutableStateFlow<List<HeroItem>>(emptyList())
@@ -72,7 +76,8 @@ class Library(
         val l = if (now) listOf(item.copy(progress = -1f, sub = "", gallery = emptyList())) + saved.value.filterNot { it.key == item.key }
         else saved.value.filterNot { it.key == item.key }
         saved.value = l; save(l)
-        if ((settings.libraryToNuvio || settings.syncAll) && nuvio.connected && item.id.isNotBlank()) scope.launch(Dispatchers.IO) {
+        // (A title only a Jellyfin server knows has no id Nuvio could use.)
+        if ((settings.libraryToNuvio || settings.syncAll) && nuvio.connected && item.id.isNotBlank() && !item.id.startsWith("jf:")) scope.launch(Dispatchers.IO) {
             if (nuvio.setSaved(now, item.id, item.type.lowercase(), item.name, item.poster, item.background)) refreshNuvio()
         }
         if ((settings.libraryToTrakt || settings.syncAll) && trakt.connected && item.id.startsWith("tt")) scope.launch(Dispatchers.IO) {
@@ -143,6 +148,21 @@ class Library(
         if (settings.syncAll) { removeEverywhere(item); return }
         simklList.value = simklList.value.filterNot { it.key == item.key }
         scope.launch(Dispatchers.IO) { simkl?.setPlanToWatch(false, item.id, item.type) }
+    }
+
+    /** Reads the Jellyfin server's favourites (its own pictures). Blocking. */
+    fun refreshJellyfin() {
+        val jf = jellyfin
+        if (!settings.libraryJellyfin || jf?.connected != true) { jellyfinList.value = emptyList(); return }
+        val l = runCatching { jf.favourites() }.onFailure { Glog.w("Jellyfin favourites", it) }.getOrElse { return }
+        jellyfinList.value = l.map { i -> heroOf(jf, i).also { jellyfinIds[it.key] = i.id } }
+    }
+
+    /** Takes a title off the server's favourites. */
+    fun removeFromJellyfin(item: HeroItem) {
+        jellyfinList.value = jellyfinList.value.filterNot { it.key == item.key }
+        val id = jellyfinIds[item.key] ?: return
+        scope.launch(Dispatchers.IO) { jellyfin?.setFavourite(id, false) }
     }
 
     /** Reads Simkl's "Plan to watch" (posters from Cinemeta). Blocking. */

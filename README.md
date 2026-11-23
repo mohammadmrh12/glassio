@@ -6,9 +6,9 @@
 <a href="https://github.com/mohammadmrh12/glassio/releases"><img height="24" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmohammadmrh12%2Fglassio%2Fbadges%2Fdownloads.json&style=for-the-badge&cacheSeconds=1800" alt="Total downloads across all releases"></a>
 </p>
 
-**An Apple TV–style home screen for Google TV / Android TV**: real liquid glass, a carousel of your Nuvio and Stremio
-catalogs with trailers, each app's channels, music mode, Continue Watching from Nuvio, Stremio, Trakt and Simkl, a 4K /
-HDR screensaver, Hue lights, cameras, Home Assistant, and sync between your TVs. Built with Kotlin and Jetpack Compose.
+**An Apple TV–style home screen for Google TV / Android TV**: real liquid glass, a carousel of your Nuvio, Stremio and
+Jellyfin catalogs with trailers, each app's channels, search, music mode, Continue Watching from Nuvio, Stremio, Trakt,
+Simkl and Jellyfin, a 4K / HDR screensaver, Hue lights, cameras, Home Assistant, and sync between your TVs. Built with Kotlin and Jetpack Compose.
 Tested on the Google TV Streamer (4K).
 
 [العربية — دليل الاستخدام الكامل](docs/README.ar.md) · [Discussions](https://github.com/mohammadmrh12/glassio/discussions) · [Report a bug](https://github.com/mohammadmrh12/glassio/issues/new/choose) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
@@ -30,24 +30,28 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **4.1.0** — Search (films, series, YouTube and songs, opened in your apps), nine languages, Nuvio One and Nuvio+IPTV. What changed in every version:
-[CHANGELOG](CHANGELOG.md).
+Latest: **4.2.0** — Jellyfin, the screensaver on the home screen (One player), YouTube playlists and Pexels as videos,
+remote buttons with a press, double press and hold, a TV inputs button, see-through glass over a video, *Recommended
+for this TV*. What changed in every version: [CHANGELOG](CHANGELOG.md).
 
-- **Home screen** — an endless carousel from your Nuvio / Stremio catalogs with trailers (subtitles in your language),
-  logos, backdrop galleries and Continue Watching; opens titles in Nuvio or Stremio.
+- **Home screen** — an endless carousel from your Nuvio / Stremio / Jellyfin catalogs with trailers (subtitles in your
+  language), logos, backdrop galleries and Continue Watching; opens titles in Nuvio, Stremio, Jellyfin or the streaming app.
+- **Search** — films, series, YouTube videos and songs, opened where you can watch them.
 - **Liquid glass** — real refraction, six themes, a glass colour (black or petrol), bold text, round or sharp corners.
 - **Dock & icons** — tvOS-style focus, glow and bounce, icon packs and the Apple TV icon library, an Apps folder, app lock.
 - **Channels** — select YouTube, Shahid, Netflix… in the dock and its rows take the carousel's place.
 - **Music** — Now Playing from any music app: a full-screen music mode, a dynamic island and the Music icon.
-- **Library & accounts** — Continue Watching and lists from Nuvio (any profile), Stremio, Trakt and Simkl, kept in step.
-- **Screensaver** — 4K / HDR / Dolby Vision aerials, trailers or posters, with the clock and info in Apple or Netflix style.
+- **Library & accounts** — Continue Watching and lists from Nuvio (any profile), Stremio, Trakt, Simkl and Jellyfin, kept in step.
+- **Screensaver** — 4K / HDR / Dolby Vision aerials, your videos, YouTube playlists, Pexels, trailers or posters, with
+  the clock and info in Apple or Netflix style; it can play on the home screen itself (One player).
 - **Backgrounds** — 4K photos, your own picture or video, a large glass clock with a depth effect.
 - **Sync between TVs** — one main TV, the others follow it live over your home network; each chooses what it takes.
 - **Smart home** — Hue lights that follow the screen, cameras and multi-view, a doorbell pop-up, Home Assistant.
-- **TV & remote** — HDMI inputs, any remote button mapped, the Hold Home app switcher and recent apps.
+- **TV & remote** — HDMI inputs, any remote button mapped (press, double press and hold), the Hold Home app switcher
+  and recent apps.
 - **Menu** — a Control Center at the settings button: weather, TV info, a camera, inputs, themes, music.
 - **Easy to live with** — first-run setup with QR sign-ins, backup and restore, managing from your phone, 9 languages,
-  updates from GitHub, performance presets for weaker TVs.
+  updates from GitHub, *Recommended for this TV* for weaker TVs.
 
 ---
 

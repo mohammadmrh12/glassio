@@ -32,11 +32,12 @@ object Backup {
 
     /** The sign-ins and keys in each settings file (left out of a backup made without them, and kept on restore). */
     private val SECRETS = mapOf(
-        "glass" to setOf("tmdbToken", "unsplashKey", "redditAppId", "haToken", "nuvioToken", "hueUser", "doorbellToken", "lockCode"),
+        "glass" to setOf("tmdbToken", "unsplashKey", "redditAppId", "haToken", "nuvioToken", "hueUser", "doorbellToken", "lockCode", "pexelsKey"),
         "glass_nuvio" to setOf("access", "refresh", "client", "server", "serverKey", "email", "exp"),
         "glass_stremio" to setOf("authKey", "email"),
         "glass_trakt" to setOf("access", "refresh", "expires", "user"),
         "glass_simkl" to setOf("token", "refresh", "client", "expires", "user"),
+        "glass_jellyfin" to setOf("server", "token", "userId", "user", "serverName", "seeded"),
     )
     private fun secret(file: String, key: String) = SECRETS[file]?.contains(key) == true
 

@@ -41,7 +41,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 67
+    const val ID = 68
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -61,22 +61,59 @@ object WhatsNew {
         "Press OK, type the code and press Send: it comes straight to me. Thank you!",
     ), "Also in Settings → About → PlayStation gift card", support = true)
 
-    // A welcome first, then what's new in this version, then GitHub and support.
+    // A welcome first, then everything new since 4.0.0, newest last, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("Welcome to Glassio 4.1", listOf(
-            "Search for films, series, videos and songs, and Glassio in nine languages. Your setup stays as it is.",
+        Page("Welcome to Glassio 4.2", listOf(
+            "Everything new since Glassio 4.0, page by page. Your setup stays as it is: each new thing is a choice.",
             "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
-        ), "Settings → About"),
-        Page("New: Search", listOfNotNull(
+        ), "Settings → About → What's new"),
+        Page("Profiles", listOf(
+            "One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.",
+            "Who is watching? at start or from the menu, with Nuvio's profile pictures and a greeting at the top of the menu.",
+        ), "Settings → Accounts & profiles"),
+        Page("Your streaming apps", listOf(
+            "Catalogs for apps: with Netflix, Apple TV or Prime Video selected in the dock, the carousel shows that app's titles.",
+            "Play opens the streaming app: the title's own page in Netflix, Apple TV, Prime Video or Disney+.",
+            "Rows per service in the Library (On Netflix, On Apple TV…), for your country.",
+        ), "Settings → Catalogs & add-ons"),
+        Page("New Settings", listOf(
+            "11 sections in groups, every setting in one place, long lists on their own pages.",
+            "New: what this version added. Changed: every setting you changed, with Back to default.",
+            "The search finds any setting, also inside those pages.",
+        ), "Glassio settings"),
+        Page("Search", listOfNotNull(
             "Find a film or a series and open it where it can be watched: your streaming apps, Nuvio or Stremio.",
             if (com.glasslauncher.tv.data.Store.PLAY) null else "YouTube videos and songs under the titles; a song plays while you stay in Glassio.",
             "Its icon is in the dock. Turn Search off in Settings if you don't want it.",
         ), "Settings → Continue Watching & Library → Search"),
-        Page("New: nine languages", listOf(
+        Page("Nine languages", listOf(
             "Every screen of Glassio in your language, changed at once.",
             "The translations were made by machine: tell us where the wording is wrong.",
         ), "Settings → System → Language"),
+        Page("Jellyfin", listOf(
+            "Connect your Jellyfin server with a code (Quick Connect), nothing to type.",
+            "Its libraries in the carousel, what you are watching, your favourites in the Library, its titles first in the search.",
+            "A title on your server opens on its page in the Jellyfin app.",
+        ), "Settings → Accounts & profiles → Connect Jellyfin"),
+        Page("Screensaver", listOfNotNull(
+            "One player: the screensaver on the home screen itself. With the screensaver's videos as background it goes on with the same video, and you are back at once.",
+            "Hold OK on a video: keep it, or never show it again.",
+            if (com.glasslauncher.tv.data.Store.PLAY) "Pexels videos for the words you choose, with your own free key." else "Pexels videos, and YouTube videos and playlists among My videos, each one on or off.",
+            "In the menu: Screensaver → Collections and One player.",
+        ), "Settings → Background & screensaver"),
+        Page("Remote buttons", listOf(
+            "Each button can do three things: a press, a double press and a hold.",
+            "New job: close the app in front and come back to Glassio.",
+            "Buttons that send no key code (some remotes' Netflix button) can be given a job too.",
+            "A TV inputs button: your inputs over any app.",
+        ), "Settings → System → Remote buttons"),
+        Page("And more", listOf(
+            "The Library scrolls in one smooth movement, also with a button held down.",
+            "Rows above the dock: an app's row sits right above the dock, so the clock stays in view.",
+            "Report a problem from the TV or the phone, cleaned of anything private before it goes.",
+            "Recommended for this TV: the right settings for a weaker TV in one press (Settings → System → Performance).",
+        ), "Settings → About → Report a problem"),
         GITHUB_PAGE,
         SUPPORT_PAGE?.takeIf { com.glasslauncher.tv.data.Support.ready },
     )
@@ -124,15 +161,23 @@ object WhatsNew {
 fun WhatsNewHost(app: GlassApp, s: Float) {
     if (!WhatsNew.open.value) return
     val st = app.settings
-    val style = st.menuStyle
-    val light = style == "bow"
+    // Its own look whatever the theme (his ask): frosted glass on Glassio's lights, white writing.
+    val light = false
     val ink = if (light) Color(0xFF111114) else Color.White
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
-        // Darker than the shade around it, whatever the glass style or blur (clear glass at a light blur read as a
-        // see-through box over a bright poster).
-        // Clear (sharp) glass styles show frosted here: text over a sharp poster was hard to read.
-        val panelStyle = if (style == "water" || style == "water_still") "liquid" else style
-        GlassPanel(Modifier.width((560 * s).dp), radius = (26 * s).dp, style = panelStyle, darken = if (light) 0.25f else 0.72f) {
+    // The home screen as it is behind it (no dimming: his ask); the window itself is Glassio's own lights (the setup's and the
+    // profile chooser's): its glass reads those lights, not the page or the video behind, so it looks the same
+    // over any background.
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    val w = constraints.maxWidth; val h = constraints.maxHeight
+    val env = androidx.compose.runtime.remember(w, h, st.blurRadius, st.glassTint, st.refraction) {
+        val pic = orbsPicture(480, 270, bright = true).asImageBitmap()
+        GlassEnv(pic, pic, pic, w, h, st.glassTint, st.refraction, blurDp = st.blurRadius * 0.45f, ignoreVideo = true)
+    }
+    val envRef = androidx.compose.runtime.rememberUpdatedState(env)
+    androidx.compose.runtime.CompositionLocalProvider(LocalGlassEnv provides env, LocalGlassEnvRef provides envRef) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // Frosted glass over its own lights, the same with every theme (it reads nothing of the page behind).
+        GlassPanel(Modifier.width((560 * s).dp), radius = (26 * s).dp, style = "liquid", darken = 0.08f) {
             Column(Modifier.fillMaxWidth().padding(horizontal = (30 * s).dp, vertical = (26 * s).dp)) {
                 val i = WhatsNew.page.intValue
                 AnimatedContent(i, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "tour") { n ->
@@ -188,6 +233,8 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
                 }
             }
         }
+    }
+    }
     }
 }
 

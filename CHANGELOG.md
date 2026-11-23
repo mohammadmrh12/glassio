@@ -2,6 +2,73 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.2.0 — Jellyfin, One player, remote buttons that do three things
+
+Everything from 4.1.1-beta1, and what its testers asked for after it. As always, each new thing is a choice: with your
+settings left as they are, Glassio behaves as before except where noted.
+
+- **Jellyfin**: connect your server with a code (Quick Connect) or a password (Settings → Accounts & profiles).
+  - Its film and series libraries become catalogs in the carousel; what you are watching joins Continue Watching;
+    your favourites get a row in the Library; its titles come first in the search.
+  - Play opens the title on its page in the Jellyfin app, and Back brings you to Glassio.
+  - Each part has its own switch (*What Jellyfin brings*).
+- **The screensaver on the home screen** (*One player*, on): no screen of its own. With the screensaver's videos
+  as your background it simply goes on with the same video, so coming back is instant; ◀ ▶ step through the videos.
+  - **Videos** is now one background choice with *Plays*: all the videos, your own videos, or one video on a loop.
+  - **YouTube** videos and **playlists** among *My videos* (up to 200 videos a playlist), each link on or off.
+  - **Pexels** videos for the words you choose, with your own free key.
+  - **Hold OK on a video** to keep it or never see it again (*Hidden videos* brings them back).
+  - In the menu: Screensaver → *Collections*, *YouTube lists* and *One player*; Background → *Large clock*.
+- **Remote buttons**: each button can have its own job for a press, a double press and a hold.
+  - New jobs: *Close the app in front* (through the TV's ADB) and **TV inputs**, a small window of your inputs over
+    any app (a button set to the Inputs icon said "not installed").
+  - **Hue lights off / on** from a button now come back exactly as they were (they came back dimmer).
+- **Glass over a video background** (*Glass over the video*): *See-through* lets the video itself show through the
+  dock, the island and the menus, sharp and live, instead of a bent copy.
+- **Weaker TVs**:
+  - *Recommended for this TV* (Settings → System → Performance) shows what the TV is and sets what suits it in one
+    press.
+  - Changing one performance setting no longer turns the whole mode into Custom: only that setting is yours.
+  - Slides can change on their own *only on the carousel* (Settings → Carousel → *Where*), and the lightest mode
+    does this by itself.
+  - Lighter in many places: pictures, the island, the rows, the search (no *Popular this week* under 3 GB until
+    you turn it on).
+- **Rows above the dock** (Settings → Music & app rows): an app's row sits right above the dock, and the large clock
+  stays in view above it.
+- **Cameras**: a camera that answers in an unusual way no longer closes Glassio; Home Assistant cameras that can't
+  stream show their live picture or snapshots instead of loading for ever.
+- **Manage from phone**: Jellyfin sign-in, the Pexels key and YouTube links.
+- **What's new**: the tour now covers everything since 4.0, on its own light look.
+- **Fixes**:
+  - the Jellyfin app froze while Glassio showed its rows;
+  - cards and the carousel stayed grey when the TV woke before its network (they load again when the network is
+    back);
+  - the Search icon in the dock's second row did nothing;
+  - Settings: Right from a section lands on its first row, About opens with one press;
+  - pop-up lists over the search read the posters behind them;
+  - back from the screensaver over a video: one fade, no blurred picture first;
+  - the background and the screensaver stay on the same place of the same video.
+
+## 4.1.1-beta1 — what 4.1.0's testers asked for (beta)
+
+A beta: new features first, a little less tested. Get it with Settings → About → Updates → *Beta*. Everything new is
+a choice: with the settings left as they are, Glassio behaves as 4.1.0 except where noted.
+
+- **Search icon**: OK on it right after moving onto it opened nothing (the page wasn't up yet); now it goes
+  straight into typing.
+- **Rows above the dock** (Settings → Music & app rows, off): an app's single row sits right above the dock, so the
+  large clock and the top of the page stay in view.
+- **Screensaver and background share their video** (*Same video as the screensaver*, shown with the screensaver's
+  videos as background, on): the screensaver starts with the background's video where it was, and the background
+  goes on with the one the screensaver ended on: one video to load instead of two.
+- **Lighter while away** (*Let the video go while away*, on): in another app or the screensaver, the background
+  video is let go after a few seconds and taken again on the way back.
+- **Hide a screensaver video** (*Hold OK asks*, off): holding OK on a video opens a small menu: keep it (the lock,
+  as before) or never show it again. *Hidden videos* brings any of them back.
+- **Pexels** in the screensaver's *Collections*: free videos from pexels.com for the words you choose, with your
+  own free Pexels key.
+- **A YouTube link** can be one of *My videos* (screensaver and the screensaver-videos background).
+
 ## 4.1.0 — Search, nine languages
 
 First out as 4.1.0-beta1 on the Beta channel; this is it for everyone, with what the beta's testers asked for.

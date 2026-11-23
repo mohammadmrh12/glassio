@@ -118,7 +118,7 @@ function report(){edit({t:'Report a problem',note:'What happened, and what you d
    .catch(function(){say('Cannot reach the TV',false)})})}).catch(function(){say('Cannot reach the TV',false)})}})}
 
 /* ---- The sections (as on the TV: Settings) ---- */
-var BG={carousel:'Titles',image:'Picture',video:'Video',photos:'Photos',aerial:'Screensaver videos'};
+var BG={carousel:'Titles',image:'Picture',photos:'Photos',aerial:'Videos',video:'One video'};
 function txt(t,d,v,o){return {t:t,d:d,v:v,ok:o&&o.okv,k:o&&o.k,go:function(){edit(o.e)}}}
 function setOr(b){return b?'Set':'Not set'}
 function model(){var d=D,A=d.accounts,N=d.nuvioServer,g=d.bg,P=d.photos,H=d.home;
@@ -133,14 +133,14 @@ function model(){var d=D,A=d.accounts,N=d.nuvioServer,g=d.bg,P=d.photos,H=d.home
    x.own?null:{t:x.hidden?'Show in the dock':'Hide from the dock',go:function(){act('/api/app/hide',{pkg:x.pkg})}}])}}})}
  function fileRows(){if(!g.files.length)return [{empty:'Nothing saved on the TV yet.'}];return g.files.map(function(f){return {t:f.name,d:(f.video?'Video':'Picture')+' · '+f.mb+' MB',v:f.used?'In use':'',ok:f.used,go:function(){pick(f.name,'',[
    {t:'Use as the background',go:function(){act('/api/bg/use',{name:f.name})}},{t:'Delete from the TV',red:true,go:function(){act('/api/bg/delete',{name:f.name})}}])}}})}
- function aerialRows(){var r=[{t:'Add a video link',d:'An mp4 the screensaver plays',go:function(){edit({t:'Add a video',ok:'Add',f:[{k:'url',ph:'https://…/video.mp4',mode:'url'}],save:function(v){if(v.url)act('/api/aerial/add',v)}})}},{h:plural(d.aerial.length,'video')}];
+ function aerialRows(){var r=[{t:'Add a video link',d:d.youtube?'An mp4, or a YouTube video or playlist':'An mp4',go:function(){edit({t:'Add a video',ok:'Add',f:[{k:'url',ph:'https://…/video.mp4',mode:'url'}],save:function(v){if(v.url)act('/api/aerial/add',v)}})}},{h:plural(d.aerial.length,'video')}];
   d.aerial.forEach(function(u){r.push({t:host(u),d:u.replace(/^.*\//,'').replace(/\?.*/,''),go:function(){ask(host(u),u,'Remove this video',function(){act('/api/aerial/remove',{url:u})})}})});return r}
  function camRows(){var r=[{t:'Add a camera',d:'An rtsp:// or http(s):// stream',go:function(){edit({t:'Add a camera',ok:'Add',f:[{k:'name',ph:'Name, e.g. Garden'},{k:'url',ph:'rtsp://user:pass@camera:554/stream',mode:'url'}],save:function(v){if(v.url)act('/api/camera/add',v)}})}},{h:plural(d.cams.length,'camera')}];
   d.cams.forEach(function(x,i){r.push({t:x.name,d:x.host,go:function(){pick(x.name,x.host,[{t:'Rename',go:function(){edit({t:'Camera name',f:[{k:'name',ph:'Name',val:x.name}],save:function(v){if(v.name)act('/api/camera/rename',{i:i,name:v.name})}})}},
    {t:'Remove',red:true,go:function(){act('/api/camera/remove',{i:i})}}])}})});return r}
- var connected=['nuvio','stremio','trakt','simkl'].filter(function(k){return A[k]}).length;
+ var connected=['nuvio','stremio','trakt','simkl','jellyfin'].filter(function(k){return A[k]}).length;
  return [
- {id:'accounts',t:'Accounts & profiles',v:connected+' of 4',rows:function(){return [
+ {id:'accounts',t:'Accounts & profiles',v:connected+' of 5',rows:function(){return [
   {h:'Profile'},
   txt('Name','As Glassio shows this profile. Empty: the name it has in Nuvio',d.profile.name||'As in Nuvio',{e:{t:'Profile name',f:[{k:'name',ph:'Empty: the name in Nuvio',val:d.profile.name}],save:function(v){act('/api/profile/name',v)}}}),
   {h:'Accounts'},
@@ -148,6 +148,9 @@ function model(){var d=D,A=d.accounts,N=d.nuvioServer,g=d.bg,P=d.photos,H=d.home
   {t:'Stremio',d:'Library and Continue Watching',v:A.stremio?'Connected':'Sign in',ok:A.stremio,go:signIn('Stremio','/api/stremio/login','Sent to Stremio only. The password is not kept.')},
   {t:'Trakt',d:'Signs in with a code on the TV',v:A.trakt?'Connected':'On the TV',ok:A.trakt,go:onTv('Trakt')},
   {t:'Simkl',d:'Signs in with a code on the TV',v:A.simkl?'Connected':'On the TV',ok:A.simkl,go:onTv('Simkl')},
+  {t:'Jellyfin',d:A.jellyfin?A.jellyfinWho:'Your own server: its libraries, what you are watching, favourites and search',v:A.jellyfin?'Connected':'Sign in',ok:A.jellyfin,k:'jellyfin server media',
+   go:A.jellyfin?function(){ask('Jellyfin',A.jellyfinWho,'Sign out',function(){act('/api/jellyfin/logout',{})})}:function(){edit({t:'Sign in to Jellyfin',note:'Sent to your Jellyfin server only. The password is not kept.',ok:'Sign in',
+   f:[{k:'server',label:'Server',ph:'jellyfin.local:8096 or https://…',mode:'url'},{k:'user',label:'User name',ph:'User name',ac:'username'},{k:'password',label:'Password',ph:'Empty if it has none',type:'password',ac:'current-password'}],save:function(v){act('/api/jellyfin/login',v)}})}},
   txt('Simkl client ID','Simkl asks every app for its own: simkl.com/settings/developer',setOr(d.simklClient),{okv:d.simklClient,e:{t:'Simkl client ID',f:[{k:'id',ph:'Client ID'}],save:function(v){act('/api/simkl/client',v)}}}),
   {h:'Your own Nuvio server'},
   txt('Server','Only for a self-hosted Nuvio backend. Changing it signs out',N.custom?N.host:'Official',{k:'supabase self-hosted backend',e:{t:'Nuvio server',note:'Empty address: the official server. The anon key is in Supabase → Project Settings → API. Without a TV sign-in page, sign in above with email and password.',
@@ -165,6 +168,7 @@ function model(){var d=D,A=d.accounts,N=d.nuvioServer,g=d.bg,P=d.photos,H=d.home
  {id:'bg',t:'Background & screensaver',v:BG[g.mode]||g.mode,rows:function(){return [
   {h:'Background'},
   {t:'Shows',d:'What is behind the home screen',v:BG[g.mode]||g.mode,k:'mode wallpaper',go:function(){pick('The background shows','',Object.keys(BG).map(function(m){return {t:BG[m],on:g.mode==m,go:function(){act('/api/bg/mode',{mode:m})}}}))}},
+  g.mode=='aerial'||g.mode=='video'?{t:'Plays',d:'All the videos (the collections and your videos), only your videos, or one video on a loop',v:g.mode=='video'?'One video':(g.videos=='mine'?'Your videos':'All the videos'),k:'videos background',go:function(){pick('The background plays','',[{t:'All the videos',on:g.mode=='aerial'&&g.videos!='mine',go:function(){act('/api/bg/videos',{videos:'all'})}},{t:'Your videos',on:g.mode=='aerial'&&g.videos=='mine',go:function(){act('/api/bg/videos',{videos:'mine'})}},{t:'One video',on:g.mode=='video',go:function(){act('/api/bg/mode',{mode:'video'})}}])}}:null,
   {t:'Upload from this phone',d:busy||g.downloading&&('Downloading '+g.downloading+'…')||g.last||'A picture or a video, saved on the TV',k:'photo file',go:function(){choose('image/*,video/*',bgUp)}},
   txt('Picture','From a link: used as it is, or saved on the TV',g.image,{k:'url link image wallpaper',e:{t:'Picture link',note:'Use the link as it is, or save the picture on the TV first (it then shows without the internet).',ok:'Use link',f:[{k:'url',ph:'https://… (jpg, png, webp)',mode:'url'}],
    save:function(v){if(v.url)act('/api/bg/link',{kind:'image',url:v.url})},alt:{t:'Save on TV',save:function(v){if(v.url)act('/api/bg/download',{url:v.url,use:true})}}}}),
@@ -175,8 +179,10 @@ function model(){var d=D,A=d.accounts,N=d.nuvioServer,g=d.bg,P=d.photos,H=d.home
   {t:'Source',d:'Where the Photos background gets its pictures',v:(P.sources.filter(function(s){return s.id==P.source})[0]||{}).name,k:'bing unsplash reddit wikimedia',go:function(){pick('Photos from','',P.sources.map(function(s){return {t:s.name,on:s.id==P.source,go:function(){act('/api/photos/source',{source:s.id})}}}))}},
   txt('Unsplash key','unsplash.com/developers → New application → Access Key',setOr(P.unsplash),{okv:P.unsplash,e:{t:'Unsplash Access Key',note:'Empty removes it.',f:[{k:'key',ph:'Access Key'}],save:function(v){act('/api/unsplash',v)}}}),
   txt('Subreddits',P.reddit?'With your Reddit app id':'Needs your Reddit app id: reddit.com/prefs/apps',P.subs,{k:'reddit wallpapers',e:{t:'Subreddit wallpapers',f:[{k:'subs',label:'Subreddits, with commas',ph:'EarthPorn, wallpapers',val:P.subs},{k:'id',label:'Reddit app id (empty keeps the one saved)',ph:'App id'}],save:function(v){act('/api/reddit',v)}}}),
-  {h:'Screensaver'},
-  {t:'Your videos',d:'Links the screensaver plays with the aerial videos',v:d.aerial.length,more:'aerial',k:'aerial mp4'}]},
+  {h:'Videos'},
+  {t:'Your videos',d:'Links the screensaver and the background play with the collections',v:d.aerial.length,more:'aerial',k:'aerial mp4 youtube playlist'},
+  txt('Pexels key','Free videos from pexels.com for your words: pexels.com/api → your key',d.pexels.key?'Set':'Not set',{okv:d.pexels.key,k:'pexels videos',e:{t:'Pexels key',note:'Kept on the TV only. Empty removes it.',f:[{k:'key',ph:'Your Pexels key'}],save:function(v){act('/api/pexels',v)}}}),
+  txt('Pexels words','What its videos show: aerial, ocean, forest, city…',d.pexels.words,{k:'pexels',e:{t:'Pexels words',f:[{k:'words',ph:'aerial',val:d.pexels.words}],save:function(v){act('/api/pexels',{words:v.words})}}})]},
   subs:{files:{t:'Saved on the TV',rows:fileRows},aerial:{t:'Your videos',rows:aerialRows}}},
  {id:'home',t:'Smart home',v:d.cams.length?plural(d.cams.length,'camera'):'',rows:function(){return [
   {h:'Cameras'},{t:'Cameras',d:'Shown in the menu, the corner, multi-view and for the doorbell',v:d.cams.length,more:'cams',k:'rtsp onvif'},
@@ -203,12 +209,13 @@ function rowEl(r,sec){var go=r.go||(r.more?function(){location.hash=sec.id+'/'+r
  if(r.v!==undefined&&r.v!==''&&r.v!==null)b.appendChild(el('span','rv'+(r.ok?' ok':''),String(r.v)));if(r.more)b.appendChild(el('span','ch','›'));
  if(HL&&r.t==HL){b.classList.add('hl');setTimeout(function(){b.scrollIntoView({block:'center'})},30);HL=''}return b}
 function rows(into,list,sec,filter){var card=null;list.forEach(function(r){
+ if(!r)return;
  if(r.h!==undefined){if(!filter){into.appendChild(el('h2','',r.h))}card=null;return}
  if(r.note){if(!filter)into.appendChild(el('p','foot',r.note));card=null;return}
  if(r.empty){if(!filter)into.appendChild(el('p','empty',r.empty));return}
  if(filter&&(r.t+' '+(r.d||'')+' '+(r.v||'')).toLowerCase().indexOf(filter)<0)return;
  if(!card){card=el('div','card');into.appendChild(card)}card.appendChild(rowEl(r,sec))})}
-function found(q,M){var out=[];M.forEach(function(s){function add(list,where,hash){list.forEach(function(r){if(!r.t||r.h!==undefined)return;
+function found(q,M){var out=[];M.forEach(function(s){function add(list,where,hash){list.forEach(function(r){if(!r||!r.t||r.h!==undefined)return;
   if((r.t+' '+(r.d||'')+' '+(r.k||'')+' '+where).toLowerCase().indexOf(q)<0)return;out.push({t:r.t,d:where,v:r.v,ok:r.ok,go:function(){HL=r.t;G('q').value='';if(location.hash=='#'+hash)draw();else location.hash=hash}})})}
  add(s.rows(),s.t,s.id);Object.keys(s.subs||{}).forEach(function(k){add(s.subs[k].rows(),s.t+' › '+s.subs[k].t,s.id+'/'+k)})});return out}
 function draw(){if(!D)return;var M=model(),h=location.hash.replace(/^#/,'').split('/'),sec=M.filter(function(s){return s.id==h[0]})[0],sub=sec&&sec.subs&&sec.subs[h[1]];

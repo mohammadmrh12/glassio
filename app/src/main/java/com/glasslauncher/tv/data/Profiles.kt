@@ -70,7 +70,7 @@ object Profiles {
      */
     private val DEVICE = setOf(
         // Performance and storage (what this TV can carry)
-        "perfMode", "pageScale", "memTier", "glassRes", "imageQuality", "prefetchDepth", "cacheMb", "saverCache", "saverCacheGb",
+        "perfMode", "perfOwn", "heroAutoplayWhere", "pageScale", "memTier", "glassRes", "imageQuality", "prefetchDepth", "cacheMb", "saverCache", "saverCacheGb",
         "photoCacheMb", "bgAerialQuality", "saverQuality", "multiQuality", "cameraDecoder",
         // Cameras, the doorbell, Home Assistant
         "cameras", "cornerCamera", "cameraCycleSec", "cameraScale", "cameraCornerSec", "multiCams", "multiScale", "multiSec", "saverMultiCam",
@@ -86,7 +86,7 @@ object Profiles {
         // App locks (a profile must not be a way around them)
         "lockCode", "lockedApps", "lockHintOn", "lockHint",
         // Keys of outside services
-        "tmdbToken", "unsplashKey", "redditAppId",
+        "tmdbToken", "unsplashKey", "redditAppId", "pexelsKey",
         // Where the TV is: the country its streaming offers are read for
         "watchCountry",
     )
@@ -102,7 +102,7 @@ object Profiles {
      * its picture) and the other accounts' lists (they are the home profile's person's: off until turned on).
      */
     private val NOT_COPIED = setOf("likes", "hiddenTitles", "artPicks", "settingsIcon", "musicLastPkg")
-    private val OFF_AT_FIRST = setOf("cwTrakt", "cwStremio", "cwSimkl", "libraryTrakt", "librarySimkl", "libraryToTrakt", "libraryToSimkl", "catalogsStremio")
+    private val OFF_AT_FIRST = setOf("cwTrakt", "cwStremio", "cwSimkl", "libraryTrakt", "librarySimkl", "libraryToTrakt", "libraryToSimkl", "catalogsStremio", "cwJellyfin", "libraryJellyfin")
 
     /** What a new profile's settings start with, from the home profile's [all] (kept apart for tests). */
     fun seed(all: Map<String, *>): Map<String, Any> {

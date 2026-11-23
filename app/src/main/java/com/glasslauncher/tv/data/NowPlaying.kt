@@ -36,6 +36,8 @@ object NowPlaying {
     /** What the app last said, and what was set here (kept while the app doesn't report it: many never do). */
     private var reported: Boolean? = null
     private var userShuffle: Boolean? = null
+    @Volatile private var shuffleAskedAt = 0L
+    @Volatile private var shuffleAsking = false
     @Volatile private var controller: MediaController? = null
     @Volatile private var started = false
 
@@ -175,12 +177,25 @@ object NowPlaying {
     }
 
     private fun publish() {
+        // The app's shuffle state is asked for off the main thread, at most once a second. It is a call into the
+        // music app (a new MediaControllerCompat each time): made here, on the main thread, at every update of the
+        // song's state, it held the home screen for as long as that app took to answer (frames of 200-300 ms on the
+        // way back from the screensaver with a song playing; ~120 ms of every 4 s otherwise).
         lastCtx?.let { ctx ->
-            val r = shuffleOn(ctx)
-            if (reported != null && r != reported) userShuffle = null
-            reported = r
-            val v = userShuffle ?: r
-            if (shuffled.value != v) shuffled.value = v
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - shuffleAskedAt > 1000 && !shuffleAsking) {
+                shuffleAskedAt = now; shuffleAsking = true
+                Bg.io("glass-shuffle") {
+                    val r = shuffleOn(ctx)
+                    mainHandler.post {
+                        shuffleAsking = false
+                        if (reported != null && r != reported) userShuffle = null
+                        reported = r
+                        val v = userShuffle ?: r
+                        if (shuffled.value != v) shuffled.value = v
+                    }
+                }
+            }
         }
         artWaiting = false
         val t = controller?.let { trackOf(it) }

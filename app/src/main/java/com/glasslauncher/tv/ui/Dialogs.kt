@@ -116,6 +116,8 @@ class SupportDialog(val clean: (String) -> String?, val send: (String, String) -
 @Composable
 fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
     if (state == null) return
+    // The screensaver on the home screen: pop-ups wait (they are windows above it, and stayed over the video).
+    if (com.glasslauncher.tv.saver.HomeSaver.state.value != 0) return
     androidx.compose.runtime.key(state) { OverSettings {
         when (state) {
             is TextEntry -> TextEntryDialog(state, onDismiss)
@@ -420,18 +422,28 @@ private fun PickDialogView(d: PickDialog, onDismiss: () -> Unit) {
     // (Opened while OK is still held on a menu: that OK is not a press here.)
     var armed by remember { mutableStateOf(false) }
     var rev by remember { mutableStateOf(0) }
+    // Its glass reads a copy of the screen behind it (the posters and the video together), taken as it opens
+    // (see ScreenGlass); over Settings, Settings' own picture.
+    val act = androidx.compose.ui.platform.LocalContext.current.let { c -> var x = c; while (x is android.content.ContextWrapper && x !is android.app.Activity) x = x.baseContext; x as? android.app.Activity }
+    val st = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.glasslauncher.tv.GlassApp).settings
+    var behind by remember { mutableStateOf<GlassEnv?>(null) }
+    val overSettingsOuter = LocalOverSettings.current != null
+    LaunchedEffect(Unit) { if (!overSettingsOuter && act != null) ScreenGlass.capture(act, st) { behind = it } }
     // A light pop-up list on the menus' own glass (the menu's look, so also Black AMOLED and Black on white). Its
     // window covers the screen and dims nothing: the glass then sits over the page where it is drawn, as a menu's does.
     Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         val dv = androidx.compose.ui.platform.LocalView.current
         val overSettings = LocalOverSettings.current != null
         LaunchedEffect(overSettings) { (dv.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setDimAmount(if (overSettings) SettingsGlass.DIM else 0.18f) }
+        val envBehind = behind
+        val envRef = androidx.compose.runtime.rememberUpdatedState(envBehind ?: LocalGlassEnv.current)
+        androidx.compose.runtime.CompositionLocalProvider(LocalGlassEnv provides (envBehind ?: LocalGlassEnv.current), LocalGlassEnvRef provides envRef) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             GlassPanel(Modifier.width((300 * s).dp).onPreviewKeyEvent { ev ->
                 if (!ev.isSelect || armed) false
                 else if (ev.type == KeyEventType.KeyDown && ev.nativeKeyEvent.repeatCount == 0) { armed = true; false }
                 else true
-            }, radius = (20 * s).dp, style = d.style, darken = 0.3f) {
+            }, radius = (20 * s).dp, style = d.style, darken = if (behind != null) 0.42f else 0.3f) {
                 Column(Modifier.fillMaxWidth().padding((8 * s).dp)) {
                     Text(d.title, color = ink.copy(alpha = 0.75f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.Medium, maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = (10 * s).dp, end = (10 * s).dp, top = (4 * s).dp))
@@ -462,6 +474,7 @@ private fun PickDialogView(d: PickDialog, onDismiss: () -> Unit) {
                     }
                 }
             }
+        }
         }
     }
     LaunchedEffect(Unit) { repeat(6) { kotlinx.coroutines.delay(40); if (runCatching { fr.requestFocus() }.isSuccess) return@LaunchedEffect } }

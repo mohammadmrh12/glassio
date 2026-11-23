@@ -32,11 +32,16 @@ import kotlinx.coroutines.sync.withLock
  */
 object CustomBackground {
     val exts = setOf("jpg", "jpeg", "png", "webp")
+    /** The background video Glassio left (another app or the screensaver came in front) and where it was in it. */
+    @Volatile var leftVideo: String? = null
+    @Volatile var leftPos = 0L
     /** Screensaver as background: the aerial video playing now (one per start of Glassio). */
     val aerial = androidx.compose.runtime.mutableStateOf<String?>(null)
     @Volatile var aerials: List<String> = emptyList()
     /** "Next" from the menu or Settings: bumped for the next video / picture (photos have their own). */
     val next = androidx.compose.runtime.mutableIntStateOf(0)
+    /** The video before (◀ on the screensaver on the home screen). */
+    val back = androidx.compose.runtime.mutableIntStateOf(0)
     fun nextNow(s: Settings) { if (s.bgMode == "photos") com.glasslauncher.tv.data.Photos.next() else next.intValue++ }
 
     /** My video: the chosen one first, then the other videos in the folder (in a random order with shuffle). */
@@ -154,7 +159,19 @@ object VideoFrames {
      * showed the screensaver's last frame. A time, not a switch: nothing can leave the glass frozen for good.
      */
     @Volatile var quietUntil = 0L
-    fun saverClosed() { quietUntil = android.os.SystemClock.uptimeMillis() + 3000; clear() }
+    fun saverClosed() { quietUntil = android.os.SystemClock.uptimeMillis() + 3000; clearForHome() }
+    /** The home screen has a video background of its own (set while its player exists). */
+    @Volatile var homeVideo = false
+    /** Bumped each time the home screen's video draws its first frame (on a new surface too). */
+    val drawnRev = androidx.compose.runtime.mutableIntStateOf(0)
+    /**
+     * The screensaver's copies are no longer wanted. With a video background of the home screen's own, the copies
+     * stay until its own next one replaces them (the same video, with *Same video*): cleared, the whole home
+     * screen changed to no video behind and back within a moment, twice on every return from the screensaver
+     * (once as it closed, once when its screen was destroyed): two full rebuilds of every glass surface, the heavy
+     * return he reported.
+     */
+    @Synchronized fun clearForHome() { if (homeVideo) gen++ else clear() }
     @Synchronized fun publish(g: Int, s: androidx.compose.ui.graphics.ImageBitmap?, f: androidx.compose.ui.graphics.ImageBitmap?) {
         if (g != gen) return
         sharp.value = s; soft.value = f
@@ -277,6 +294,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     val coverAlpha by androidx.compose.animation.core.animateFloatAsState(if (cover) 1f else 0f, androidx.compose.animation.core.tween(if (cover) 0 else 380), label = "cover")
     DisposableEffect(Unit) {
         Glog.i("Background video on: ${list.getOrNull(start)} (${list.size} in the list)")
+        VideoFrames.homeVideo = true
         var errors = 0
         val l = object : androidx.media3.common.Player.Listener {
             override fun onVideoSizeChanged(v: androidx.media3.common.VideoSize) {
@@ -301,10 +319,54 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
         onDispose {
             Glog.i("Background video off")
             player.removeListener(l); runCatching { player.release() }
+            VideoFrames.homeVideo = false
             VideoFrames.clear(); dim.floatValue = 0f
         }
     }
-    androidx.compose.runtime.LaunchedEffect(playing) { player.playWhenReady = playing }
+    // Away from Glassio (another app or the screensaver in front) for a few seconds: the video's decoder and its
+    // buffer (up to 50 s of video) are let go, and taken again on the way back. Kept, they stayed in memory under
+    // whatever was in front: on a TV with little memory the screensaver's own video then had two to carry (#22).
+    // Only while Glassio is really away (stopped), never for its own screens (the Library, Settings).
+    val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val let = remember { BooleanArray(1) }
+    androidx.compose.runtime.LaunchedEffect(playing) {
+        player.playWhenReady = playing
+        if (!playing) {
+            CustomBackground.leftVideo = player.currentMediaItem?.localConfiguration?.uri?.toString()
+            CustomBackground.leftPos = player.currentPosition
+            // Checked every 5 s while it stands still: Glassio may be left later (from Settings or the Library, where
+            // the video already stood still, it was never let go). Also while the screensaver on the home screen plays
+            // its own video: two decoders at once on a small TV (#22).
+            while (player.playbackState != androidx.media3.common.Player.STATE_IDLE) {
+                kotlinx.coroutines.delay(5000)
+                val away = !life.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+                val saverOwn = com.glasslauncher.tv.saver.HomeSaver.state.value != 0 && !com.glasslauncher.tv.saver.HomeSaver.onBackground
+                if ((st.bgLetGo && away) || saverOwn) {
+                    CustomBackground.leftPos = player.currentPosition
+                    player.stop(); let[0] = true
+                    Glog.i("Background video: let go while away")
+                }
+            }
+        } else {
+            // Back from the screensaver with *Same video*: on with the one it ended on, where it was. Also when the
+            // video was not let go: it stood paused where the screensaver began, and jumped back by the
+            // screensaver's whole length on the way home (his report: "the sync isn't right").
+            val sv = com.glasslauncher.tv.saver.SaverControl
+            val title = sv.endedTitle.takeIf { st.saverSameVideo && st.bgMode == "aerial" && android.os.SystemClock.uptimeMillis() - sv.endedAt < 60_000L }
+            val at = title?.let { t -> list.indexOfFirst { CustomBackground.aerialTitles[it] == t } }?.takeIf { it >= 0 }
+            sv.endedTitle = null
+            if (at != null) {
+                // (The same video a moment further on is usually in the player's buffer already: no loading.)
+                // (The stand-in frame is from when the screensaver began: another moment, or another video. The
+                // screen stays black, under the screensaver's own black, until the video draws.)
+                cover = false
+                if (at != player.currentMediaItemIndex) player.seekTo(at, sv.endedPos)
+                else if (kotlin.math.abs(player.currentPosition - sv.endedPos) > 1500 || let[0]) player.seekTo(sv.endedPos)
+                Glog.i("Background video: on from the screensaver's ($title, ${sv.endedPos / 1000} s)")
+            } else if (let[0]) player.seekTo(CustomBackground.leftPos)
+            if (let[0]) { let[0] = false; player.prepare() }
+        }
+    }
     // Never left "not drawn" while the video plays on (a video following another without a new first-frame
     // report): the glass copies would stop and everything glass froze on the last picture.
     androidx.compose.runtime.LaunchedEffect(rendered, ready, view) {
@@ -312,6 +374,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
         kotlinx.coroutines.delay(1500)
         if (player.isPlaying && view?.holder?.surface?.isValid == true) { Glog.i("Background video: drawing again"); rendered = true }
     }
+    androidx.compose.runtime.LaunchedEffect(rendered) { if (rendered) VideoFrames.drawnRev.intValue++ }
     // The fade in, once the first frame of a video is on screen.
     androidx.compose.runtime.LaunchedEffect(rendered) {
         if (rendered && dim.floatValue > 0f)
@@ -319,20 +382,23 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     }
     // To the next video, like the screensaver: fade to black, the next one starts under it, then it fades in.
     val switching = remember { kotlinx.coroutines.sync.Mutex() }
-    suspend fun toNext(fadeMs: Int) = switching.withLock {
+    suspend fun toNext(fadeMs: Int, by: Int = 1) = switching.withLock {
         if (player.mediaItemCount < 2) return@withLock
         androidx.compose.animation.core.animate(dim.floatValue, 1f, animationSpec = androidx.compose.animation.core.tween(fadeMs)) { v, _ -> dim.floatValue = v }
-        player.seekTo((player.currentMediaItemIndex + 1) % player.mediaItemCount, 0L)
+        player.seekTo((player.currentMediaItemIndex + by).mod(player.mediaItemCount), 0L)
         // The next one's first frame (from the cache: at once); not for ever, if it never comes.
         var w = 0
         while (!rendered && w < 10_000) { kotlinx.coroutines.delay(50); w += 50 }
         if (!rendered) androidx.compose.animation.core.animate(dim.floatValue, 0f, animationSpec = androidx.compose.animation.core.tween(600)) { v, _ -> dim.floatValue = v }
     }
-    // Shuffle: near the end of each video.
-    androidx.compose.runtime.LaunchedEffect(ready, playing) {
-        if (!advance || list.size < 2 || !ready || !playing) return@LaunchedEffect
+    // Shuffle (and the screensaver on the home screen, which always goes on to the next one unless the video is
+    // kept): near the end of each video.
+    val homeSaver = com.glasslauncher.tv.saver.HomeSaver.state.value == 1 && com.glasslauncher.tv.saver.HomeSaver.onBackground
+    androidx.compose.runtime.LaunchedEffect(ready, playing, homeSaver) {
+        if (!(advance || homeSaver) || list.size < 2 || !ready || !playing) return@LaunchedEffect
         while (true) {
             kotlinx.coroutines.delay(100)
+            if (homeSaver && com.glasslauncher.tv.saver.SaverControl.locked(st)) continue
             val d = player.duration; val p = player.currentPosition
             if (d <= 2000 || p < d - 900) continue
             toNext(700)
@@ -342,6 +408,9 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     val nextRev = CustomBackground.next.intValue
     val seenNext = remember { intArrayOf(nextRev) }
     androidx.compose.runtime.LaunchedEffect(nextRev) { if (nextRev != seenNext[0]) { seenNext[0] = nextRev; toNext(300) } }
+    val backRev = CustomBackground.back.intValue
+    val seenBack = remember { intArrayOf(backRev) }
+    androidx.compose.runtime.LaunchedEffect(backRev) { if (backRev != seenBack[0]) { seenBack[0] = backRev; toNext(300, -1) } }
     androidx.compose.runtime.LaunchedEffect(ready, playing, view) {
         val v = view ?: return@LaunchedEffect
         if (!ready || !playing) return@LaunchedEffect
@@ -409,7 +478,9 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                             // No copies for the glass until the video draws on the new surface (a copy of an empty
                             // surface is black: the glass went black after coming back).
                             rendered = false
-                            (VideoFrames.sharp.value ?: VideoFrames.soft.value)?.let { f ->
+                            // (Only the sharp copy: the small frosted one, enlarged, showed as a blurred and lighter
+                            // picture until the video came back, then the screen jumped.)
+                            VideoFrames.sharp.value?.let { f ->
                                 runCatching { still = f.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false).asImageBitmap(); cover = true }
                             }
                         }

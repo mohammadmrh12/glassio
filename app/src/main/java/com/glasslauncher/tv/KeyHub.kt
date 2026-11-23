@@ -34,6 +34,9 @@ object KeyHub {
         }
         val st = app.settings
         // Remote mapping: a button that opens an app, the Apps folder, the recent apps or an input, in any app.
+        // With a double press or a hold set for it too (#25), its presses are read first: a hold acts after 550 ms
+        // held, a second press within 350 ms is a double press, else the single press acts (350 ms later).
+        if (com.glasslauncher.tv.data.RemoteMap.hasMore(st, code)) { presses(app, code, down); return true }
         com.glasslauncher.tv.data.RemoteMap.find(st, code)?.let { m ->
             if (!down) main.post { com.glasslauncher.tv.data.RemoteMap.run(app, m) }
             return true
@@ -47,5 +50,46 @@ object KeyHub {
             return true
         }
         return false
+    }
+
+    @Volatile private var heldCode = 0
+    @Volatile private var holdDone = false
+    /** The button released once, waiting to see whether a second press comes (350 ms). */
+    @Volatile private var waitCode = 0
+    /** The second press is down: its release is the double press (whenever it comes). */
+    @Volatile private var secondCode = 0
+    private var holdTask: Runnable? = null
+    private var singleTask: Runnable? = null
+
+    /**
+     * A button with a double press or a hold (#25). The window for the second press runs from the first release to
+     * the second press going *down* (counted to its release, a slower second press became two single presses), and a
+     * press followed by a press-and-hold is a double press, not a single and then a hold.
+     */
+    private fun presses(app: GlassApp, code: Int, down: Boolean) {
+        val R = com.glasslauncher.tv.data.RemoteMap
+        val st = app.settings
+        if (down) {
+            if (heldCode == code) return  // the button's own repeats while held
+            heldCode = code; holdDone = false
+            if (waitCode == code) {
+                // The second press: the single is off, this one is the double press.
+                singleTask?.let(main::removeCallbacks); waitCode = 0; secondCode = code
+                return
+            }
+            R.find(st, code, "hold")?.let { m ->
+                holdTask = Runnable { if (heldCode == code) { holdDone = true; R.run(app, m) } }.also { main.postDelayed(it, 550) }
+            }
+            return
+        }
+        heldCode = 0
+        holdTask?.let(main::removeCallbacks)
+        if (holdDone) { holdDone = false; return }
+        if (secondCode == code) { secondCode = 0; R.find(st, code, "double")?.let { m -> main.post { R.run(app, m) } }; return }
+        val double = R.find(st, code, "double")
+        val single = R.find(st, code)
+        if (double == null) { single?.let { m -> main.post { R.run(app, m) } }; return }
+        waitCode = code
+        singleTask = Runnable { if (waitCode == code) { waitCode = 0; single?.let { R.run(app, it) } } }.also { main.postDelayed(it, 350) }
     }
 }

@@ -389,6 +389,9 @@ fun LiquidSurface(
     // the dock, each icon, the island — was composed again with every new picture, at the start of every slide.)
     val ignoreVideo by remember(ref) { androidx.compose.runtime.derivedStateOf { ref.value.ignoreVideo } }
     val videoBehind = VideoFrames.showing.value && !ignoreVideo
+    // *Glass over a video: See-through*: the video itself shows through (nothing drawn of it here), only the glass's
+    // colour, the veil and the shuffle's black on top; no bending or blur (they would act on nothing).
+    val passThrough = videoBehind && VideoGlass.clear.value
     val pos = remember { mutableStateOf(Offset.Zero) }
     var sz by remember { mutableStateOf(IntSize.Zero) }
     val refractor = remember { Refractor() }
@@ -400,7 +403,7 @@ fun LiquidSurface(
     // setting), not the sharp picture blurred live: Android applies a layer's blur again every time the screen is
     // drawn, so a dock and six icons blurred ten layers in every frame of a slide (~50 ms a frame at a strong blur;
     // the carousel stuttered). Only a live video behind still needs the live blur (its frosted copies are small).
-    val liveBlur = frosted && videoBehind
+    val liveBlur = frosted && videoBehind && !passThrough
     val blurPx = if (liveBlur) blurDp * density.density else 0f
     // The blur first, then the rim's bending (one chain of effects on the same layer).
     fun withBlur(e: androidx.compose.ui.graphics.RenderEffect?): androidx.compose.ui.graphics.RenderEffect? {
@@ -487,7 +490,7 @@ fun LiquidSurface(
             // (No effect while the page slides: the layer is then nearly invisible under the moving picture, and its
             // bending was still worked out again for every frame of the move. Its content stays recorded, so it is
             // ready the moment the slide ends.)
-            renderEffect = if (n.bmp == null || n.sliding) null else if (videoBehind && DebugHide.intValue and 2048 != 0) null else if (!cache && DebugHide.intValue and 16384 != 0) null else if (w < 0.01f) still else withBlur(refractor.effect(size.width, size.height, rPx, bPx, fPx, w))
+            renderEffect = if (passThrough) null else if (n.bmp == null || n.sliding) null else if (videoBehind && DebugHide.intValue and 2048 != 0) null else if (!cache && DebugHide.intValue and 16384 != 0) null else if (w < 0.01f) still else withBlur(refractor.effect(size.width, size.height, rPx, bPx, fPx, w))
             alpha = if (n.bmp == null) 1f else if (n.sliding) 0.002f else if (n.covered()) 0f else if (n.prev != null) crossAlpha(n.env) else 1f
             // Rendered once into its own texture and reused while nothing behind the glass changes:
             // moving focus over the dock then costs one copy instead of the picture and its shades again.
@@ -495,6 +498,13 @@ fun LiquidSurface(
         }) {
             val n = now()
             val b = n.bmp
+            if (passThrough) {
+                val d = VideoFrames.dim.floatValue
+                if (d > 0.003f) drawRect(Color.Black.copy(alpha = d))
+                if (n.veilPic == null) veil(n)
+                tintIn(tint)
+                return@Canvas
+            }
             if (b == null) { drawRect(Color(0xFF1A1A22)); tintIn(tint); return@Canvas }
             // A video behind: the glass shows its live frames (sharp or frosted), with the page's shades.
             val liveFrame = if (n.env.ignoreVideo) null else if (clearPic) VideoFrames.sharp.value ?: VideoFrames.soft.value else VideoFrames.soft.value ?: VideoFrames.sharp.value
@@ -1039,3 +1049,45 @@ object GlassTint {
     }
     fun apply(st: com.glasslauncher.tv.data.Settings) { color.value = of(st.glassColor, st.glassColorAmount) }
 }
+
+/**
+ * What a pop-up's glass reads when it opens over a page that isn't a picture of its own (the search, with its
+ * posters over the background video): one copy of the screen behind it, taken as it opens (the window with the
+ * video's latest copy under it, where the video shows through), blurred, as its glass environment. The video's copy
+ * alone showed the video through the pop-up, as if the posters weren't there (his photo).
+ */
+object ScreenGlass {
+    /** Blocking-free: asks for the copy and answers on the main thread (null: the pop-up keeps the usual glass). */
+    fun capture(activity: android.app.Activity, st: com.glasslauncher.tv.data.Settings, done: (GlassEnv?) -> Unit) {
+        val w = 480; val h = 270
+        val win = runCatching { activity.window }.getOrNull() ?: return done(null)
+        val dm = activity.resources.displayMetrics
+        val top = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        runCatching {
+            android.view.PixelCopy.request(win, top, { r ->
+                if (r != android.view.PixelCopy.SUCCESS) { done(null); return@request }
+                val out = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+                val c = android.graphics.Canvas(out)
+                c.drawColor(android.graphics.Color.BLACK)
+                val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+                // (The video is its own layer under the window: where it shows through, the window copy is clear.)
+                if (VideoFrames.showing.value) VideoFrames.sharp.value?.asAndroidBitmap()?.let { v ->
+                    runCatching { c.drawBitmap(v, null, android.graphics.Rect(0, 0, w, h), paint) }
+                }
+                c.drawBitmap(top, 0f, 0f, paint)
+                // A soft blur: down to a small copy and up again, twice (cheap, smooth).
+                fun scaled(src: android.graphics.Bitmap, sw: Int, sh: Int) = android.graphics.Bitmap.createScaledBitmap(src, sw, sh, true)
+                val soft = scaled(scaled(scaled(out, 60, 34), 120, 68), w, h)
+                val heavy = scaled(scaled(out, 24, 14), w, h)
+                val sharp = out.asImageBitmap(); val blurred = soft.asImageBitmap(); val hv = heavy.asImageBitmap()
+                listOf(sharp, blurred, hv).forEach { runCatching { it.prepareToDraw() } }
+                // Frosted even for the clear glass styles: sharp posters under the list's words were hard to read.
+                done(GlassEnv(blurred, blurred, hv, dm.widthPixels, dm.heightPixels, st.glassTint, st.refraction, blurDp = st.blurRadius * 0.45f, ignoreVideo = true))
+            }, main)
+        }.onFailure { done(null) }
+    }
+}
+
+/** *Glass over a video* set to See-through, while the background is a video (set by the home screen). */
+object VideoGlass { val clear = androidx.compose.runtime.mutableStateOf(false) }
