@@ -1,6 +1,6 @@
 # Glassio: privacy policy
 
-Last updated: 2026-11-20. This covers Glassio from GitHub (`com.glasslauncher.tv`) and Glassio from Google Play
+Last updated: 2026-11-23. This covers Glassio from GitHub (`com.glasslauncher.tv`) and Glassio from Google Play
 (`com.glasslauncher.tv.play`).
 
 **In short:** Glassio has no account of its own, no ads and no analytics. The developer receives nothing from your
@@ -9,8 +9,8 @@ TV unless you choose to send a problem report, and you see all of it before it g
 ## What stays on your TV
 
 - Your settings, your dock and icons, your Library and Continue Watching lists, your profiles.
-- The sign-in tokens of the services you connect (Nuvio, Stremio, Trakt, Simkl) and the keys you type in (TMDB,
-  Unsplash, Reddit, Philips Hue, Home Assistant, camera links). A password typed to sign in is sent to that service
+- The sign-in tokens of the services you connect (Nuvio, Stremio, Trakt, Simkl, your Jellyfin server) and the keys
+  you type in (TMDB, Unsplash, Reddit, Pexels, Philips Hue, Home Assistant, camera links). A password typed to sign in is sent to that service
   only and is not kept.
 - The list of apps installed on the TV: it is what a home screen shows. It is never sent anywhere.
 - A backup is a file on your TV (Downloads), made when you ask for one.
@@ -24,14 +24,16 @@ as any website does, and what is asked for:
 |---|---|
 | The catalogs and add-ons you added (Stremio add-ons, Cinemeta), TMDB | Lists of titles, their pictures and details |
 | Nuvio, Stremio, Trakt, Simkl (only when you sign in) | Your own lists and progress there, with your token |
-| Wikidata, JustWatch (only with *Play opens the streaming app* on) | A title's id and your country, to find its page in a streaming app |
+| Your Jellyfin server (only when you connect it) | Its libraries, your progress and favourites there, and their pictures, with your token |
+| Wikidata, JustWatch (with *Play opens the streaming app* on, or from the search) | A title's id and your country, to find where it can be watched and its page in a streaming app |
 | Open-Meteo, OpenStreetMap Nominatim | The city you typed, for the weather and the place name |
-| Unsplash, Reddit, Bing, Wikimedia Commons, Apple and GitHub (aerial videos and their list) | Background pictures and videos, when you choose that source |
+| Unsplash, Reddit, Bing, Wikimedia Commons, Pexels (with your key), Apple and GitHub (aerial videos and their list) | Background pictures and videos, when you choose that source; for Pexels, the words you chose |
 | wsrv.nl | Simkl's posters, resized |
 | YouTube (oEmbed and thumbnails) | The artwork of a video playing in a music app |
 | Hugging Face | A one-time download of the depth model for the clock behind a photo |
 | GitHub (Glassio from GitHub only) | The latest release, to offer an update; an icon pack you choose to install (also F-Droid) |
-| YouTube, Google Translate (Glassio from GitHub only) | A title's trailer, and its subtitles put into your language |
+| YouTube, Google Translate (Glassio from GitHub only) | A title's trailer, and its subtitles put into your language; YouTube links and playlists you add as videos |
+| YouTube, SoundCloud (Glassio from GitHub only, only when you search) | The words you searched for |
 | Philips Hue's discovery page (only when you search for a bridge) | Nothing but the request itself: it answers with the bridges on your network |
 | Philips Hue, Home Assistant, your cameras, your other TVs | Only on your home network, only what you set up |
 
@@ -39,10 +41,11 @@ Glassio sends none of this to the developer.
 
 ## Permissions and what they are used for
 
-- **Accessibility service** (optional, turned on by you): to notice the buttons of your remote and when the TV's own
-  home screen comes up, so the Home button opens Glassio, the remote buttons you choose do what you set, and a
-  camera or the doorbell can show over another app. It does not read what is on the screen or what you type, and
-  nothing is collected or shared.
+- **Accessibility service** (optional, turned on by you): to notice the buttons of your remote and which app is in
+  front (its name only), so the Home button opens Glassio, the remote buttons you choose do what you set, Recent apps
+  lists the apps you used, Glassio comes back when you leave an app it opened, it waits while the TV asks you to allow
+  USB debugging, and a camera or the doorbell can show over another app. It does not read what is on the screen or
+  what you type; what it notices stays on the TV, and nothing is collected or shared.
 - **Notification access** (optional): to follow what a music app is playing (the song, the artist, its artwork) and
   show it. It stays on the TV.
 - **Usage access** (optional): to list the apps you opened recently. It stays on the TV.
