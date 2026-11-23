@@ -231,7 +231,7 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             fun refresh() = scope.launch {
                                 state = withContext(Dispatchers.IO) {
                                     val sys = com.glasslauncher.tv.data.SystemSetup
-                                    mapOf("adb" to sys.adb(app), "key" to sys.homeKeyOn(app), "home" to sys.isHomeApp(app),
+                                    mapOf("adb" to sys.adb(app, ask = false), "key" to sys.homeKeyOn(app), "home" to sys.isHomeApp(app),
                                         "saver" to sys.isScreensaver(app), "boot" to st.bootStart)
                                 }
                             }
@@ -255,8 +255,7 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             // Accessibility settings, after reading what it is for and agreeing.
                             var consent by remember { mutableStateOf<DialogState?>(null) }
                             DialogHost(consent) { consent = null }
-                            fun openA11y() = runCatching { app.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                                .onFailure { busy = "Open the TV's settings → Accessibility and turn Glassio on" }
+                            fun openA11y() { if (!sys.openTvSettings(app, android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) busy = "Open the TV's settings → Accessibility and turn Glassio on" }
                             if (com.glasslauncher.tv.data.Store.PLAY) Buttons(listOf(
                                 tick("key", "Home button") to {
                                     if (st.a11yConsent) openA11y()
@@ -277,8 +276,8 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
                             else Buttons(listOf(
                                 "Set up everything" to { run("Setting up") { listOf(sys.enableHomeKey(app), sys.makeHomeApp(app), sys.makeScreensaver(app), sys.startWithTv(app, st)).all { it } } },
                                 tick("adb", "TV access (ADB)") to {
-                                    if (!sys.developerOn(app)) runCatching { app.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                                        .onFailure { busy = "Open Settings → About and press OK on the build number 7 times, then turn on USB debugging" }
+                                    if (!sys.developerOn(app)) { if (!sys.openTvSettings(app, android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+                                        busy = "Open Settings → About and press OK on the build number 7 times, then turn on USB debugging" }
                                     else run("Asking the TV") { true }
                                 },
                                 tick("key", "Home button") to { run("Turning on the Home button service") { sys.enableHomeKey(app) } },

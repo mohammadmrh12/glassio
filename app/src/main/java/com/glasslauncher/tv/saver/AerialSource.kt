@@ -172,7 +172,10 @@ object AerialSource {
     /** Blocking. My videos only (the background's *Plays: My videos*), without the hidden ones, in [quality]. */
     fun mineItems(app: GlassApp, quality: String): List<Pair<String, String>> {
         val hidden = app.settings.saverHidden.map { it.substringBefore('\t') }.toSet()
-        val vids = mine(app).filter { it.id !in hidden }
+        // *Play only one of them* (My videos) counts here too: the background on My videos (and the screensaver on
+        // it, One player) played them all, shuffled, whatever was chosen (#22).
+        val pick = app.settings.saverPick
+        val vids = mine(app).let { all -> all.filter { it.id == pick }.ifEmpty { all.filter { it.id !in hidden } } }
         idOfUrl = idOfUrl + vids.mapNotNull { v -> v.url(quality)?.let { it to v.id } }
         val list = vids.mapNotNull { v -> v.url(quality)?.let { v.title.ifBlank { "My video" } to it } }.distinctBy { it.second }
         return if (app.settings.bgShuffle) list.shuffled() else list

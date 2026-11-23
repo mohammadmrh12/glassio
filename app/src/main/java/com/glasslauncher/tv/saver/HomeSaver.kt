@@ -71,6 +71,10 @@ object HomeSaver {
     fun begin(activity: android.app.Activity) {
         val app = activity.application as GlassApp
         val st = app.settings
+        // The TV's "Allow USB debugging?" window may be up over Glassio (its keys don't reach Glassio, so Glassio is
+        // idle): the screensaver's screen would cover it, unanswered (#25).
+        val shell = com.glasslauncher.tv.data.LocalShell
+        if (shell.promptUp || shell.waitedMs() > 3_000) return
         if (activity is com.glasslauncher.tv.MainActivity && wanted(st) && homeShown && !folderOpen) {
             if (state.value != 0) return
             onBackground = st.bgMode == "aerial" && st.saverMode == "aerial" && CustomBackground.aerial.value != null

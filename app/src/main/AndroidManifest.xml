@@ -24,6 +24,9 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
 
     <queries>
+        <!-- Fire TV: where its Settings actions end (Amazon's stand-in that starts its home: #29). -->
+        <package android:name="com.amazon.tv.settings.v2"/>
+        <package android:name="com.amazon.tv.launcher"/>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
         <intent><action android:name="org.adw.launcher.THEMES"/></intent>

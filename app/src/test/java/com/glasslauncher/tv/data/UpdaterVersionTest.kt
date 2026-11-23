@@ -36,6 +36,9 @@ class UpdaterVersionTest {
         assertTrue(Updater.newer("4.2.0", "4.1.1-beta1"))
         assertTrue(Updater.newer("4.2.0", "4.1.0"))
         assertFalse(Updater.newer("4.1.1-beta1", "4.2.0"))
+        // 4.2.1: the fixes after 4.2.0.
+        assertTrue(Updater.newer("4.2.1", "4.2.0"))
+        assertFalse(Updater.newer("4.2.0", "4.2.1"))
         assertTrue(Updater.newer("4.0.1-beta1", "4.0.0"))
         assertFalse(Updater.newer("4.0.0", "4.0.1-beta1"))
     }

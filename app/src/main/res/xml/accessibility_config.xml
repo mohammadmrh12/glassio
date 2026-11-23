@@ -6,5 +6,7 @@
     android:canRequestFilterKeyEvents="true"
     android:canRetrieveWindowContent="false"
     android:description="@string/accessibility_description"
-    android:notificationTimeout="50"
-    android:packageNames="com.google.android.apps.tv.launcherx,com.google.android.tvlauncher"/>
+    android:notificationTimeout="50"/>
+<!-- Window changes of every app: HomeKeyService reads which app is in front (Recent apps without ADB, Nuvio's playback,
+     the TV's "Allow USB debugging?" window). A list of packages here held on Android 11 (the TCL got no event at all),
+     where clearing it from the code had no effect. -->

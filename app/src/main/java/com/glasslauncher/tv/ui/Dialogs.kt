@@ -118,7 +118,9 @@ fun DialogHost(state: DialogState?, onDismiss: () -> Unit) {
     if (state == null) return
     // The screensaver on the home screen: pop-ups wait (they are windows above it, and stayed over the video).
     if (com.glasslauncher.tv.saver.HomeSaver.state.value != 0) return
-    androidx.compose.runtime.key(state) { OverSettings {
+    // (A list of pictures is the same window when its pictures arrive (a new ThumbDialog with the same title): made
+    // anew, its selection went back to the first row while the person was on another, and OK chose that one (#22).)
+    androidx.compose.runtime.key(if (state is ThumbDialog) "thumbs:" + state.title else state) { OverSettings {
         when (state) {
             is TextEntry -> TextEntryDialog(state, onDismiss)
             is MenuDialog -> MenuDialogView(state, onDismiss)

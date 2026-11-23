@@ -127,6 +127,14 @@ object CustomBackground {
     private fun frameOf(ctx: Context, src: String): String? {
         val out = frameFile(ctx, src)
         if (out.length() > 0) return "file://" + out.absolutePath
+        // A YouTube link is its page, not a video file: YouTube's own still (no frame can be read from a page, and it
+        // was tried again every few seconds).
+        com.glasslauncher.tv.saver.VideoThumbs.youtube(src)?.let { yt ->
+            val bytes = listOf(yt.replace("mqdefault", "maxresdefault"), yt).firstNotNullOfOrNull { u ->
+                runCatching { java.net.URL(u).openStream().use { it.readBytes() } }.getOrNull()?.takeIf { it.size > 2_000 }
+            } ?: return null.also { Glog.w("Background video frame: no YouTube still for $src") }
+            return runCatching { out.writeBytes(bytes); "file://" + out.absolutePath }.getOrNull()
+        }
         return runCatching {
             val r = android.media.MediaMetadataRetriever()
             try {

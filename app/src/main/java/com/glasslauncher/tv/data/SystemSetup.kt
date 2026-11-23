@@ -12,7 +12,7 @@ object SystemSetup {
     private fun pkg(ctx: Context) = ctx.packageName
 
     /** Glassio may use the TV's debugging connection (asks "Allow USB debugging?" on the TV the first time). Blocking. */
-    fun adb(ctx: Context): Boolean = LocalShell.run(ctx, "echo ok").getOrNull()?.contains("ok") == true
+    fun adb(ctx: Context, ask: Boolean = true): Boolean = (if (ask) LocalShell.ask(ctx) else LocalShell.run(ctx, "echo ok")).getOrNull()?.contains("ok") == true
 
     fun developerOn(ctx: Context): Boolean = runCatching {
         android.provider.Settings.Global.getInt(ctx.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1 &&
@@ -25,6 +25,29 @@ object SystemSetup {
      * instead ([FIRE_TV_COMMANDS]), and Glassio then turns its services on by itself.
      */
     fun isFireTv(): Boolean = android.os.Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
+
+    /** QA: the Fire TV way of opening the TV's settings, on any TV (`--ez fire_settings_test true`, dev key; until a restart). */
+    @Volatile var fireSettingsTest = false
+
+    /**
+     * Opens one of the TV's own settings screens ([action]); false when none opened. Fire TV (#29): the plain Settings
+     * action goes to Amazon's `CTSDummySettingsHandler`, which starts Amazon's home (`HomeActivity_vNext`) as a HOME start
+     * with Settings as a panel inside it: with Glassio as the home app that start came to Glassio (it "restarted" and
+     * Settings never showed). There Amazon's own Settings screen is opened by name instead, as other launchers do
+     * (`MainSettingsActivity` on Fire OS 8, `SettingsActivity` before), whenever the action would end at such a stand-in.
+     */
+    fun openTvSettings(ctx: Context, action: String): Boolean {
+        fun start(i: Intent) = runCatching { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        if (isFireTv() || fireSettingsTest) {
+            val to = runCatching { ctx.packageManager.resolveActivity(Intent(action), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo }.getOrNull()
+            val standIn = action == android.provider.Settings.ACTION_SETTINGS || to == null || to.packageName == ctx.packageName ||
+                to.name.contains("CTSDummy") || to.name.contains("FallbackHome")
+            Glog.i("TV settings $action → ${to?.packageName}/${to?.name}")
+            if (standIn) for (c in listOf("com.amazon.tv.launcher/.ui.MainSettingsActivity", "com.amazon.tv.launcher/.ui.SettingsActivity"))
+                if (start(Intent().setComponent(android.content.ComponentName.unflattenFromString(c)))) { Glog.i("TV settings: Fire TV's $c"); return true }
+        }
+        return start(Intent(action))
+    }
 
     /** What to type on a computer (ADB) once, for a Fire TV. */
     const val FIRE_TV_COMMANDS = "adb shell pm grant com.glasslauncher.tv android.permission.WRITE_SECURE_SETTINGS  ·  " +

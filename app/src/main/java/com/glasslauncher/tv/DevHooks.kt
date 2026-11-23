@@ -123,6 +123,22 @@ object DevHooks {
             st.take(14).forEach { f -> android.util.Log.i("GlassThreads", "   $f") }
         }
         // Picture downloads fail for N seconds, after the picture caches are emptied (the retry after a failure: NetState).
+        if (i.hasExtra("fire_settings_test")) { com.glasslauncher.tv.data.SystemSetup.fireSettingsTest = i.getBooleanExtra("fire_settings_test", false); com.glasslauncher.tv.data.Glog.i("QA: Fire TV settings way ${com.glasslauncher.tv.data.SystemSetup.fireSettingsTest}") }
+        // TV access with a key the TV has never allowed (true), or Glassio's own again (false).
+        if (i.hasExtra("adb_testkey")) {
+            val f = java.io.File(app.filesDir, "adb_testkey")
+            if (i.getBooleanExtra("adb_testkey", false)) f.createNewFile() else f.delete()
+            com.glasslauncher.tv.data.LocalShell.reset()
+            com.glasslauncher.tv.data.Glog.i("QA: adb test key ${f.exists()}")
+        }
+        // One command over TV access, its answer and time in the log.
+        if (i.getBooleanExtra("adb_probe", false)) Bg.io("glass-dev") {
+            // (After this hook's own start of Glassio: a window coming up over Glassio, as from the TV access page.)
+            kotlinx.coroutines.delay(3000)
+            val t0 = android.os.SystemClock.uptimeMillis()
+            val r = com.glasslauncher.tv.data.LocalShell.run(app, "echo ok")
+            com.glasslauncher.tv.data.Glog.i("QA: adb probe ${android.os.SystemClock.uptimeMillis() - t0} ms: ${r.getOrNull()?.trim() ?: r.exceptionOrNull()}")
+        }
         i.getIntExtra("net_fail_test", 0).takeIf { it > 0 }?.let { sec ->
             com.glasslauncher.tv.data.NetState.failUntil = System.currentTimeMillis() + sec * 1000L
             // (Emptied once the downloads under way have failed: emptied under them, a page waited for ever.)

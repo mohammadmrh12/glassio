@@ -81,6 +81,9 @@ class HomeKeyService : AccessibilityService() {
 
     private fun enabled(): Boolean = (application as? GlassApp)?.settings?.interceptHome == true
 
+    /** Glassio's key was allowed while Glassio waited to open (Open Glassio when the TV starts). */
+    fun openAfterPrompt() { lastLaunch = 0L; showGlass() }
+
     private fun showGlass() {
         val now = System.currentTimeMillis()
         if (now - lastLaunch < 1000) return
@@ -110,6 +113,10 @@ class HomeKeyService : AccessibilityService() {
         if (!agreed()) return false
         // Glassio's own buttons (shuffle, "press the button you want"): every remote button reaches this service first.
         (application as? GlassApp)?.let { if (KeyHub.handle(it, KeyHub.idOf(event), event.action == KeyEvent.ACTION_DOWN)) return true }
+        // Home over the TV's "Allow USB debugging?" window would bring Glassio over it, unanswered (see
+        // LocalShell.promptUp): Home waits until it is answered (2 minutes at most, if its closing was missed).
+        val shell = com.glasslauncher.tv.data.LocalShell
+        if (event.keyCode == KeyEvent.KEYCODE_HOME && shell.promptUp && android.os.SystemClock.uptimeMillis() - shell.promptSeenAt < 120_000) return true
         if (event.keyCode != KeyEvent.KEYCODE_HOME || !enabled()) return false
         if (!sp.getBoolean("keys", false)) sp.edit().putBoolean("keys", true).apply()
         val recents = (application as? GlassApp)?.settings?.homeLong.let { it != null && it != "off" }
@@ -164,6 +171,36 @@ class HomeKeyService : AccessibilityService() {
             com.glasslauncher.tv.data.NuvioWatch.onWindow(p, event.className?.toString().orEmpty())
             // Recent apps without ADB: the app now on screen.
             (application as? GlassApp)?.let { a -> com.glasslauncher.tv.data.AppHistory.onFront(this, p) { k -> a.apps.apps.value.any { it.pkg == k } } }
+        }
+        // The TV's "Allow USB debugging?" window: nothing of Glassio comes over it (see LocalShell.promptUp). It comes as
+        // SystemUI's android.app.Dialog on the Streamer (the activity is UsbDebuggingActivity); a SystemUI dialog only
+        // counts while Glassio's own connection is waiting for that answer.
+        val shell = com.glasslauncher.tv.data.LocalShell
+        val wPkg = event.packageName?.toString().orEmpty()
+        val wCls = event.className?.toString().orEmpty()
+        android.util.Log.i("GlassA11y", "window $wPkg $wCls")
+        val justClosed = android.os.SystemClock.uptimeMillis() - shell.promptClosedAt < 5_000
+        if (wPkg == "com.android.systemui" && (wCls.contains("UsbDebugging") || (wCls == "android.app.Dialog" && (shell.asking() || justClosed)))) {
+            if (!shell.promptUp) { com.glasslauncher.tv.data.Glog.i("The TV asks: Allow USB debugging (Glassio stays behind it)"); shell.promptSeenAt = android.os.SystemClock.uptimeMillis() }
+            shell.promptUp = true
+        } else if (wPkg.isNotEmpty() && wPkg != "com.android.systemui" && (shell.promptUp ||
+                // (Not seen coming up: only another app's window counts. Glassio's own change under it (the TCL never
+                // reports the window: its profile chooser and screensaver did).)
+                (wPkg != packageName && (shell.askedAt != 0L || (shell.waitedMs() > 3_000 && !android.os.Build.MANUFACTURER.equals("Amazon", true)))))) {
+            // (Fire TV's adb at 127.0.0.1 waits without any window (#14): there only a window seen counts.)
+            // Answered (or gone): another app's window is in front again. (Also when the window was up before this
+            // service started (a TV start): a connection waiting this long is the TV asking.) The TV may bring up the
+            // next window of its queue right after (its home showed for a moment between two), and Allow reaches the
+            // waiting connection a moment later: decided 2 s on.
+            if (android.os.SystemClock.uptimeMillis() - shell.promptClosedAt > 1_000) com.glasslauncher.tv.data.Glog.i("The TV's Allow USB debugging window closed")
+            shell.promptClosedAt = android.os.SystemClock.uptimeMillis()
+            shell.promptUp = false; shell.askedAt = 0L
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (shell.promptUp) return@postDelayed
+                // Not accepted: Cancel (the connection would wait for nothing). Not asked again (LocalShell.open).
+                if (shell.waiting()) shell.cancelled = true
+                else if (shell.openAfterPrompt) { shell.openAfterPrompt = false; lastLaunch = 0L; showGlass() }
+            }, 2000)
         }
         if (!enabled()) return
         val pkg = event.packageName?.toString() ?: return

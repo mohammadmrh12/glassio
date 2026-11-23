@@ -2,6 +2,22 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.2.1 — fixes
+
+Fixes for what was reported after 4.2.0. Nothing new to set up.
+
+- **My videos**: YouTube videos show their own picture in the lists and as the background's still picture; the
+  picture list no longer jumps back to its first row while its pictures load; *Play only one of them* now also
+  counts for the background on *My videos*.
+- **TV access (ADB)**: Glassio no longer opens over the TV's *Allow USB debugging?* window when the TV starts (hidden
+  behind Glassio, it stayed unanswered and the TV asked no app again until a restart). One window at a time, Glassio
+  opens once it is answered, and *Cancel* stops the asking until you open the TV access page. A TV already stuck
+  needs one restart after the update.
+- **Fire TV**: Android settings (and Wi-Fi, Bluetooth, the setup's settings pages) open Fire TV's Settings instead
+  of coming back to Glassio.
+- **Android 11 TVs**: the Home button service missed other apps' windows on some TVs.
+- Settings: a page that starts with notes (TV access) selects its first row.
+
 ## 4.2.0 — Jellyfin, One player, remote buttons that do three things
 
 Everything from 4.1.1-beta1, and what its testers asked for after it. As always, each new thing is a choice: with your

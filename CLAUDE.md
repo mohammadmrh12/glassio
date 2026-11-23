@@ -52,9 +52,10 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.1.0 (code 71, stable, 2026-11-22)**; **4.1.1-beta1 (code 72) is the beta out
-    now** (same day; public `4e92df7` on `origin/beta`, parent 6b59a79; sha256 `13959376…69e9cea9`, the file on
-    the Streamer). 4.1.0-beta1 (code 70) was 4.1.0's beta.
+  - The last published version is **4.2.0 (code 73, stable, 2026-11-23)**: public `86aad11` on `origin/main`
+    (parent 6b59a79), tag `v4.2.0`, *latest*, `Glassio.apk` and `Glassio-4.2.0.apk` (sha256 `b4b1a4a1…28990e4f`,
+    downloaded and compared, also through `releases/latest/download/Glassio.apk`; the same file is on the Streamer).
+    `origin/beta` stays at `4e92df7` (4.1.1-beta1, code 72). 4.1.0 (code 71) before it.
     4.0.0 (code 69) before it. Work goes on on the local `beta` branch.
   - `versionCode` must always go up, for betas and stable releases alike.
 
@@ -1822,8 +1823,55 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
 - Next beta or the stable 4.1.0: the public commit goes on `origin/beta` (a beta) or `origin/main` (stable) with
   the last public commit of `origin/main` as parent, made with `commit-tree`; code 71+. The local `beta` keeps its
   own history.
-- The next release must replace `NEW_IN`'s 4.1.0 entry with its own rows. `WhatsNew.ID` is 68 already (the tour
-  since 4.0.0, see Last session); bump it again only if the tour changes after that. Code 73+.
+- **4.2.0 released as stable (2026-11-23, "سوي نشر عام ستيبل"):** everything since 4.1.1-beta1 (Jellyfin, One
+  player, three-press buttons, TV inputs button, Hue restore, see-through glass, Recommended for this TV, the clock
+  over rows, the menu's Large clock). Issues looked at first: only #21's "the big clock still doesn't show" was new
+  (fixed, in it). The repo's description now names Jellyfin and search; topic `jellyfin` added. The tour's first page
+  says 4.2 (`WhatsNew.ID` 68, his `tourSeen` 68). #21, #22, #25, #27, #28 were told it is out (his wording
+  approved, no link) and closed as completed (2026-11-23); #23 was already closed by him. Not seen: the updater offering 4.2.0 to a TV on 4.1.0 or on the beta.
+- **#22 and #25 after 4.2.0 (2026-11-23, his "test on the Streamer and the TCL until it is exact, then fix"; not
+  released, nothing posted):**
+  - *#22, My videos → Play only one of them:* three causes, each reproduced on the Streamer first. (1) No pictures
+    for YouTube videos: `VideoThumbs` read a frame from the link, a YouTube page; now YouTube's own still
+    (`VideoThumbs.youtube`, `i.ytimg.com/vi/<id>/mqdefault.jpg`), and the background's still frame the same way
+    (`CustomBackground.frameOf`: it retried a page every ~9 s). (2) The list jumped back to its first row ~25 s after
+    opening (the pictures' fill replaces the `ThumbDialog`, and `DialogHost`'s `key(state)` made it anew): keyed by
+    title now; OK had picked the first video. (3) The background on *My videos* (and the screensaver on it, One player)
+    ignored the pick: `AerialSource.mineItems` honours `saverPick` (seen: 36 videos → 1, it loops). Seen on both TVs:
+    pictures, the selection held 45 s and through a rebuild, the background playing the chosen video.
+  - *#25, "Allow USB debugging?" never shows / flashes at a restart:* seen on the Streamer from the boot log: Glassio's
+    own connection at start brings the TV's window up, then *Open Glassio when the TV starts* opened Glassio over it
+    9 s later; covered, `UsbDebuggingActivity` stays behind unanswered and **adbd shows no window again for any key
+    (Glassio's or another app's, the Mac's adb too: "prompt currently pending, skipping") until the TV restarts**.
+    Also, every connection left waiting queued one more window (shell, quick, compile, two addresses), each shown
+    after Cancel. Fixed in `LocalShell` / `HomeKeyService` / `BootReceiver` / `HomeSaver`: one connection at a time
+    (`openLock`), a timed-out address stops the others (except Fire TV), an unanswered window blocks background tries
+    until answered (`askedAt`), Cancel stops asking until the TV access page (`declined`; the TV's adb keeps a cancelled
+    connection waiting: Cancel is read from the window closing, `cancelled`), the window seen as SystemUI's
+    `android.app.Dialog` while Glassio waits (`promptUp`, 2 min at most), the wait is 2 min while it is up / at a TV
+    start / when the person asked (`LocalShell.ask`: TV access page, setup), Start with the TV waits for the answer,
+    Home and Glassio's own screensaver don't come over it. **The service's XML had `packageNames` (two Google
+    launchers): on Android 11 (the TCL) clearing it from the code did nothing, so the service got no other app's
+    window at all** (Recent apps without ADB there too): removed. QA (dev key): `--ez adb_testkey true|false` (a key
+    the TV never allowed / Glassio's own), `--ez adb_probe true`; window events in logcat tag `GlassA11y`.
+    Seen with the test key (Allow never pressed: it would authorise a key): Streamer, 8 restarts: the window stays
+    (7 min), one window only, Cancel → Glassio opens, nothing hidden after; TV access page: waits 70 s, Cancel → no
+    more windows. TCL (its buttons are CANCEL left, ALLOW right): restart, install, TV access page, past its 1-minute
+    screensaver. Not tried: **Allow** (his to press, or the customer's), Fire TV. Already stuck TVs need one restart
+    after the update. Both TVs back on Glassio's own key (probe ok), the Streamer's idle time back to 2 min.
+  - Settings: a page opened from a row looked for a selectable row among its first four only; TV access (four notes)
+    put the selection on the sections: now nine.
+- **#29, Fire TV: the menu's Android settings "restarts" Glassio (2026-11-23, not released, nothing posted):** on Fire
+  OS `ACTION_SETTINGS` goes to `com.amazon.tv.settings.v2/.compliance.CTSDummySettingsHandler`, which starts Amazon's
+  `HomeActivity_vNext` as a HOME start (Settings is a panel in it): with Glassio as the home app that start lands on
+  Glassio (the same bug and fix in other launchers: couch-tv PR #5, Homestead PR #10, Fire-Stick-Debloat #22).
+  `SystemSetup.openTvSettings` (every place that opens a TV settings screen: the menu, Settings, the setup): on Fire TV
+  an action that ends at such a stand-in (or `ACTION_SETTINGS`) opens `com.amazon.tv.launcher/.ui.MainSettingsActivity`
+  (Fire OS 8), then `.ui.SettingsActivity`, then the action as before; `<queries>` for the two Amazon packages.
+  **No Fire TV here: not seen on one.** Seen on the Streamer and the TCL: the normal way unchanged, and with
+  `--ez fire_settings_test true` (dev key) the Fire TV way falls back to the TV's own Settings, no crash.
+- The next release must replace `NEW_IN`'s 4.2.0 entry with its own rows; bump `WhatsNew.ID` only if the tour
+  changes. Code 74+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and
     not their home or a profile picker) is only known from the intent in front.

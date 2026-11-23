@@ -150,8 +150,7 @@ private fun isHomeKeyOn(ctx: Context): Boolean = runCatching {
 }.getOrDefault(false)
 
 private fun openSystem(ctx: Context, action: String) {
-    try { ctx.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-    catch (_: Exception) { toast(ctx, "This screen is not available on this device") }
+    if (!com.glasslauncher.tv.data.SystemSetup.openTvSettings(ctx, action)) toast(ctx, "This screen is not available on this device")
 }
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -166,7 +165,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
         app.settings.settingsLastCat = sectionAfterReorder(app.settings.settingsLastCat); app.settings.settingsLastRow = -1
         app.settings.settingsLayout = SETTINGS_LAYOUT
     }
-    val newVer = com.glasslauncher.tv.BuildConfig.VERSION_NAME.substringBefore('-')
+    // A version with no rows of its own (a fixes release, 4.2.1) keeps its minor version's New rows and what was seen of them.
+    val newVer = com.glasslauncher.tv.BuildConfig.VERSION_NAME.substringBefore('-').let { v -> if (v in NEW_IN) v else v.substringBeforeLast('.') + ".0" }
     if (app.settings.settingsNewFor != newVer) {
         val fresh = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).let { it.firstInstallTime == it.lastUpdateTime } }.getOrDefault(false)
         app.settings.settingsNewSeen = if (fresh) NEW_IN[newVer].orEmpty() else emptyList()
@@ -235,7 +235,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
         else com.glasslauncher.tv.saver.VideoThumbs.file(ctx, id).takeIf { it.isFile && it.length() > 0 }
     /** Makes the pictures still missing, then shows the same list again with them (if it's still open). */
     fun fillThumbs(ids: List<String>, title: String, items: () -> List<ThumbItem>) = scope.launch(Dispatchers.IO) {
-        val missing = ids.filter { it.startsWith("http") && thumbOf(it) == null }
+        val missing = ids.filter { it.startsWith("http") && com.glasslauncher.tv.saver.VideoThumbs.youtube(it) == null && thumbOf(it) == null }
         if (missing.isEmpty()) return@launch
         missing.forEach { com.glasslauncher.tv.saver.VideoThumbs.get(ctx, it) }
         if ((dialog as? ThumbDialog)?.title == title) dialog = ThumbDialog(title, items())
@@ -1475,7 +1475,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                         val mine = AerialSource.mine(app)
                                         if (mine.isEmpty()) return@io "No videos yet: add a link below or upload one from your phone"
                                         fun items() = mine.map { v ->
-                                            val thumb = if (v.preview.isNotBlank()) java.io.File(v.preview) else thumbOf(v.id)
+                                            val thumb = if (v.preview.isNotBlank()) java.io.File(v.preview) else com.glasslauncher.tv.saver.VideoThumbs.youtube(v.id) ?: thumbOf(v.id)
                                             ThumbItem(v.title.ifBlank { videoName(v.id) }, if (v.id.startsWith("http")) hostOf(v.id) else "On the TV", thumb, checked = v.id == st.saverPick) {
                                                 st.saverMine = true; st.saverPick = v.id
                                             }
@@ -1516,7 +1516,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             if (vids.isEmpty()) return@io "Turn on a collection first"
                             fun items() = listOf(ThumbItem("All of them", "Every video that's on", null, checked = st.saverPick.isBlank()) { st.saverPick = "" }) +
                                 vids.map { v -> ThumbItem(v.title.ifBlank { videoName(v.id) }, AerialSource.SOURCES.firstOrNull { it.key == v.source }?.name ?: "My videos",
-                                    v.preview.ifBlank { null }?.let { p -> if (p.startsWith("/")) java.io.File(p) else p } ?: thumbOf(v.id),
+                                    v.preview.ifBlank { null }?.let { p -> if (p.startsWith("/")) java.io.File(p) else p } ?: com.glasslauncher.tv.saver.VideoThumbs.youtube(v.id) ?: thumbOf(v.id),
                                     checked = v.id == st.saverPick) { st.saverPick = v.id } }
                             dialog = ThumbDialog("One video", items())
                             fillThumbs(vids.map { it.id }, "One video") { items() }
@@ -2361,7 +2361,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             add(Act("2 · Open Developer options", if (adbOn) "USB debugging is on" else "Turn on USB debugging", "") { openSystem(ctx, AndroidSettings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) })
                             add(Act("3 · Allow Glassio", when (adbAccess) { true -> "Allowed: Glassio can use ADB"; false -> "Not allowed yet: press OK, then Always allow on the TV"; else -> "Press OK to check" }, "") {
                                 scope.launch(Dispatchers.IO) {
-                                    val r = com.glasslauncher.tv.data.LocalShell.run(ctx, "echo ok")
+                                    val r = com.glasslauncher.tv.data.LocalShell.ask(ctx)
                                     val ok = r.isSuccess
                                     adbAccess = ok
                                     // Why it failed, in a few words (a TV that never asks is told apart from one that refused).
@@ -2459,8 +2459,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             else if (list != null && list.layoutInfo.totalItemsCount > r && list.layoutInfo.visibleItemsInfo.none { it.index == r }) {
                 runCatching { list.scrollToItem(r) }; androidx.compose.runtime.withFrameNanos { }
             }
-            // (The row asked for, or the first one after it that can be selected: a page may begin with a heading.)
-            for (k in r..r + 3) if (runCatching { rowReq(c, k).requestFocus() }.getOrDefault(false)) { done = true; break }
+            // (The row asked for, or the first one after it that can be selected: a page may begin with a heading, or
+            // with several notes: TV access (ADB) has four, and the selection fell to the sections on its left.)
+            for (k in r..r + 8) if (runCatching { rowReq(c, k).requestFocus() }.getOrDefault(false)) { done = true; break }
             if (!done) androidx.compose.runtime.withFrameNanos { }
         }
         holding[0] = false

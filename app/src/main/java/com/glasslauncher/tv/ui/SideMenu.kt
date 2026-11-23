@@ -581,7 +581,7 @@ private fun themeLabel(t: String) = THEMES.firstOrNull { it.first == t }?.second
 
 private fun open(ctx: android.content.Context, action: String) {
     for (a in listOf(action, android.provider.Settings.ACTION_SETTINGS)) {
-        try { ctx.startActivity(Intent(a).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (_: Exception) {}
+        if (com.glasslauncher.tv.data.SystemSetup.openTvSettings(ctx, a)) return
     }
     toast(ctx, "This screen is not available on this device")
 }

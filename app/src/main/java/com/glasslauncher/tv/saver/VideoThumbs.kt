@@ -19,6 +19,12 @@ object VideoThumbs {
 
     fun file(ctx: Context, url: String): File = File(dir(ctx), key(url) + ".jpg")
 
+    /**
+     * A YouTube video's own picture (YouTube's still, 320 x 180), or null for any other link. A YouTube link is its
+     * page, not a video file: no frame can be read from it (#22: every playlist video had an empty picture).
+     */
+    fun youtube(url: String): String? = AerialSource.youtubeId(url)?.let { "https://i.ytimg.com/vi/$it/mqdefault.jpg" }
+
     /** The picture's path if it's made; otherwise starts making it and returns null. */
     fun pathOrMake(ctx: Context, url: String): String? {
         val f = file(ctx, url)
