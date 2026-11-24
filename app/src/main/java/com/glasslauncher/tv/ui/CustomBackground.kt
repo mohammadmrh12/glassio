@@ -284,10 +284,9 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     var view by remember { mutableStateOf<android.view.SurfaceView?>(null) }
     val dim = VideoFrames.dim
     val player = remember {
-        // (Lite / Performance: 20 s at most and 24 MB, against 50 s: a looping background needs little ahead.)
-        val load = if (st.lean) androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(10_000, 20_000, 2_500, 5_000)
-            .setTargetBufferBytes(24 * 1024 * 1024).setPrioritizeTimeOverSizeThresholds(false).build()
-            else androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_500, 5_000).build()
+        // (The same for every TV: capped smaller for Lite in 4.4.0, the video stopped to load on a weak TV's slower
+        // network (#34), for a gain in memory too small to measure.)
+        val load = androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_500, 5_000).build()
         androidx.media3.exoplayer.ExoPlayer.Builder(ctx)
             .setMediaSourceFactory(com.glasslauncher.tv.saver.VideoCache.factory(ctx, st.saverCache, st.saverCacheGb))
             .setLoadControl(load).build().apply {

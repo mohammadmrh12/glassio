@@ -53,6 +53,9 @@ object Photos {
         var listKey = ""
         var listAt = 0L
         var changedAt = System.currentTimeMillis()
+        // A source that keeps refusing (HTTP 403 every half minute for hours, #34) is asked less and less often:
+        // 30 s, 1, 2, 4 … 30 min. A changed choice asks at once.
+        var failWait = 30_000L
         while (true) {
             val st = app.settings
             if (st.bgMode != "photos") { Thread.sleep(2_000); continue }
@@ -64,7 +67,17 @@ object Photos {
                 status = ""
                 val fresh = runCatching { fetch(app) }.onFailure { Glog.w("Photos", it); status = it.message ?: "Couldn't get the photos" }.getOrDefault(emptyList())
                 listAt = now
-                if (fresh.isEmpty()) { if (status.isBlank()) status = "No photos found"; listKey = key; Thread.sleep(30_000); continue }
+                if (fresh.isEmpty()) {
+                    if (status.isBlank()) status = "No photos found"; listKey = key
+                    val until = System.currentTimeMillis() + failWait; failWait = (failWait * 2).coerceAtMost(30 * 60_000L)
+                    while (System.currentTimeMillis() < until) {
+                        Thread.sleep(2_000)
+                        val s2 = app.settings
+                        if (listOf(s2.photoSource, s2.photoTopic, s2.unsplashKey.isNotBlank(), s2.photoShuffle, s2.photoSubreddit, s2.redditAppId.isNotBlank()).joinToString("|") != key) { failWait = 30_000L; break }
+                    }
+                    continue
+                }
+                failWait = 30_000L
                 list = fresh
                 order = if (st.photoShuffle) list.indices.shuffled() else list.indices.toList()
                 pos = -1

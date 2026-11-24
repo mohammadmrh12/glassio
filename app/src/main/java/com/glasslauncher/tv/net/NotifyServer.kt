@@ -26,11 +26,12 @@ object NotifyServer {
         if (running) return
         running = true
         Bg.io("glass-notify") {
+            var busyWait = 30_000L
             while (running) {
                 if (!app.settings.doorbellOn) { Thread.sleep(5_000); continue }
                 // The port can still be taken (PiPup installed): try again every half minute.
                 val s = runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(PORT), 8) } }
-                    .getOrElse { Glog.w("Doorbell: port $PORT is busy (${it.message}); trying again"); Thread.sleep(30_000); null } ?: continue
+                    .getOrElse { Glog.w("Doorbell: port $PORT is busy (${it.message}); trying again"); Thread.sleep(busyWait); busyWait = (busyWait * 2).coerceAtMost(10 * 60_000L); null } ?: continue
                 server = s
                 Glog.i("Doorbell: listening on $PORT")
                 while (running && app.settings.doorbellOn) {

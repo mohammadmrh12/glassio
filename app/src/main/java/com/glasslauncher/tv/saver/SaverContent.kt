@@ -239,10 +239,8 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             // A frame of the new video is on screen (the fade back in waits for it).
             val rendered = remember { BooleanArray(1) }
             // More buffered before it starts (the first seconds of a new video stuttered while it downloaded).
-            // (Lite / Performance: 25 s at most and 32 MB ahead, against 60 s.)
-            val load = remember { if (st.lean) androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 25_000, 4_000, 6_000)
-                .setTargetBufferBytes(32 * 1024 * 1024).setPrioritizeTimeOverSizeThresholds(false).build()
-                else androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(20_000, 60_000, 4_000, 6_000).build() }
+            // (The same for every TV: a smaller buffer for Lite made the screensaver stop to load on a weak TV, #34.)
+            val load = remember { androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(20_000, 60_000, 4_000, 6_000).build() }
             // The video let go under the cameras and not drawn again yet: the blurred copy stays over it till then.
             val underCams = remember { mutableStateOf(false) }
             val stillFrame = remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }

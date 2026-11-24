@@ -32,11 +32,12 @@ object NuvioControl {
         if (running) return
         running = true
         Bg.io("glass-nuvio-control") {
+            var busyWait = 30_000L
             while (running) {
                 val st = app.settings
                 if (!st.nuvioPush || st.nuvioToken.isBlank()) { Thread.sleep(5_000); continue }
                 val s = runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(PORT), 8) } }
-                    .getOrElse { Glog.w("Nuvio control: port $PORT busy (${it.message})"); Thread.sleep(30_000); null } ?: continue
+                    .getOrElse { Glog.w("Nuvio control: port $PORT busy (${it.message})"); Thread.sleep(busyWait); busyWait = (busyWait * 2).coerceAtMost(10 * 60_000L); null } ?: continue
                 Glog.i("Nuvio control: listening on $PORT")
                 while (running && st.nuvioPush && st.nuvioToken.isNotBlank()) {
                     val c = runCatching { s.accept() }.getOrNull() ?: break

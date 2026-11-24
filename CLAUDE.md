@@ -55,7 +55,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version before 4.4.0 is **4.3.0 (code 76, stable, 2026-11-23)**: public `9af8b7c` on `origin/main`
+  - The last published version is **4.4.0 (code 77, stable, 2026-11-24)**, public `4064a51`; 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -2125,6 +2125,21 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   4.4.0: Layout, Menu's Camera opens the whole screen, Sound follows the selection, On the whole screen, Unneeded
   apps. The tour keeps its pages and puts 4.4's first (*Cameras*, *Lighter*; `WhatsNew.ID` 70, 15 pages; his
   `tourSeen` put back to 69). Tests, lint (both flavors), play scan clean, `nav` clean on the Streamer.
+  **Released (2026-11-24):** public `4064a51` (tree of local `beta` at `d455cbd`, parent 9af8b7c) on `origin/main`,
+  tag `v4.4.0`, *latest*, `Glassio.apk` and `Glassio-4.4.0.apk` (sha256 `625182b8…621623eea`, downloaded and compared,
+  also through `releases/latest/download/Glassio.apk`; the same file is on the Streamer). Code 78+ next.
+  Issues told (his "رد على الissue", no links): #33 (QR in search, Nuvio One rows: 4.3.0) and #32 (Unneeded apps)
+  closed as completed; #30 (cameras page, PTZ: asked its author to try PTZ through HA) and #31 (cameras part done,
+  the Library layout not) left open; #29 asked for the Fire Stick's model and Fire OS version (still broken there).
+  #26 not answered (a report from a TV, not understood).
+- **4.4.1 (code 79, 2026-11-24, #34 and the Play review):** #34 (a Xiaomi MiTV, 720p, `memTier` 0: "the screensaver's
+  video cuts"): the Lite buffer caps of 4.4.0 also applied at tier 0 (`lean`): reverted for everyone (background
+  15-50 s, screensaver 20-60 s). `mergeVideos()` ran before `settings` existed (since 4.3.0 it threw at every start
+  and never merged): now after. Photos' failing source backs off 30 s → 30 min (a changed choice asks at once), the
+  doorbell's and Nuvio's busy ports 30 s → 10 min. Reports carry `saverQuality` and `photoSource`. Wi-Fi is
+  `required=false` (CHANGE_WIFI_MULTICAST_STATE implied it: Play's 4.4.0 review dropped 6 cable-only TVs; code 77
+  and 78 bundles stay unreleased in the Console's library). Seen on the Streamer: no merge warning at start, a
+  failing Reddit source retried after 30 s, `nav` clean; his bgMode / photoSource put back.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

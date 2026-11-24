@@ -2,6 +2,16 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.4.1 — fixes
+
+- **Screensaver and background videos** load as far ahead as before 4.4.0 again on every TV: on weaker TVs (and in
+  Lite) the smaller buffer made the video stop to load.
+- The old *My video* background is moved to *Videos · My videos* as intended (since 4.3.0 the move never ran).
+- A photo source that keeps refusing is asked less and less often (it was every 30 seconds), and so are the doorbell's
+  and Nuvio's ports when another app holds them.
+- Google Play no longer requires Wi-Fi for Glassio: TVs on a cable only can install it.
+- Problem reports include the screensaver's quality and the photo source.
+
 ## 4.4.0 — Cameras, and a lighter Glassio
 
 As always, each new thing is a choice: with your settings left as they are, Glassio behaves as before except where

@@ -24,6 +24,9 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-feature android:name="android.software.leanback" android:required="false"/>
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+    <!-- CHANGE_WIFI_MULTICAST_STATE (the phone page's name on the network) would make Wi-Fi required: TVs on a cable
+         only dropped out of Google Play's list (6 in the 4.4.0 review). The name works without Wi-Fi too. -->
+    <uses-feature android:name="android.hardware.wifi" android:required="false"/>
 
     <queries>
         <!-- Fire TV: where its Settings actions end (Amazon's stand-in that starts its home: #29). -->

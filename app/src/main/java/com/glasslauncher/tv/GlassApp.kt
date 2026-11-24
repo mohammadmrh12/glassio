@@ -159,7 +159,6 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         com.glasslauncher.tv.data.NetState.watch(this)
-        runCatching { settings.mergeVideos() }.onFailure { com.glasslauncher.tv.data.Glog.w("Videos: merging the old choice", it) }
         // A launcher must never vanish silently: keep the last crash for Settings → About.
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
@@ -170,6 +169,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             previous?.uncaughtException(t, e)
         }
         settings = Settings(this)
+        // (After the settings are read: called above them since 4.3.0, it threw at every start and never merged.)
+        runCatching { settings.mergeVideos() }.onFailure { com.glasslauncher.tv.data.Glog.w("Videos: merging the old choice", it) }
         com.glasslauncher.tv.ui.GlassTint.apply(settings)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(a: android.app.Activity) { if (shown++ == 0) { hiddenAt = 0L; com.glasslauncher.tv.data.HueSync.resume() } }
