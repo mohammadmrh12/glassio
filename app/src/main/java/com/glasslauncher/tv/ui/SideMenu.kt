@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -356,20 +357,18 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     Text("Background", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
                     val back = { target = bgRow; bgPage = false }
-                    BG_MODES.forEachIndexed { i, (key, label) ->
-                        MenuRow(s, light, label, if (bgKey(st.bgMode) == key) "✓" else "",
-                            modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
-                            first = i == 0, last = i == BG_MODES.lastIndex && st.bgMode == "carousel", onLeft = back,
-                            glyph = { c -> glyph(if (bgKey(st.bgMode) == key) "dotOn" else "dotOff", c) },
-                            onClick = {
-                                target = i
-                                when {
-                                    key == "image" && st.bgImage.isBlank() -> toast(ctx, "Choose a picture first: Glassio settings → Background & screensaver → My pictures & videos")
-                                    key == "aerial" && st.bgMode == "video" -> {}
-                                    else -> st.bgMode = key
-                                }
-                            })
-                    }
+                    // The kinds of background side by side; what goes with the one in use under them.
+                    val bgGlyph = mapOf("carousel" to "library", "image" to "background", "photos" to "saver", "aerial" to "trailer")
+                    MenuChips(s, light, BG_MODES.map { (key, label) -> Chip(if (key == "carousel") "Titles" else label, bgKey(st.bgMode) == key) { c -> glyph(bgGlyph[key] ?: "dotOff", c) } }, reqs, back,
+                        onFocused = { current = it }, onClick = { i ->
+                            target = i
+                            val key = BG_MODES[i].first
+                            when {
+                                key == "image" && st.bgImage.isBlank() -> toast(ctx, "Choose a picture first: Glassio settings → Background & screensaver → My pictures & videos")
+                                key == "aerial" && st.bgMode == "video" -> {}
+                                else -> st.bgMode = key
+                            }
+                        })
                     // Your background: shuffle (a new one by itself) and the next one now, for whichever kind it is.
                     val extra: Pair<Pair<String, Boolean>, Pair<String, () -> Unit>>? = when (st.bgMode) {
                         // Videos: what it plays (all, mine, one) in turn, then the next one now.
@@ -401,8 +400,13 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         // The large clock over your own background (as in Settings → Background & screensaver).
                         MenuRow(s, light, "Large clock", if (st.bgClock) "On" else "Off",
                             modifier = Modifier.focusRequester(reqs[n + 2]), onFocused = { current = n + 2 },
-                            first = false, last = true, onLeft = back,
+                            first = false, last = !plays, onLeft = back,
                             glyph = { c -> glyph(if (st.bgClock) "dotOn" else "dotOff", c) }, onClick = { target = n + 2; st.bgClock = !st.bgClock })
+                        // The videos' quality behind the glass: 1080p (the lightest) or the screensaver's (as in Settings).
+                        if (plays) MenuRow(s, light, "Quality", if (st.bgAerialQuality == "saver") "Screensaver's" else "1080p",
+                            modifier = Modifier.focusRequester(reqs[n + 3]), onFocused = { current = n + 3 },
+                            first = false, last = true, onLeft = back,
+                            glyph = { c -> glyph("more", c) }, onClick = { target = n + 3; st.bgAerialQuality = if (st.bgAerialQuality == "saver") "1080" else "saver" })
                     }
                 } else if (trailerPage) {
                     Text("Trailer", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
@@ -467,21 +471,31 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         if (!com.glasslauncher.tv.data.Store.PLAY && yts.isNotEmpty())
                             add(Triple("YouTube lists", "${yts.count { it !in st.saverYtOff }} / ${yts.size} ›") { saverSubRow = current; target = 0; saverSub = "yt" })
                         add(Triple("My videos", if (st.saverMode == "aerial" && st.saverMine) "✓" else "") { st.saverMode = "aerial"; st.saverMine = !st.saverMine; st.saverPick = "" })
-                        add(Triple("Posters", if (st.saverMode == "slideshow") "✓" else "") { st.saverMode = if (st.saverMode == "slideshow") "aerial" else "slideshow" })
-                        if (!com.glasslauncher.tv.data.Store.PLAY) add(Triple("Trailers", if (st.saverMode == "trailer") "✓" else "") { st.saverMode = if (st.saverMode == "trailer") "aerial" else "trailer" })
                         // The screensaver on the home screen itself (one player, back at once).
                         if (st.saverMode != "system") add(Triple("One player", if (st.saverInHome) "On" else "Off") { st.saverInHome = !st.saverInHome })
                         add(Triple("Shuffle", if (st.saverShuffle) "On" else "Off") { st.saverShuffle = !st.saverShuffle })
                         if (st.saverLock) add(Triple("Locked only", if (st.saverLockedOnly) "On" else "Off · ${st.saverLocked.size}") { st.saverLockedOnly = !st.saverLockedOnly })
                         add(Triple("Large clock", if (st.saverBigClock) "On" else "Off") { st.saverBigClock = !st.saverBigClock })
+                        // The videos' quality (as in Settings → Background & screensaver): OK goes to the next one.
+                        if (st.saverMode == "aerial") add(Triple("Quality", AS.QUALITIES.firstOrNull { it.first == st.saverQuality }?.second?.substringBefore(" (") ?: st.saverQuality) {
+                            val q = AS.QUALITIES.map { it.first }
+                            st.saverQuality = q[(q.indexOf(st.saverQuality).coerceAtLeast(0) + 1).mod(q.size)]; st.ownPerf("saverQuality")
+                        })
                         add(Triple("Starts after", st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" }) {
                             val o = listOf(0, 10, 30, 60, 120, 300, 600)
                             st.idleSeconds = o[(o.indexOf(st.idleSeconds).coerceAtLeast(0) + 1).mod(o.size)]
                         })
                     }
-                    opts.forEachIndexed { i, (label, value, act) ->
+                    // The screensaver's kinds side by side on its first page (Videos, Posters, Trailers); the rest down it.
+                    val kinds = if (saverSub != "") emptyList() else listOfNotNull("aerial" to "Videos", "slideshow" to "Posters",
+                        ("trailer" to "Trailers").takeIf { !com.glasslauncher.tv.data.Store.PLAY })
+                    val m = kinds.size
+                    if (m > 0) MenuChips(s, light, kinds.map { (key, label) -> Chip(label, st.saverMode == key) { c -> glyph(when (key) { "aerial" -> "trailer"; "slideshow" -> "library"; else -> "play" }, c) } },
+                        reqs, back, onFocused = { current = it }, onClick = { i -> target = i; st.saverMode = kinds[i].first; st.saverPick = "" })
+                    opts.forEachIndexed { j, (label, value, act) ->
+                        val i = j + m
                         MenuRow(s, light, label, value, modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
-                            first = i == 0, last = i == opts.lastIndex, onLeft = back,
+                            first = i == 0, last = j == opts.lastIndex, onLeft = back,
                             glyph = { c -> glyph(if (value == "✓" || value.startsWith("On")) "dotOn" else if (value.endsWith("›")) "more" else "dotOff", c) },
                             onClick = { target = i; act() })
                     }
@@ -528,13 +542,9 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     Text("Themes", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
                     val back = { target = themesRow; themes = false }
-                    THEMES.forEachIndexed { i, (key, label) ->
-                        MenuRow(s, light, label, if (st.theme == key) "✓" else "",
-                            modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
-                            first = i == 0, last = false, onLeft = back,
-                            glyph = { _ -> swatch(key, light) }, onClick = { target = i; st.applyTheme(key) })
-                    }
-                    Spacer(Modifier.height((6 * s).dp))
+                    // The themes side by side (their colours), the name of the selected one under them.
+                    MenuChips(s, light, THEMES.map { (key, label) -> Chip(label, st.theme == key) { _ -> themeTile(key, light) } }, reqs, back,
+                        onFocused = { current = it }, onClick = { i -> target = i; st.applyTheme(THEMES[i].first) })
                     Box(Modifier.fillMaxWidth().padding(horizontal = (6 * s).dp).height(0.6.dp).background(ink.copy(alpha = 0.14f)))
                     Spacer(Modifier.height((6 * s).dp))
                     val n = THEMES.size
@@ -544,15 +554,25 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         first = false, last = false, onLeft = back,
                         glyph = { c -> drawCircle(if (st.glassColor == "petrol") Color(0xFF1E7A86) else if (st.glassColor == "black") Color.Black else c.copy(alpha = 0.25f), radius = size.minDimension * 0.32f) },
                         onClick = { target = n; val k = GlassTint.NAMES.keys.toList(); st.glassColor = k[(k.indexOf(st.glassColor) + 1).mod(k.size)]; GlassTint.apply(st) })
+                    val videoBg = st.bgMode == "video" || st.bgMode == "aerial"
                     MenuRow(s, light, "Colour on focus", if (st.focusColor) "On" else "Off",
                         modifier = Modifier.focusRequester(reqs[n + 1]), onFocused = { current = n + 1 },
-                        first = false, last = !st.focusColor, onLeft = back,
+                        first = false, last = !st.focusColor && !videoBg, onLeft = back,
                         glyph = { c -> glyph(if (st.focusColor) "dotOn" else "dotOff", c) }, onClick = { target = n + 1; st.focusColor = !st.focusColor })
                     if (st.focusColor) MenuRow(s, light, "Focus plate", PLATE_NAMES[st.focusPlate] ?: "Dark",
                         modifier = Modifier.focusRequester(reqs[n + 2]), onFocused = { current = n + 2 },
-                        first = false, last = true, onLeft = back,
+                        first = false, last = !videoBg, onLeft = back,
                         glyph = { c -> plateGlyph(st.focusPlate, c) },
                         onClick = { target = n + 2; st.focusPlate = PLATES[(PLATES.indexOf(st.focusPlate) + 1).mod(PLATES.size)] })
+                    // Glass over a video background: bent (copies of the video) or see-through (as in Settings → Background).
+                    if (videoBg) {
+                        val g = n + (if (st.focusColor) 3 else 2)
+                        MenuRow(s, light, "Glass over the video", if (st.videoGlass == "clear") "See-through" else "Bent",
+                            modifier = Modifier.focusRequester(reqs[g]), onFocused = { current = g },
+                            first = false, last = true, onLeft = back,
+                            glyph = { c -> glyph(if (st.videoGlass == "clear") "dotOn" else "dotOff", c) },
+                            onClick = { target = g; st.videoGlass = if (st.videoGlass == "clear") "bent" else "clear" })
+                    }
                 }
             }
         }
@@ -609,6 +629,96 @@ private fun MenuRow(
                 drawPath(p, fg.copy(alpha = 0.6f), style = Stroke(size.width * 0.16f, cap = StrokeCap.Round))
             }
         }
+    }
+}
+
+/** One choice of a [MenuChips] row: its name, whether it is the one in use, its picture. */
+private class Chip(val label: String, val on: Boolean, val glyph: DrawScope.(Color) -> Unit)
+
+/**
+ * A page's choices side by side in one row (his ask: the modes across, the other settings down the page): Left and
+ * Right move between them (Left on the first goes back), Down to the settings under it. With more than four the
+ * boxes show only their picture and the name of the one selected (or in use) is written under the row.
+ */
+@Composable
+private fun MenuChips(
+    s: Float, light: Boolean, chips: List<Chip>, reqs: List<FocusRequester>, onLeft: () -> Unit,
+    onFocused: (Int) -> Unit, onClick: (Int) -> Unit,
+) {
+    val ink = if (light) Color(0xFF111114) else Color.White
+    val hi = if (light) Color(0xFF111114) else Color.White
+    val named = chips.size <= 4
+    var at by remember { mutableStateOf(-1) }
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((5 * s).dp)) {
+            chips.forEachIndexed { i, c ->
+                var focused by remember { mutableStateOf(false) }
+                val lit by animateFloatAsState(if (focused) 1f else 0f, tween(120), label = "chipLit")
+                val fg = androidx.compose.ui.graphics.lerp(ink, if (light) Color.White else Color(0xFF111114), lit)
+                // Without names (the themes) each box is a sample of what it chooses: never filled when selected
+                // (a white box hid the light swatches: his photo), a bright ring and a little growth instead.
+                if (!named) {
+                    val grow by animateFloatAsState(if (focused) 1.1f else 1f, tween(140), label = "chipGrow")
+                    val shape = RoundedCornerShape((10 * s).dp)
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            Modifier.fillMaxWidth().aspectRatio(1f).graphicsLayer { scaleX = grow; scaleY = grow }
+                                .clip(shape)
+                                .then(Modifier.border(((if (focused) 2f else 0.8f) * s).dp, ink.copy(alpha = if (focused) 0.95f else 0.22f), shape))
+                                .focusRequester(reqs[i])
+                                .onFocusChanged { focused = it.isFocused; if (it.isFocused) { at = i; onFocused(i) } else if (at == i) at = -1 }
+                                .tvPress(onKey = { ev ->
+                                    when {
+                                        ev.type != KeyEventType.KeyDown -> false
+                                        ev.key == Key.DirectionLeft && i == 0 -> { onLeft(); true }
+                                        ev.key == Key.DirectionRight && i == chips.lastIndex -> true
+                                        ev.key == Key.DirectionUp -> true
+                                        else -> false
+                                    }
+                                }, onClick = { onClick(i) }),
+                        ) { Canvas(Modifier.matchParentSize()) { c.glyph(this, ink) } }
+                        // The one in use: a small dot under its box.
+                        Spacer(Modifier.height((5 * s).dp))
+                        Box(Modifier.size((4 * s).dp).clip(androidx.compose.foundation.shape.CircleShape).background(ink.copy(alpha = if (c.on) 0.9f else 0f)))
+                    }
+                    return@forEachIndexed
+                }
+                Column(
+                    Modifier.weight(1f).height((52 * s).dp)
+                        .clip(RoundedCornerShape((11 * s).dp))
+                        .background(hi.copy(alpha = 0.95f * lit + (if (c.on) 0.10f else 0.04f) * (1f - lit)))
+                        .focusRequester(reqs[i])
+                        .onFocusChanged { focused = it.isFocused; if (it.isFocused) { at = i; onFocused(i) } else if (at == i) at = -1 }
+                        .tvPress(onKey = { ev ->
+                            when {
+                                ev.type != KeyEventType.KeyDown -> false
+                                ev.key == Key.DirectionLeft && i == 0 -> { onLeft(); true }
+                                ev.key == Key.DirectionRight && i == chips.lastIndex -> true
+                                ev.key == Key.DirectionUp -> true
+                                else -> false
+                            }
+                        }, onClick = { onClick(i) }),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.size((17 * s).dp)) { c.glyph(this, fg) }
+                        // The one in use: a ring round its picture.
+                        if (c.on) Canvas(Modifier.size((25 * s).dp)) { drawCircle(fg.copy(alpha = 0.85f), radius = size.minDimension / 2 - 1.5f, style = Stroke(1.6f * density)) }
+                    }
+                    if (named) {
+                        Spacer(Modifier.height((3 * s).dp))
+                        Text(com.glasslauncher.tv.data.I18n.tr(c.label), color = fg.copy(alpha = if (c.on || focused) 1f else 0.75f), fontSize = (8.5f * s).sp,
+                            fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        if (!named) {
+            val name = chips.getOrNull(at)?.label ?: chips.firstOrNull { it.on }?.label.orEmpty()
+            Text(com.glasslauncher.tv.data.I18n.tr(name), color = ink.copy(alpha = 0.7f), fontSize = (9 * s).sp, fontWeight = FontWeight.Medium,
+                modifier = Modifier.fillMaxWidth().padding(top = (5 * s).dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        Spacer(Modifier.height((6 * s).dp))
     }
 }
 
@@ -757,6 +867,38 @@ private fun DrawScope.swatch(key: String, light: Boolean) {
     drawRoundRect(fill, cornerRadius = CornerRadius(w * 0.28f))
     drawRoundRect(edge, cornerRadius = CornerRadius(w * 0.28f), style = Stroke(w * 0.07f))
     if (key == "bow") drawCircle(Color(0xFF111114), w * 0.16f, Offset(w / 2, w / 2))
+}
+
+/** A theme as a whole box (the menu's theme row): its own surface, the same size and shape for every theme. */
+private fun DrawScope.themeTile(key: String, light: Boolean) {
+    val w = size.width; val h = size.height
+    val ink = if (light) Color(0xFF111114) else Color.White
+    when (key) {
+        "bow" -> { drawRect(Color(0xFFF2EFE8)); drawCircle(Color(0xFF111114), w * 0.12f, Offset(w / 2, h / 2)) }
+        "amoled" -> { drawRect(Color.Black); drawCircle(Color.White.copy(alpha = 0.85f), w * 0.12f, Offset(w / 2, h / 2)) }
+        else -> {
+            // The glass themes: how much of the page shows through, darkest to lightest, and a light top edge.
+            val a = when (key) { "clear" -> 0.10f; "water_still" -> 0.18f; "water" -> 0.26f; else -> 0.40f }
+            drawRect(ink.copy(alpha = a))
+            drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(ink.copy(alpha = 0.35f), Color.Transparent), endY = h * 0.45f))
+            // Dynamic Glass: two waves, like water (his ask: not a circle).
+            if (key == "water") for (row in 0..1) {
+                val y0 = h * (0.50f + row * 0.17f); val amp = h * 0.055f
+                val path = Path().apply {
+                    moveTo(w * 0.20f, y0)
+                    var x = w * 0.20f
+                    while (x < w * 0.80f) {
+                        val nx = x + w * 0.15f
+                        quadraticTo(x + w * 0.075f, y0 + (if (((x - w * 0.20f) / (w * 0.15f)).toInt() % 2 == 0) -amp else amp), nx, y0)
+                        x = nx
+                    }
+                }
+                drawPath(path, ink.copy(alpha = 0.6f), style = Stroke(w * 0.045f, cap = StrokeCap.Round))
+            }
+            if (key == "water_still") drawLine(ink.copy(alpha = 0.55f), Offset(w * 0.28f, h * 0.66f), Offset(w * 0.72f, h * 0.66f), w * 0.05f, cap = StrokeCap.Round)
+            if (key == "liquid") drawCircle(ink.copy(alpha = 0.6f), w * 0.10f, Offset(w / 2, h / 2))
+        }
+    }
 }
 
 

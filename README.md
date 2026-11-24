@@ -30,7 +30,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **4.4.2** — up to nine cameras, cameras without the Home button service, backups between the GitHub and Play versions, fixes; on 4.4.0 — the cameras page with sound and PTZ, multi-view two by two, every camera playing over a video, *Lite* mode, *Unneeded apps*, Manage from phone from the menu and as a phone app (always on, one code, an address by name), Jellyfin, the screensaver on the home screen (One player), YouTube playlists and Pexels as videos,
+Latest: **4.5.0** — a tidier menu (themes, backgrounds and screensavers across one row, glass and video quality in the menu), your own background behind the music player, a smoother large clock and island, fixes; on 4.4.2 — up to nine cameras, cameras without the Home button service, backups between the GitHub and Play versions; on 4.4.0 — the cameras page with sound and PTZ, multi-view two by two, every camera playing over a video, *Lite* mode, *Unneeded apps*, Manage from phone from the menu and as a phone app (always on, one code, an address by name), Jellyfin, the screensaver on the home screen (One player), YouTube playlists and Pexels as videos,
 remote buttons with a press, double press and hold, a TV inputs button, see-through glass over a video, *Recommended
 for this TV*. What changed in every version: [CHANGELOG](CHANGELOG.md).
 

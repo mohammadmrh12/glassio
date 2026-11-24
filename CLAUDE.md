@@ -30,6 +30,7 @@
 - **Issues:** reply as needed, but **always read the issue's newest comments again right before commenting** (his
   rule since 2026-11-24): edit my earlier comment or fix the new problem first, then reply. Only tested facts.
 - **Every message to him in Arabic**, progress notes too; English only for code and copy-ready text.
+- **No `nav` check any more** (his rule since 2026-11-25: "لا تسوي فحص نافكيشن بعد"): test only the part that changed on the TV.
 - Leave the TV awake after testing. Put back any setting you changed while testing.
 - **Test lightly on the TV** (his rule since 2026-11-20; "never claim it works without the TV" still stands):
   - A setting that only changes a look: one screenshot per choice is enough, not a grid of every choice × every
@@ -62,7 +63,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.4.1 (code 79, stable, 2026-11-24)**, public `d81b8f9`; 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.4.2 (code 80, stable, 2026-11-24)**, public `c42674e`, sha256 `729040a0…d623fde`; 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -678,6 +679,12 @@ anywhere until he says so.
   near these parts scan the play APK: `strings` on its dex files must find none of `newpipe`, `pm grant`,
   `allow_listener`, `WRITE_SECURE`, `f-droid`, `releases/latest`, `PackageInstaller`, `timedtext`, `gift`
   (`pm install…` stays inside dadb's own unused code).
+- **Publishing to Google Play from the Mac** (`tools/play/publish.py`, since 2026-11-25): `status` lists the tracks;
+  `upload [--track alpha] [--notes ...]` uploads `app-play-release.aab`, sets the track's release and sends it for review.
+  It signs in as a Google Cloud service account (project "Glassio Play") that the Play Console allows only *Release to
+  testing tracks* on this app (production stays his); its key's path is `PLAY_API_KEY` in `local.properties`, never in
+  git. Build first (`./gradlew :app:bundlePlayRelease`). The browser can't upload a bundle (its upload tool takes 10 MB
+  at most and only shared files).
 - `docs/PRIVACY.md` is the privacy policy for both; `docs/play/README.md` has the listing's words, the Console's
   declarations and what is still to do before an upload.
 
@@ -2179,6 +2186,51 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   picture"), only YouTube stills are downloaded; `VideoThumbs` makes one picture at a time and waits while a player
   starts (`DecodeGate`, set by the background's and the screensaver's video changes). Seen on the Streamer: three
   video changes, stills saved, no retriever in Glassio's log. Not seen on an Amlogic box.
+- **4.4.2 released (2026-11-24, his "نزل التحديث"):** public `c42674e` (tree of local `beta` at `fb8994d`), tag `v4.4.2`,
+  *latest*, both APKs downloaded and compared (also `releases/latest`), the Streamer's file. Play: 4.4.1 (79) was
+  approved on Alpha; bundle 80 (4.4.2) is in the Desktop folder, a new Alpha release opened for it. Issues told:
+  #29, #30, #31, #33, #36, #37 (#36 and #37 closed as completed). Play: 80 (4.4.2) sent to Alpha's review through the API. Code 81+ next.
+- **After 4.4.2 (2026-11-25, local):** #40 (Fire TV, 4.4.2): the page behind Nuvio's rows was solid green where the video
+  background is. Not reproduced (no Fire TV); cause unknown: the video failing to decode there (#39's log has
+  `DECODING_FAILED`) or an empty PixelCopy kept as the still. Guard added: `looksEmpty()` (16 x 9 samples, every channel
+  within 8 steps) keeps no one-colour copy as a still (background still, its cover under the cameras, the screensaver's);
+  still files renamed `bgframe2-`. Seen on the Streamer: four stills kept, none refused. Asked for a report while green.
+  #39 (same Fire TV) was sent before pressing *Android settings*: asked again in that order. #31: Mubde asked how to
+  hide Nuvio's rows (dock menu → *Hide its rows*, or Apps with channels): answered.
+- **Player page over your own background (2026-11-25, his video):** with a video background and see-through glass,
+  the Music icon's page drew the song's artwork (blurred) over the whole screen, so the video vanished under the dock
+  too and the glass looked bent there only. New `musicPageBg` ("art" default, "own"; Settings → Music & app rows →
+  Music mode → *Page behind the player*, shown with your own background): "own" draws no artwork page (a 0.32 shade
+  instead) and the glass keeps the page (`Settings.musicKeepsOwnBg`). Also: see-through glass no longer follows
+  `ignoreVideo`. Seen on the Streamer: the video behind the player, the dock see-through on it. Add the row to the
+  next release's `NEW_IN`.
+- **Menu rows (2026-11-25, his ask):** Themes → *Glass over the video* (Bent / See-through, `videoGlass`, with a video
+  background); Background → *Quality* (1080p / the screensaver's, `bgAerialQuality`, while Videos play); Screensaver →
+  *Quality* (the five `AerialSource.QUALITIES`, `saverQuality`, marked as his own perf choice). Seen in the menu on the
+  Streamer, nothing pressed; his values unchanged.
+- **Same day, more (local):** `musicPageBg` default "auto" (your background when *Glass over the video* is See-through
+  over a video, else the artwork): he had turned see-through on and still saw the artwork page; seen: the video stays
+  behind the player by itself. The island's name scrolls with `IslandName` (whole pixels, a step every second frame,
+  three passes; `basicMarquee` made the letters dance) and its shadow is a short one under the letters (offset 2 px,
+  blur 3) instead of a 10 px blur behind the line. **Menu chips** (`MenuChips` in `SideMenu.kt`): Themes (swatches, the
+  name under the row), Background (Titles, My picture, Photos, Videos) and Screensaver (Videos, Posters, Trailers) show
+  their kinds across one row; the other settings stay a column. Seen on the Streamer, nothing pressed.
+- **Same day, later (local):** #41 (Dave's reading, checked): Down to the Library worked only with *Bounce at the edges*
+  on: the edge check now comes before the bounce check in `TileFrame` (key-ups return `bounce`). The home screensaver
+  with its own content (trailers…) over a video background: the background's `SurfaceView` goes INVISIBLE while it
+  shows (stopped, it held its last frame, seen between trailers); seen: black between trailers. The large clock:
+  the rim slivers drawn through `BlurEffect(0.6 dp)` (they stepped), the white date with a shadow under its letters.
+  Menu themes row: uniform tiles (`themeTile`), focus = ring and growth (a white fill hid light swatches), a dot
+  under the theme in use.
+- **Same day, his photos after that (local):** the clock's softened rim looked faded: the blur is gone, the rim and
+  its shade are painted at twice the size and drawn down with high-quality filtering (`paint2` in `ThemedNumerals`);
+  seen smooth and sharp in all six themes. Dynamic Glass's tile has two waves (was a circle). The home screensaver
+  closes the side menu when it starts (`HomeSaver.closeMenu`): menu open → screensaver → ▼ cameras → Back left the
+  menu up with nothing selected; seen: the menu gone, the dock selected after. The search over a bright picture: the
+  bar and the earlier searches on a dark see-through fill, the headings and the hint with a short shadow (seen).
+  Still "pixelated" (his eyes): the rim was a flat opaque band 3-4 px wide with a hard inner cut (read pixel by
+  pixel on a screenshot); now each edge fades inwards in five steps (`fadingEdge`), bright at the outline. Seen in
+  all six themes.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

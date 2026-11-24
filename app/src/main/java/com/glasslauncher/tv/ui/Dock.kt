@@ -637,7 +637,6 @@ private fun TileFrame(
             if (ev.type == KeyEventType.KeyUp) backOwner?.onBackPressedDispatcher?.onBackPressed()
             return@keys true
         }
-        if (!bounce) return@keys false
         val dir = when (ev.key) {
             Key.DirectionLeft -> androidx.compose.ui.focus.FocusDirection.Left
             Key.DirectionRight -> androidx.compose.ui.focus.FocusDirection.Right
@@ -645,8 +644,11 @@ private fun TileFrame(
             Key.DirectionUp -> androidx.compose.ui.focus.FocusDirection.Up
             else -> return@keys false
         }
-        if (ev.type != KeyEventType.KeyDown) return@keys true
+        // (The edges' own jobs first: Down to the Library worked only with *Bounce at the edges* on, #41. Bounce
+        // only decides the nudge; with it off, key-ups and moves go through as before.)
+        if (ev.type != KeyEventType.KeyDown) return@keys bounce
         if (dir in edges && onEdge(dir)) return@keys true
+        if (!bounce) return@keys false
         if (dir in edges || !focusManager.moveFocus(dir)) {
             val d = 9f * s
             val push = when (dir) {

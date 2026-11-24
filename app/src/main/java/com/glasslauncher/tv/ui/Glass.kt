@@ -391,7 +391,9 @@ fun LiquidSurface(
     val videoBehind = VideoFrames.showing.value && !ignoreVideo
     // *Glass over a video: See-through*: the video itself shows through (nothing drawn of it here), only the glass's
     // colour, the veil and the shuffle's black on top; no bending or blur (they would act on nothing).
-    val passThrough = videoBehind && VideoGlass.clear.value
+    // (Also over the song player's artwork: the page there is a picture drawn over the video, ignoreVideo, and the
+    // glass went back to bending it on the Music icon only, then see-through again on the next app: his video.)
+    val passThrough = VideoGlass.clear.value && VideoFrames.showing.value
     val pos = remember { mutableStateOf(Offset.Zero) }
     var sz by remember { mutableStateOf(IntSize.Zero) }
     val refractor = remember { Refractor() }

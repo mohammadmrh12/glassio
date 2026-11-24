@@ -55,6 +55,9 @@ object HomeSaver {
      */
     @Volatile var homeShown = false
     @Volatile var folderOpen = false
+    /** Closes the side menu (set by the home screen): the screensaver starting over the open menu left it on screen
+     *  afterwards with nothing selected (his report: menu open, screensaver, ▼ cameras, back: the menu stuck). */
+    @Volatile var closeMenu: (() -> Unit)? = null
 
     /** The key that ended it: its release (and repeats) is eaten, so it can't act on the home screen (Back started it again). */
     @Volatile private var endedBy = 0
@@ -77,6 +80,7 @@ object HomeSaver {
         if (shell.promptUp || shell.waitedMs() > 3_000) return
         if (activity is com.glasslauncher.tv.MainActivity && wanted(st) && homeShown && !folderOpen) {
             if (state.value != 0) return
+            closeMenu?.invoke()
             onBackground = st.bgMode == "aerial" && st.saverMode == "aerial" && CustomBackground.aerial.value != null
             com.glasslauncher.tv.data.Glog.i(com.glasslauncher.tv.data.Glog.HOME_SAVER + (if (onBackground) "background" else st.saverMode))
             state.value = 1

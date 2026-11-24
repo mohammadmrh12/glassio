@@ -157,6 +157,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // then the page scrolls down, so the scroll itself runs at full speed.
     var homePrep by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    androidx.compose.runtime.DisposableEffect(Unit) { com.glasslauncher.tv.saver.HomeSaver.closeMenu = { menuOpen = false }; onDispose { com.glasslauncher.tv.saver.HomeSaver.closeMenu = null } }
     // The home screen stops taking the focus only once the menu holds it (and takes it back before the menu goes):
     // switching it off the moment the menu opened dropped the focus onto the dock for a frame or two.
     var menuHasFocus by remember { mutableStateOf(false) }
@@ -773,7 +774,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         LaunchedEffect(songPlaying, stageWanted) { MusicUi.pauseDim.animateTo(if (stageWanted && !songPlaying) 0.6f else 0f, tween(if (songPlaying) 140 else 180, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
         val ownBg = page.ownBg; val songPage = page.songPage; val musicToRows = page.musicToRows
         // (Over your own background: once the player is drawn, so the glass changes with the page, not ahead of it.)
-        val stagePicNow = MusicUi.stageCur.value?.glass?.takeIf { (songPage && (!ownBg || MusicUi.songPageUp.value)) || musicToRows }
+        // (*Page behind the player: Your background*: the glass keeps the page it shows, the video or picture.)
+        val stagePicNow = MusicUi.stageCur.value?.glass?.takeIf { !settings.musicKeepsOwnBg && ((songPage && (!ownBg || MusicUi.songPageUp.value)) || musicToRows) }
         // Over a video: the glass goes from the video to the artwork (and back) with the page, not at once ahead of it.
         val artIn by animateFloatAsState(if (ownBg && stagePicNow != null) 1f else 0f, tween(220), label = "artGlass")
         val lastArt = remember { arrayOfNulls<ImageBitmap>(1) }

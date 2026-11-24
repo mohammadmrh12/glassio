@@ -59,6 +59,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -470,7 +474,10 @@ fun MusicIsland(app: GlassApp, s: Float) {
         ) { isOpen ->
           androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides androidx.compose.ui.text.TextStyle(
               // (See-through glass over a video: the same soft shadow, so the writing reads over a bright video.)
-              shadow = if (bare || (VideoGlass.clear.value && VideoFrames.showing.value)) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.7f), blurRadius = 10f) else null)) {
+              // A short shadow just under the letters (it was a wide blur behind the whole line, which made the
+              // writing look soft: his ask).
+              shadow = if (bare || (VideoGlass.clear.value && VideoFrames.showing.value)) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.65f),
+                  offset = androidx.compose.ui.geometry.Offset(0f, 2f), blurRadius = 3f) else null)) {
             if (!isOpen) Row(Modifier.padding(start = (8 * k).dp, end = (14 * k).dp, top = ((if (attached) 10 else 7) * k).dp, bottom = (7 * k).dp).widthIn(max = (360 * k).dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 if (st.islandArt) {
@@ -486,11 +493,9 @@ fun MusicIsland(app: GlassApp, s: Float) {
                         // it plays and the island shows: scrolling for ever (also paused, also faded away) kept the
                         // whole home screen redrawing 60 times a second, about half of one processor core.
                         if (st.islandMarquee && tr.playing && !away) androidx.compose.runtime.key(tr.title) {
-                            Plain(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                                // (Kept to the island's own small width, about its progress line: the whole name laid out
-                                // in one line made the island as wide as it could get.)
-                                modifier = Modifier.widthIn(max = (160 * k).dp).basicMarquee(iterations = 3, initialDelayMillis = 1500, repeatDelayMillis = 2500,
-                                    velocity = (28 * k).dp))
+                            // (Kept to the island's own small width, about its progress line: the whole name laid out
+                            // in one line made the island as wide as it could get.)
+                            IslandName(tr.title, ink, k, (160 * k).dp)
                         }
                         else Plain(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = if (st.islandMarquee) Modifier.widthIn(max = (160 * k).dp) else Modifier)
@@ -662,12 +667,14 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
     // The artwork by its look, not by the picture object (the app sends a new one with every update).
     val artKey = remember(tr.art) { MusicUi.artKey(tr.art) }
     val artImg = remember(artKey) { tr.art?.asImageBitmap() }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    // *Page behind the player: Your background*: no artwork page, your video or picture stays, under a light shade.
+    val ownPage = st.musicKeepsOwnBg
+    Box(Modifier.fillMaxSize().then(if (ownPage) Modifier.background(Color.Black.copy(alpha = 0.32f)) else Modifier.background(Color.Black))) {
         // The page faded from (another page as it is, or the last song's darkened like this one), and this song's
         // picture darkened, fading in over it as one layer (darkening both together dimmed the page faded from).
-        if (prev != null) { Image(prev.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (!ownPage && prev != null) { Image(prev.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             if (!prev.page) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f))) }
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (prev != null) MusicUi.stageMix.value else 1f }) {
+        if (!ownPage) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (prev != null) MusicUi.stageMix.value else 1f }) {
             if (cur != null) Image(cur.back, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
         }
@@ -841,4 +848,42 @@ fun MusicMenuPage(app: GlassApp, s: Float, light: Boolean, first: FocusRequester
 private fun Modifier.menuLit(light: Boolean): Modifier {
     var f by remember { mutableStateOf(false) }
     return this.onFocusChanged { f = it.isFocused }.background((if (light) Color(0xFF111114) else Color.White).copy(alpha = if (f) 0.18f else 0.05f))
+}
+
+/**
+ * The song's name in the island, scrolling by when it is too long: three passes, then it rests at its start.
+ * Its own movement instead of `basicMarquee` (his video: "the letters dance while the name moves"): the marquee moved
+ * the line by fractions of a pixel in every frame, so each letter was drawn a little differently each time. Here it
+ * moves by whole pixels, one step every second frame (an even 30 a second), the same as a search card's name.
+ */
+@Composable
+private fun IslandName(name: String, ink: Color, k: Float, maxW: androidx.compose.ui.unit.Dp) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var textW by remember(name) { androidx.compose.runtime.mutableIntStateOf(0) }
+    var boxW by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val x = remember(name) { androidx.compose.runtime.mutableIntStateOf(0) }
+    val gap = with(density) { (28 * k).dp.roundToPx() }
+    val step = with(density) { ((28 * k).dp.toPx() / 30f).roundToInt().coerceAtLeast(1) }
+    val long = textW > boxW && boxW > 0
+    LaunchedEffect(name, long) {
+        if (!long) return@LaunchedEffect
+        repeat(3) { pass ->
+            x.intValue = 0
+            kotlinx.coroutines.delay(if (pass == 0) 1500L else 2500L)
+            while (x.intValue + step < textW + gap) {
+                androidx.compose.runtime.withFrameNanos { }; androidx.compose.runtime.withFrameNanos { }
+                x.intValue += step
+            }
+            x.intValue = 0
+        }
+    }
+    // (Material's Text with softWrap off: the name, a song's own words, is never translated.)
+    @Composable fun words(m: Modifier = Modifier) = androidx.compose.material3.Text(name, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold,
+        maxLines = 1, softWrap = false, modifier = m)
+    Box(Modifier.widthIn(max = maxW).onSizeChanged { boxW = it.width }.clipToBounds()) {
+        Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).graphicsLayer { translationX = -x.intValue.toFloat() }) {
+            words(Modifier.onSizeChanged { textW = it.width })
+            if (long) { Spacer(Modifier.width(with(density) { gap.toDp() })); words() }
+        }
+    }
 }

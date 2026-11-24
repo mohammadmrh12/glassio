@@ -112,7 +112,7 @@ object CustomBackground {
         else -> null
     }
 
-    private fun frameFile(ctx: Context, src: String) = File(ctx.cacheDir, "bgframe-" + Integer.toHexString(src.hashCode()) + ".jpg")
+    private fun frameFile(ctx: Context, src: String) = File(ctx.cacheDir, "bgframe2-" + Integer.toHexString(src.hashCode()) + ".jpg")
 
     private fun cachedFrame(ctx: Context, src: String): String? {
         val f = frameFile(ctx, src)
@@ -132,6 +132,7 @@ object CustomBackground {
     fun saveStill(ctx: Context, src: String, bmp: android.graphics.Bitmap) {
         val out = frameFile(ctx, src)
         if (out.length() > 0) return
+        if (looksEmpty(bmp)) { Glog.w("Background video still: the copy was empty (one colour), not kept"); return }
         Bg.io("glass-video-frame") {
             runCatching {
                 val tmp = File(out.parentFile, out.name + ".part")
@@ -378,7 +379,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
             kotlinx.coroutines.delay(300)
             val f = VideoFrames.sharp.value
             if (f != null && player.currentMediaItem != null && player.playbackState != androidx.media3.common.Player.STATE_IDLE) {
-                runCatching { still = f.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false).asImageBitmap(); cover = true }
+                runCatching { val c = f.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false); if (!looksEmpty(c)) { still = c.asImageBitmap(); cover = true } }
                 camsHeld[0] = player.currentPosition; rendered = false; player.stop()
                 Glog.i("Background video: let go under the cameras")
             }
@@ -540,6 +541,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
         val screenAspect = sw.value / sh.value
         val vw = if (aspect > screenAspect) sh * aspect else sw
         val vh = if (aspect > screenAspect) sh else sw / aspect
+        val saverCovers = com.glasslauncher.tv.saver.HomeSaver.state.value == 1 && !com.glasslauncher.tv.saver.HomeSaver.onBackground
         AndroidView(
             factory = { c ->
                 android.view.SurfaceView(c).also { view = it }.apply {
@@ -554,12 +556,16 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                             // (Only the sharp copy: the small frosted one, enlarged, showed as a blurred and lighter
                             // picture until the video came back, then the screen jumped.)
                             VideoFrames.sharp.value?.let { f ->
-                                runCatching { still = f.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false).asImageBitmap(); cover = true }
+                                runCatching { val c = f.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false); if (!looksEmpty(c)) { still = c.asImageBitmap(); cover = true } }
                             }
                         }
                     })
                 }
             },
+            // While the screensaver plays its own things over the home screen (trailers, posters, another video), this
+            // surface steps aside: stopped, it still held its last frame, and between two trailers (a moment with no
+            // picture of the screensaver's own) the background's frozen frame showed through (his report).
+            update = { v -> v.visibility = if (saverCovers) android.view.View.INVISIBLE else android.view.View.VISIBLE },
             modifier = Modifier.align(androidx.compose.ui.Alignment.Center).wrapContentSize(unbounded = true).requiredSize(vw, vh),
         )
         still?.let { b -> if (coverAlpha > 0.01f) androidx.compose.foundation.Image(b, null, Modifier.fillMaxSize().graphicsLayer { alpha = coverAlpha },
@@ -688,3 +694,18 @@ object DecodeGate {
     /** Blocking: waits until no player is starting (20 s at most). */
     fun waitClear() { var n = 0; while (android.os.SystemClock.uptimeMillis() < busyUntil && n++ < 200) Thread.sleep(100) }
 }
+
+/**
+ * A copy of a video's picture that is one flat colour (an empty frame: on some TVs a copy of a hardware video comes
+ * back empty, and an empty video frame shows as solid green or black) is never kept as a still. #40: a Fire TV showed
+ * a solid green page behind an app's rows. Samples 16 x 9 points; flat = every channel within a few steps.
+ */
+fun looksEmpty(b: android.graphics.Bitmap): Boolean = runCatching {
+    var minR = 255; var maxR = 0; var minG = 255; var maxG = 0; var minB = 255; var maxB = 0
+    for (y in 0 until 9) for (x in 0 until 16) {
+        val p = b.getPixel((b.width - 1) * x / 15, (b.height - 1) * y / 8)
+        val r = (p shr 16) and 255; val g = (p shr 8) and 255; val bl = p and 255
+        if (r < minR) minR = r; if (r > maxR) maxR = r; if (g < minG) minG = g; if (g > maxG) maxG = g; if (bl < minB) minB = bl; if (bl > maxB) maxB = bl
+    }
+    maxR - minR < 8 && maxG - minG < 8 && maxB - minB < 8
+}.getOrDefault(false)

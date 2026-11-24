@@ -275,7 +275,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                                 runCatching { android.view.PixelCopy.request(v, b, { r -> if (c.isActive) c.resumeWith(Result.success(r == android.view.PixelCopy.SUCCESS)) }, android.os.Handler(android.os.Looper.getMainLooper())) }
                                     .onFailure { if (c.isActive) c.resumeWith(Result.success(false)) }
                             }
-                            stillFrame.value = if (ok) b.asImageBitmap() else null
+                            stillFrame.value = if (ok && !com.glasslauncher.tv.ui.looksEmpty(b)) b.asImageBitmap() else null
                         }
                         heldAt[0] = p.currentPosition; underCams.value = true; rendered[0] = false; p.stop()
                     }

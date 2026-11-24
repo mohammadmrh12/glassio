@@ -467,14 +467,17 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
         Box(Modifier.padding(top = top.dp).fillMaxWidth().height(room.dp), contentAlignment = Alignment.TopCenter) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize().onFocusChanged { SearchUi.focused = it.hasFocus }
                 .onPreviewKeyEvent { ev -> if (ev.key == Key.Back && !editing) { if (ev.type == KeyEventType.KeyUp) onDown(); true } else false }) {
+                // Over a bright background (a white sky behind the page) the bar, its words and the headings were white on
+                // white (his photo): a dark see-through fill instead of a white one, and a short shadow under the letters.
+                val lift = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), offset = androidx.compose.ui.geometry.Offset(0f, 1.5f * s), blurRadius = 4f * s)
                 // The bar: selected like any button; OK types in it.
                 var barFocus by remember { mutableStateOf(false) }
                 val lit = barFocus || editing
                 val shape = RoundedCornerShape(50)
                 Row(verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.width((430 * s).dp).height((34 * s).dp).clip(shape)
-                        .background(if (lit) Color.White.copy(alpha = 0.94f) else Color.White.copy(alpha = 0.14f))
-                        .border((1 * s).dp, Color.White.copy(alpha = if (lit) 0f else 0.22f), shape)
+                        .background(if (lit) Color.White.copy(alpha = 0.94f) else Color.Black.copy(alpha = 0.34f))
+                        .border((1 * s).dp, Color.White.copy(alpha = if (lit) 0f else 0.30f), shape)
                         .focusRequester(SearchUi.entry).onFocusChanged { barFocus = it.isFocused }
                         .tvPress(onKey = { ev ->
                             when (ev.key) {
@@ -489,7 +492,7 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
                     Text("⌕", color = ink.copy(alpha = 0.7f), fontSize = (15 * s).sp)
                     Spacer(Modifier.width((8 * s).dp))
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                        if (query.isEmpty()) Text("Search", color = ink.copy(alpha = 0.5f), fontSize = (13 * s).sp, maxLines = 1)
+                        if (query.isEmpty()) Text("Search", color = ink.copy(alpha = if (lit) 0.5f else 0.75f), fontSize = (13 * s).sp, maxLines = 1)
                         BasicTextField(query, { query = it.take(60) }, singleLine = true, enabled = editing,
                             textStyle = TextStyle(color = ink, fontSize = (13 * s).sp), cursorBrush = SolidColor(ink),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -513,10 +516,10 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
                 }
                 Spacer(Modifier.height((8 * s).dp))
                 if (rowKeys.isEmpty() || note.isNotBlank()) Text(note.ifBlank { if (query.isBlank()) "OK types  ·  hold the microphone key to speak" else "" },
-                    color = Color.White.copy(alpha = 0.5f), fontSize = (10 * s).sp)
+                    color = Color.White.copy(alpha = 0.75f), fontSize = (10 * s).sp, style = TextStyle(shadow = lift))
                 val side = (46 * s).dp
-                @Composable fun heading(t: String) = Text(t, color = Color.White.copy(alpha = 0.7f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth().padding(start = side, top = (4 * s).dp))
+                @Composable fun heading(t: String) = Text(t, color = Color.White.copy(alpha = 0.92f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold,
+                    style = TextStyle(shadow = lift), modifier = Modifier.fillMaxWidth().padding(start = side, top = (4 * s).dp))
                 Column(Modifier.fillMaxWidth().weight(1f).graphicsLayer { alpha = fade.value; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }.verticalScroll(scroll)) {
                     if (showRecent) {
                         heading("Searched before")
@@ -528,8 +531,8 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
                                 .rowKeys("recent", { sel }, { shown.lastIndex }).focusGroup()) {
                             shown.forEachIndexed { i, q ->
                                 var f by remember { mutableStateOf(false) }
-                                Plain(q, color = if (f) Color(0xFF111114) else Color.White.copy(alpha = 0.85f), fontSize = (11 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.widthIn(max = (150 * s).dp).clip(RoundedCornerShape(50)).background(if (f) Color.White.copy(alpha = 0.94f) else Color.White.copy(alpha = 0.12f))
+                                Plain(q, color = if (f) Color(0xFF111114) else Color.White.copy(alpha = 0.95f), fontSize = (11 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = (150 * s).dp).clip(RoundedCornerShape(50)).background(if (f) Color.White.copy(alpha = 0.94f) else Color.Black.copy(alpha = 0.34f))
                                         .focusRequester(reqs.at(i)).onFocusChanged { f = it.isFocused; if (it.isFocused) sel = i }
                                         .tvPress { query = q; runCatching { SearchUi.entry.requestFocus() } }
                                         .padding(horizontal = (12 * s).dp, vertical = (5 * s).dp))

@@ -348,6 +348,14 @@ class Settings(private val ctx: Context) {
     var musicStageScale: Float get() = f("musicStageScale", 0.9f); set(v) = putF("musicStageScale", v.coerceIn(0.7f, 1.4f))
     /** theme | white | black: the player's buttons (the other way round when selected). */
     var musicButtons: String get() = s("musicButtons", "theme"); set(v) = putS("musicButtons", v)
+    /**
+     * The player page's background over your own background: "auto" (yours with see-through glass, else the artwork),
+     * "art" (the song's artwork, blurred) or "own" (yours stays).
+     */
+    var musicPageBg: String get() = s("musicPageBg", "auto"); set(v) = putS("musicPageBg", v)
+    /** The player page keeps your own background (a video, a picture) instead of the artwork. */
+    val musicKeepsOwnBg: Boolean get() = bgMode != "carousel" &&
+        (musicPageBg == "own" || (musicPageBg == "auto" && videoGlass == "clear" && (bgMode == "video" || bgMode == "aerial")))
     /** The island on the screensaver while music plays. */
     var musicIsland: Boolean get() = b("musicIsland", true); set(v) = putB("musicIsland", v)
     var islandStyle: String get() = s("islandStyle", "theme"); set(v) = putS("islandStyle", v)

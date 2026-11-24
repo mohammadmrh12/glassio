@@ -41,7 +41,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 70
+    const val ID = 71
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -63,11 +63,17 @@ object WhatsNew {
 
     // A welcome first, then everything new since 4.0.0, newest last, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("Welcome to Glassio 4.4", listOf(
-            "Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.",
+        Page("Welcome to Glassio 4.5", listOf(
+            "Everything new since Glassio 4.0, page by page, 4.5's first. Your setup stays as it is: each new thing is a choice.",
             "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
         ), "Settings → About → What's new"),
+        // (New in 4.5.)
+        Page("A tidier menu", listOf(
+            "Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.",
+            "Glass over the video and the video quality are in the menu too.",
+            "Page behind the player: your own video or picture can stay behind the music player.",
+        ), "Menu → Themes, Background, Screensaver · Settings → Music & app rows"),
         // (New in 4.4.)
         Page("Cameras", listOf(
             "Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.",

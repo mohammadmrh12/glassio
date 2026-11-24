@@ -108,6 +108,7 @@ private val NEW_IN = mapOf(
         "Platform rows", "Rows per platform", "Carousel shade", "Button look", "Music & Inputs page"),
     "4.2.0" to listOf("Recommended for this TV", "  · Where", "Glass over the video", "Plays", "Connect Jellyfin", "One player", "YouTube lists", "Rows above the dock", "Same video as the screensaver", "Let the video go while away", "Pexels", "  · Pexels key", "  · Pexels words",
         "Hold OK asks", "Hidden videos"),
+    "4.5.0" to listOf("  · Page behind the player"),
     "4.4.0" to listOf("  · Layout", "  · Menu's Camera opens the whole screen", "  · Sound follows the selection", "  · On the whole screen", "Unneeded apps"),
     "4.3.0" to listOf("  · Nuvio's picture by itself", "QR code in Settings' search", "New code"),
     "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
@@ -1644,6 +1645,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Adjust("  · Buttons", "White or black turn the other way round when selected", {
                         when (st.musicButtons) { "white" -> "White"; "black" -> "Black"; else -> "With the theme" }
                     }, { st.musicButtons = cycle(listOf("theme", "white", "black"), st.musicButtons, it) }))
+                    if (st.bgMode != "carousel") add(Adjust("  · Page behind the player", "Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page",
+                        { when (st.musicPageBg) { "own" -> "Your background"; "art" -> "The song's artwork"; else -> "Automatic" } }, { st.musicPageBg = cycle(listOf("auto", "art", "own"), st.musicPageBg, it) }))
                     add(Toggle("Player in the menu", "▶ in the menu turns it into a small player", { st.musicMenu }, { st.musicMenu = it }))
                     add(pageRow("Music apps", "Each music app selected in the dock: its player or its rows, and the player with nothing playing", more(installedMusicApps(ctx).size), sp = SubPage("Music apps") {
                             tvRev.intValue

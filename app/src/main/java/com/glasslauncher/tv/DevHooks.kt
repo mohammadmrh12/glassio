@@ -307,7 +307,7 @@ object DevHooks {
                 "inputs=${com.glasslauncher.tv.ui.InputsUi.focused} search=${com.glasslauncher.tv.ui.SearchUi.focused} rows=${com.glasslauncher.tv.ui.ChannelsUi.focused} " +
                 "profile=${com.glasslauncher.tv.data.Profiles.active(app)} home=${com.glasslauncher.tv.data.Profiles.home(app)} " +
                 "chooser=${com.glasslauncher.tv.ui.ProfilesUi.open.value} chooserSel=${com.glasslauncher.tv.ui.ProfilesUi.sel.intValue} appCat=${com.glasslauncher.tv.data.AppCatalogs.pkg.value ?: "-"} slide=${com.glasslauncher.tv.data.AppCatalogs.slide.replace(' ', '_')} " +
-                "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} cams=${MultiCamOverlay.open.value} " +
+                "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} glassPass=${com.glasslauncher.tv.ui.VideoGlass.clear.value && com.glasslauncher.tv.ui.VideoFrames.showing.value} videoShowing=${com.glasslauncher.tv.ui.VideoFrames.showing.value} cams=${MultiCamOverlay.open.value} " +
                 "writes=${app.settings.recentWrites.joinToString(",")}")
         }
         if (i.getBooleanExtra("dump_hidden", false)) android.util.Log.i("GlassPrefs", "hiddenApps(all)=" + st.hiddenApps.joinToString(","))

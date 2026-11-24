@@ -271,7 +271,10 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
             // theme's clock looked the same in every theme).
             val blurOn = st.blurRadius > 0 && look == "liquid"
             // The date can be white on its own (Settings), whatever the time's look.
-            if (look == "white" || st.bgClockDateWhite) Text(date, color = Color.White.copy(alpha = 0.9f), style = small.merge(shade))
+            // (The white date: a clear shadow just under its letters; the wide soft one left it unreadable over a
+            // bright sky: his photo.)
+            if (look == "white" || st.bgClockDateWhite) Text(date, color = Color.White.copy(alpha = 0.95f), style = small.merge(TextStyle(shadow =
+                Shadow(Color.Black.copy(alpha = 0.6f), offset = Offset(0f, 2f * s), blurRadius = 5f * s))))
             else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false, saver = inSaver, blurDp = st.blurRadius * 0.45f, opacity = st.bgClockGlass / 100f)
             if (look == "white") Text(time, color = Color.White.copy(alpha = 0.94f), style = big.merge(shade))
             else ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver, blurDp = st.blurRadius * 0.45f, opacity = st.bgClockGlass / 100f)
@@ -325,15 +328,28 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
                 img.prepareToDraw()
             }
         val mask = paint { drawText(layout, color = Color.White) }
-        // The rim: light along the top of each stroke, a little shadow along the bottom (like the Still Glass rim).
-        val rimImg = if (rim) paint {
-            drawText(layout, color = Color.White.copy(alpha = 0.7f))
-            drawText(layout, color = Color.Black, topLeft = Offset(0f, edge), blendMode = BlendMode.DstOut)
-        } else null
-        val shadeImg = if (rim) paint {
-            drawText(layout, color = Color.Black.copy(alpha = 0.22f))
-            drawText(layout, color = Color.Black, topLeft = Offset(0f, -edge), blendMode = BlendMode.DstOut)
-        } else null
+        // The rim: light along the top of each stroke, a little shadow along the bottom (like the Still Glass rim),
+        // painted at twice the size (drawn down to the digits' size, see below).
+        val big = style.copy(fontSize = style.fontSize * 2, lineHeight = style.lineHeight * 2, letterSpacing = style.letterSpacing * 2)
+        val layout2 = tm.measure(text, big)
+        fun paint2(block: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit): ImageBitmap =
+            ImageBitmap(w * 2, h * 2).also { img ->
+                androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(density, androidx.compose.ui.unit.LayoutDirection.Ltr,
+                    androidx.compose.ui.graphics.Canvas(img), androidx.compose.ui.geometry.Size(w * 2f, h * 2f), block)
+                img.prepareToDraw()
+            }
+        // Each edge fades from the digit's outline inwards (a copy shifted a little further each step takes away a part
+        // more), like a light on glass: a flat band of one brightness ended in a hard cut on its inner side, which
+        // showed as steps along every slope and square ends (his photo, still "pixelated" after the 2x paint).
+        fun androidx.compose.ui.graphics.drawscope.DrawScope.fadingEdge(color: Color, dir: Float) {
+            drawText(layout2, color = color)
+            val steps = floatArrayOf(0.35f, 0.40f, 0.50f, 0.60f, 1f)
+            steps.forEachIndexed { i, cut ->
+                drawText(layout2, color = Color.Black.copy(alpha = cut), topLeft = Offset(0f, dir * edge * 2 * (i + 1) / steps.size * 1.5f), blendMode = BlendMode.DstOut)
+            }
+        }
+        val rimImg = if (rim) paint2 { fadingEdge(Color.White.copy(alpha = 0.85f), 1f) } else null
+        val shadeImg = if (rim) paint2 { fadingEdge(Color.Black.copy(alpha = 0.26f), -1f) } else null
         Triple(mask, rimImg, shadeImg)
     }
     val (mask, rimImg, shadeImg) = art
@@ -406,8 +422,14 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
         Canvas(Modifier.matchParentSize()) {
             if (glass) drawImage(mask, blendMode = BlendMode.DstIn)
             else drawImage(mask, colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(fill, BlendMode.SrcIn))
-            rimImg?.let { drawImage(it) }
-            shadeImg?.let { drawImage(it) }
+        }
+        // The rim's light and dark edges, painted at twice the size and drawn down with high-quality filtering: at
+        // their own size (1-2 px slivers) they came out in steps along every curve and slope ("the clock's edges are
+        // pixelated"); blurred they went soft and faded (his next photo).
+        if (rimImg != null || shadeImg != null) Canvas(Modifier.matchParentSize()) {
+            val d = IntSize(this.size.width.roundToInt(), this.size.height.roundToInt())
+            rimImg?.let { drawImage(it, dstSize = d, filterQuality = FilterQuality.High) }
+            shadeImg?.let { drawImage(it, dstSize = d, filterQuality = FilterQuality.High) }
         }
     }
 }

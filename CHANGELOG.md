@@ -2,6 +2,21 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.5.0 — a tidier menu, and your background behind the music
+
+- **The menu:** Themes, Background and Screensaver show their choices across one row (each theme as a small sample of
+  itself), with the other settings under them. New in the menu: *Glass over the video* (Bent / See-through) in Themes,
+  and the video *Quality* in Background and in Screensaver.
+- **Page behind the player** (Settings → Music & app rows): the song's artwork, or your own background, so your video or
+  picture stays behind the player. By default your background stays when *Glass over the video* is See-through.
+- **The large clock:** smooth edges on the digits (their light edge fades inwards like glass), and a shadow under the
+  white date so it reads over a bright sky.
+- **The music island:** the song's name scrolls smoothly (the letters no longer tremble) with a short shadow under them.
+- **Search over a bright picture:** the bar, the earlier searches and the headings stay readable.
+- **Fixes:** Down to the Library works with *Bounce at the edges* off (#41); the background video no longer shows
+  between the screensaver's trailers; the screensaver closes an open menu, so nothing is left on screen without a
+  selection afterwards; a video's still is never kept when it is one flat colour (a green page on a Fire TV, #40).
+
 ## 4.4.2 — fixes, and the two versions talk to each other
 
 - **Video background on some boxes (Amlogic):** the still picture of each video is now copied from the video on screen,
