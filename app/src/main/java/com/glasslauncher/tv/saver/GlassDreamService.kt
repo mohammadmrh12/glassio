@@ -54,7 +54,12 @@ class GlassDreamService : DreamService(), LifecycleOwner, SavedStateRegistryOwne
     }
     override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean { wakeUp(); return true }
 
-    override fun onDreamingStarted() { super.onDreamingStarted(); registry.currentState = Lifecycle.State.RESUMED }
-    override fun onDreamingStopped() { registry.currentState = Lifecycle.State.CREATED; super.onDreamingStopped() }
+    override fun onDreamingStarted() { super.onDreamingStarted(); if (registry.currentState.isAtLeast(Lifecycle.State.CREATED)) registry.currentState = Lifecycle.State.RESUMED }
+    // (Android calls onDreamingStopped from onDestroy too, after the state is DESTROYED: moving back to CREATED then
+    // threw and Glassio closed, #36.)
+    override fun onDreamingStopped() {
+        if (registry.currentState.isAtLeast(Lifecycle.State.CREATED)) registry.currentState = Lifecycle.State.CREATED
+        super.onDreamingStopped()
+    }
     override fun onDestroy() { registry.currentState = Lifecycle.State.DESTROYED; super.onDestroy() }
 }

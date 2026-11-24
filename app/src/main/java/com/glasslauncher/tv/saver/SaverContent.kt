@@ -436,7 +436,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                     rendered[0] = false
                     SaverControl.currentUrl = list[i.mod(list.size)].second
                     val from = if (i == 0 && sameFromBox[0] > 0) sameFromBox[0].also { sameFromBox[0] = 0L } else 0L
-                    p.setMediaItem(MediaItem.fromUri(list[i.mod(list.size)].second), from); p.prepare(); p.play()
+                    com.glasslauncher.tv.ui.DecodeGate.starting(); p.setMediaItem(MediaItem.fromUri(list[i.mod(list.size)].second), from); p.prepare(); p.play()
                     SaverControl.playingTitle = list[i.mod(list.size)].first; SaverControl.playingSince = android.os.SystemClock.uptimeMillis(); SaverControl.playingFrom = from
                     com.glasslauncher.tv.data.Glog.i("Saver: #${i.mod(list.size)}/${list.size} ${list[i.mod(list.size)].first}")
                 }

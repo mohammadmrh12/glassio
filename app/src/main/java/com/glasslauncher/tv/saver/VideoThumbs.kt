@@ -40,7 +40,14 @@ object VideoThumbs {
         return f.takeIf { it.isFile && it.length() > 0 }?.absolutePath
     }
 
-    private fun make(ctx: Context, url: String, out: File) = runCatching {
+    private val oneAtATime = Any()
+
+    // One at a time, and never while a player is opening its decoder (DecodeGate): each picture in a list started
+    // its own decode, several at once beside the playing background video (#31: two hardware decoders at once).
+    private fun make(ctx: Context, url: String, out: File) = synchronized(oneAtATime) { makeNow(url, out) }
+
+    private fun makeNow(url: String, out: File) = runCatching {
+        com.glasslauncher.tv.ui.DecodeGate.waitClear()
         val r = MediaMetadataRetriever()
         try {
             if (url.startsWith("http")) r.setDataSource(url, HashMap()) else r.setDataSource(url.removePrefix("file://"))

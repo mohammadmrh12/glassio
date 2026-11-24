@@ -99,7 +99,7 @@ object RemoteMap {
                 a.startsWith("input:") -> Inputs.open(app, a)
                 a == "search" -> glass(app) { it.putExtra("open_search", true) }
                 a == "closeapp" -> closeFront(app)
-                a == "cameras" -> com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(bottom = false, full = true)
+                a == "cameras" -> com.glasslauncher.tv.MultiHost.toggle(bottom = false, full = true)
                     ?: android.widget.Toast.makeText(app, "The cameras page needs the Home button service: Glassio settings → System", android.widget.Toast.LENGTH_LONG).show()
             }
         }.onFailure { Glog.w("Remote button ${m.code}", it) }

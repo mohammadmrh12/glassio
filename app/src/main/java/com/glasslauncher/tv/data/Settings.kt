@@ -525,7 +525,11 @@ class Settings(private val ctx: Context) {
     var iconPack: String get() = s("iconPack", ""); set(v) = putS("iconPack", v)
     /** Weather in the top bar: off | temp | condition | city | all */
     var weatherMode: String get() = s("weatherMode", "off"); set(v) = putS("weatherMode", v)
-    var weatherCity: String get() = s("weatherCity", "Baghdad"); set(v) = putS("weatherCity", v.trim())
+    // "" = automatic: the city of the TV's own time zone (Asia/Baghdad → Baghdad). It was "Baghdad" for everyone
+    // who never typed one (#37: a TV in Canada showed Baghdad's weather).
+    var weatherCity: String get() = s("weatherCity", ""); set(v) = putS("weatherCity", v.trim())
+    /** The city the weather is for: the one typed, else the time zone's. */
+    val weatherPlace: String get() = weatherCity.ifBlank { zoneCity() }
     var weatherF: Boolean get() = b("weatherF", false); set(v) = putB("weatherF", v)
     var showDate: Boolean get() = b("showDate", true); set(v) = putB("showDate", v)
     /** tvOS look: icons are white until selected, then show their colours on a light plate. */
@@ -993,3 +997,7 @@ class Settings(private val ctx: Context) {
     /** The What's new tour last seen (WhatsNew.ID). */
     var tourSeen: Int get() = i("tourSeen", 0); set(v) = putI("tourSeen", v)
 }
+
+/** The city in the TV's time zone's name ("America/New_York" → "New York"), or "" for zones without one (UTC). */
+fun zoneCity(zone: String = java.util.TimeZone.getDefault().id): String =
+    zone.takeIf { '/' in it && !it.startsWith("Etc/") }?.substringAfterLast('/')?.replace('_', ' ').orEmpty()

@@ -188,7 +188,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     }
                     if (bits.isNotEmpty()) Text(bits.joinToString("  ·  "), color = soft, fontSize = (8.5f * s).sp, fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(start = (6 * s).dp, end = (6 * s).dp, top = (6 * s).dp), maxLines = 1)
-                } else if (st.menuCity && st.menuWeather) Text(st.weatherCity, color = soft, fontSize = (8.5f * s).sp, modifier = Modifier.padding(start = (6 * s).dp, top = (6 * s).dp))
+                } else if (st.menuCity && st.menuWeather) Text(st.weatherPlace, color = soft, fontSize = (8.5f * s).sp, modifier = Modifier.padding(start = (6 * s).dp, top = (6 * s).dp))
                 sys?.let { y ->
                     val bits = buildList {
                         if (st.sysIp && y.ip.isNotBlank()) add("IP" to y.ip)
@@ -340,9 +340,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             }
                         }, onClick = {
                             // OK again: multi-view in the middle of the screen (up to four cameras).
-                            val svc = com.glasslauncher.tv.HomeKeyService.instance
-                            if (svc == null) toast(ctx, "Multi-view needs the Home button service (Glassio settings → System)")
-                            else { onClose(); svc.toggleMulti(bottom = false) }
+                            onClose(); com.glasslauncher.tv.MultiHost.toggle(bottom = false)
                         })) {
                         if (cam != null) androidx.compose.runtime.key(cam.url) { CameraView(cam, s, Modifier.fillMaxSize()) }
                     }
@@ -352,9 +350,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     MenuRow(s, light, "Whole screen", "", modifier = Modifier.focusRequester(reqs[1]),
                         first = false, last = true, onLeft = { target = camRow; camPage = false },
                         glyph = { c -> glyph("camera", c) }, onClick = {
-                            val svc = com.glasslauncher.tv.HomeKeyService.instance
-                            if (svc == null) toast(ctx, "Multi-view needs the Home button service (Glassio settings → System)")
-                            else { onClose(); svc.toggleMulti(bottom = false, full = true) }
+                            onClose(); com.glasslauncher.tv.MultiHost.toggle(bottom = false, full = true)
                         })
                 } else if (bgPage) {
                     Text("Background", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
@@ -503,9 +499,8 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         if (st.menuRecents) add(Triple("recents", "Recent apps") { onClose(); runCatching { ctx.startActivity(Intent(ctx, com.glasslauncher.tv.RecentsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } })
                         if (st.menuThemes) add(Triple("theme", "Themes") { target = 0; themes = true })
                         if (st.menuCamera && cams.isNotEmpty()) add(Triple("camera", "Camera") {
-                            val svc = com.glasslauncher.tv.HomeKeyService.instance
                             // (Settings → Smart home: the menu's Camera can open the cameras page straight away.)
-                            if (st.cameraMenuFull && svc != null) { onClose(); svc.toggleMulti(bottom = false, full = true) } else { target = 0; camPage = true }
+                            if (st.cameraMenuFull) { onClose(); com.glasslauncher.tv.MultiHost.toggle(bottom = false, full = true) } else { target = 0; camPage = true }
                         })
                         if (st.menuSaver) add(Triple("saver", "Screensaver") { target = 0; saverPage = true })
                         if (st.menuTrailer) add(Triple("trailer", "Trailer") { target = 0; trailerPage = true })

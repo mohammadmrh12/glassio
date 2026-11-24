@@ -420,7 +420,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             Pref("saverShuffle", "bg", "Shuffle the screensaver", "", onOff),
             Pref("bgClock", "bg", "Large clock", "The big glass clock over your own background", onOff),
             // (Since 4.4: the cameras' layout and page, and the Performance mode with Lite.)
-            Pref("multiLayout", "home", "Multi-view layout", "One row when the cameras fit, else two by two", listOf("auto" to "Automatic", "row" to "One row", "grid" to "Two by two")),
+            Pref("multiLayout", "home", "Multi-view layout", "One row when the cameras fit, else a grid", listOf("auto" to "Automatic", "row" to "One row", "grid" to "Grid")),
             Pref("cameraMenuFull", "home", "Menu's Camera opens the whole screen", "Straight to the cameras page", onOff),
             Pref("cameraSoundFollows", "home", "Sound follows the selection", "On the whole screen, the selected camera is heard", onOff),
             Pref("perfMode", "system", "Performance mode", "Lite keeps the look and is lighter on memory", listOf("auto" to "Auto", "lite" to "Lite",
@@ -494,7 +494,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             .put("opts", p.opts?.let { o -> JSONArray().apply { o.forEach { (v, l) -> put(JSONArray().put(v).put(l)) } } } ?: JSONObject.NULL)) }
         return JSONObject().put("prefs", pr).put("byName", PhoneHost.byName(app) ?: "").put("name", LocalName.host(app) + ".local").put("pexels", pexels).put("youtube", !com.glasslauncher.tv.data.Store.PLAY).put("addons", addons).put("bg", back).put("apps", apps).put("aerial", aerial).put("cams", cams).put("accounts", acc).put("nuvioServer", nuvioServer)
             .put("tmdb", app.settings.tmdbToken.isNotBlank()).put("ha", app.settings.haWebhook.isNotBlank())
-            .put("simklClient", app.cw.simkl.clientId.isNotBlank()).put("city", st.weatherCity)
+            .put("simklClient", app.cw.simkl.clientId.isNotBlank()).put("city", st.weatherPlace)
             .put("profile", JSONObject().put("name", com.glasslauncher.tv.data.Profiles.nameOverride(app, com.glasslauncher.tv.data.Profiles.active(app))))
             // (Keys are write-only: only whether one is set.)
             .put("photos", JSONObject().put("source", st.photoSource).put("unsplash", st.unsplashKey.isNotBlank()).put("reddit", st.redditAppId.isNotBlank()).put("subs", st.photoSubreddit)

@@ -43,8 +43,18 @@ object SystemSetup {
             val standIn = action == android.provider.Settings.ACTION_SETTINGS || to == null || to.packageName == ctx.packageName ||
                 to.name.contains("CTSDummy") || to.name.contains("FallbackHome")
             Glog.i("TV settings $action → ${to?.packageName}/${to?.name}")
+            // (Which of Amazon's settings screens this Fire OS has, for a problem report: #29, a Fire Stick on
+            // Fire OS 8.1.8.5 still came back to Glassio.)
+            runCatching {
+                val names = listOf("com.amazon.tv.launcher", "com.amazon.tv.settings.v2").flatMap { p ->
+                    runCatching { ctx.packageManager.getPackageInfo(p, android.content.pm.PackageManager.GET_ACTIVITIES).activities.orEmpty()
+                        .filter { it.exported && it.name.contains("Settings", true) }.map { p.substringAfterLast('.') + ":" + it.name.substringAfterLast('.') } }.getOrDefault(emptyList())
+                }
+                Glog.i("TV settings: Fire OS ${android.os.Build.VERSION.INCREMENTAL} · ${android.os.Build.MODEL} · exported: ${names.take(12).joinToString()}")
+            }
             if (standIn) for (c in listOf("com.amazon.tv.launcher/.ui.MainSettingsActivity", "com.amazon.tv.launcher/.ui.SettingsActivity"))
                 if (start(Intent().setComponent(android.content.ComponentName.unflattenFromString(c)))) { Glog.i("TV settings: Fire TV's $c"); return true }
+                else Glog.i("TV settings: $c didn't open")
         }
         return start(Intent(action))
     }

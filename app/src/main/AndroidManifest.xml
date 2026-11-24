@@ -32,6 +32,9 @@
         <!-- Fire TV: where its Settings actions end (Amazon's stand-in that starts its home: #29). -->
         <package android:name="com.amazon.tv.settings.v2"/>
         <package android:name="com.amazon.tv.launcher"/>
+        <!-- Glassio's other build (GitHub ↔ Play): Restore backup can take its settings (BackupProvider). -->
+        <package android:name="com.glasslauncher.tv"/>
+        <package android:name="com.glasslauncher.tv.play"/>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
         <intent><action android:name="org.adw.launcher.THEMES"/></intent>
@@ -150,5 +153,10 @@
             android:launchMode="singleTask"
             android:taskAffinity=".recents"
             android:configChanges="keyboard|keyboardHidden|navigation|screenSize|orientation|uiMode"/>
+        <!-- This TV's settings for Glassio's other build only (it checks the caller's package and signature). -->
+        <provider
+            android:name=".data.BackupProvider"
+            android:authorities="${applicationId}.backup"
+            android:exported="true" />
     </application>
 </manifest>

@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        MultiHost.windowGone()
         // Another app or the TV's own screensaver in front: the screensaver on the home screen ends (as its own
         // screen does).
         com.glasslauncher.tv.saver.HomeSaver.drop()
@@ -209,6 +210,8 @@ class MainActivity : ComponentActivity() {
         private const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
         /** The Glassio on screen (there is only ever one: see onCreate). */
         @Volatile private var live: java.lang.ref.WeakReference<MainActivity>? = null
+        /** The Glassio on screen now, if any. */
+        fun current(): MainActivity? = live?.get()
     }
 
     /** Testing from a computer: see [DevHooks]. */
@@ -254,6 +257,8 @@ class MainActivity : ComponentActivity() {
             if (com.glasslauncher.tv.saver.HomeSaver.onKey(event, (application as GlassApp).settings)) return true
         }
         if (com.glasslauncher.tv.ui.NavGate.blocks(event.keyCode)) return true
+        // Multi-view or the cameras page shown in Glassio's own window (no Home button service) takes the remote.
+        if (MultiHost.key(event)) return true
         // The shuffle button and "press the button you want" (also caught by the Home button service first).
         if (KeyHub.handle(application as GlassApp, KeyHub.idOf(event), event.action == KeyEvent.ACTION_DOWN)) return true
         // The What's new tour takes the remote while it shows.

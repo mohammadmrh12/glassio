@@ -2,6 +2,20 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.4.2 — fixes, and the two versions talk to each other
+
+- **Video background on some boxes (Amlogic):** the still picture of each video is now copied from the video on screen,
+  so Glassio never opens a second decoder for the same video (on a UGOOS AM9 Pro the switch to an HEVC video with two
+  decoders open ended in a reboot). Video thumbnails are made one at a time.
+- **Cameras:** the cameras page and multi-view show up to nine cameras (a grid past four), and they work without the
+  Home button service too (Fire TV): Glassio shows them in its own screen.
+- **Backups between the GitHub and the Google Play versions:** *Restore backup* in one takes the other's settings
+  directly when both are on the TV (each checks the other is really Glassio).
+- **Weather:** with no city typed it follows the TV's time zone (it used Baghdad for everyone).
+- **Fixes:** the TV's screensaver setting no longer crashes Glassio when the TV closes it; an empty Library can be left
+  with Up; the TV's *Allow USB debugging?* window no longer comes back every few minutes after it was dismissed (and the
+  Google Play version only asks from TV access); Fire TV notes which settings screens it has, for a problem report.
+
 ## 4.4.1 — fixes
 
 - **Screensaver and background videos** load as far ahead as before 4.4.0 again on every TV: on weaker TVs (and in

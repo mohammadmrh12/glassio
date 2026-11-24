@@ -117,10 +117,29 @@ object CustomBackground {
     private fun cachedFrame(ctx: Context, src: String): String? {
         val f = frameFile(ctx, src)
         if (f.length() > 0) return "file://" + f.absolutePath
+        // A video's frame is taken from the player's own picture once it plays ([saveStill]), never decoded again
+        // here: reading it with MediaMetadataRetriever opened a second hardware decoder for the same video while the
+        // player opened its own, and on an Amlogic box (UGOOS AM9 Pro, #31) the switch to an HEVC video with both at
+        // once was the last thing in its log before a kernel panic. Only YouTube's still (a download) is fetched.
+        if (com.glasslauncher.tv.saver.VideoThumbs.youtube(src) == null) return null
         if (working.add(src)) Bg.io("glass-video-frame") {
             try { if (frameOf(ctx, src) != null) frameRev.intValue++ } finally { working.remove(src) }
         }
         return null
+    }
+
+    /** Keeps [bmp] (a copy of the playing video's picture) as [src]'s still, once. */
+    fun saveStill(ctx: Context, src: String, bmp: android.graphics.Bitmap) {
+        val out = frameFile(ctx, src)
+        if (out.length() > 0) return
+        Bg.io("glass-video-frame") {
+            runCatching {
+                val tmp = File(out.parentFile, out.name + ".part")
+                tmp.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it) }
+                tmp.renameTo(out); frameRev.intValue++
+                Glog.i("Background video still: from its own picture")
+            }.onFailure { Glog.w("Background video frame", it) }
+        }
     }
 
     /** One frame of the video (cached), so the glass has something to show. */
@@ -323,6 +342,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                 // marking it as not drawn stopped the glass copies for good (dock, menu and clock froze).
                 if (reason == androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) return
                 rendered = false
+                DecodeGate.starting()
                 val u = item?.localConfiguration?.uri?.toString() ?: return
                 list.firstOrNull { CustomBackground.uri(it) == u }?.let { Glog.i("Background video: $it"); onItem(it) }
             }
@@ -415,6 +435,19 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
         if (player.isPlaying && view?.holder?.surface?.isValid == true) { Glog.i("Background video: drawing again"); rendered = true }
     }
     androidx.compose.runtime.LaunchedEffect(rendered) { if (rendered) VideoFrames.drawnRev.intValue++ }
+    // The video's still (the page's backdrop, the glass behind it while it loads): one copy of its own picture,
+    // 1.5 s in, once per video. No second decoder (see CustomBackground.cachedFrame).
+    androidx.compose.runtime.LaunchedEffect(rendered, view) {
+        val v = view ?: return@LaunchedEffect
+        if (!rendered) return@LaunchedEffect
+        val u = player.currentMediaItem?.localConfiguration?.uri?.toString() ?: return@LaunchedEffect
+        val src = list.firstOrNull { CustomBackground.uri(it) == u } ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(1_500)
+        if (!rendered || player.currentMediaItem?.localConfiguration?.uri?.toString() != u || !v.holder.surface.isValid) return@LaunchedEffect
+        val bmp = android.graphics.Bitmap.createBitmap(960, 540, android.graphics.Bitmap.Config.ARGB_8888)
+        android.view.PixelCopy.request(v, bmp, { r -> if (r == android.view.PixelCopy.SUCCESS) CustomBackground.saveStill(v.context, src, bmp) },
+            android.os.Handler(android.os.Looper.getMainLooper()))
+    }
     // The fade in, once the first frame of a video is on screen.
     androidx.compose.runtime.LaunchedEffect(rendered) {
         if (rendered && dim.floatValue > 0f)
@@ -642,3 +675,16 @@ private fun tmpFor(full: android.graphics.Bitmap, part: android.graphics.RectF):
     return tmpBufs.getOrPut("${w}x$h") { android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888) }
 }
 
+/**
+ * One video decoder starting at a time: a player opening its decoder (the next video) and a still or thumbnail being
+ * decoded from a video at the same moment were two hardware decoders at once, and on an Amlogic box (#31) the
+ * switch to HEVC with both open was the last thing before a kernel panic. Pictures made from videos wait until a
+ * player's start is over.
+ */
+object DecodeGate {
+    @Volatile private var busyUntil = 0L
+    /** A player is opening a decoder now. */
+    fun starting(ms: Long = 4_000) { busyUntil = android.os.SystemClock.uptimeMillis() + ms }
+    /** Blocking: waits until no player is starting (20 s at most). */
+    fun waitClear() { var n = 0; while (android.os.SystemClock.uptimeMillis() < busyUntil && n++ < 200) Thread.sleep(100) }
+}

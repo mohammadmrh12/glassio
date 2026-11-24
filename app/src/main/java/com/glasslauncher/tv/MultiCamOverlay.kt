@@ -32,7 +32,9 @@ import com.glasslauncher.tv.ui.Cam
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, private val bottom: Boolean,
                       private val seconds: Int, private val scale: Float,
-                      private val layout: String = "auto", private val full: Boolean = false) {
+                      private val layout: String = "auto", private val full: Boolean = false,
+                      /** Shown inside Glassio's own window (no Home button service: Fire TV, the Play build before consent). */
+                      private val inApp: Boolean = false) {
     private val wm = ctx.getSystemService(WindowManager::class.java)
     private var root: FrameLayout? = null
     private var row: LinearLayout? = null
@@ -44,17 +46,19 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
     fun show() {
         if (cams.isEmpty() || root != null) return
         val dm = ctx.resources.displayMetrics
-        val n = cams.size.coerceAtMost(4)
+        // Up to nine, on the cameras page and in multi-view alike (three by three past four, his ask after #30).
+        val n = cams.size.coerceAtMost(9)
         val gap = (12 * dm.density).toInt()
         val w = dm.widthPixels.toFloat(); val h = dm.heightPixels.toFloat()
         // Each card: a share of the screen width (four fill about 88% of it at size 100%).
         val wanted = (w * 0.88f - gap * (n - 1)) / 4f * scale.coerceIn(0.6f, 1.4f)
         val cols = when {
-            full -> if (n <= 1) 1 else 2
+            full -> pageCols(n)
             n < 3 || layout == "row" -> n
-            layout == "grid" -> 2
-            else -> if (wanted * n + gap * (n - 1) <= w * 0.94f) n else 2      // auto: two by two when one row won't fit
+            layout == "grid" -> pageCols(n)
+            else -> if (wanted * n + gap * (n - 1) <= w * 0.94f) n else pageCols(n)      // auto: a grid when one row won't fit
         }
+        colsShown = cols
         val rowsN = (n + cols - 1) / cols
         // Never wider (or taller) than the screen.
         val fitW = (w * (if (full) 0.97f else 0.94f) - gap * (cols - 1)) / cols
@@ -179,7 +183,8 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         // (Not over Glassio's screensaver: it draws its own soft veil, and the TV's blur of the whole screen in
         // every frame, over a playing video, made every frame of both windows slow.)
         val blurOk = android.os.Build.VERSION.SDK_INT >= 31 && wm.isCrossWindowBlurEnabled && ownVeil == 0
-        val lp = WindowManager.LayoutParams(if (compact) -2 else -1, if (compact) -2 else -1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        val lp = WindowManager.LayoutParams(if (compact) -2 else -1, if (compact) -2 else -1,
+            if (inApp) WindowManager.LayoutParams.TYPE_APPLICATION_PANEL else WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 (if (blurOk) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0),
             PixelFormat.TRANSLUCENT).apply {
@@ -265,7 +270,10 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         // Sound follows the selection (a setting): the selected camera is heard when it sends sound.
         if (full && (ctx.applicationContext as GlassApp).settings.cameraSoundFollows) heard = if (audio[sel] == false) -1 else sel
         players.forEachIndexed { i, p -> p.volume = if (i == heard) 1f else 0f }
+        if (heard != heardLogged) { heardLogged = heard; com.glasslauncher.tv.data.Glog.i("Cameras page: sound on ${cams.getOrNull(heard)?.name ?: "none"} (selected ${cams.getOrNull(sel)?.name})") }
     }
+    private var heardLogged = -2
+    private var colsShown = 2
 
     /** Back on the cameras page: leaves the camera's controls first (true), else the page closes. */
     fun back(): Boolean {
@@ -294,9 +302,8 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         if (!full) {
             if (!ok && code !in ARROWS) return false
             if (!down) {
-                val svc = com.glasslauncher.tv.HomeKeyService.instance
-                if (bottom && code == android.view.KeyEvent.KEYCODE_DPAD_DOWN) handler.post { svc?.closeMulti() }
-                else if (ok) handler.post { svc?.closeMulti(); svc?.toggleMulti(bottom = false, full = true) }
+                if (bottom && code == android.view.KeyEvent.KEYCODE_DPAD_DOWN) handler.post { MultiHost.close() }
+                else if (ok) handler.post { MultiHost.close(); MultiHost.toggle(bottom = false, full = true) }
             }
             return true
         }
@@ -334,7 +341,7 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
             else if (!down) { handler.removeCallbacks(holdOk); if (!okHeld) { heard = if (heard == sel || audio[sel] == false) -1 else sel; mark() } }
             return true
         }
-        val n = cards.size; val cols = if (n <= 1) 1 else 2
+        val n = cards.size; val cols = if (full) pageCols(n) else colsShown
         val step = when (code) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> -1; android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> 1
             android.view.KeyEvent.KEYCODE_DPAD_UP -> -cols; android.view.KeyEvent.KEYCODE_DPAD_DOWN -> cols
@@ -386,11 +393,52 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         /** Glassio's screensavers showing (each draws its own veil behind the cameras). */
         @Volatile var ownVeil = 0
 
-        /** The cameras for multi-view: the ones chosen in Settings (in order), else the first four. */
+        /** The cameras page's columns: one camera whole, two to four two by two, five to nine three by three. */
+        fun pageCols(n: Int) = when { n <= 1 -> 1; n <= 4 -> 2; else -> 3 }
+
+        /** QA (dev key, `--es cams_test "Name|url,Name|url"`, `-` ends it): cameras in memory only, his list untouched. */
+        @Volatile var testCams: List<Cam>? = null
+
+        /** The cameras chosen in Settings (in order), else all of them, nine at most (multi-view and the cameras page). */
         fun cams(app: GlassApp): List<Cam> {
+            testCams?.let { return it.take(9) }
             val all = app.settings.cameras.mapNotNull { Cam.parse(it) }
             val chosen = app.settings.multiCams
-            return (if (chosen.isEmpty()) all else chosen.mapNotNull { u -> all.firstOrNull { it.url == u } }).take(4)
+            return (if (chosen.isEmpty()) all else chosen.mapNotNull { u -> all.firstOrNull { it.url == u } }).take(9)
         }
     }
+}
+
+/**
+ * Opens and closes multi-view and the cameras page from anywhere. With the Home button service they are its windows
+ * over any app; without it (Fire TV, where it can only be turned on through ADB; the Play build before its agreement)
+ * Glassio's own window shows them and hands them the remote's keys, so the cameras still work from Glassio (#30:
+ * "full screen does not work on Fire TV").
+ */
+object MultiHost {
+    private var inApp: MultiCamOverlay? = null
+
+    /** False: nothing could show them (no service and Glassio isn't on screen). */
+    fun toggle(bottom: Boolean, full: Boolean = false): Boolean {
+        HomeKeyService.instance?.let { it.toggleMulti(bottom, full); return true }
+        inApp?.let { if (it.showing) { it.close(); inApp = null; return true } }
+        val act = MainActivity.current() ?: return false
+        val app = act.application as GlassApp
+        val cams = MultiCamOverlay.cams(app)
+        if (cams.isEmpty()) { android.widget.Toast.makeText(act, "Add a camera first: Glassio settings → Cameras", android.widget.Toast.LENGTH_LONG).show(); return true }
+        inApp = MultiCamOverlay(act, cams, bottom && !full, app.settings.multiSec, app.settings.multiScale, app.settings.multiLayout, full, inApp = true).also { it.show() }
+        return true
+    }
+
+    fun close() { HomeKeyService.instance?.closeMulti(); inApp?.close(); inApp = null }
+
+    /** Glassio's window passes its keys here first: Back closes (or leaves a camera's controls), the rest as the service does. */
+    fun key(e: android.view.KeyEvent): Boolean {
+        val m = inApp?.takeIf { it.showing } ?: return false
+        if (e.keyCode == android.view.KeyEvent.KEYCODE_BACK) { if (e.action == android.view.KeyEvent.ACTION_UP && !m.back()) { m.close(); inApp = null }; return true }
+        return m.key(e)
+    }
+
+    /** Glassio's window went away: what it showed goes with it. */
+    fun windowGone() { inApp?.close(); inApp = null }
 }

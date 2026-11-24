@@ -23,6 +23,13 @@
 - **Always keep working on the TV, even while he is browsing or playing something** (his rule since 2026-11-19, 9 pm):
   install, send keys and measure without waiting for him to stop. Still put back what you changed, and never press
   Send / Delete / Sign out or anything that can't be undone on a screen he opened himself.
+- **Act without asking** (his rule since 2026-11-24: "ثبت اي شي تريده بدون ما تسالني", "سوي اي شي تريدة بدون ما
+  تسالني"): install apps or builds for a test, run test servers, decide the details myself; remove what I installed
+  after. **No guesses anywhere**: a cause is "found" only once it was seen on the TV, else say it is from the code.
+  Still never Allow on the TV's USB debugging window, sign in or change things in his accounts myself; releases as below.
+- **Issues:** reply as needed, but **always read the issue's newest comments again right before commenting** (his
+  rule since 2026-11-24): edit my earlier comment or fix the new problem first, then reply. Only tested facts.
+- **Every message to him in Arabic**, progress notes too; English only for code and copy-ready text.
 - Leave the TV awake after testing. Put back any setting you changed while testing.
 - **Test lightly on the TV** (his rule since 2026-11-20; "never claim it works without the TV" still stands):
   - A setting that only changes a look: one screenshot per choice is enough, not a grid of every choice × every
@@ -55,7 +62,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.4.0 (code 77, stable, 2026-11-24)**, public `4064a51`; 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.4.1 (code 79, stable, 2026-11-24)**, public `d81b8f9`; 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -2140,6 +2147,38 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   `required=false` (CHANGE_WIFI_MULTICAST_STATE implied it: Play's 4.4.0 review dropped 6 cable-only TVs; code 77
   and 78 bundles stay unreleased in the Console's library). Seen on the Streamer: no merge warning at start, a
   failing Reddit source retried after 30 s, `nav` clean; his bgMode / photoSource put back.
+  **Released:** public `d81b8f9` on `origin/main`, tag `v4.4.1`, *latest*, both APKs (sha256 `8d3507e0…c3e52902`, downloaded
+  and compared, the Streamer's file). Play bundle 79 (4.4.1) in the Desktop folder. #34 not told yet.
+- **After 4.4.1 (2026-11-24 night, local, not released):** #36 the TV's screensaver (dream) crash on close; cameras
+  page and multi-view up to nine (grid past four, `Layout` "Grid"); an empty Library takes the selection (#33);
+  TV access: a dismissed USB debugging window isn't asked again without the Home button service, the Play build asks
+  only when the person does until it worked once (`tv_access` file). **Backups between the two builds**
+  (`data/BackupProvider.kt`, `data/Certs.kt`): each build answers at `<package>.backup` only to the other build,
+  checked by package and SHA-256 signing certificate (GitHub debug key `0c5478f7…`, Play's app signing key `ae5fe0ca…`
+  from the Console and the upload key `d1d9d86b…`); the Play build's *Restore backup* takes the GitHub build's
+  settings first, the GitHub build asks the Play build last. Seen: 336 of 336 settings restored from the setup's
+  *Restore a backup*; the shell refused by both; QA `--ez backup_other true` (dev key) logs the other build's backup
+  without restoring. Also seen: the Play build can't read the GitHub build's files in Download ("No backup on the TV
+  yet"); the phone page's restore takes the file (280 settings then). QA hooks need the TV awake: a running dream
+  (TV screensaver) swallows `am start` ("Activity not started, its current task has been brought to the front").
+  Nuvio One (EB, #30): its *Continue watching* row shows and stays in Glassio (fresh-process update, Glassio restart):
+  not reproduced; it was installed for the test with his account (he signed in).
+- **Same night, more (local):** weather city "" = automatic from the TV's time zone (`Settings.weatherPlace`,
+  `zoneCity`; the default was "Baghdad" for everyone, #37; his saved `dhiqar` untouched). **`MultiHost`** (in
+  `MultiCamOverlay.kt`): every way into multi-view / the cameras page goes through it; without the Home button service
+  (Fire TV, Play before consent) they show in MainActivity's own window (`TYPE_APPLICATION_PANEL`) and MainActivity
+  passes them its keys (#30). Seen with the service turned off and back on: page, Right, OK = sound, Back. Fire TV
+  settings now log the device's Amazon settings screens and each try (#29; QA `--ez tv_settings`). #31 / #38 (UGOOS
+  AM9 PRO, Amlogic): kernel panics, he says at the background's switch from H.264 (Apple) to HEVC (Amazon, the only
+  HEVC-only collection: checked in AerialViews' JSON with ffprobe); asked for his logcat, workaround Collections →
+  Amazon Fire TV off; #38 closed as its duplicate. Replies posted on #29, #30, #31, #37, #38.
+- **#31's logcat (UGOOS AM9 PRO, kernel panic):** at the background's switch to an Amazon HEVC video the player opened
+  `c2.amlogic.hevc.decoder` while `CustomBackground.cachedFrame` read a still from the same video with
+  `MediaMetadataRetriever` (a second hardware decode in mediaserver); the log ends 0.4 s later. Now the background's
+  still is a PixelCopy of the player's own picture 1.5 s in (`saveStill`, log "Background video still: from its own
+  picture"), only YouTube stills are downloaded; `VideoThumbs` makes one picture at a time and waits while a player
+  starts (`DecodeGate`, set by the background's and the screensaver's video changes). Seen on the Streamer: three
+  video changes, stills saved, no retriever in Glassio's log. Not seen on an Amlogic box.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

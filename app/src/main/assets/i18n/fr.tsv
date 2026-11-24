@@ -1753,3 +1753,10 @@ Settings → System → Performance	Réglages → Système → Performances
 The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	La page des caméras : vos caméras sur tout l'écran ; les flèches en choisissent une, OK active son son.
 Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Applis inutiles : désactivez les applis du téléviseur qui ne font qu'envoyer des rapports, afficher des publicités ou installer d'autres applis (Réglages → Système).
 Welcome to Glassio 4.4	Bienvenue dans Glassio 4.4
+Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	Lesquelles, dans cet ordre (jusqu'à neuf). La multivue montre les quatre premières, le plein écran toutes. Aucune choisie = toutes
+Which ones, in this order (up to nine). None chosen = all	Lesquelles, dans cet ordre (jusqu'à neuf). Aucune choisie = toutes
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Automatique : une rangée quand les caméras tiennent à cette taille, sinon une grille (deux par deux, trois par trois au-delà de quatre). Elles ne dépassent jamais les bords de l'écran
+Grid	Grille
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Depuis Glassio (GitHub) s'il est sur ce téléviseur, sinon la sauvegarde la plus récente dans Download/Glassio. Glassio redémarre ensuite
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	La sauvegarde la plus récente dans Download/Glassio sur le téléviseur, sinon les réglages de Glassio de Google Play sur ce téléviseur. Glassio redémarre ensuite
+Choose a city	Choisissez une ville

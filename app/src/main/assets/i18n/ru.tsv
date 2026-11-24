@@ -1789,3 +1789,10 @@ Settings → System → Performance	Настройки → Система → П
 The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Страница камер: ваши камеры на весь экран; стрелки выбирают одну, OK включает её звук.
 Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Ненужные приложения: выключите приложения телевизора, которые только отправляют отчёты, показывают рекламу или устанавливают другие приложения (Настройки → Система).
 Welcome to Glassio 4.4	Добро пожаловать в Glassio 4.4
+Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	Какие, в этом порядке (до девяти). Мультивид показывает первые четыре, весь экран — все. Ничего не выбрано = все
+Which ones, in this order (up to nine). None chosen = all	Какие, в этом порядке (до девяти). Ничего не выбрано = все
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Автоматически: один ряд, если камеры помещаются в этом размере, иначе сетка (два на два, три на три, если больше четырёх). Они никогда не выходят за края экрана
+Grid	Сетка
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Из Glassio (GitHub), если он есть на этом телевизоре, иначе самая новая копия в Download/Glassio. Затем Glassio перезапустится
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	Самая новая копия в Download/Glassio на телевизоре, иначе настройки Glassio из Google Play на этом телевизоре. Затем Glassio перезапустится
+Choose a city	Выберите город

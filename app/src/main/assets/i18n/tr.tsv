@@ -1778,3 +1778,10 @@ Settings → System → Performance	Ayarlar → Sistem → Performans
 The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Kameralar sayfası: kameralarınız tüm ekranda; oklar birini seçer, OK sesini açar.
 Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Gereksiz uygulamalar: TV'nin yalnızca rapor gönderen, reklam gösteren veya başka uygulama yükleyen uygulamalarını kapatın (Ayarlar → Sistem).
 Welcome to Glassio 4.4	Glassio 4.4'e hoş geldiniz
+Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	Hangileri, bu sırayla (dokuza kadar). Çoklu görünüm ilk dördünü, tam ekran hepsini gösterir. Seçim yok = hepsi
+Which ones, in this order (up to nine). None chosen = all	Hangileri, bu sırayla (dokuza kadar). Seçim yok = hepsi
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Otomatik: kameralar bu boyutta sığarsa tek sıra, yoksa ızgara (ikiye iki, dörtten fazlasında üçe üç). Ekranın kenarlarını asla aşmazlar
+Grid	Izgara
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Bu TV'de varsa Glassio'dan (GitHub), yoksa Download/Glassio'daki en yeni yedekten. Ardından Glassio yeniden başlar
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	TV'deki Download/Glassio içindeki en yeni yedek, yoksa bu TV'deki Google Play Glassio'nun ayarları. Ardından Glassio yeniden başlar
+Choose a city	Bir şehir seçin

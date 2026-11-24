@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -287,6 +288,13 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             runCatching { first.requestFocus() }.onFailure { runCatching { topRow[0].requestFocus() } }
         }
     }
+    // An empty Library (every new install) had nothing to select: Down from the dock opened it and the remote did
+    // nothing but Back (#33, seen on the Play build). Its heading takes the selection then, and Up leaves.
+    val emptyReq = remember { FocusRequester() }
+    LaunchedEffect(active, hasAny) {
+        if (!active || hasAny) return@LaunchedEffect
+        repeat(10) { delay(60); if (runCatching { emptyReq.requestFocus() }.isSuccess && libFocused) return@LaunchedEffect }
+    }
     // Back from the screensaver (or another app) nothing had the focus here and the remote did nothing.
     val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     androidx.compose.runtime.DisposableEffect(life, active) {
@@ -362,7 +370,12 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             modifier = Modifier.fillMaxSize(),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Column {
+                Column(if (hasAny) Modifier else Modifier.focusRequester(emptyReq)
+                    .onPreviewKeyEvent { e ->
+                        if (e.key != androidx.compose.ui.input.key.Key.DirectionUp) return@onPreviewKeyEvent false
+                        if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) goHome()
+                        true
+                    }.focusable()) {
                     Text("Library", color = Color.White, fontSize = (26 * s).sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height((4 * s).dp))
                     Text(

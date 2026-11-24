@@ -1204,8 +1204,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Adjust("Weather", "Next to the settings button", {
                     when (st.weatherMode) { "off" -> "Off"; "temp" -> "Temperature"; "condition" -> "Temperature + sky"; "city" -> "Temperature + city"; else -> "Everything" }
                 }, { st.weatherMode = cycle(listOf("all", "condition", "city", "temp", "off"), st.weatherMode, it); app.weather.reload() }))
-                if (st.weatherMode != "off" || st.menuWeather) add(Act("  · City", st.weatherCity + weatherFound.takeIf { it.isNotBlank() }?.let { "  →  $it" }.orEmpty(), "Change") {
-                    dialog = TextEntry("Weather city", st.weatherCity, "Baghdad") { st.weatherCity = it; app.weather.reload() }
+                if (st.weatherMode != "off" || st.menuWeather) add(Act("  · City", (if (st.weatherCity.isBlank()) "Automatic · " + st.weatherPlace.ifBlank { "choose one" } else st.weatherCity) + weatherFound.takeIf { it.isNotBlank() }?.let { "  →  $it" }.orEmpty(), "Change") {
+                    dialog = TextEntry("Weather city", st.weatherCity, "Empty: automatic (" + com.glasslauncher.tv.data.zoneCity().ifBlank { "your city" } + ")") { st.weatherCity = it; app.weather.reload() }
                 })
                 if (st.weatherMode != "off" || st.menuWeather) add(Toggle("  · Fahrenheit", "", { st.weatherF }, { st.weatherF = it }))
 
@@ -1951,13 +1951,13 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
 
                 add(Note("Multi-view"))
                 add(Toggle("On the screensaver", "▼ on the screensaver brings them up from the bottom (Back or ▼ again closes them)", { st.saverMultiCam }, { st.saverMultiCam = it }))
-                if (camList.isNotEmpty()) add(Act("  · Cameras", "Which ones, in this order (up to four). None chosen = the first four",
+                if (camList.isNotEmpty()) add(Act("  · Cameras", "Which ones, in this order (up to nine). None chosen = all",
                     MultiCamOverlay.cams(app).joinToString(" · ") { it.name }) {
                     fun chooser() {
                         val cur = st.multiCams
                         dialog = MenuDialog("Multi-view cameras", camList.map { c ->
                             (if (c.url in cur) "✓ ${c.name}" else c.name) to {
-                                st.multiCams = if (c.url in cur) cur - c.url else (cur + c.url).take(4)
+                                st.multiCams = if (c.url in cur) cur - c.url else (cur + c.url).take(9)
                                 scope.launch { kotlinx.coroutines.delay(150); chooser() }
                                 Unit
                             }
@@ -1966,8 +1966,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     chooser()
                 })
                 add(Adjust("  · Size", "", { pct(st.multiScale) }, { st.multiScale = ((st.multiScale * 10).roundToInt() + it) / 10f }))
-                add(Adjust("  · Layout", "Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges",
-                    { when (st.multiLayout) { "row" -> "One row"; "grid" -> "Two by two"; else -> "Automatic" } }, { st.multiLayout = cycle(listOf("auto", "row", "grid"), st.multiLayout, it) }))
+                add(Adjust("  · Layout", "Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges",
+                    { when (st.multiLayout) { "row" -> "One row"; "grid" -> "Grid"; else -> "Automatic" } }, { st.multiLayout = cycle(listOf("auto", "row", "grid"), st.multiLayout, it) }))
                 add(Adjust("  · Picture", "Sharp: each camera's full stream. Light: its small stream (for small or older TVs). Automatic picks for this TV",
                     { when (st.multiQuality) { "high" -> "Sharp"; "light" -> "Light"; else -> "Automatic" } }, { st.multiQuality = cycle(listOf("auto", "high", "light"), st.multiQuality, it) }))
                 add(Adjust("  · Shows for", "Then it goes away by itself", { if (st.multiSec == 0) "Until closed" else if (st.multiSec < 60) "${st.multiSec} s" else "${st.multiSec / 60} min" },
@@ -1977,12 +1977,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 add(Toggle("  · Sound follows the selection", "On the whole screen, the selected camera's sound plays by itself (cameras that send sound)",
                     { st.cameraSoundFollows }, { st.cameraSoundFollows = it }))
                 add(Act("  · On the whole screen", "The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)", "") {
-                    val svc = com.glasslauncher.tv.HomeKeyService.instance
-                    if (svc == null) toast(ctx, "Needs the Home button service: System → Turn it on") else svc.toggleMulti(bottom = false, full = true)
+                    com.glasslauncher.tv.MultiHost.toggle(bottom = false, full = true)
                 })
                 add(Act("  · Show it now", "In the middle of the screen (also: menu → Camera, then OK)", "") {
-                    val svc = com.glasslauncher.tv.HomeKeyService.instance
-                    if (svc == null) toast(ctx, "Needs the Home button service: System → Turn it on") else svc.toggleMulti(bottom = false)
+                    com.glasslauncher.tv.MultiHost.toggle(bottom = false)
                 })
 
                 add(Note("Doorbell"))
@@ -2371,7 +2369,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     else "Every setting, catalog, Library and Continue Watching (no sign-ins), saved to Download/Glassio on the TV (also from the phone page)", "Back up") {
                     scope.launch(Dispatchers.IO) { toast(ctx, runCatching { "Saved: " + com.glasslauncher.tv.data.Backup.saveToTv(ctx) }.getOrElse { "Backup failed: ${it.message}" }) }
                 })
-                add(Act("Restore backup", "The newest backup in Download/Glassio on the TV. Glassio restarts after", "Restore") {
+                add(Act("Restore backup", if (com.glasslauncher.tv.data.Store.PLAY) "From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after" else "The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after", "Restore") {
                     // Asked first: it replaces everything, and from another TV some things don't come along.
                     dialog = MenuDialog("Replace every setting on this TV?", listOf("Restore and restart" to { scope.launch(Dispatchers.IO) {
                         val j = com.glasslauncher.tv.data.Backup.latestOnTv(ctx)

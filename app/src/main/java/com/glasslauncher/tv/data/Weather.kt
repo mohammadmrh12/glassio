@@ -96,7 +96,7 @@ class Weather(private val settings: Settings, private val http: Http, private va
     fun reload() { place = null; scope.launch(Dispatchers.IO) { runCatching { refresh() } } }
 
     private fun refresh() {
-        val city = settings.weatherCity.ifBlank { "Baghdad" }
+        val city = settings.weatherPlace.ifBlank { found.value = "Choose a city"; return }
         val p = place?.takeIf { it.first == city } ?: run {
             val ll = locate(city) ?: run { found.value = "City not found"; return }
             Triple(city, ll.first, ll.second).also { place = it }

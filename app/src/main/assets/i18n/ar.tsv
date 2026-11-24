@@ -1781,3 +1781,10 @@ Settings → System → Performance	الإعدادات ← النظام ← ال
 The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	صفحة الكاميرات: كاميراتك على الشاشة كلها؛ تختار الأسهم واحدة، ويشغّل OK صوتها.
 Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	التطبيقات غير الضرورية: أوقف تطبيقات التلفاز التي ترسل التقارير أو تعرض الإعلانات أو تثبّت تطبيقات أخرى فقط (الإعدادات ← النظام).
 Welcome to Glassio 4.4	مرحبًا بك في Glassio 4.4
+Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	أيّها، بهذا الترتيب (حتى تسع). يعرض العرض المتعدد أول أربع، والشاشة الكاملة جميعها. بلا اختيار = الكل
+Which ones, in this order (up to nine). None chosen = all	أيّها، بهذا الترتيب (حتى تسع). بلا اختيار = الكل
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	تلقائي: صف واحد عندما تتسع الكاميرات بهذا الحجم، وإلا شبكة (اثنتان في اثنتين، وثلاث في ثلاث لأكثر من أربع). لا تتجاوز حواف الشاشة أبدًا
+Grid	شبكة
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	من Glassio (نسخة GitHub) إن كان على هذا التلفاز، وإلا أحدث نسخة احتياطية في Download/Glassio. يُعاد تشغيل Glassio بعدها
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	أحدث نسخة احتياطية في Download/Glassio على التلفاز، وإلا إعدادات Glassio من Google Play على هذا التلفاز. يُعاد تشغيل Glassio بعدها
+Choose a city	اختر مدينة

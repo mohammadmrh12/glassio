@@ -53,8 +53,8 @@ object DevHooks {
         // Multi-view cameras on / off (QA: --ez multi_cams true).
         if (i.getBooleanExtra("multi_cams", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(true)
         // The cameras page on the whole screen (#30), and multi-view in the middle (as the menu opens it).
-        if (i.getBooleanExtra("cams_full", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(false, full = true)
-        if (i.getBooleanExtra("multi_mid", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(false)
+        if (i.getBooleanExtra("cams_full", false)) com.glasslauncher.tv.MultiHost.toggle(false, full = true)
+        if (i.getBooleanExtra("multi_mid", false)) com.glasslauncher.tv.MultiHost.toggle(false)
         if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
         // The search (a remote button set to it): its page on the home screen, the bar selected. Nothing when it is off.
@@ -126,6 +126,8 @@ object DevHooks {
             st.take(14).forEach { f -> android.util.Log.i("GlassThreads", "   $f") }
         }
         // Picture downloads fail for N seconds, after the picture caches are emptied (the retry after a failure: NetState).
+        // QA: opens the TV's settings the way the menu does (with fire_settings_test: the Fire TV way, logged).
+        if (i.getBooleanExtra("tv_settings", false)) com.glasslauncher.tv.data.SystemSetup.openTvSettings(app, android.provider.Settings.ACTION_SETTINGS)
         if (i.hasExtra("fire_settings_test")) { com.glasslauncher.tv.data.SystemSetup.fireSettingsTest = i.getBooleanExtra("fire_settings_test", false); com.glasslauncher.tv.data.Glog.i("QA: Fire TV settings way ${com.glasslauncher.tv.data.SystemSetup.fireSettingsTest}") }
         // TV access with a key the TV has never allowed (true), or Glassio's own again (false).
         if (i.hasExtra("adb_testkey")) {
@@ -151,6 +153,15 @@ object DevHooks {
         // A Home Assistant for cam_test ha://… (a test server; "-" back to the one set).
         i.getStringExtra("ha_test")?.let { v -> if (v == "-") { com.glasslauncher.tv.CamPlayer.haTestUrl = null; com.glasslauncher.tv.CamPlayer.haTestToken = null }
             else { com.glasslauncher.tv.CamPlayer.haTestUrl = v.substringBefore('|'); com.glasslauncher.tv.CamPlayer.haTestToken = v.substringAfter('|', "test") } }
+        // QA: asks the other build (GitHub <-> Play) for its settings and logs what came, without restoring anything.
+        if (i.getBooleanExtra("backup_other", false)) Bg.io("glass-dev") {
+            val j = com.glasslauncher.tv.data.Backup.fromOtherGlassio(app)
+            com.glasslauncher.tv.data.Glog.i("QA: other build's backup: " + (j?.let { o -> o.keys().asSequence().joinToString { k -> "$k=" + (o.optJSONObject(k)?.length() ?: 0) } } ?: "none"))
+        }
+        i.getStringExtra("cams_test")?.let { v ->
+            com.glasslauncher.tv.MultiCamOverlay.testCams = if (v == "-") null
+                else v.split(',').mapNotNull { e -> e.split('|', limit = 2).takeIf { it.size == 2 }?.let { com.glasslauncher.tv.ui.Cam(it[0], it[1]) } }
+        }
         i.getStringExtra("cam_test")?.let { u -> com.glasslauncher.tv.HomeKeyService.instance?.testCamera(u) }
         if (i.getBooleanExtra("ha_cams", false)) Bg.io("glass-dev") {
             runCatching {

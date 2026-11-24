@@ -138,8 +138,17 @@ object Backup {
         return "Glassio's files (Download wasn't available)"
     }
 
-    /** The newest backup on the TV: Download/Glassio (also older installs' files, through ADB) or Glassio's own copy. */
+    /**
+     * The newest backup on the TV. The Play build first takes the GitHub build's settings when it is installed (handed
+     * over by it, see BackupProvider: its files in Download can't be seen from here); then Download/Glassio (also
+     * older installs' files, through ADB) or Glassio's own copy; the GitHub build last asks the Play build.
+     */
     fun latestOnTv(ctx: Context): JSONObject? {
+        if (Store.PLAY) fromOtherGlassio(ctx)?.let { return it }
+        return fromThisTv(ctx) ?: if (!Store.PLAY) fromOtherGlassio(ctx) else null
+    }
+
+    private fun fromThisTv(ctx: Context): JSONObject? {
         if (Build.VERSION.SDK_INT >= 29) runCatching {
             ctx.contentResolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
                 "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE 'Glassio-backup%'", null, "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { c ->
@@ -154,6 +163,16 @@ object Backup {
             if (!out.isNullOrBlank() && out.trimStart().startsWith("{")) return JSONObject(out.trim())
         }.onFailure { Glog.w("Backups through the shell", it) }
         return File(ctx.filesDir, "backup-latest.json").takeIf { it.isFile }?.let { runCatching { JSONObject(it.readText()) }.getOrNull() }
+    }
+
+    /** The other build's settings (GitHub ↔ Play), asked of it directly, only when it really is Glassio ([Certs]). */
+    fun fromOtherGlassio(ctx: Context): JSONObject? {
+        val pkg = Certs.otherPkg(ctx) ?: return null
+        return runCatching {
+            ctx.contentResolver.query(android.net.Uri.parse("content://${Certs.authority(pkg)}/settings"), null, null, null, null)?.use { c ->
+                if (c.moveToFirst()) JSONObject(c.getString(0)) else null
+            }
+        }.onFailure { Glog.w("Settings from Glassio ($pkg)", it) }.getOrNull()?.also { Glog.i("Backup: the settings of Glassio ($pkg) on this TV") }
     }
 
     /** Restarts Glassio so every part reads the restored settings. */

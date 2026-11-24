@@ -1783,3 +1783,10 @@ Settings → System → Performance	تنظیمات ← سیستم ← کارای
 The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	صفحهٔ دوربین‌ها: دوربین‌هایتان روی تمام صفحه؛ پیکان‌ها یکی را انتخاب می‌کنند، OK صدایش را روشن می‌کند.
 Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	برنامه‌های غیرضروری: برنامه‌های تلویزیون را که فقط گزارش می‌فرستند، تبلیغ نشان می‌دهند یا برنامه نصب می‌کنند خاموش کنید (تنظیمات ← سیستم).
 Welcome to Glassio 4.4	به Glassio 4.4 خوش آمدید
+Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	کدام‌ها، به این ترتیب (تا نه). نمای چندگانه چهار تای اول را نشان می‌دهد، تمام صفحه همه را. بدون انتخاب = همه
+Which ones, in this order (up to nine). None chosen = all	کدام‌ها، به این ترتیب (تا نه). بدون انتخاب = همه
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	خودکار: یک ردیف وقتی دوربین‌ها در این اندازه جا شوند، وگرنه شبکه (دو در دو، سه در سه برای بیش از چهار). هرگز از لبه‌های صفحه بیرون نمی‌زنند
+Grid	شبکه
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	از Glassio (نسخهٔ GitHub) اگر روی این تلویزیون باشد، وگرنه تازه‌ترین پشتیبان در Download/Glassio. Glassio پس از آن دوباره راه‌اندازی می‌شود
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	تازه‌ترین پشتیبان در Download/Glassio روی تلویزیون، وگرنه تنظیمات Glassio از Google Play روی این تلویزیون. Glassio پس از آن دوباره راه‌اندازی می‌شود
+Choose a city	یک شهر انتخاب کنید

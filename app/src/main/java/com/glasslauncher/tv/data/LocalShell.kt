@@ -88,6 +88,10 @@ object LocalShell {
         // again ([retryNow]).
         if (askedAt != 0L && com.glasslauncher.tv.HomeKeyService.instance != null) throw IllegalStateException("waiting for the TV's answer (Allow USB debugging)")
         if (declined) throw IllegalStateException("not allowed on the TV (Cancel)")
+        // The Play build asks the TV only when the person asks (TV access page, setup) until access has worked once:
+        // its users never chose TV access, and the TV's "Allow USB debugging?" window came up at every start.
+        val person = android.os.SystemClock.uptimeMillis() - askedByPerson < 130_000
+        if (Store.PLAY && !person && !everOk(ctx)) throw IllegalStateException("TV access isn't set up")
         var last: Throwable? = null
         for (h in (listOfNotNull(goodHost) + "127.0.0.1" + ownAddresses()).distinct()) {
             // An address that got no answer is asking the TV ("Allow USB debugging?"): another address would only
@@ -119,9 +123,19 @@ object LocalShell {
             }
             waitingFrom = 0L
             pool.shutdownNow()
-            if (ok.isSuccess) { goodHost = h; quietFor = 0L; if (askedAt != 0L || openAfterPrompt) answered(ctx); return d }
+            if (ok.isSuccess) { goodHost = h; quietFor = 0L; markOk(ctx); if (askedAt != 0L || openAfterPrompt) answered(ctx); return d }
             last = ok.exceptionOrNull()
-            if (last is java.util.concurrent.TimeoutException) askedAt = android.os.SystemClock.uptimeMillis()
+            if (last is java.util.concurrent.TimeoutException) {
+                askedAt = android.os.SystemClock.uptimeMillis()
+                // Without the Home button service nothing sees the TV's window closing, so Cancel (or the window
+                // dismissed) looked like "no answer" and the TV was asked again every 5, 10 … 30 minutes for ever,
+                // two windows at a time (seen with the Play build, whose service waits for the person's agreement).
+                // One unanswered window is enough: not asked again until TV access is opened.
+                if (com.glasslauncher.tv.HomeKeyService.instance == null && !person) {
+                    declined = true
+                    Glog.i("TV adb: no answer and nothing to see the TV's window: not asked again until TV access is opened")
+                }
+            }
             // Refused after waiting (Cancel on the TV's window, not a closed port): not asked again until the TV
             // access page asks (each try brought the window up again).
             else if (android.os.SystemClock.uptimeMillis() - t0 > 2_000) {
@@ -250,6 +264,9 @@ object LocalShell {
         return run(ctx, "echo ok")
     }
     @Volatile private var askedByPerson = 0L
+    /** TV access has worked on this TV at least once (kept in its own file: never in a backup or sync). */
+    private fun everOk(ctx: Context) = ctx.getSharedPreferences("tv_access", Context.MODE_PRIVATE).getBoolean("ok", false)
+    private fun markOk(ctx: Context) { if (!everOk(ctx)) ctx.getSharedPreferences("tv_access", Context.MODE_PRIVATE).edit().putBoolean("ok", true).apply() }
     /** Cancel was chosen on the TV's window for Glassio's key (see [open]). */
     @Volatile private var declined = false
     /** When the TV's window was last seen closing (the next one of its queue may come up right after). */
