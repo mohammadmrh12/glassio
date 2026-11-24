@@ -63,7 +63,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.4.2 (code 80, stable, 2026-11-24)**, public `c42674e`, sha256 `729040a0…d623fde`; 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.5.0 (code 81, stable, 2026-11-25)**, public `2f851e8`, sha256 `be56af3f…a9a440`; 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -2231,6 +2231,29 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   Still "pixelated" (his eyes): the rim was a flat opaque band 3-4 px wide with a hard inner cut (read pixel by
   pixel on a screenshot); now each edge fades inwards in five steps (`fadingEdge`), bright at the outline. Seen in
   all six themes.
+- **4.5.0 released as stable (2026-11-25, his "سوي ريليس هسه"):** everything since 4.4.2 (the menu's rows across,
+  glass and video quality in the menu, *Page behind the player*, the island's name, the clock, search over bright pictures,
+  #40's guard, #41). Public `2f851e8` (tree of local `beta` at `8d75f72`), tag `v4.5.0`, *latest*, `Glassio.apk` and
+  `Glassio-4.5.0.apk` (sha256 `be56af3f…a9a440`, downloaded and compared, also `releases/latest`; the Streamer's file).
+  `NEW_IN` 4.5.0: *Page behind the player*. Tour: *A tidier menu* first (`WhatsNew.ID` 71, 16 pages; his `tourSeen` put
+  back to 70). Play: bundle 81 sent to Alpha's review with `tools/play/publish.py` (80 was on Alpha); a copy in the
+  Desktop folder. #41 told and closed; #40 told (guard in, report asked if still green). Code 82+ next.
+  Not seen: the Dynamic Glass waves tile in the menu (he was using the TV), the updater offering 4.5.0 to a TV on 4.4.2.
+- **#30, EB's four points after 4.5.0 (2026-11-25, local):** (1) Settings: ◀ ▶ on the screensaver's *Type* lost the
+  selection (the search opened): *One player* above it shows only when the type isn't the TV's app, the page's rows
+  were keyed by place, so the row moved and was rebuilt. Rows are now keyed by kind + title (+ count) in
+  `SettingsPage`, and `lastRow` follows a moved row: fixes every page. Seen: Type round all four values twice, the
+  selection kept. (2) *Multi-view*, *Corner camera*, *Shuffle the carousel* are jobs in a button's list (`multiview`,
+  `corner`, `shuffle` in `RemoteMap`), so press / double / hold take them; the old single buttons stay. Seen with a
+  `hid` keyboard's F12 mapped for the test (press: the corner camera, hold: multi-view; his `keyMaps` put back).
+  (3) TizenTube Cobalt 2.0.3 publishes no rows (no TvContract / PreviewProgram / WatchNext, no EPG permission in its
+  APK): nothing for Glassio to read. (4) Nuvio One's rows (his video: **every** app's rows go ~10 s after Glassio
+  starts, SmartTube's too) **not reproduced** (carousel, Videos + stacked rows, a new video loading); reports now
+  carry the rows settings and the log has `Home page: <kind>` and `Rows of <pkg> not shown: …`.
+  **TizenTube's rows (his ask, 2026-11-25):** asked on reisxd/TizenTubeCobalt #27 (open since 2025, many +1s, the
+  maintainer never answered there; newer requests #77 #201 #389 #392 closed as its duplicates; PR #382 adding preview
+  channels + Watch Next closed by reisxd without a note): would he accept it, what blocked #382; offered to test on the
+  Streamer. Workaround someone published: TubeRows (mirrors SmartTube's channels). Follow #27 for an answer.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

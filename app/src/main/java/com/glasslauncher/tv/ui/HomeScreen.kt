@@ -753,6 +753,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // What stands in the carousel's place and how the page behind the dock is drawn for it: one answer, worked out
         // in HomePage.kt from the dock's selection, the song and the settings.
         val page = homePage(settings, musicWas)
+        // (For a problem report: what stands in the carousel's place, each time it changes. #30: an app's rows went
+        // away ~10 s after the start on his TV and could not be made to come back; not seen here.)
+        LaunchedEffect(page.kind) { com.glasslauncher.tv.data.Glog.i("Home page: ${page.kind}") }
         val songNow = page.song; val songShown = page.songShown
         val idleNow = page.idle; val rowsNow = page.rows; val dockMid = page.dockMid
         val stageWanted = page.stage; val heroOwn = page.heroOwn; val otherPageNow = page.other
@@ -1082,6 +1085,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         // Another app selected: the player the Music icon opened gives way (its rows stayed away).
                         if (dockPkg != MusicUi.DOCK_PKG) MusicUi.forced.value = false
                         MusicUi.carouselApp.value = com.glasslauncher.tv.data.Channels.keepsCarousel(dockPkg) && !rows
+                        // (An app that has rows but doesn't show them: why, for a problem report.)
+                        if (!rows && settings.channelsOn && com.glasslauncher.tv.data.Channels.allFor(settings, dockPkg).isNotEmpty())
+                            com.glasslauncher.tv.data.Glog.i("Rows of $dockPkg not shown: ${com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).size} to show, music app $musicApp, catalogs $hasCats ($stand), off ${dockPkg in settings.channelsOffApps}")
                         // Another app's rows: their background starts from their first card (the card selected on an
                         // earlier visit showed its blur for a moment first).
                         if (rows && ChannelsUi.stagePkg.value != dockPkg) ChannelsUi.art.value =

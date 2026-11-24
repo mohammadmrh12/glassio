@@ -2,6 +2,14 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.5.1 — fixes, and more for the remote's buttons
+
+- **Settings keep the selection** when a row above the one you're on comes or goes: changing the screensaver's *Type*
+  threw you out of the page (#30). This applies to every page of Settings.
+- **Remote buttons:** *Multi-view*, *Corner camera* and *Shuffle the carousel* are in a button's list of jobs, so they
+  work on a press, a double press or a hold (#30).
+- Problem reports include an app's rows settings and what the home screen shows, to find why rows go away (#30).
+
 ## 4.5.0 — a tidier menu, and your background behind the music
 
 - **The menu:** Themes, Background and Screensaver show their choices across one row (each theme as a small sample of

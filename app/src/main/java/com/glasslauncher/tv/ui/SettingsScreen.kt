@@ -2121,6 +2121,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 opts += ThumbItem("Close the app in front", "Stops the app on screen and comes back to Glassio. Needs TV access (ADB)", HueArt.home()) { mapTo(code, "closeapp", "Close the app in front") }
                 if (st.searchOn) opts += ThumbItem("Search", "Glassio's search: films, series, videos, songs", null) { mapTo(code, "search", "Search") }
                 if (st.cameras.isNotEmpty()) opts += ThumbItem("Cameras on the whole screen", "Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes", null) { mapTo(code, "cameras", "Cameras") }
+                if (st.cameras.isNotEmpty()) opts += ThumbItem("Multi-view", "Anywhere: the cameras in the middle · press again to close", null) { mapTo(code, "multiview", "Multi-view") }
+                if (st.cameras.isNotEmpty()) opts += ThumbItem("Corner camera", "Anywhere: the camera in the corner · press again to close", null) { mapTo(code, "corner", "Corner camera") }
+                opts += ThumbItem("Shuffle the carousel", "On the home screen: the catalog titles in a new random order", null) { mapTo(code, "shuffle", "Shuffle") }
                 com.glasslauncher.tv.data.Inputs.list.value.forEach { inp ->
                     val pic = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == com.glasslauncher.tv.data.Inputs.PREFIX + inp.id }?.let { app.apps.cachedArtwork(it)?.bmp }
                         ?: HueArt.input(inp.label)
@@ -3092,10 +3095,18 @@ private fun SettingsPage(s: Float, c: Category, sc: Int, app: GlassApp, listStat
             // Rows between two headings sit together in one rounded group, with thin lines between them.
             val pos = groupPositions(rows)
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides SettingsPivot) {
+                // Each row is known by its title (and how many rows of that title came before it), not by its place: a
+                // row that appears or goes above the selected one (One player above the screensaver's Type, shown only
+                // when the type isn't the TV's app) moved every row under it, and the selected one was rebuilt as
+                // another kind of row and lost the selection (#30: ◀ ▶ on Type threw him out of the page).
+                val keys = remember(rows) { val seen = HashMap<String, Int>(); rows.map { r -> val t = r::class.simpleName + ":" + rowTitle(r); val n = seen.getOrDefault(t, 0); seen[t] = n + 1; "$t#$n" } }
                 LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                    items(rows.size, contentType = { rows[it]::class }) { i ->
+                    items(rows.size, key = { keys[it] }, contentType = { rows[it]::class }) { i ->
                         val nm = LocalNew.current
-                        Box(Modifier.focusRequester(rowFocus.requester(sc * 10_000L + i)).onFocusChanged { if (it.hasFocus) lastRow[sc] = i }
+                        var has by remember { mutableStateOf(false) }
+                        // (Moved while selected: the page's remembered place follows it.)
+                        if (has) androidx.compose.runtime.SideEffect { lastRow[sc] = i }
+                        Box(Modifier.focusRequester(rowFocus.requester(sc * 10_000L + i)).onFocusChanged { has = it.hasFocus; if (it.hasFocus) lastRow[sc] = i }
                             .onPreviewKeyEvent { ev ->
                                 if (ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight)) {
                                     val t0 = rowTitle(rows[i]); if (!t0.trim().startsWith("→") && norm(t0) in nm.titles) nm.used(norm(t0))

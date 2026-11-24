@@ -59,6 +59,9 @@ object RemoteMap {
         m.action == "search" -> "Opens the search"
         m.action == "closeapp" -> "Closes the app in front"
         m.action == "cameras" -> "Shows the cameras on the whole screen"
+        m.action == "multiview" -> "Shows multi-view"
+        m.action == "corner" -> "Shows the corner camera"
+        m.action == "shuffle" -> "Shuffles the carousel"
         m.action == "inputs" || m.action == "app:" + Inputs.DOCK_PKG -> "Shows the TV inputs"
         m.action.startsWith("input:") -> "Switches to " + m.label.ifBlank { "the input" }
         else -> m.action
@@ -101,6 +104,12 @@ object RemoteMap {
                 a == "closeapp" -> closeFront(app)
                 a == "cameras" -> com.glasslauncher.tv.MultiHost.toggle(bottom = false, full = true)
                     ?: android.widget.Toast.makeText(app, "The cameras page needs the Home button service: Glassio settings → System", android.widget.Toast.LENGTH_LONG).show()
+                // Glassio's own three buttons as jobs too, so they can sit on a double press or a hold (#30): until now
+                // they were buttons of their own (Shuffle / Multi-view / Corner camera button), single press only.
+                a == "multiview" -> com.glasslauncher.tv.MultiHost.toggle(bottom = false)
+                a == "corner" -> com.glasslauncher.tv.HomeKeyService.instance?.toggleCorner()
+                    ?: android.widget.Toast.makeText(app, "The corner camera needs the Home button service: Glassio settings → System", android.widget.Toast.LENGTH_LONG).show()
+                a == "shuffle" -> if (com.glasslauncher.tv.KeyHub.homeInFront) app.shuffleRev.intValue++
             }
         }.onFailure { Glog.w("Remote button ${m.code}", it) }
     }

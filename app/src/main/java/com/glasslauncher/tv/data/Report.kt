@@ -66,7 +66,9 @@ object Report {
     private val SETTINGS = listOf("theme", "dockStyle", "dockPos", "tileStyle", "dockColumns", "bgMode", "bgClockStyle", "saverMode", "islandStyle",
         "menuStyle", "menuMode", "settingsIcon", "slideAnim", "heroAutoplay", "transitionMs", "perfMode", "memTier", "glassRes", "imageQuality",
         "pageScale", "prefetchDepth", "refraction", "libraryColumns", "libraryPlatforms", "playInApp", "continueMode", "updateChannel",
-        "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "photoSource")
+        "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "photoSource",
+        // (An app's rows and the pages around them, #30.)
+        "channelsOn", "channelsLayout", "channelsBg", "channelsLow", "appCatalogsOn", "musicOn", "musicMode", "stagePageBg", "videoGlass", "musicPageBg")
 
     /** The exception's kind and the first of Glassio's own lines in it: the same crash again gives the same text. */
     fun crashKey(crash: String): String {
