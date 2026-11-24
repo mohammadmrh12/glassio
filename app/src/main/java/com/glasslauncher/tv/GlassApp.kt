@@ -31,7 +31,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
                 })
                 // More downloads at once from one picture site (OkHttp allows 5): logos no longer wait behind backdrops.
                 add(coil3.network.okhttp.OkHttpNetworkFetcherFactory(callFactory = {
-                    okhttp3.OkHttpClient.Builder().dispatcher(okhttp3.Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 12 })
+                    com.glasslauncher.tv.net.Net.ok.newBuilder().dispatcher(okhttp3.Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 12 })
                         // (QA only, set with the dev key: downloads fail for a few seconds. One time check, no cost otherwise.)
                         .addInterceptor { ch ->
                             if (System.currentTimeMillis() < com.glasslauncher.tv.data.NetState.failUntil) throw java.io.IOException("QA: no network")
@@ -75,30 +75,41 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
     private fun releasePictures(why: String) {
         com.glasslauncher.tv.data.Glog.w("Freeing picture caches ($why)")
         runCatching { coil3.SingletonImageLoader.get(this).memoryCache?.clear() }
-        com.glasslauncher.tv.ui.GlassCache.trim()
-        com.glasslauncher.tv.ui.trimPageCaches()
+        com.glasslauncher.tv.ui.trimAllPages()
+        // A picture's memory goes back to the TV only when its Java object is collected, and with nothing else
+        // happening in the background that could take a long time.
+        System.gc()
+    }
+
+    /**
+     * Glassio's screens all gone (an app or a film in front): its pictures go after a while away, 1 minute on a small
+     * TV, 3 on the others; a quick trip out and back keeps them. Started here and not from onTrimMemory: Android
+     * never sent TRIM_MEMORY_UI_HIDDEN (the Home button service keeps the process important), so it never happened
+     * (on the Streamer ~350 MB of pictures stayed under a film, on the TCL too).
+     */
+    private fun awayFor() {
+        val at = android.os.SystemClock.uptimeMillis().also { hiddenAt = it }
+        val wait = if (settings.lean || smallTv) 60_000L else 180_000L
+        scope.launch {
+            kotlinx.coroutines.delay(wait)
+            if (shown == 0 && hiddenAt == at) releasePictures("away from Glassio")
+        }
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) hiddenAt = System.currentTimeMillis()
         @Suppress("DEPRECATION") when {
             // In the background and Android is looking for memory: everything that can be made again goes.
             level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> {
-                com.glasslauncher.tv.data.Glog.w("Low memory in the background (level $level): clearing picture caches")
-                runCatching { coil3.SingletonImageLoader.get(this).memoryCache?.clear() }
-                com.glasslauncher.tv.ui.GlassCache.trim()
-                com.glasslauncher.tv.ui.trimPageCaches()
+                releasePictures("low memory in the background, level $level")
             }
             // Another app in front. Glassio's home-key service keeps it running, so Android never asks it for
             // memory the way it asks a closed app: on a small TV (2 GB) its pictures stayed while you watched, and the
             // TV swapped and stuttered. There they go after a minute away (a quick trip out and back keeps them).
-            level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> if (settings.memTier == 0 || smallTv) {
-                val at = hiddenAt; scope.launch {
-                    kotlinx.coroutines.delay(60_000)
-                    if (shown == 0 && hiddenAt == at) releasePictures("in the background")
-                }
-            }
+            // Every TV now (after 3 minutes on the larger ones): on the Streamer Glassio kept ~600 MB of pictures
+            // under a film for hours. The slide on screen stays (the page holds it); the others load from disk again.
+            // (Also started from the screens themselves, see awayFor: this one rarely comes.)
+            level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> if (shown == 0 && hiddenAt == 0L) awayFor()
             // In front and memory is getting short (older Android): half the decoded pictures, the screen stays.
             level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
                 com.glasslauncher.tv.data.Glog.w("Low memory (level $level): halving the picture cache")
@@ -161,9 +172,10 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
         settings = Settings(this)
         com.glasslauncher.tv.ui.GlassTint.apply(settings)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
-            override fun onActivityStarted(a: android.app.Activity) { if (shown++ == 0) com.glasslauncher.tv.data.HueSync.resume() }
+            override fun onActivityStarted(a: android.app.Activity) { if (shown++ == 0) { hiddenAt = 0L; com.glasslauncher.tv.data.HueSync.resume() } }
             override fun onActivityStopped(a: android.app.Activity) {
                 shown = (shown - 1).coerceAtLeast(0)
+                if (shown == 0) awayFor()
                 // Glassio left for an app or a film: the Hue lights go back as they were (or as chosen).
                 if (shown == 0 && android.os.SystemClock.uptimeMillis() - screenOffAt > 5000) com.glasslauncher.tv.data.HueSync.leave(settings, settings.hueLeave)
             }

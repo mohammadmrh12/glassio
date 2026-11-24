@@ -205,10 +205,10 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // blurs of the whole page each time, for a page that may never be opened. The grey page covers the wait.)
     val stageIcon = ChannelsUi.dockPkg.value.let { it == MusicUi.DOCK_PKG || it == SearchUi.DOCK_PKG || it == com.glasslauncher.tv.data.Inputs.DOCK_PKG }
     LaunchedEffect(settings.stagePageBg, settings.bgMode, settings.musicOn, settings.inputsIcon, settings.searchOn, if (settings.stagePageBg == "carousel") shownUrl.value else null,
-        settings.blurRadius, settings.glassRes, settings.pageScale, settings.channelsBlurBri, if (settings.memTier == 0) stageIcon else true) {
+        settings.blurRadius, settings.glassRes, settings.pageScale, settings.channelsBlurBri, if (settings.lean) stageIcon else true) {
         val mode = settings.stagePageBg
         if (mode == "grey" || settings.bgMode != "carousel" || !(settings.musicOn || settings.inputsIcon || settings.searchOn)) return@LaunchedEffect
-        if (settings.memTier == 0 && !stageIcon) return@LaunchedEffect
+        if (settings.lean && !stageIcon) return@LaunchedEffect
         val u = shownUrl.value?.takeIf { !it.startsWith("glassio:") }
         if (mode == "carousel" && u == null) return@LaunchedEffect
         delay(if (mode == "carousel") 900 else 3_000)
@@ -533,9 +533,23 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // pop-up that went away with the selection in it), something is selected again. The fixes for each case missed
     // others; this catches them all.
     val winInfo = androidx.compose.ui.platform.LocalWindowInfo.current
+    // Where the selection last was in the dock (its app), on the plain home screen: a selection lost goes back there,
+    // not to the Play button; and the screensaver on the home screen gives it back there when it ends (its held-OK
+    // menu took it, and the home screen came back with Play selected or nothing: his report).
+    val dockWas = remember { arrayOfNulls<String>(1) }
+    val saverNow = com.glasslauncher.tv.saver.HomeSaver.state.value
+    val saverWas = remember { intArrayOf(0) }
+    LaunchedEffect(saverNow) {
+        val was = saverWas[0]; saverWas[0] = saverNow
+        if (saverNow != 0 || was == 0) return@LaunchedEffect
+        val pkg = dockWas[0] ?: return@LaunchedEffect
+        repeat(8) { delay(60); if (DockFocus.dock && ChannelsUi.dockPkg.value == pkg) return@LaunchedEffect; runCatching { tileFocus[pkg]?.requestFocus() } }
+    }
     WhenResumed { isResumed ->
         if (!isResumed) return@WhenResumed
         var lost = 0; var tries = 0
+        // Where it last was in the dock (its app): it goes back there, not to the Play button. Lost under the
+        // screensaver's held-OK menu, it came back on Play and the dock showed nothing selected (his report).
         while (true) {
             delay(250)
             // On the plain home screen the selection must be on the page itself: held by something hidden counts as lost.
@@ -548,11 +562,15 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // dock is folded is out of sight too.
             val ok = if (plainHome) homeGroupHas[0] && (DockFocus.hero || DockFocus.top || DockFocus.dock) && !(DockFocus.lowerRow && !expanded)
                 else homeHasFocus[0]
+            // (Not while the screensaver is up: its held-OK menu takes the selection, and what it held then is no place.)
+            if (ok && com.glasslauncher.tv.saver.HomeSaver.state.value == 0) dockWas[0] = if (DockFocus.dock) ChannelsUi.dockPkg.value else null
             if (ok || !winInfo.isWindowFocused || movingPkg != null) { lost = 0; tries = 0; continue }
             if (++lost < 2) continue
             lost = 0
             if (tries == 0) com.glasslauncher.tv.data.Glog.i("Nothing selected ($screen, folder $folderOpen, menu $menuOpen): selecting again")
             // Each try something else, in case one of them can't take it (the Play button hidden, the dock away…).
+            val back = dockWas[0]?.let { tileFocus[it] }
+            if (tries == 0 && back != null && runCatching { back.requestFocus() }.getOrDefault(false)) { tries++; continue }
             if (tries % 2 == 0) runCatching { (if (SearchUi.page.value) SearchUi.entry else if (settings.bgMode != "carousel") firstTile else heroFocus).requestFocus() }
             else runCatching { firstTile.requestFocus() }
             tries++

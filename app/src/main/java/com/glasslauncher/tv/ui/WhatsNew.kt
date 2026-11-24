@@ -41,7 +41,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 69
+    const val ID = 70
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -63,11 +63,23 @@ object WhatsNew {
 
     // A welcome first, then everything new since 4.0.0, newest last, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("Welcome to Glassio 4.3", listOf(
-            "Everything new since Glassio 4.0, page by page. Your setup stays as it is: each new thing is a choice.",
+        Page("Welcome to Glassio 4.4", listOf(
+            "Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.",
             "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
         ), "Settings → About → What's new"),
+        // (New in 4.4.)
+        Page("Cameras", listOf(
+            "Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.",
+            "The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.",
+            "Hold OK on a camera that turns (PTZ): move and zoom it with the remote.",
+            "Every camera plays, also with a video behind it: the video waits and gives its decoder back.",
+        ), "Settings → Smart home → Multi-view"),
+        Page("Lighter", listOfNotNull(
+            "Performance → Lite: the same look, lighter on memory and on the processor.",
+            "Away in another app for a while, Glassio lets its pictures go and brings them back when you return.",
+            if (com.glasslauncher.tv.data.Store.PLAY) null else "Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).",
+        ), "Settings → System → Performance"),
         Page("Profiles", listOf(
             "One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.",
             "Who is watching? at start or from the menu, with Nuvio's profile pictures and a greeting at the top of the menu.",

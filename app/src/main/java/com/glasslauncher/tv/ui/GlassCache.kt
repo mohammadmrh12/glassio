@@ -50,6 +50,17 @@ object GlassCache {
     /** Low memory: keep only what is pinned (Continue Watching). */
     fun trim() { cache.evictAll() }
 
+    /**
+     * Glassio away for a while (an app or a film in front): the pinned pictures go too (Continue Watching's and the
+     * app carousels' first slides, ~8 MB each, up to 13 of them), and the logos. Pinned again in the background when
+     * Glassio is back ([released] tells the carousel to).
+     */
+    fun trimAll() {
+        cache.evictAll(); pinned.clear(); pinnedFull.clear(); pinnedLogo.clear(); logos.evictAll()
+        released.intValue++
+    }
+    val released = androidx.compose.runtime.mutableIntStateOf(0)
+
     fun peek(url: String, blur: Int): GlassImages? = pinned["$blur|$res|$url"] ?: cache.get("$blur|$res|$url")
 
     /** Continue Watching titles: kept for as long as they are in the list, whatever else is browsed. */

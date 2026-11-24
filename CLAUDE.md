@@ -15,6 +15,9 @@
   recording read frame by frame, or `gfxinfo` framestats.
 - Fixes must be **general**: they must work for every app with rows, every music app and every background, never
   patched for one app.
+- **A fix goes everywhere** (his rule since 2026-11-24): after fixing something, look through the app for the same
+  pattern (a row that removes itself, a video under something that covers it, a key release swallowed …) and fix
+  every place in the same piece of work; say which places were found.
 - **Customization first** (CONTRIBUTING.md): every new visible behaviour gets a setting with a sensible default.
   Speed and stability fixes are the exception.
 - **Always keep working on the TV, even while he is browsing or playing something** (his rule since 2026-11-19, 9 pm):
@@ -52,9 +55,10 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.2.1 (code 74, stable, 2026-11-23)**: public `85cfac8` on `origin/main`
-    (parent 86aad11, 4.2.0), tag `v4.2.1`, *latest*, `Glassio.apk` and `Glassio-4.2.1.apk` (sha256 `9da263f6…8c3034e`,
-    downloaded and compared, also through `releases/latest/download/Glassio.apk`; the same file is on the Streamer).
+  - The last published version before 4.4.0 is **4.3.0 (code 76, stable, 2026-11-23)**: public `9af8b7c` on `origin/main`
+    (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
+    (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
+    same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
     4.2.0 (code 73, `86aad11`) before it.
     `origin/beta` stays at `4e92df7` (4.1.1-beta1, code 72). 4.1.0 (code 71) before it.
     4.0.0 (code 69) before it. Work goes on on the local `beta` branch.
@@ -1960,7 +1964,168 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
     such an app shows no rows. On his Streamer only Stremio publishes rows (Continue Watching, Library); it is listed
     under *Apps with channels* now; not opened from the dock (it is in his Apps folder). Nuvio Legacy publishes none.
   - Its rows are not in `NEW_IN` yet (the next release's entry). `nav` clean, tests and lint for both builds.
-- The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 75+.
+- **4.3.0 released as stable (2026-11-23, his choice):** everything since 4.2.1 (the phone page in the menu and
+  Settings' search, Always by default, one code, the TV's `.local` name, settings from the phone, Nuvio / Stremio
+  rows again, Nuvio's picture for the settings button). Public `9af8b7c` (tree of local `beta` at `e033505`).
+  Code 76 (the Play bundle already used 75). `NEW_IN` 4.3.0: *Nuvio's picture by itself*, *QR code in Settings'
+  search*, *New code*. The tour keeps its 12 pages and adds *Manage from phone* plus one line in *And more*
+  (`WhatsNew.ID` 69, his ask: "the tour as it is, only the new things"); his `tourSeen` put back to 68. Tests, lint
+  (both flavors), play scan clean, `nav` clean. No issue told (#33 not answered: his rule). Not seen: the updater
+  offering 4.3.0 to a TV on 4.2.1. Supporter list in About: his idea, waiting for the supporter's yes and name.
+- **Supporters (2026-11-24, not released):** EbM-Tech said yes on #25 ("You can use my nickname, EB"). Settings → About →
+  *Supporters* under the GitHub code (his ask): the word in Glassio's lights' colours (purple, blue, rose), then
+  "EB (@EbM-Tech)" (github build only; `SUPPORTERS` in `SettingsScreen.kt`: name and GitHub account, never
+  translated) and a *Supporters* section in both READMEs. "Made by Mohammad (mrh12)" moved there too, above it (the
+  credits line stays at the end of About's rows). A name is added only with that person's yes; never the gift code or the form.
+  Seen on the Streamer (English). Not seen: Arabic. Nothing posted on #25.
+- **Multi-view never past the screen, and a cameras page (#31's comment, #30; 2026-11-24, not released):** the row
+  was sized for four cameras times *Size* (140 % by default), so four ran off both sides. Now `multiLayout`
+  ("auto" default, "row", "grid"; Settings → Smart home → Multi-view → *Layout*): auto is one row when it fits at
+  that size, else two by two; a card is never wider or taller than its share of the screen. **The cameras page**
+  (`MultiCamOverlay(full = true)`): the multi-view cameras fill the screen on black (1 whole, 2 side by side, 3-4 two by
+  two) until Back; the Home button service hands it the arrows and OK (`key()`): the arrows choose a camera (white
+  rim), OK turns its sound on (one at a time, all muted at first; a camera without an audio track says *No sound*).
+  Ways in (his choice: not Down from the dock): menu → Camera → *Whole screen* (Down from the camera card), a remote
+  button (action `cameras`), Settings → *On the whole screen*. QA hooks (no key): `--ez cams_full true`,
+  `--ez multi_mid true` (each toggles). Seen on the Streamer: his three cameras plus a dead test link as four (auto →
+  two by two, nothing cut), his three in one row, the page with four and three, Right + OK through a `hid` keyboard
+  (rim, *No sound*: his cameras send video only, checked with ffprobe), the menu's row. Not heard: a camera with sound.
+  PTZ not done (no camera to try; #31's author offered to test).
+  **`dump_prefs` cuts long values**: never rebuild a setting from it (his cameras were rebuilt from his backup on the
+  TV, 2026-11-15, after a test cut DOOR's link; he was told).
+- **His changes to the cameras, PTZ and #32 (2026-11-24, not released):**
+  - Four cameras two by two are as big as the screen allows (`rowsN > 1`: the fit size times Size / 140 %).
+  - The cameras page stands on Glassio's lights (`orbsPicture`, shade 0.25), not black.
+  - **PTZ** (`net/Ptz.kt`): hold OK (0.6 s) on a camera of the cameras page: the arrows move it while held, OK switches
+    to zoom (▲ ▼) and presets (◀ ▶), Back leaves the controls (a second Back closes the page). Home Assistant cameras:
+    `onvif.ptz`; others: ONVIF to the camera (port 80, or `onvif=<port>` in the link's query) with the RTSP link's user
+    and password, WS-Security digest with the camera's clock, the profile of the link's channel (Dahua `channel=N`,
+    Hikvision `/Channels/N01`: his cameras are channels 1, 2, 4 of one Dahua-style recorder, which reports PTZ on
+    every channel). **The service gets no key repeats**: a held arrow resends the move every 0.7 s (each a second
+    long, `Timeout PT1S`, 20 s at most), so a lost release stops the camera by itself. Tested against a fake ONVIF
+    camera on the Mac (move, stop on release, resends, zoom, presets, Back) through a `hid` keyboard and a `hid`
+    consumer remote (AC Back 0x0224) run on the TV with `nohup` (the relay dropped the foreground `hid`). His real
+    cameras answered GetCapabilities / GetProfiles / the channel's profile; **no move was sent to them** (fixed
+    cameras behind a recorder that claims PTZ: they would not move). Not tried: a real PTZ camera, HA's onvif.ptz.
+  - **Unneeded apps** (#32, `data/Debloat.kt`, Settings → System, github build only; his choice: no DNS blocking):
+    a fixed list of the TV's report / ad / installer apps (UAD-ng "Recommended" or several guides), `pm disable-user`
+    and `pm enable` only, a `NEVER` set checked again, a screensaver in use kept, *Turn back on what Glassio turned off*
+    only touches its own (`tv_apps_off`, not a `glass…` file). His Streamer already had 22 apps off (Google feedback,
+    ad services, tvrecommendations, Ambient …); the page showed them off and the *Maker's app installer* on: turned
+    off from the page (adb agreed) and back on (22 off again, as before). The page's rows stay put (a row that came
+    and went moved the selection onto another app once: seen, nothing pressed). Its words are English only so far.
+  - **After his look (same night):** multi-view takes the arrows and OK too (they moved the app behind it): OK opens
+    the cameras page, ▼ closes the one from the bottom (screensaver), the rest do nothing; seen: three Rights left the
+    dock's selection as it was, OK opened the page. The cameras page is dark grey (`#1C1C1E`, his ask), not the lights.
+    The menu's *Whole screen* row lets Up go back to the card (it was `first`). New, off by default: `cameraMenuFull`
+    (the menu's Camera opens the cameras page; seen) and `cameraSoundFollows` (the selected camera is heard; his cameras
+    send no sound: not heard). Both were set for the test and removed after.
+- **Three of his reports (2026-11-24, not released), each reproduced on the Streamer first:**
+  - *Removing a camera left the section or removed two:* the row went with the selection on it (it fell out of the
+    page; the OK still held then hit the next row). Now Remove asks first and `keepRowAt(i)` (SettingsScreen: `hold()`
+    then `jump` to that row of the page as it is after) puts the selection on the next camera, or the one before at
+    the end. The same for *Hidden videos* (Show again) and *My videos* (Remove, also asked first). Seen: two test
+    cameras removed one at a time, the selection on TEST B then on OUTDOOR 2, his three untouched; a hidden video
+    shown again, the selection on the row before.
+  - *▼ on the screensaver: the cameras came and went at once:* the multi-view (which now takes the keys) took the
+    release of the ▼ that opened it and closed itself. It only acts on a key it saw go down (`pressed`). Seen: ▼ up and
+    staying, ▼ again closes.
+  - *Don't show it again, then ◀ brought the video back, and the home screen came back with nothing selected:* the
+    screensaver's list is the one it started with; ◀ ▶ now pass over hidden videos (seen: ◀ skipped Mafate). The
+    held-OK menu takes the selection, and the home screen's watch gave it back to Play, or not at all; the home screen
+    now keeps the dock app it was on (`dockWas`, not updated while the screensaver is up) and gives it back when the
+    screensaver ends (seen: Music, then Nuvio Legacy, selected again after the menu and Back). His hidden list and
+    cameras were put back as they were (Mafate and Vettisfossen hidden for the tests, shown again).
+- **His second round on the cameras and the removals (2026-11-24, not released):**
+  - *▼ after closing the cameras took two presses:* the cameras swallowed the release of the ▼ that opened them, so
+    the screensaver saw ▼ held for ever (Android repeated it, 136 repeats in the log) and the next ▼ was a repeat.
+    A release whose press went elsewhere now goes on to it (`MultiCamOverlay.key`, `pressed`). Seen: one ▼ opens,
+    one closes, one opens again.
+  - *Lag while the cameras show* (the screensaver behind, measured with `gfxinfo framestats` per window, p50):
+    screensaver window 47 → 10-20 ms, cameras window 57 → 20-23 ms, frames over 33 ms 153 → 8-30 in 6 s. Causes
+    found with simpleperf: the RenderThread spent a fifth of its time in `PixelCopy` of the 4K video (the veil's
+    copy every 70 ms, the island / clock copies, Hue Sync's copy twice a second) plus a GPU blur of the whole
+    screen every frame and the TV's window blur. Now (his idea) the screensaver's and the background's video wait
+    under the cameras; the veil is one small softened copy; no copies at all while the cameras are up; no window blur
+    over Glassio's screensaver (`ownVeil`); the window is only as big as the cameras there; the cameras start one
+    after another after the slide (260 ms + 150 ms each).
+  - *One camera of four didn't play* (seen: Dahua 4, `DECODER_INIT_FAILED` on both streams, also after retries):
+    the paused screensaver video still held a decoder. Once the veil has its copy it is let go (`stop()`), taken up
+    again where it was when the cameras close, the veil staying until its first frame (`underCams`). Seen: all four
+    live, the video moving again after. A camera that fails or isn't live in 10 s is started again (small stream,
+    three times). Not done: the video background (*One player* on aerial) only pauses, it keeps its decoder.
+  - *Removals everywhere:* a watch over all of Settings. The selection that left a removed row fell to the search
+    field, which opened the search at once (seen with `--es dev K --ez settings_lose_focus true`, a new QA hook).
+    The search field now opens only when reached with an arrow (within 0.6 s) or asked for; otherwise the page's
+    row where it was takes the selection (`jump`, which now also looks upward). Seen: dropped on System's 5th row,
+    back on it; Up from the sections still opens the search. Rows reviewed by hand: sign-outs, Remove add-on,
+    Continue Watching's Clear, Forget the bridge, remote buttons, sync, Last crash (all covered by the watch).
+  - His camera list is now *Dahua 1-4* (added by him with Find cameras after the earlier tests).
+- **The same fixes everywhere (2026-11-24, his rule; not released):**
+  - *One player and the home screen's video background* (`VideoBackground`): wait under the cameras and let their
+    decoder go, the video's last sharp copy (`still` / `cover`) over it until it draws again; the home screen's veil
+    counts as `ownVeil` (no window blur over it). Seen with *Videos* as the background for the test (put back to
+    Title backdrops): "let go under the cameras", all four cameras live, back in 1.0-1.4 s.
+  - *Trailers* (the carousel's and the home player's, not only the screensaver's): wait under the cameras and let
+    their decoder go, back where they were. Not seen (no trailer was playing).
+  - *The blur after closing the cameras* (his question: it was on purpose, the video loads again ~1 s): now the blur
+    goes with the cameras and a sharp still copy of where the video stopped stands in for it until it draws
+    (screensaver: `stillFrame`, 960×540; background: its `cover`). All three resume at the nearest key frame,
+    seeked before preparing (it didn't make the return much faster: the network and the decoder are most of it).
+    Seen: right after closing, a sharp picture; the video moving again after ~1 s.
+  - *The Library*: a title removed while selected took the selection back to the first title at the top; now the
+    one that took its place (or the one before) is selected (`keep(list, i)`, `lastAt`, forgotten when the Library
+    goes). Seen: One Piece saved from a platform row, removed from Saved: the next one selected, the page in place.
+  - Looked at and fine as they are: the corner camera's and KeyHub's buttons take a key's press and release both;
+    the screensaver's hidden videos in the background's list (it is built again when one is hidden).
+- **Memory and CPU, branch `lite` (2026-11-24, his ask; local only, `beta` untouched until he says):**
+  - Deep check first (no change): on the Streamer PSS 550-750 MB, native 340-480 (pictures: heapprofd showed 373 MB
+    of 387 MB held native memory in Bitmaps: Coil's decodes 158 MB, page pictures 75, app artwork 47, glass copies
+    22), GL 121, Java 15-100. CPU at rest ~16-40 % of a core, mostly RenderThread (the island's bars redraw the screen
+    ~12 times a second while a song plays); spikes to ~290 % when slides are prepared (decode, page picture, blur)
+    and the GC after them. On the screensaver PixelCopy of the 4K video for the island's glass is a quarter of the
+    RenderThread. `immutable()`'s copy is not a duplicate (the mutable one is recycled). Tools: `heapprofd` with
+    `perfetto --txt -c -` (the app is profileable; restart it under the profile), `pip3 install perfetto` for the
+    analysis, the R8 mapping to read the frames; `am dumpheap` needs a debuggable build; `simpleperf` and `perfetto`
+    run on the TV with `nohup … &` (cd /data/local/tmp first) when the relay drops.
+  - Step 1 (`8df87bc`): the icons' copy for light plates made when first drawn (TCL 161 -> 142 MB); pictures let
+    go when Glassio is left, started from its own screens (`awayFor`): Android never sent TRIM_MEMORY_UI_HIDDEN (the
+    Home button service keeps the process important), so the old release never ran on either TV; the camera
+    thread named from inside (named from the main thread, ART renamed the main thread `glass-cam-play`).
+  - A (`9f46766`): away for 3 min (1 on small TVs or Lite) every kept page picture goes (`trimAllPages`: the pins,
+    the app rows' and music page's backgrounds, logos), pinned again on return (`GlassCache.released`). Streamer
+    under another app native 461 -> 226 MB; the return as fast (145 ms both, the picture there at once).
+  - B: mode **Lite** (`perfMode` "lite"; Mode cycles Auto, Lite, Performance, Balanced, Quality): the same look
+    (picture quality, resolution, glass, animations untouched), prefetch 2, `memTier` 1, autoplay on the carousel
+    only, screensaver 1080p, and `Settings.lean` (also tier 0): slower island bars, the music page's blur and a
+    trailer worked out only when needed, Hue every 2 s when set to "as fast as possible", pictures let go after a
+    minute away. Auto never picks it (weak TVs keep Performance, lighter). Streamer: PSS 531-561 -> 426-457 MB,
+    frames at rest 13.1 -> 9.3 ms; CPU at rest the same (~40 % right after a restart either way); the spikes not
+    measured. His own settings win (`perfOwn`: his prefetchDepth 8 stayed). His Streamer back on Quality with his
+    values. **The TCL went off the network during its Lite test: it may be on Lite; `--es perf_mode auto` puts it
+    back (its values were exactly Auto's).**
+- **Branch `lite`, after B (2026-11-24):**
+  - For everyone (`407f598`): camera players have decoder fallback on (a hardware decoder that can't start hands over
+    to the software one); cameras beyond the TV's hardware decoders (`CamPlayer.hardwareRoom`, the smallest
+    `maxSupportedInstances` of its H.264 / HEVC decoders: 4 on the Streamer) start on the processor with their small
+    stream. QA (dev key): `--ei cam_room N` (0 = the TV's). Seen with 2: Dahua 3 and 4 on `c2.android.avc.decoder`,
+    all four live. One OkHttp base client (`Net.ok`) for Coil, Home Assistant and PTZ (`newBuilder()`); the 28
+    `HttpURLConnection` users already share Android's own pool.
+  - Lite (and Performance, `lean`): app icons decoded at 400 / 192 px (was 640 / 256), video buffers capped (background
+    20 s / 24 MB, screensaver 25 s / 32 MB). Memory on the Streamer the same as B within noise (451-469 MB): the gain
+    is small and only with a video playing. Seen: the cameras over the screensaver on Lite. His settings back.
+  - **Not done: hardware bitmaps for page pictures.** At least 12 places read pictures' pixels on the CPU
+    (Hue colours, the clock's cut-out, glass copies, glow, island tint…) and `createScaledBitmap` of a hardware
+    bitmap throws: each would need a software copy first. **His answer (2026-11-24): leave it.**
+  - The Mac had restarted: the Homebrew adb hung (even `adb version`); the SDK's adb works
+    (`$ANDROID_HOME/platform-tools` first on PATH). The relay script was rewritten in the scratchpad.
+- **4.4.0 (code 77), prepared for release (2026-11-24, his "سوي النواقص وسوي ريليس"):** `lite` merged into `beta`
+  (fast-forward). Unneeded apps' page and app list translated in the eight languages; the phone page sets
+  `multiLayout`, `cameraMenuFull`, `cameraSoundFollows` and `perfMode` (with Lite, through `applyMode`). `NEW_IN`
+  4.4.0: Layout, Menu's Camera opens the whole screen, Sound follows the selection, On the whole screen, Unneeded
+  apps. The tour keeps its pages and puts 4.4's first (*Cameras*, *Lighter*; `WhatsNew.ID` 70, 15 pages; his
+  `tourSeen` put back to 69). Tests, lint (both flavors), play scan clean, `nav` clean on the Streamer.
+- The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and
     not their home or a profile picker) is only known from the intent in front.

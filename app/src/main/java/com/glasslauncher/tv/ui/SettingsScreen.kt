@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -107,6 +108,7 @@ private val NEW_IN = mapOf(
         "Platform rows", "Rows per platform", "Carousel shade", "Button look", "Music & Inputs page"),
     "4.2.0" to listOf("Recommended for this TV", "  · Where", "Glass over the video", "Plays", "Connect Jellyfin", "One player", "YouTube lists", "Rows above the dock", "Same video as the screensaver", "Let the video go while away", "Pexels", "  · Pexels key", "  · Pexels words",
         "Hold OK asks", "Hidden videos"),
+    "4.4.0" to listOf("  · Layout", "  · Menu's Camera opens the whole screen", "  · Sound follows the selection", "  · On the whole screen", "Unneeded apps"),
     "4.3.0" to listOf("  · Nuvio's picture by itself", "QR code in Settings' search", "New code"),
     "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
         "Nuvio and Stremio apps", "Nuvio plays at once", "Stremio for a film", "Quality", "Largest file", "HDR and Dolby Vision",
@@ -258,6 +260,20 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
     /** A row that opens [sp] (its count or state on the right, from [more]). */
     fun pageRow(title: String, desc: String, value: String, ok: Boolean? = null, sp: SubPage): SRow = Act(title, desc, value, ok, sub = sp) { openSub(sp) }
     fun closeSub() { if (subs.isNotEmpty()) { hold(); subs.removeAt(subs.lastIndex) } }
+    /**
+     * A row of this page is about to go (removed from a list): the selection waits unseen, then lands on row [i] of the
+     * page as it is after (the next one, or the one before at the end). Left on the row that went, it fell out of the
+     * page to the sections, and the OK still held then removed the row that took its place (his cameras: "it leaves
+     * the section, or removes two").
+     */
+    val rowAfter = remember { mutableStateOf<Int?>(null) }
+    // (For the watch over the whole of Settings, see below: whether anything in it is selected.)
+    val rootHas = remember { mutableStateOf(false) }
+    val hadFocus = remember { booleanArrayOf(false) }
+    // (When an arrow was last pressed, and whether the search was asked for: how the search field was reached.)
+    val arrowAt = remember { longArrayOf(0L) }
+    val searchAsked = remember { booleanArrayOf(false) }
+    fun keepRowAt(i: Int) { hold(); rowAfter.value = i.coerceAtLeast(0) }
     /** A row that opens a list: its count on the right. */
     fun more(n: Any) = "${com.glasslauncher.tv.data.I18n.tr(n.toString())}  ›"
     val weatherFound by app.weather.found.collectAsState()
@@ -1506,8 +1522,19 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                         }
                                     }))
                                 if (st.aerialUrls.isNotEmpty()) add(Note("Your links"))
-                                st.aerialUrls.forEach { u ->
-                                    add(Act(videoName(u), hostOf(u), "Remove") { st.aerialUrls = st.aerialUrls - u })
+                                val links = st.aerialUrls
+                                links.forEachIndexed { k, u ->
+                                    // Asked first; then the selection goes to the next link (or the one before, or
+                                    // the row above the links), never off the page.
+                                    val at = size
+                                    val above = if (at > 0 && this[at - 1] is Note) at - 2 else at - 1
+                                    add(Act(videoName(u), hostOf(u), "Remove") {
+                                        dialog = MenuDialog("Remove ${videoName(u)}?", listOf("Remove" to {
+                                            keepRowAt(if (k < links.size - 1) at else if (links.size > 1) at - 1 else above)
+                                            st.aerialUrls = st.aerialUrls - u
+                                            Unit
+                                        }))
+                                    })
                                 }
                             }
                         }))
@@ -1536,8 +1563,13 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Note("Screensaver · Locked videos"))
                     if (st.saverHidden.isNotEmpty()) add(pageRow("Hidden videos", "Videos you chose never to see again. OK on one shows it again", more(st.saverHidden.size), sp = SubPage("Hidden videos") {
                         buildList {
-                            st.saverHidden.forEach { h ->
-                                add(Act(h.substringAfter('\t').ifBlank { "Video" }, "", "Show again") { st.saverHidden = st.saverHidden - h })
+                            val all = st.saverHidden
+                            all.forEachIndexed { k, h ->
+                                // (The selection stays on the page: on the next one, or the one before at the end.)
+                                add(Act(h.substringAfter('\t').ifBlank { "Video" }, "", "Show again") {
+                                    if (all.size <= 1) closeSub() else keepRowAt(minOf(k, all.size - 2))
+                                    st.saverHidden = st.saverHidden - h
+                                })
                             }
                         }
                     }))
@@ -1882,8 +1914,16 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                     dialog = TextEntry("Camera name", "", "Door, Garden…") { n -> st.cameras = (st.cameras + Cam(n.ifBlank { "Camera" }, u.trim()).line()).distinct(); tvRev.intValue++ }
                                 }
                             })
-                            st.cameras.mapNotNull { Cam.parse(it) }.forEach { c ->
-                                add(Act(c.name, runCatching { java.net.URI(c.url).host }.getOrNull() ?: "", "Remove") { st.cameras = st.cameras.filterNot { it == c.line() || Cam.parse(it)?.url == c.url } })
+                            val cams = st.cameras.mapNotNull { Cam.parse(it) }
+                            cams.forEachIndexed { k, c ->
+                                // Asked first; after it the selection goes to the next camera (or the one before, or Add).
+                                add(Act(c.name, runCatching { java.net.URI(c.url).host }.getOrNull() ?: "", "Remove") {
+                                    dialog = MenuDialog("Remove ${c.name}?", listOf("Remove" to {
+                                        keepRowAt(3 + minOf(k, cams.size - 2).coerceAtLeast(-1))
+                                        st.cameras = st.cameras.filterNot { it == c.line() || Cam.parse(it)?.url == c.url }; tvRev.intValue++
+                                        Unit
+                                    }))
+                                })
                             }
                             if (st.cameras.isEmpty()) add(Note("No cameras yet: find them on your network or add a link above. From the phone page you can also add, rename and remove them."))
                         }
@@ -1926,10 +1966,20 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     chooser()
                 })
                 add(Adjust("  · Size", "", { pct(st.multiScale) }, { st.multiScale = ((st.multiScale * 10).roundToInt() + it) / 10f }))
+                add(Adjust("  · Layout", "Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges",
+                    { when (st.multiLayout) { "row" -> "One row"; "grid" -> "Two by two"; else -> "Automatic" } }, { st.multiLayout = cycle(listOf("auto", "row", "grid"), st.multiLayout, it) }))
                 add(Adjust("  · Picture", "Sharp: each camera's full stream. Light: its small stream (for small or older TVs). Automatic picks for this TV",
                     { when (st.multiQuality) { "high" -> "Sharp"; "light" -> "Light"; else -> "Automatic" } }, { st.multiQuality = cycle(listOf("auto", "high", "light"), st.multiQuality, it) }))
                 add(Adjust("  · Shows for", "Then it goes away by itself", { if (st.multiSec == 0) "Until closed" else if (st.multiSec < 60) "${st.multiSec} s" else "${st.multiSec / 60} min" },
                     { st.multiSec = cycle(listOf(10, 20, 30, 60, 120, 300, 0), st.multiSec, it) }))
+                add(Toggle("  · Menu's Camera opens the whole screen", "Menu → Camera goes straight to the cameras page instead of the live card",
+                    { st.cameraMenuFull }, { st.cameraMenuFull = it }))
+                add(Toggle("  · Sound follows the selection", "On the whole screen, the selected camera's sound plays by itself (cameras that send sound)",
+                    { st.cameraSoundFollows }, { st.cameraSoundFollows = it }))
+                add(Act("  · On the whole screen", "The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)", "") {
+                    val svc = com.glasslauncher.tv.HomeKeyService.instance
+                    if (svc == null) toast(ctx, "Needs the Home button service: System → Turn it on") else svc.toggleMulti(bottom = false, full = true)
+                })
                 add(Act("  · Show it now", "In the middle of the screen (also: menu → Camera, then OK)", "") {
                     val svc = com.glasslauncher.tv.HomeKeyService.instance
                     if (svc == null) toast(ctx, "Needs the Home button service: System → Turn it on") else svc.toggleMulti(bottom = false)
@@ -2069,6 +2119,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     opts += ThumbItem("TV inputs", "The TV's inputs over any app · press again to close", com.glasslauncher.tv.data.Inputs.dockIcon()) { mapTo(code, "inputs", "TV inputs") }
                 opts += ThumbItem("Close the app in front", "Stops the app on screen and comes back to Glassio. Needs TV access (ADB)", HueArt.home()) { mapTo(code, "closeapp", "Close the app in front") }
                 if (st.searchOn) opts += ThumbItem("Search", "Glassio's search: films, series, videos, songs", null) { mapTo(code, "search", "Search") }
+                if (st.cameras.isNotEmpty()) opts += ThumbItem("Cameras on the whole screen", "Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes", null) { mapTo(code, "cameras", "Cameras") }
                 com.glasslauncher.tv.data.Inputs.list.value.forEach { inp ->
                     val pic = app.apps.ordered(includeHidden = true).firstOrNull { it.pkg == com.glasslauncher.tv.data.Inputs.PREFIX + inp.id }?.let { app.apps.cachedArtwork(it)?.bmp }
                         ?: HueArt.input(inp.label)
@@ -2185,18 +2236,19 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                 })
 
                 add(Note("Performance"))
-                fun tierName(m: String) = when (m) { "performance" -> "Performance"; "quality" -> "Quality"; "balanced" -> "Balanced"; else -> "Custom" }
+                fun tierName(m: String) = when (m) { "performance" -> "Performance"; "quality" -> "Quality"; "balanced" -> "Balanced"; "lite" -> "Lite"; else -> "Custom" }
                 val own = st.perfOwn
                 add(Adjust("Mode", when (st.perfMode) {
                     "auto" -> "Picked for this TV from its memory and graphics chip" + (if (own.isNotEmpty()) " · ${own.size} set by you" else "")
                     "performance" -> "Smoothest: lighter pictures, quick fades, flat glass"
                     "quality" -> "Sharpest: original pictures, slow fades, full glass"
                     "balanced" -> "Sharp pictures, smooth navigation"
+                    "lite" -> "The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background"
                     else -> "Your own mix of the settings below"
                 }, {
-                    fun n(m: String) = when (m) { "performance" -> "Performance"; "quality" -> "Quality"; "balanced" -> "Balanced"; else -> "Custom" }
+                    fun n(m: String) = when (m) { "performance" -> "Performance"; "quality" -> "Quality"; "balanced" -> "Balanced"; "lite" -> "Lite"; else -> "Custom" }
                     if (st.perfMode == "auto") "Auto (${n(st.autoTier)})" else n(st.perfMode)
-                }, { st.applyMode(cycle(listOf("auto", "performance", "balanced", "quality"), st.perfMode.takeIf { m -> m != "custom" } ?: "auto", it)) }))
+                }, { st.applyMode(cycle(listOf("auto", "lite", "performance", "balanced", "quality"), st.perfMode.takeIf { m -> m != "custom" } ?: "auto", it)) }))
                 // What this TV is, and the way back to what suits it (also from Custom, and over your own changes).
                 add(Act("Recommended for this TV", st.tvKind, if (st.perfMode == "auto" && own.isEmpty()) "In use" else tierName(st.autoTier),
                     ok = if (st.perfMode == "auto" && own.isEmpty()) true else null) {
@@ -2377,6 +2429,44 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                             })
                         }
                     }))
+                // The TV's own apps that only report, advertise or install others, turned off and on through the TV's
+                // adb (#32; see Debloat). Never in the play build.
+                if (!com.glasslauncher.tv.data.Store.PLAY) add(pageRow("Unneeded apps", "Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on",
+                    more("Apps"), sp = SubPage("Unneeded apps") {
+                        val rev = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                        val found by produceState<Result<List<com.glasslauncher.tv.data.Debloat.Found>>?>(null, rev.intValue) {
+                            value = kotlinx.coroutines.withContext(Dispatchers.IO) { com.glasslauncher.tv.data.Debloat.read(ctx) }
+                        }
+                        fun flip(pkgs: List<String>, on: Boolean) = scope.launch(Dispatchers.IO) {
+                            val bad = pkgs.filter { com.glasslauncher.tv.data.Debloat.set(ctx, it, on).isFailure }
+                            if (bad.isNotEmpty()) toast(ctx, "The TV refused: " + bad.joinToString(", "))
+                            kotlinx.coroutines.withContext(Dispatchers.Main) { rev.intValue++ }
+                        }
+                        buildList {
+                            add(Note("Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back."))
+                            val r = found
+                            when {
+                                r == null -> add(Note("Reading the TV's apps…"))
+                                r.isFailure -> add(Note("Needs TV access (ADB): System → TV access (ADB)."))
+                                r.getOrThrow().isEmpty() -> add(Note("None of them is on this TV."))
+                                else -> {
+                                    val list = r.getOrThrow()
+                                    // (Both rows always there: a row that came and went moved the selection onto another app.)
+                                    val canOff = list.filter { it.on && !it.screensaver }
+                                    add(Act("Turn them all off", if (canOff.isEmpty()) "All of them are off" else "${canOff.size} on now", "") { if (canOff.isNotEmpty()) flip(canOff.map { it.pkg }, false) })
+                                    list.forEach { f ->
+                                        add(Toggle(f.app.title, f.app.what + if (f.screensaver) " · It is the TV's screensaver now" else "",
+                                            { f.on }, { on -> if (!on && f.screensaver) toast(ctx, "It is the TV's screensaver: choose another one first") else flip(listOf(f.pkg), on) }))
+                                    }
+                                    val mine = com.glasslauncher.tv.data.Debloat.byGlassio(ctx)
+                                    val back = list.filter { !it.on && it.pkg in mine }
+                                    add(Act("Turn back on what Glassio turned off", if (back.isEmpty()) "Nothing: apps that were off before stay as they are" else "${back.size} off by Glassio", "") {
+                                        if (back.isNotEmpty()) flip(back.map { it.pkg }, true)
+                                    })
+                                }
+                            }
+                        }
+                    }))
                 add(Act("Run setup again", "The welcome screen: restore, catalogs, accounts and theme", "") { st.setupDone = false; app.requestSetup.intValue++ })
             }
         },
@@ -2406,7 +2496,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
         androidx.compose.runtime.snapshotFlow { SettingsAskSearch.value }.collect { q ->
             if (q == null) return@collect
             kotlinx.coroutines.delay(700) // (after Settings' own first selection)
-            query = q; searching = true; special = null; runCatching { searchFocus.requestFocus() }
+            query = q; searching = true; special = null; searchAsked[0] = true; runCatching { searchFocus.requestFocus() }
             SettingsAskSearch.value = null
         }
     }
@@ -2444,6 +2534,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
     }
     // Search: a query typed on Glassio's own keyboard; a result opens its page at that row.
     var jump by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    // (A row removed from a list: see keepRowAt.)
+    LaunchedEffect(rowAfter.value) { rowAfter.value?.let { i -> kotlinx.coroutines.delay(60); jump = pageSlot() to i; rowAfter.value = null } }
     // The row you were on last time (Settings opened plainly).
     LaunchedEffect(Unit) {
         val r = app.settings.settingsLastRow
@@ -2467,12 +2559,31 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             }
             // (The row asked for, or the first one after it that can be selected: a page may begin with a heading, or
             // with several notes: TV access (ADB) has four, and the selection fell to the sections on its left.)
-            for (k in r..r + 8) if (runCatching { rowReq(c, k).requestFocus() }.getOrDefault(false)) { done = true; break }
+            // (Then the ones above it: the last row of a page removed, the one before takes it.)
+            for (k in (r..r + 8) + (r - 1 downTo (r - 8).coerceAtLeast(0))) if (runCatching { rowReq(c, k).requestFocus() }.getOrDefault(false)) { done = true; break }
             if (!done) androidx.compose.runtime.withFrameNanos { }
         }
         holding[0] = false
         if (!done && holdHas[0]) runCatching { leftOf().requestFocus() }
         jump = null
+    }
+    // A watch over the whole of Settings: whenever the selection is gone from it (a row removed, cleared or swapped
+    // for another while selected, a window closed over a row that went meanwhile) and no window is up, the page's
+    // row where it was (or the nearest one) takes it again. Left alone, the next key put it on the search, which
+    // opened, or on the sections (his camera list: "it leaves the section, or removes two"); every list fixed one by
+    // one missed others.
+    val fm = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(SettingsLoseFocus.intValue) { if (SettingsLoseFocus.intValue > 0) fm.clearFocus(force = true) }
+    LaunchedEffect(Unit) {
+        androidx.compose.runtime.snapshotFlow { rootHas.value to (dialog == null && !phoneDialog) }.collect { (has, free) ->
+            if (has) { hadFocus[0] = true; return@collect }
+            if (!free || !hadFocus[0]) return@collect
+            androidx.compose.runtime.withFrameNanos { }; androidx.compose.runtime.withFrameNanos { }
+            if (rootHas.value || dialog != null || phoneDialog || jump != null || holding[0]) return@collect
+            val slot = pageSlot()
+            com.glasslauncher.tv.data.Glog.i("Settings: nothing selected, back to row ${lastRow[slot]} of the page")
+            jump = slot to lastRow[slot].coerceAtLeast(0)
+        }
     }
     // A page opened from a row: its first row is selected. Closed: the row that opened it again.
     val subCount = remember { intArrayOf(subs.size) }
@@ -2539,7 +2650,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             Image(still, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
                 colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.Black.copy(alpha = 0.62f), androidx.compose.ui.graphics.BlendMode.SrcAtop))
         } else Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)))
-        Row(Modifier.fillMaxSize().padding((28 * s).dp), horizontalArrangement = Arrangement.spacedBy((16 * s).dp)) {
+        Row(Modifier.fillMaxSize().onFocusChanged { rootHas.value = it.hasFocus }
+            .onPreviewKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionUp || ev.key == Key.DirectionDown || ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight)) arrowAt[0] = android.os.SystemClock.uptimeMillis(); false }
+            .padding((28 * s).dp), horizontalArrangement = Arrangement.spacedBy((16 * s).dp)) {
             // (Wide enough for the longest section name, "Continue Watching & Library".)
             Pane(Modifier.width((262 * s).dp).fillMaxHeight()) {
                 // Every section shows, with no scrolling: they share the height under the search evenly and fill it to
@@ -2552,7 +2665,23 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     Row(Modifier.fillMaxWidth().padding(bottom = (8 * s).dp).clip(RoundedCornerShape((12 * s).dp))
                         .background(if (sf) Color.White.copy(alpha = 0.92f) else if (searching) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.08f))
                         .focusRequester(searchFocus)
-                        .onFocusChanged { sf = it.isFocused; if (it.isFocused) searching = true }
+                        .onFocusChanged {
+                            sf = it.isFocused
+                            // Reached with the arrows (or asked for): the search. Reached by itself, with no arrow
+                            // pressed, the selection fell here from a row that went away (removed, cleared, swapped):
+                            // it goes back to the page instead, and the search doesn't open (it opened, and the next
+                            // key typed or picked something there).
+                            if (it.isFocused && !searching) {
+                                val byKey = android.os.SystemClock.uptimeMillis() - arrowAt[0] < 600
+                                if (byKey || searchAsked[0]) searching = true
+                                else if (!holding[0] && jump == null) {
+                                    val slot = pageSlot()
+                                    com.glasslauncher.tv.data.Glog.i("Settings: the selection fell to the search, back to row ${lastRow[slot]} of the page")
+                                    jump = slot to lastRow[slot].coerceAtLeast(0)
+                                }
+                            }
+                            searchAsked[0] = false
+                        }
                         .clickable { searching = true }
                         .padding(horizontal = (12 * s).dp, vertical = (7 * s).dp), verticalAlignment = Alignment.CenterVertically) {
                         val ink = if (sf) Color(0xFF111114) else Color.White
@@ -2787,6 +2916,8 @@ private object SettingsCache {
 val SettingsCovers = mutableStateOf(false)
 /** Words Settings opens searching for (a QA hook). */
 val SettingsAskSearch = mutableStateOf<String?>(null)
+/** QA (dev key, `--ez settings_lose_focus true`): the selection in Settings is dropped, as a row that goes would. */
+val SettingsLoseFocus = androidx.compose.runtime.mutableIntStateOf(0)
 
 /** Settings → Menu & themes → Switch colour. */
 val SETTINGS_ACCENTS = linkedMapOf("burgundy" to ("Burgundy" to 0xFFA3243F.toInt()), "green" to ("Green" to 0xFF34C759.toInt()), "purple" to ("Purple" to 0xFF7B61FF.toInt()))
@@ -3141,6 +3272,21 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
             Spacer(Modifier.height((6 * s).dp))
             Text("github.com/" + com.glasslauncher.tv.data.Updater.REPO, color = Color.White.copy(alpha = 0.75f), fontSize = (9.5f * s).sp)
             Text("Scan with your phone", color = Color.White.copy(alpha = 0.5f), fontSize = (9 * s).sp)
+            Spacer(Modifier.height((12 * s).dp))
+            Text("Made by Mohammad (mrh12)", color = Color.White.copy(alpha = 0.75f), fontSize = (9.5f * s).sp)
+            // The people who support Glassio, each with the name they chose (only with their yes), under the code.
+            if (!com.glasslauncher.tv.data.Store.PLAY && SUPPORTERS.isNotEmpty()) {
+                Spacer(Modifier.height((16 * s).dp))
+                // In Glassio's own colours: the lights behind the setup (purple, blue, rose).
+                Text("Supporters", fontSize = (11.5f * s).sp, fontWeight = FontWeight.SemiBold, style = androidx.compose.material3.LocalTextStyle.current.copy(
+                    brush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF9A85FF), Color(0xFF5BB8F7), Color(0xFFFF7FB2)))))
+                Spacer(Modifier.height((3 * s).dp))
+                SUPPORTERS.forEach { (name, gh) ->
+                    Plain(if (gh.isEmpty()) name else "$name (@$gh)", color = Color.White.copy(alpha = 0.8f), fontSize = (9.5f * s).sp)
+                }
+                Text("Thank you for keeping Glassio going.", color = Color.White.copy(alpha = 0.5f), fontSize = (9 * s).sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.widthIn(max = (170 * s).dp).padding(top = (2 * s).dp))
+            }
         }
         val rows = buildList<SRow> {
             add(Note("Glassio ${app.updater.current} · The most clean, comfortable and customisable launcher."))
@@ -3187,7 +3333,7 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
                 dlg = SupportDialog({ com.glasslauncher.tv.data.Support.clean(it) }) { c, n -> com.glasslauncher.tv.data.Support.send(c, n, app.updater.current) }
             })
             if (com.glasslauncher.tv.data.Store.PLAY) add(Note("Privacy: github.com/" + com.glasslauncher.tv.data.Updater.REPO + "/blob/main/docs/PRIVACY.md"))
-            add(Note("Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB."))
+            add(Note("Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB."))
             if (crash.isNotBlank()) add(Act("Last crash", crash.take(120), "Clear") { java.io.File(ctx.filesDir, "last-crash.txt").delete(); toast(ctx, "Cleared") })
         }
         LazyColumn(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy((4 * s).dp)) {
@@ -3195,6 +3341,12 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
         }
     }
 }
+
+/**
+ * Settings → About → Supporters (under the GitHub code): the name each supporter chose and their GitHub account ("" for
+ * none), oldest first. Add one only with that person's yes.
+ */
+private val SUPPORTERS = listOf("EB" to "EbM-Tech")
 
 /** A video link's file name, readable ("Lofoten_4K.mp4" → "Lofoten 4K"). */
 internal fun videoName(u: String): String = com.glasslauncher.tv.saver.AerialSource.ytTitles[u]

@@ -125,6 +125,12 @@ class Settings(private val ctx: Context) {
             else -> "quality"
         }
     }
+    /**
+     * The light ways of doing things (slower island bars, the music page's blur and a title's trailer only when needed,
+     * pictures let go a minute after Glassio is left, Hue every 2 s): the smallest memory tier (Performance), and Lite,
+     * which keeps the look as it is (resolution, glass, pictures, animations) and only keeps less ready and works less.
+     */
+    val lean: Boolean get() = memTier == 0 || perfMode == "lite"
     /** The tier Auto picked, for display. */
     val autoTier: String by lazy { deviceTier() }
     /** What this TV is, in a few words (memory, Android, cores, graphics). */
@@ -229,6 +235,11 @@ class Settings(private val ctx: Context) {
             "balanced" -> { set("imageQuality") { imageQuality = "high" }; set("prefetchDepth") { prefetchDepth = 3 }; set("transitionMs") { transitionMs = 450 }
                 set("refraction") { refraction = 6 }; set("heroGallery") { heroGallery = true }; set("galleryShots") { galleryShots = 2 }; set("glassRes") { glassRes = 480 }
                 set("pageScale") { pageScale = 1f }; set("memTier") { memTier = 1 } }
+            // Lite: the same look (pictures, resolution, glass, animations untouched), less kept ready and less work:
+            // two slides prepared ahead, the middle caches, slides that change on their own only on the carousel, the
+            // screensaver's video in 1080p, and the light ways of [lean].
+            "lite" -> { set("prefetchDepth") { prefetchDepth = 2 }; set("memTier") { memTier = 1 }; set("heroAutoplayWhere") { heroAutoplayWhere = "carousel" }
+                set("saverQuality") { saverQuality = "1080-H264" } }
             "quality" -> { set("imageQuality") { imageQuality = "max" }; set("prefetchDepth") { prefetchDepth = 6 }; set("transitionMs") { transitionMs = 700 }
                 set("refraction") { refraction = 14 }; set("heroGallery") { heroGallery = true }; set("galleryShots") { galleryShots = 3 }; set("glassRes") { glassRes = 720 }
                 set("pageScale") { pageScale = 1f }; set("memTier") { memTier = 2 } }
@@ -695,6 +706,12 @@ class Settings(private val ctx: Context) {
     /** Multi-view: up to four cameras in one row. The cameras (links) in it; empty = the first four. */
     var multiCams: List<String> get() = list("multiCams"); set(v) = putList("multiCams", v.take(4))
     var multiScale: Float get() = f("multiScale", 1.4f); set(v) = putF("multiScale", v.coerceIn(0.6f, 1.4f))
+    /** The menu's Camera opens the cameras page (the whole screen) straight away, not the live card. */
+    var cameraMenuFull: Boolean get() = b("cameraMenuFull", false); set(v) = putB("cameraMenuFull", v)
+    /** The cameras page: the selected camera's sound plays by itself (only one at a time). */
+    var cameraSoundFollows: Boolean get() = b("cameraSoundFollows", false); set(v) = putB("cameraSoundFollows", v)
+    /** Multi-view's order: "auto" (one row when it fits at that size, else two by two), "row", "grid" (two by two). */
+    var multiLayout: String get() = s("multiLayout", "auto"); set(v) = putS("multiLayout", v)
     /** Seconds it stays (0 = until closed). */
     /** Multi-view picture: "auto" (the cameras' full streams where the TV decodes in hardware), "high", "light". */
     var multiQuality: String get() = s("multiQuality", "high"); set(v) = putS("multiQuality", v)

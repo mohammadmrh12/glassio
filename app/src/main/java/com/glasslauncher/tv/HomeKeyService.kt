@@ -21,13 +21,16 @@ class HomeKeyService : AccessibilityService() {
     private var camera: CameraOverlay? = null
     private var multi: MultiCamOverlay? = null
 
-    /** Multi-view: at the bottom (sliding up, on the screensaver) or in the middle; again closes it. */
-    fun toggleMulti(bottom: Boolean) {
+    /**
+     * Multi-view: at the bottom (sliding up, on the screensaver) or in the middle; [full]: the cameras page, filling
+     * the screen (#30). Again closes it.
+     */
+    fun toggleMulti(bottom: Boolean, full: Boolean = false) {
         multi?.let { if (it.showing) { it.close(); multi = null; return } }
         val app = application as GlassApp
         val cams = MultiCamOverlay.cams(app)
         if (cams.isEmpty()) { android.widget.Toast.makeText(this, "Add a camera first: Glassio settings → Cameras", android.widget.Toast.LENGTH_LONG).show(); return }
-        multi = MultiCamOverlay(this, cams, bottom, app.settings.multiSec, app.settings.multiScale).also { it.show() }
+        multi = MultiCamOverlay(this, cams, bottom && !full, app.settings.multiSec, app.settings.multiScale, app.settings.multiLayout, full).also { it.show() }
     }
 
     fun closeMulti() { multi?.close(); multi = null }
@@ -105,7 +108,9 @@ class HomeKeyService : AccessibilityService() {
     override fun onKeyEvent(event: KeyEvent): Boolean {
         // The camera in the corner: Back closes it (holding Home again too); every other key goes to the app as usual.
         multi?.takeIf { it.showing }?.let { m ->
-            if (event.keyCode == KeyEvent.KEYCODE_BACK) { if (event.action == KeyEvent.ACTION_UP) { m.close(); multi = null }; return true }
+            // (Back on the cameras page leaves a camera's controls first.)
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) { if (event.action == KeyEvent.ACTION_UP && !m.back()) { m.close(); multi = null }; return true }
+            if (m.key(event)) return true
         }
         camera?.takeIf { it.showing }?.let { c ->
             if (event.keyCode == KeyEvent.KEYCODE_BACK) { if (event.action == KeyEvent.ACTION_UP) { c.close(); camera = null }; return true }

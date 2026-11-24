@@ -9,7 +9,8 @@ import com.glasslauncher.tv.GlassApp
  * apps, like a Netflix button), so it works where button remappers can't (#12).
  *
  * Saved as "code|action|label" lines; the action is "app:<package>", "glassio" (Glassio's home screen, #13), "folder",
- * "recents", "input:<id>", "hue:<group id>" (those Hue lights off, and on again), "search" or "closeapp" (the app in
+ * "recents", "input:<id>", "hue:<group id>" (those Hue lights off, and on again), "search", "cameras" (the cameras
+ * page, filling the screen, #30) or "closeapp" (the app in
  * front closed through the TV's adb, #25). A double press or a hold has its own line: "code~double|…", "code~hold|…"
  * (#25); a plain "code|…" is the single press, as before.
  */
@@ -57,6 +58,7 @@ object RemoteMap {
         m.action == "recents" -> "Opens the recent apps"
         m.action == "search" -> "Opens the search"
         m.action == "closeapp" -> "Closes the app in front"
+        m.action == "cameras" -> "Shows the cameras on the whole screen"
         m.action == "inputs" || m.action == "app:" + Inputs.DOCK_PKG -> "Shows the TV inputs"
         m.action.startsWith("input:") -> "Switches to " + m.label.ifBlank { "the input" }
         else -> m.action
@@ -97,6 +99,8 @@ object RemoteMap {
                 a.startsWith("input:") -> Inputs.open(app, a)
                 a == "search" -> glass(app) { it.putExtra("open_search", true) }
                 a == "closeapp" -> closeFront(app)
+                a == "cameras" -> com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(bottom = false, full = true)
+                    ?: android.widget.Toast.makeText(app, "The cameras page needs the Home button service: Glassio settings → System", android.widget.Toast.LENGTH_LONG).show()
             }
         }.onFailure { Glog.w("Remote button ${m.code}", it) }
     }

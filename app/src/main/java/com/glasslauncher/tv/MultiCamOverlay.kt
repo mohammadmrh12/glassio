@@ -19,14 +19,20 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.glasslauncher.tv.ui.Cam
 
 /**
- * Multi-view: up to four cameras side by side in one row, each like the corner camera (rounded, LIVE, its name).
+ * Multi-view: up to four cameras, each like the corner camera (rounded, LIVE, its name), in one row or two by two
+ * (`multiLayout`; never wider than the screen: #31's four cameras ran off both sides at the size 140 %).
  * At the bottom of the screen it slides up (the screensaver's ▲); elsewhere it shows in the middle. Drawn by the
  * Home-button service over any app; it never takes the remote (Back closes it). Each camera uses its small
  * sub-stream when its link has one, decoded as [CamPlayer] says.
+ *
+ * [full]: the cameras page (#30): they fill the screen on black (one whole, two side by side, three or four two by
+ * two) and stay until Back. It takes the arrows and OK: the arrows choose a camera (a white rim), OK turns its
+ * sound on or off (one camera's at a time; all start muted).
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, private val bottom: Boolean,
-                      private val seconds: Int, private val scale: Float) {
+                      private val seconds: Int, private val scale: Float,
+                      private val layout: String = "auto", private val full: Boolean = false) {
     private val wm = ctx.getSystemService(WindowManager::class.java)
     private var root: FrameLayout? = null
     private var row: LinearLayout? = null
@@ -40,11 +46,30 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         val dm = ctx.resources.displayMetrics
         val n = cams.size.coerceAtMost(4)
         val gap = (12 * dm.density).toInt()
+        val w = dm.widthPixels.toFloat(); val h = dm.heightPixels.toFloat()
         // Each card: a share of the screen width (four fill about 88% of it at size 100%).
-        val cardW = ((dm.widthPixels * 0.88f - gap * (n - 1)) / 4f * scale.coerceIn(0.6f, 1.4f)).toInt()
+        val wanted = (w * 0.88f - gap * (n - 1)) / 4f * scale.coerceIn(0.6f, 1.4f)
+        val cols = when {
+            full -> if (n <= 1) 1 else 2
+            n < 3 || layout == "row" -> n
+            layout == "grid" -> 2
+            else -> if (wanted * n + gap * (n - 1) <= w * 0.94f) n else 2      // auto: two by two when one row won't fit
+        }
+        val rowsN = (n + cols - 1) / cols
+        // Never wider (or taller) than the screen.
+        val fitW = (w * (if (full) 0.97f else 0.94f) - gap * (cols - 1)) / cols
+        val fitH = ((h * (if (full) 0.95f else 0.9f) - gap * (rowsN - 1)) / rowsN) * 16f / 9f
+        // Two by two: as big as the screen allows (his ask: four cameras bigger), smaller only with a smaller Size.
+        val cardW = (when {
+            full -> minOf(fitW, fitH)
+            rowsN > 1 -> minOf(fitW, fitH) * (scale.coerceIn(0.6f, 1.4f) / 1.4f)
+            else -> minOf(wanted, fitW, fitH)
+        }).toInt()
         val cardH = cardW * 9 / 16
         val r = dm.density * 12
-        val line = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val line = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        val lines = List(rowsN) { LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER } }
+        lines.forEachIndexed { k, l -> line.addView(l, LinearLayout.LayoutParams(-2, -2).apply { if (k > 0) topMargin = gap }) }
         cams.take(n).forEachIndexed { i, c ->
             // (Opaque: the video covers the card, nothing behind it needs blending.)
             val tex = TextureView(ctx).apply { isOpaque = true }
@@ -67,23 +92,68 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
                 addView(TextView(ctx).apply { text = c.name; setTextColor(Color.WHITE); textSize = 10f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setShadowLayer(6f, 0f, 1f, Color.BLACK) },
                     FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins((8 * dm.density).toInt(), 0, 0, (6 * dm.density).toInt()) })
                 addView(status, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+                if (full) {
+                    val sound = TextView(ctx).apply {
+                        setTextColor(Color.WHITE); textSize = 9f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        background = GradientDrawable().apply { cornerRadius = 100f; setColor(0x73000000) }
+                        setPadding((8 * dm.density).toInt(), (3 * dm.density).toInt(), (8 * dm.density).toInt(), (3 * dm.density).toInt())
+                    }
+                    addView(sound, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, (8 * dm.density).toInt(), (6 * dm.density).toInt()) })
+                    sounds += sound
+                    // PTZ (hold OK): what the arrows and OK do now, over the bottom of the camera.
+                    val ctl = TextView(ctx).apply {
+                        setTextColor(Color.WHITE); textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD; visibility = View.GONE
+                        background = GradientDrawable().apply { cornerRadius = 100f; setColor(0xB3000000.toInt()) }
+                        setPadding((12 * dm.density).toInt(), (5 * dm.density).toInt(), (12 * dm.density).toInt(), (5 * dm.density).toInt())
+                    }
+                    addView(ctl, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = (34 * dm.density).toInt() })
+                    ctls += ctl
+                }
             }
-            line.addView(card, LinearLayout.LayoutParams(cardW, cardH).apply { if (i > 0) marginStart = gap })
+            cards += card
+            lines[i / cols].addView(card, LinearLayout.LayoutParams(cardW, cardH).apply { if (i % cols > 0) marginStart = gap })
             // Sharp: each camera's main stream (its full picture) where the TV decodes in hardware; the small
             // sub-stream on small / older TVs (decoded by the processor), or when the main one won't play.
             val st = (ctx.applicationContext as GlassApp).settings
             val main = when (st.multiQuality) { "high" -> true; "light" -> false; else -> !CamPlayer.software(ctx) }
             var onMain = main && CamPlayer.subStream(c.url) != c.url
-            players += CamPlayer.build(ctx).apply {
+            var tries = 0; var live = false
+            // (Beyond the TV's hardware decoders: this one on the processor, with its small stream.)
+            val beyond = i >= CamPlayer.hardwareRoom
+            if (beyond) { onMain = false; com.glasslauncher.tv.data.Glog.i("Multi-view ${c.name}: beyond the TV's ${CamPlayer.hardwareRoom} hardware decoders, on the processor") }
+            players += CamPlayer.build(ctx, CamPlayer.software(ctx) || beyond).apply {
+                val p = this
                 setVideoTextureView(tex)
+                // Started again a little later (its small stream), three times at most: a camera that failed or never
+                // answered while the others came up (the TV's decoders all busy for a moment, the recorder answering one
+                // stream late) stayed on "Can't reach" / "Connecting…" while two of three played (his report).
+                fun again(why: String) {
+                    if (root == null || live) return
+                    if (tries++ >= 3) { status.text = "Can't reach the camera"; status.visibility = View.VISIBLE; return }
+                    com.glasslauncher.tv.data.Glog.w("Multi-view ${c.name}: $why, trying again ($tries)")
+                    status.text = "Connecting…"; status.visibility = View.VISIBLE
+                    handler.postDelayed({ if (root != null && !live) CamPlayer.play(ctx, p, CamPlayer.subStream(c.url), tex, onFail = { again("no picture") }) { live = true; status.visibility = View.GONE } }, 1200L * tries)
+                }
                 addListener(object : Player.Listener {
-                    override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) status.visibility = View.GONE }
+                    override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) { live = true; status.visibility = View.GONE } }
+                    // Whether this camera sends sound at all (many send only the picture): the page says so.
+                    override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                        if (!full || tracks.groups.isEmpty()) return
+                        audio[i] = tracks.containsType(androidx.media3.common.C.TRACK_TYPE_AUDIO); if (root != null) mark()
+                    }
                     override fun onPlayerError(error: PlaybackException) {
                         if (onMain) { onMain = false; com.glasslauncher.tv.data.Glog.w("Multi-view ${c.name}: main stream ${error.errorCodeName}, the small one instead"); CamPlayer.play(ctx, this@apply, CamPlayer.subStream(c.url)); return }
-                        status.text = "Can't reach the camera"; status.visibility = View.VISIBLE
+                        again(error.errorCodeName)
                     }
                 })
-                CamPlayer.play(ctx, this, if (main) c.url else CamPlayer.subStream(c.url), tex, onFail = { status.text = "Can't reach the camera"; status.visibility = View.VISIBLE }) { status.visibility = View.GONE }
+                // Started after the cameras have come up, one after the other: starting three or four videos at once
+                // (each a decoder set up on the main thread) while the row slid up made its first frames stutter, and
+                // all at once was also when one of them failed. Not live after 10 s: started again.
+                handler.postDelayed({
+                    if (root == null) return@postDelayed
+                    CamPlayer.play(ctx, p, if (main && !beyond) c.url else CamPlayer.subStream(c.url), tex, onFail = { again("no picture") }) { live = true; status.visibility = View.GONE }
+                    handler.postDelayed({ if (!live) again("no picture after 10 s") }, 10_000)
+                }, 260L + 150L * i)
             }
         }
         // The whole screen: everything behind the cameras (the screensaver's video, the home screen, any app) is
@@ -93,32 +163,186 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
         val atBottom = bottom
         // The dim behind is a plain view faded with its own opacity: dimming the window itself meant updating the
         // window on every frame of the fade, which made opening and closing stutter.
-        val dim = View(ctx).apply { setBackgroundColor(0x73000000); alpha = 0f }
-        shade = dim
+        // The cameras page stands on dark grey (his choice), the rest on a soft dim.
+        // Over Glassio's screensaver (it draws its own veil) the window is only as big as the cameras: a window over
+        // the whole screen, see-through with a dim in it, was blended over the screensaver by the TV in every frame
+        // the cameras' videos changed.
+        val compact = !full && ownVeil > 0
+        val dim = View(ctx).apply { setBackgroundColor(if (full) 0xFF1C1C1E.toInt() else 0x73000000); alpha = 0f }
+        shade = if (compact) null else dim
         val box = FrameLayout(ctx).apply {
-            addView(dim, FrameLayout.LayoutParams(-1, -1))
+            if (!compact) addView(dim, FrameLayout.LayoutParams(-1, -1))
             addView(line, FrameLayout.LayoutParams(-2, -2, if (atBottom) Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL else Gravity.CENTER).apply {
-                if (atBottom) bottomMargin = (dm.heightPixels * 0.06f).toInt()
+                if (atBottom && !compact) bottomMargin = (dm.heightPixels * 0.06f).toInt()
             })
         }
-        val blurOk = android.os.Build.VERSION.SDK_INT >= 31 && wm.isCrossWindowBlurEnabled
-        val lp = WindowManager.LayoutParams(-1, -1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        // (Not over Glassio's screensaver: it draws its own soft veil, and the TV's blur of the whole screen in
+        // every frame, over a playing video, made every frame of both windows slow.)
+        val blurOk = android.os.Build.VERSION.SDK_INT >= 31 && wm.isCrossWindowBlurEnabled && ownVeil == 0
+        val lp = WindowManager.LayoutParams(if (compact) -2 else -1, if (compact) -2 else -1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 (if (blurOk) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0),
             PixelFormat.TRANSLUCENT).apply {
-            gravity = Gravity.FILL
+            gravity = if (!compact) Gravity.FILL else if (atBottom) Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL else Gravity.CENTER
+            if (compact && atBottom) y = (dm.heightPixels * 0.06f).toInt()
             // Set once (not eased frame by frame: each change re-laid out the window).
             if (blurOk) blurBehindRadius = (30 * dm.density).toInt()
         }
         runCatching { wm.addView(box, lp) }.onFailure { players.forEach { CamPlayer.release(it) }; players.clear(); return }
+        if (full) mark()
         root = box; row = line; params = lp; this.blurOk = blurOk
         open.value = true
-        dim.animate().alpha(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator(1.5f)).start()
+        if (!compact) dim.animate().alpha(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator(1.5f)).start()
         // Comes up from below (or fades in, in the middle), drawn as one layer while it moves.
         if (bottom) { line.translationY = cardH * 0.5f; line.alpha = 0f; line.animate().translationY(0f).alpha(1f).setDuration(240).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).withLayer().start() }
         else { line.alpha = 0f; line.scaleX = 0.94f; line.scaleY = 0.94f; line.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).withLayer().start() }
         handler.removeCallbacks(autoClose)
-        if (seconds > 0) handler.postDelayed(autoClose, seconds * 1000L)
+        if (seconds > 0 && !full) handler.postDelayed(autoClose, seconds * 1000L)
+    }
+
+    private val cards = mutableListOf<View>()
+    private val sounds = mutableListOf<TextView>()
+    private val ctls = mutableListOf<TextView>()
+
+    // PTZ on the cameras page: held OK on a camera opens its controls (see Ptz).
+    private var ptz: com.glasslauncher.tv.net.Ptz? = null
+    private var ptzAt = -1                 // the camera whose controls show (-1: none)
+    private var ptzMsg = ""                // "checking…" or why it can't move
+    private var ptzZoom = false            // OK switches the arrows between moving and zoom / presets
+    private var ptzPreset = -1
+    private var okHeld = false
+    private val pressed = HashSet<Int>()
+    private var again: Runnable = Runnable {}
+    private val holdOk = Runnable { okHeld = true; openPtz(sel) }
+
+    private fun openPtz(i: Int) {
+        val cam = cams.getOrNull(i) ?: return
+        closePtz(); ptzAt = i; ptzMsg = "PTZ · checking the camera…"; ptzZoom = false; ptzPreset = -1; mark()
+        com.glasslauncher.tv.data.Bg.io("glass-ptz-open") {
+            val r = com.glasslauncher.tv.net.Ptz.open(ctx, cam)
+            handler.post {
+                if (root == null || ptzAt != i) { r.getOrNull()?.close(); return@post }
+                r.onSuccess { ptz = it; ptzMsg = "" }.onFailure { e ->
+                    ptzMsg = if (e.message?.startsWith("No PTZ") == true) e.message!!.removePrefix("No PTZ: ").replaceFirstChar { it.uppercase() }
+                        else "Can't reach this camera's controls (ONVIF)"
+                    // The reason stays a moment, then the controls go.
+                    handler.postDelayed({ if (ptz == null && ptzAt == i) { ptzAt = -1; ptzMsg = ""; mark() } }, 3500)
+                }
+                mark()
+            }
+        }
+    }
+    private fun closePtz() { handler.removeCallbacks(again); ptz?.close(); ptz = null; ptzAt = -1; ptzMsg = "" }
+    private var sel = 0
+    private var heard = -1
+    private val audio = HashMap<Int, Boolean>()
+
+    /** The cameras page: the chosen camera's rim, and which one is heard. */
+    private fun mark() {
+        val d = ctx.resources.displayMetrics.density
+        cards.forEachIndexed { i, v ->
+            (v.foreground as? GradientDrawable)?.setStroke(((if (i == sel && cards.size > 1) 3 else 1) * d).toInt().coerceAtLeast(1),
+                if (i == sel && cards.size > 1) Color.WHITE else 0x59FFFFFF)
+        }
+        sounds.forEachIndexed { i, t ->
+            t.text = when {
+                i == ptzAt -> ""
+                audio[i] == false -> if (i == sel) "No sound · hold OK: move it" else ""
+                i == heard -> "🔊 Sound on · OK"; i == sel -> "🔇 OK: sound · hold OK: move it"; else -> ""
+            }
+            t.visibility = if (t.text.isEmpty()) View.GONE else View.VISIBLE
+        }
+        ctls.forEachIndexed { i, t ->
+            val p = ptz
+            t.text = when {
+                i != ptzAt -> ""
+                p == null -> ptzMsg
+                !ptzZoom -> "◀ ▶ ▲ ▼  move   ·   OK: zoom   ·   Back: done"
+                else -> "▲ zoom in  ▼ out" + (if (p.presetNames.isNotEmpty()) "   ·   ◀ ▶ preset" + (p.presetNames.getOrNull(ptzPreset)?.let { ": $it" } ?: "") else "") + "   ·   OK: move   ·   Back: done"
+            }
+            t.visibility = if (t.text.isEmpty()) View.GONE else View.VISIBLE
+        }
+        // Sound follows the selection (a setting): the selected camera is heard when it sends sound.
+        if (full && (ctx.applicationContext as GlassApp).settings.cameraSoundFollows) heard = if (audio[sel] == false) -1 else sel
+        players.forEachIndexed { i, p -> p.volume = if (i == heard) 1f else 0f }
+    }
+
+    /** Back on the cameras page: leaves the camera's controls first (true), else the page closes. */
+    fun back(): Boolean {
+        if (ptzAt < 0) return false
+        closePtz(); mark(); return true
+    }
+
+    /**
+     * The cameras page takes the arrows and OK (from the Home button service); false: not its key. OK: the camera's
+     * sound; held 0.6 s: its controls (PTZ). With the controls up an arrow held moves the camera until it is let go.
+     */
+    fun key(e: android.view.KeyEvent): Boolean {
+        if (root == null) return false
+        val code = e.keyCode; val down = e.action == android.view.KeyEvent.ACTION_DOWN; val first = down && e.repeatCount == 0
+        val ok = code == android.view.KeyEvent.KEYCODE_DPAD_CENTER || code == android.view.KeyEvent.KEYCODE_ENTER
+        // Only a key pressed while this is up counts: the release of the key that opened it (▼ on the screensaver,
+        // OK in the menu) closed it again at once, or opened the cameras page. That release still goes on to where
+        // its press went: kept here, the screensaver took ▼ as held for ever (Android repeated it), and the next ▼
+        // was only a repeat: it took two presses, or a wait, to bring the cameras up again.
+        if (ok || code in ARROWS) {
+            if (down) { if (first) pressed += code }
+            else if (!pressed.remove(code)) return false
+        }
+        // Multi-view takes the arrows and OK too (they moved what was behind it, his report): ▼ closes the one that
+        // came up from the bottom (the screensaver's way), OK opens the cameras page, the others do nothing.
+        if (!full) {
+            if (!ok && code !in ARROWS) return false
+            if (!down) {
+                val svc = com.glasslauncher.tv.HomeKeyService.instance
+                if (bottom && code == android.view.KeyEvent.KEYCODE_DPAD_DOWN) handler.post { svc?.closeMulti() }
+                else if (ok) handler.post { svc?.closeMulti(); svc?.toggleMulti(bottom = false, full = true) }
+            }
+            return true
+        }
+        val p = ptz
+        if (ptzAt >= 0) {
+            if (p == null) return ok || code in ARROWS        // checking, or the reason: the keys wait
+            val (pan, tilt) = when (code) {
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> -1 to 0; android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> 1 to 0
+                android.view.KeyEvent.KEYCODE_DPAD_UP -> 0 to 1; android.view.KeyEvent.KEYCODE_DPAD_DOWN -> 0 to -1
+                else -> 0 to 0
+            }
+            when {
+                ok -> { if (first) { ptzZoom = !ptzZoom; mark() } }
+                code !in ARROWS -> return false
+                ptzZoom && pan != 0 -> if (first && p.presetNames.isNotEmpty()) {
+                    ptzPreset = (ptzPreset + pan).coerceIn(0, p.presetNames.lastIndex); p.preset(ptzPreset); mark()
+                }
+                // Held: the move again every 0.7 s (each lasts a second; the service gets no key repeats), 20 s at
+                // most, so a lost release stops the camera by itself.
+                first -> {
+                    handler.removeCallbacks(again)
+                    val z = ptzZoom; val started = android.os.SystemClock.uptimeMillis()
+                    again = object : Runnable { override fun run() {
+                        if (ptz !== p || android.os.SystemClock.uptimeMillis() - started > 20_000) return
+                        if (z) p.move(0, 0, tilt) else p.move(pan, tilt, 0); handler.postDelayed(this, 700)
+                    } }
+                    again.run()
+                }
+                !down -> { handler.removeCallbacks(again); p.stop() }
+            }
+            return true
+        }
+        if (ok) {
+            if (first) { okHeld = false; handler.postDelayed(holdOk, 600) }
+            else if (!down) { handler.removeCallbacks(holdOk); if (!okHeld) { heard = if (heard == sel || audio[sel] == false) -1 else sel; mark() } }
+            return true
+        }
+        val n = cards.size; val cols = if (n <= 1) 1 else 2
+        val step = when (code) {
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> -1; android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> 1
+            android.view.KeyEvent.KEYCODE_DPAD_UP -> -cols; android.view.KeyEvent.KEYCODE_DPAD_DOWN -> cols
+            else -> return false
+        }
+        if (!down) return true
+        (sel + step).takeIf { it in 0 until n }?.let { sel = it }
+        mark(); return true
     }
 
     private var params: WindowManager.LayoutParams? = null
@@ -126,7 +350,7 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
     private var shade: View? = null
 
     fun close() {
-        handler.removeCallbacks(autoClose)
+        handler.removeCallbacks(autoClose); handler.removeCallbacks(holdOk); closePtz()
         val box = root ?: return
         val line = row
         val dim = shade
@@ -151,11 +375,16 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
     }
 
     companion object {
+        private val ARROWS = setOf(android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_DPAD_RIGHT, android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+
         /**
          * Multi-view is up: Glassio blurs what's behind it itself (the home screen's page, the screensaver's
          * video), since this TV doesn't blur behind windows (the overlay only dims other apps).
          */
         val open = androidx.compose.runtime.mutableStateOf(false)
+
+        /** Glassio's screensavers showing (each draws its own veil behind the cameras). */
+        @Volatile var ownVeil = 0
 
         /** The cameras for multi-view: the ones chosen in Settings (in order), else the first four. */
         fun cams(app: GlassApp): List<Cam> {

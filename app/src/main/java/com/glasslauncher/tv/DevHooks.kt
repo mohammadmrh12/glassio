@@ -52,6 +52,9 @@ object DevHooks {
         if (i.getBooleanExtra("next_bg", false)) com.glasslauncher.tv.ui.CustomBackground.nextNow(app.settings)
         // Multi-view cameras on / off (QA: --ez multi_cams true).
         if (i.getBooleanExtra("multi_cams", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(true)
+        // The cameras page on the whole screen (#30), and multi-view in the middle (as the menu opens it).
+        if (i.getBooleanExtra("cams_full", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(false, full = true)
+        if (i.getBooleanExtra("multi_mid", false)) com.glasslauncher.tv.HomeKeyService.instance?.toggleMulti(false)
         if (i.getBooleanExtra("open_menu", false)) { app.requestSettings.intValue = 100; app.requestSettingsRev.intValue++ }
         if (i.getBooleanExtra("open_library", false)) { app.requestSettings.intValue = 101; app.requestSettingsRev.intValue++ }
         // The search (a remote button set to it): its page on the home screen, the bar selected. Nothing when it is off.
@@ -187,9 +190,11 @@ object DevHooks {
         i.getStringArrayExtra("prefs")?.forEach { st.debugSet(it) }
         i.getStringExtra("pref_unset")?.let { st.debugUnset(it) }
         i.getStringExtra("pref")?.let { st.debugSet(it); com.glasslauncher.tv.ui.GlassTint.apply(st); com.glasslauncher.tv.ui.TextLook.bold.value = st.boldText; com.glasslauncher.tv.data.I18n.lang = st.lang }
+        if (i.hasExtra("cam_room")) com.glasslauncher.tv.CamPlayer.roomOverride = i.getIntExtra("cam_room", 0)
+        if (i.getBooleanExtra("settings_lose_focus", false)) com.glasslauncher.tv.ui.SettingsLoseFocus.intValue++
         i.getStringExtra("cameras")?.let { st.cameras = it.split(';').filter { l -> l.contains("://") } }
         i.getStringExtra("theme")?.let { st.applyTheme(it) }
-        i.getStringExtra("perf_mode")?.let { if (it in setOf("auto", "performance", "balanced", "quality")) st.applyMode(it) }
+        i.getStringExtra("perf_mode")?.let { if (it in setOf("auto", "lite", "performance", "balanced", "quality")) st.applyMode(it) }
         i.getStringExtra("ha_webhook")?.let { st.haWebhook = it; st.haOnLaunch = it.startsWith("http") }
         i.getStringExtra("reset_icon")?.let { app.icons.reset(it) }
         // An app back in the dock (or hidden): --es show_app <package> / --es hide_app <package>.

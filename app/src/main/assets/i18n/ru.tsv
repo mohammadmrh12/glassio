@@ -49,6 +49,8 @@ Sending…	Отправка…
 Sent. Thank you so much for your support!	Отправлено. Большое спасибо за поддержку!
 Support Glassio	Поддержать Glassio
 Support me	Поддержать меня
+Supporters	Поддержавшие
+Thank you for keeping Glassio going.	Спасибо, что поддерживаете Glassio.
 Thank you!	Спасибо!
 That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	Так кнопка Home открывает Glassio вместо главного экрана ТВ, а удержание Home и выбранные вами кнопки пульта делают то, что вы задали,
 That isn't a PSN code: 12 letters and digits	Это не код PSN: нужно 12 букв и цифр
@@ -808,7 +810,8 @@ Looking for Glassio on your network…	Ищем Glassio в вашей сети�
 Looks at the latest release on GitHub	Проверяет последний релиз на GitHub
 Looks for the Hue bridge on this network	Ищет мост Hue в этой сети
 Lower	Ниже
-Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Создал Mohammad (mrh12) · Шрифты: Inter (SIL OFL) · Погода: Open-Meteo · Этот продукт использует API TMDB, но не одобрен и не сертифицирован TMDB.
+Made by Mohammad (mrh12)	Создал Mohammad (mrh12)
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Шрифты: Inter (SIL OFL) · Погода: Open-Meteo · Этот продукт использует API TMDB, но не одобрен и не сертифицирован TMDB.
 Main (TMDB)	Основной (TMDB)
 Main TV	Главный ТВ
 Main TV (the others follow it)	Главный ТВ (остальные следуют за ним)
@@ -1713,3 +1716,76 @@ The page stays on with one code for this TV: save it to your phone's home screen
 Change the theme, language, screensaver and more from your phone.	Меняйте тему, язык, заставку и другое с телефона.
 Menu → Manage from phone	Меню → Управление с телефона
 With Nuvio connected, the settings button becomes your Nuvio profile's picture.	При подключённом Nuvio кнопка настроек становится фото вашего профиля Nuvio.
+Two by two	Два на два
+Whole screen	Весь экран
+On the whole screen	На весь экран
+Cameras on the whole screen	Камеры на весь экран
+Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	Автоматически: один ряд, если камеры помещаются при этом размере, иначе два на два. Они никогда не выходят за края экрана
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Камеры заполняют экран до нажатия «Назад»; стрелки выбирают камеру, OK включает её звук (также: меню → Камера → Весь экран или кнопка пульта)
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Камеры мультиэкрана на весь экран · OK включает звук камеры · «Назад» закрывает
+Menu's Camera opens the whole screen	Камера в меню открывает весь экран
+Menu → Camera goes straight to the cameras page instead of the live card	Меню → Камера сразу открывает страницу камер вместо живой карточки
+Sound follows the selection	Звук следует за выбором
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	На весь экран звук выбранной камеры включается сам (для камер со звуком)
+Lite	Лёгкий
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Тот же вид, легче для памяти и процессора: меньше заранее готовых картинок, меньше фоновой работы
+All of them are off	Все выключены
+It is the TV's screensaver: choose another one first	Это сейчас заставка телевизора: сначала выберите другую
+Needs TV access (ADB): System → TV access (ADB).	Нужен доступ к телевизору (ADB): Система → Доступ к телевизору (ADB).
+None of them is on this TV.	Ни одного из них нет на этом телевизоре.
+Nothing: apps that were off before stay as they are	Ничего: приложения, выключенные раньше, остаются как есть
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Показаны только приложения, которые телевизору не нужны: отчёты, реклама и установщики. Запуск, пульт, звук, трансляция, Play Маркет и обновления никогда не затрагиваются. Ничего не удаляется, а сброс телевизора возвращает всё.
+Reading the TV's apps…	Чтение приложений телевизора…
+Turn back on what Glassio turned off	Включить обратно то, что выключил Glassio
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	Выключите приложения телевизора, которые только отправляют отчёты, показывают рекламу или устанавливают другие приложения. Ничего не удаляется: переключатель включает каждое обратно
+Turn them all off	Выключить все
+Unneeded apps	Ненужные приложения
+Scan with your phone (same Wi-Fi) and change any setting there	Или отсканируйте телефоном (та же Wi-Fi) и меняйте любые настройки там
+Google feedback	Отзывы Google
+Sends feedback and problem reports to Google	Отправляет отзывы и отчёты о проблемах в Google
+Bug report sender	Отправка отчётов об ошибках
+Sends the TV's bug reports to Google	Отправляет отчёты об ошибках телевизора в Google
+Network diagnostics	Диагностика сети
+Google's connection checks and their reports	Проверки подключения Google и их отчёты
+Ad services	Рекламные сервисы
+Android's ad measurement and ad topics	Измерение рекламы и рекламные темы Android
+Ad personalisation	Персонализация рекламы
+Works out personalised ads on the TV	Подбирает персональную рекламу на телевизоре
+Federated learning	Федеративное обучение
+Trains Google's models with data from the TV	Обучает модели Google на данных телевизора
+Google Play Games	Google Play Игры
+The games app and its sign-in	Приложение игр и вход в него
+Google TV purchases	Покупки Google TV
+Films and series bought from Google: they can't be watched while it is off	Фильмы и сериалы, купленные в Google: пока выключено, их не посмотреть
+Maker's app installer	Установщик приложений производителя
+Installs the maker's chosen apps after a setup or a reset	Устанавливает выбранные производителем приложения после настройки или сброса
+Ambient mode	Режим Ambient
+Google's screensaver (kept while it is the TV's screensaver)	Заставка Google (остаётся, пока это заставка телевизора)
+The older Ambient screensaver (kept while it is the TV's screensaver)	Старая заставка Ambient (остаётся, пока это заставка телевизора)
+Xiaomi analytics	Аналитика Xiaomi
+Sends usage data to Xiaomi	Отправляет данные об использовании в Xiaomi
+Recognises what is on screen, for ads	Распознаёт то, что на экране, для рекламы
+TCL start-up ads	Реклама при запуске TCL
+Ads shown when the TV starts	Реклама при включении телевизора
+TCL app promotions	Продвижение приложений TCL
+Suggested apps and promotions	Рекомендуемые приложения и акции
+Amazon device metrics	Метрики устройства Amazon
+Sends usage data to Amazon	Отправляет данные об использовании в Amazon
+Amazon app metrics	Метрики приложений Amazon
+Sends app usage data to Amazon	Отправляет данные об использовании приложений в Amazon
+Amazon network metrics	Сетевые метрики Amazon
+Sends Wi-Fi data to Amazon	Отправляет данные Wi-Fi в Amazon
+Amazon logger	Журнал Amazon
+Collects the device's logs for Amazon	Собирает журналы устройства для Amazon
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Если вы какое-то время в другом приложении, Glassio освобождает свои изображения и возвращает их, когда вы вернётесь.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Каждая камера показывает, даже с видео позади: видео ждёт и отдаёт свой декодер.
+Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	Всё новое с Glassio 4.0, страница за страницей, сначала 4.4. Ваша настройка остаётся прежней: всё новое — по выбору.
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Удерживайте OK на поворотной камере (PTZ): двигайте её и приближайте пультом.
+Lighter	Легче
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	Мультивид никогда не выходит за экран: четыре камеры два на два, настолько крупно, насколько позволяет экран.
+Performance → Lite: the same look, lighter on memory and on the processor.	Производительность → Lite: тот же вид, легче для памяти и процессора.
+Settings → Smart home → Multi-view	Настройки → Умный дом → Мультивид
+Settings → System → Performance	Настройки → Система → Производительность
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Страница камер: ваши камеры на весь экран; стрелки выбирают одну, OK включает её звук.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Ненужные приложения: выключите приложения телевизора, которые только отправляют отчёты, показывают рекламу или устанавливают другие приложения (Настройки → Система).
+Welcome to Glassio 4.4	Добро пожаловать в Glassio 4.4

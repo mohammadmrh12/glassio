@@ -452,7 +452,7 @@ internal fun HeroSection(
     LaunchedEffect(appFirst.map { it.key }) { appFirst.forEach { app.catalogs.enrich(it) } }
     val appFirstShown = appFirst.map { c -> (enriched[c.key] ?: c).let { withArtwork(it, settings.artChoice, settings.artPick(it.key)) } }
     androidx.compose.runtime.SideEffect { appFirstShown.map { it.background }.filter { it.isNotBlank() }.take(3).let { if (HeroAhead.urls.value != it) HeroAhead.urls.value = it } }
-    LaunchedEffect((cwShown.take(10) + appFirstShown).map { it.background + it.logo }, settings.imageQuality, settings.blurRadius, ownBg) {
+    LaunchedEffect((cwShown.take(10) + appFirstShown).map { it.background + it.logo }, settings.imageQuality, settings.blurRadius, ownBg, GlassCache.released.intValue) {
         // Not shown with your own background: what was kept for them is let go (tens of MB).
         if (ownBg) { GlassCache.keepOnly(emptySet()); return@LaunchedEffect }
         val loader = SingletonImageLoader.get(ctx)
@@ -533,7 +533,7 @@ internal fun HeroSection(
         if (hidden || !resumed || !focused || settings.bgMode != "carousel") return@LaunchedEffect
         // (A weak TV, memory tier 0: only when trailers start by themselves. Worked out for each title rested on it took
         // the processor for seconds; pressed, the trailer is worked out then.)
-        if (settings.memTier == 0 && settings.trailerAutoSec <= 0) return@LaunchedEffect
+        if (settings.lean && settings.trailerAutoSec <= 0) return@LaunchedEffect
         // Only for a title you stay on (not each one passed while browsing), and never in the first seconds after
         // the home screen comes up; on its own low-priority thread.
         val auto = settings.trailerAutoSec > 0

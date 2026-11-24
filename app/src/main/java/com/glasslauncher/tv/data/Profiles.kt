@@ -73,7 +73,7 @@ object Profiles {
         "perfMode", "perfOwn", "heroAutoplayWhere", "pageScale", "memTier", "glassRes", "imageQuality", "prefetchDepth", "cacheMb", "saverCache", "saverCacheGb",
         "photoCacheMb", "bgAerialQuality", "saverQuality", "multiQuality", "cameraDecoder",
         // Cameras, the doorbell, Home Assistant
-        "cameras", "cornerCamera", "cameraCycleSec", "cameraScale", "cameraCornerSec", "multiCams", "multiScale", "multiSec", "saverMultiCam",
+        "cameras", "cornerCamera", "cameraCycleSec", "cameraScale", "cameraCornerSec", "multiCams", "multiScale", "multiLayout", "cameraMenuFull", "cameraSoundFollows", "multiSec", "saverMultiCam",
         // The remote
         "keyMaps", "homeLong", "multiKey", "cornerKey",
         // Inputs

@@ -284,7 +284,10 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     var view by remember { mutableStateOf<android.view.SurfaceView?>(null) }
     val dim = VideoFrames.dim
     val player = remember {
-        val load = androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_500, 5_000).build()
+        // (Lite / Performance: 20 s at most and 24 MB, against 50 s: a looping background needs little ahead.)
+        val load = if (st.lean) androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(10_000, 20_000, 2_500, 5_000)
+            .setTargetBufferBytes(24 * 1024 * 1024).setPrioritizeTimeOverSizeThresholds(false).build()
+            else androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 2_500, 5_000).build()
         androidx.media3.exoplayer.ExoPlayer.Builder(ctx)
             .setMediaSourceFactory(com.glasslauncher.tv.saver.VideoCache.factory(ctx, st.saverCache, st.saverCacheGb))
             .setLoadControl(load).build().apply {
@@ -297,18 +300,25 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     // Back from another app the video's surface is new and black until the player draws again: the last frame
     // stands in for it (the glass shows that same frame), then fades out.
     var still by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    // (Under the cameras: where the video was when it let go, and when it was taken up again; see below.)
+    val camsHeld = remember { longArrayOf(-1L, 0L) }
     var cover by remember { mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(cover, rendered, playing) { if (cover && rendered && playing) { kotlinx.coroutines.delay(300); cover = false } }
     val coverAlpha by androidx.compose.animation.core.animateFloatAsState(if (cover) 1f else 0f, androidx.compose.animation.core.tween(if (cover) 0 else 380), label = "cover")
     DisposableEffect(Unit) {
         Glog.i("Background video on: ${list.getOrNull(start)} (${list.size} in the list)")
         VideoFrames.homeVideo = true
+        // (The home screen draws its own veil behind the cameras over a video: no blur of the TV's on top.)
+        com.glasslauncher.tv.MultiCamOverlay.ownVeil++
         var errors = 0
         val l = object : androidx.media3.common.Player.Listener {
             override fun onVideoSizeChanged(v: androidx.media3.common.VideoSize) {
                 if (v.width > 0 && v.height > 0) aspect = v.width * v.pixelWidthHeightRatio / v.height
             }
-            override fun onRenderedFirstFrame() { rendered = true; ready = true; errors = 0; VideoFrames.showing.value = true }
+            override fun onRenderedFirstFrame() {
+                rendered = true; ready = true; errors = 0; VideoFrames.showing.value = true
+                if (camsHeld[1] > 0) { Glog.i("Background video: back after the cameras in ${android.os.SystemClock.uptimeMillis() - camsHeld[1]} ms"); camsHeld[1] = 0L }
+            }
             override fun onMediaItemTransition(item: androidx.media3.common.MediaItem?, reason: Int) {
                 // The same video starting again (one video, or Shuffle off) plays on without a new "first frame":
                 // marking it as not drawn stopped the glass copies for good (dock, menu and clock froze).
@@ -328,6 +338,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
             Glog.i("Background video off")
             player.removeListener(l); runCatching { player.release() }
             VideoFrames.homeVideo = false
+            com.glasslauncher.tv.MultiCamOverlay.ownVeil--
             VideoFrames.clear(); dim.floatValue = 0f
         }
     }
@@ -337,8 +348,30 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
     // Only while Glassio is really away (stopped), never for its own screens (the Library, Settings).
     val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     val let = remember { BooleanArray(1) }
+    // The cameras up over it (multi-view, its whole-screen page; One player's screensaver too): the video waits under
+    // them, as the screensaver's own does, and lets its decoder go once its last frame stands in for it (paused it
+    // still held one, and the fourth camera found none). Taken up again where it was when they close; the frame
+    // stays over it until it draws.
+    val camsUp = com.glasslauncher.tv.MultiCamOverlay.open.value
+    androidx.compose.runtime.LaunchedEffect(camsUp) {
+        if (camsUp) {
+            if (playing) player.playWhenReady = false
+            kotlinx.coroutines.delay(300)
+            val f = VideoFrames.sharp.value
+            if (f != null && player.currentMediaItem != null && player.playbackState != androidx.media3.common.Player.STATE_IDLE) {
+                runCatching { still = f.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false).asImageBitmap(); cover = true }
+                camsHeld[0] = player.currentPosition; rendered = false; player.stop()
+                Glog.i("Background video: let go under the cameras")
+            }
+        } else {
+            if (camsHeld[0] >= 0) { val at = camsHeld[0]; camsHeld[0] = -1L; camsHeld[1] = android.os.SystemClock.uptimeMillis()
+                // (The nearest key frame, before preparing: the exact place took 1.3 s, the veil's wait after the cameras.)
+                player.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC); player.seekTo(at); player.prepare(); player.setSeekParameters(androidx.media3.exoplayer.SeekParameters.DEFAULT) }
+            if (playing) player.playWhenReady = true
+        }
+    }
     androidx.compose.runtime.LaunchedEffect(playing) {
-        player.playWhenReady = playing
+        player.playWhenReady = playing && !camsUp
         if (!playing) {
             CustomBackground.leftVideo = player.currentMediaItem?.localConfiguration?.uri?.toString()
             CustomBackground.leftPos = player.currentPosition
@@ -442,7 +475,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
             while (true) {
                 // Frosted glass only: 10 a second is plenty for a blurred picture (the clear glass needs 15).
                 kotlinx.coroutines.delay(if (VideoFrames.wantSharp) VideoFrames.interval else 100L)
-                if (!v.holder.surface.isValid || !rendered) continue
+                if (!v.holder.surface.isValid || !rendered || com.glasslauncher.tv.MultiCamOverlay.open.value) continue
                 // (Read each time: the screensaver's own copies, ended, cleared the frames and moved on their number,
                 // and this background's copies were then dropped for good: the glass stood still after the
                 // screensaver until the next video. This video is still the background while this runs.)
@@ -548,6 +581,9 @@ suspend fun copyVideoFrames(v: android.view.SurfaceView, rendered: () -> Boolean
         while (true) {
             kotlinx.coroutines.delay(if (VideoFrames.wantSharp) VideoFrames.interval else 100L)
             if (!v.holder.surface.isValid || !rendered()) continue
+            // (The video waits under the cameras: its picture doesn't change, and each copy cost the drawing thread
+            // a fifth of its time while the cameras played.)
+            if (com.glasslauncher.tv.MultiCamOverlay.open.value) continue
             // (Read each time, like the video background: frames cleared by something else (a video background
             // going, the screensaver ending) moved the number on, and every copy after it was dropped: the glass froze.)
             if (android.os.SystemClock.uptimeMillis() < VideoFrames.quietUntil) continue

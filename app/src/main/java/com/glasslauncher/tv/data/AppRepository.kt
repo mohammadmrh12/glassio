@@ -19,7 +19,13 @@ import kotlinx.coroutines.withContext
 
 data class AppEntry(val pkg: String, val label: String, val component: ComponentName, val leanback: Boolean)
 
-data class Art(val bmp: ImageBitmap, val transparent: Boolean, val light: Boolean = false, val onLight: ImageBitmap = bmp)
+/**
+ * An app's picture for its tile. [onLight] (white lettering turned dark, for a light plate: *Black on white*) is made
+ * the first time it is drawn: made for every see-through icon up front, it doubled their memory on every other theme.
+ */
+data class Art(val bmp: ImageBitmap, val transparent: Boolean, val light: Boolean = false, private val makeOnLight: (() -> ImageBitmap)? = null) {
+    val onLight: ImageBitmap by lazy { makeOnLight?.invoke() ?: bmp }
+}
 
 class AppRepository(private val ctx: Context, private val settings: Settings, private val packs: IconPacks, private val icons: IconStore) {
     private val pm: PackageManager = ctx.packageManager
@@ -173,10 +179,12 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
                         ?: pm.getActivityInfo(e.component, 0).let { ai -> hiRes(ai) ?: ai.loadBanner(pm) ?: ai.loadIcon(pm) }
                     val iw = d.intrinsicWidth; val ih = d.intrinsicHeight
                     val wide = iw > 0 && ih > 0 && iw.toFloat() / ih > 1.3f
-                    d.toBitmap(if (wide) 640 else 256)
+                    // (Lighter with Lite / Performance: a tile is ~220-260 px wide on a 1080p screen, so 400 px still
+                    // holds it sharp, at 40 % of the memory of 640.)
+                    d.toBitmap(if (wide) (if (settings.lean) 400 else 640) else (if (settings.lean) 192 else 256))
                 }
                 val transparent = isTransparent(bmp)
-                Art(bmp.asImageBitmap(), transparent, isLight(bmp), if (transparent) darkenWhites(bmp).asImageBitmap() else bmp.asImageBitmap())
+                Art(bmp.asImageBitmap(), transparent, isLight(bmp), if (transparent) ({ darkenWhites(bmp).asImageBitmap() }) else null)
                     .also { cache.put(key, it) }
             }.getOrNull()
         }

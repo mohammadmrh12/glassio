@@ -2,6 +2,35 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.4.0 — Cameras, and a lighter Glassio
+
+As always, each new thing is a choice: with your settings left as they are, Glassio behaves as before except where
+noted.
+
+- **Cameras**:
+  - Multi-view never goes past the screen: one row when the cameras fit, else two by two, as big as the screen allows
+    (*Layout*: Automatic, One row, Two by two).
+  - **The cameras page**: your multi-view cameras over the whole screen until Back. The arrows choose one, OK turns
+    its sound on. From the menu (Camera → *Whole screen*), a remote button or Settings. Optional: the menu's Camera
+    opens it directly, and the selected camera's sound plays by itself.
+  - **PTZ**: hold OK on a camera of the cameras page to move it with the arrows, then zoom and presets (ONVIF
+    cameras, or Home Assistant's `onvif.ptz`).
+  - Multi-view keeps the remote's arrows and OK (they moved the app behind it); OK opens the cameras page.
+  - Every camera plays: the screensaver's, the background's and a trailer's video wait under the cameras and give
+    their decoder back, then go on where they were with a sharp picture in between. A camera beyond the TV's hardware
+    decoders plays on the processor, and one that can't start is tried again.
+  - Smoother over the screensaver, and one ▼ opens and closes them again.
+- **Lite** (Settings → System → Performance → Mode): the same look, lighter on memory and the processor.
+- **Lighter for everyone**: away in another app for a few minutes, Glassio lets its pictures go and brings them back
+  when you return.
+- **Unneeded apps** (Settings → System): turn off the TV's apps that only send reports, show ads or install other apps.
+  Nothing is removed, and each one can be turned back on.
+- **Supporters** in Settings → About. Thank you!
+- Fixes: removing a camera, a hidden video or one of My videos keeps the selection on the page (and asks first); in
+  the screensaver, ◀ ▶ skip hidden videos and the home screen keeps its selection after the hold-OK menu; a title
+  removed in the Library leaves the selection on the next one.
+- More settings on the phone page (the cameras' layout and page, the Performance mode).
+
 ## 4.3.0 — Manage from phone, always at hand
 
 As always, each new thing is a choice: with your settings left as they are, Glassio behaves as before except where

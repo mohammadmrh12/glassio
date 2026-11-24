@@ -130,6 +130,13 @@ internal object GlassHalf {
 /** Low memory: drop the prepared backdrops (the one on screen stays referenced by the page). */
 fun trimPageCaches() { BakeCache.clear() }
 
+/**
+ * Glassio away for a while: every page picture it keeps for later goes (the prepared slides, the app rows' and the
+ * music page's backgrounds, the pinned ones). What is on screen stays (the page holds it); the rest is made again
+ * from the pictures on disk as it is needed. Before, three caches were emptied and ~325 MB stayed held under a film.
+ */
+fun trimAllPages() { BakeCache.clear(); ChannelPages.trim(); StagePages.trim(); GlassCache.trimAll() }
+
 internal object BakeCache {
     /** How many prepared backdrops to keep (by memory tier: 2 / 3 / 4). */
     @Volatile var max = 4
@@ -306,6 +313,8 @@ internal object ChannelPages {
     // Each app's first card, kept apart: the cards on screen made ahead pushed them out, and selecting an app then
     // showed the grey page first and its blur a moment later (the page brightened once its rows were up).
     private val firsts = android.util.LruCache<String, Pair<ImageBitmap, GlassImages>>(14)
+    /** Glassio away: the cards' blurs go (the grey page stays: it is shown at once when a row comes up). */
+    @Synchronized fun trim() { arts.evictAll(); firsts.evictAll(); last = null }
     fun keepFirst(link: String, tag: String, p: Pair<ImageBitmap, GlassImages>) { firsts.put("$tag|$link", p) }
     fun peekArt(link: String, tag: String): Pair<ImageBitmap, GlassImages>? = arts.get("$tag|$link") ?: firsts.get("$tag|$link")
     /** Made at a quarter of the screen (it is a blur: drawn larger it looks the same, and it is ready much sooner). */
@@ -328,6 +337,8 @@ internal object StagePages {
     private val heroes = android.util.LruCache<String, Pair<ImageBitmap, GlassImages>>(3)
     /** The last blurred carousel picture made (shown while the next one isn't there yet). */
     @Volatile private var lastHero: Pair<String, Pair<ImageBitmap, GlassImages>>? = null
+    /** Glassio away: the carousel's blurred pages go (the soft lights stay, they are small). */
+    @Synchronized fun trim() { heroes.evictAll(); lastHero = null }
 
     fun peek(mode: String, url: String?, tag: String): Pair<ImageBitmap, GlassImages>? = when (mode) {
         "glassio" -> lights?.takeIf { it.first == tag }?.let { it.second to it.third }

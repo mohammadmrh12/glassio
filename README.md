@@ -30,7 +30,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **4.3.0** — Manage from phone from the menu and as a phone app (always on, one code, an address by name), Jellyfin, the screensaver on the home screen (One player), YouTube playlists and Pexels as videos,
+Latest: **4.4.0** — the cameras page with sound and PTZ, multi-view two by two, every camera playing over a video, *Lite* mode, *Unneeded apps*, Manage from phone from the menu and as a phone app (always on, one code, an address by name), Jellyfin, the screensaver on the home screen (One player), YouTube playlists and Pexels as videos,
 remote buttons with a press, double press and hold, a TV inputs button, see-through glass over a video, *Recommended
 for this TV*. What changed in every version: [CHANGELOG](CHANGELOG.md).
 
@@ -332,6 +332,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for testing from a computer and the setti
 - <img src="docs/icons/key.svg" width="18" alt=""> Backups hold your sign-ins — keep the file private. Sync never sends sign-ins, and talks only to TVs you paired.
 - <img src="docs/icons/home.svg" width="18" alt=""> The webhook, TMDB token and add-on links go only where you point them. The TV's adb is used only for the screensaver,
   Nuvio Legacy's playback, TV info, recent apps, starting with the TV and installing Glassio's updates.
+
+## Supporters
+
+Thank you to the people who keep Glassio going: **EB** ([EbM-Tech](https://github.com/EbM-Tech)).
+They are also listed in Glassio itself, under Settings → About.
 
 ## Credits & license
 

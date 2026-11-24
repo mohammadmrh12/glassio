@@ -240,6 +240,13 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             }
             true
         }
+    // Where the selection was (the list and the place in it): a title removed while selected (Continue Watching's,
+    // Saved, Nuvio's, Trakt's …) takes the selection with it, and it went back to the first title at the top of the
+    // page. It goes to the one that took its place, or the one before it. Forgotten when the Library goes.
+    val itemReqs = remember { HashMap<String, FocusRequester>() }
+    val lastAt = remember { arrayOf<Any?>(null, 0) }
+    fun keep(list: String, i: Int): Modifier = Modifier.focusRequester(itemReqs.getOrPut("$list:$i") { FocusRequester() })
+        .onFocusChanged { if (it.isFocused) { lastAt[0] = list; lastAt[1] = i } }
     fun topReq(list: String, i: Int): Modifier = if (list == posterFirst && i < minOf(st.libraryColumns, 8)) Modifier.focusRequester(topRow[i]).then(toCw()) else Modifier
     fun up(list: String, i: Int): Modifier = if (onTopUp != null && list == firstList && (list == "c" || i < st.libraryColumns))
         Modifier.onPreviewKeyEvent { e ->
@@ -269,11 +276,14 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
     LaunchedEffect(hasAny, active) { if (hasAny && active) { runCatching { grid.scrollToItem(0); cwRow.scrollToItem(0) }; delay(30); runCatching { first.requestFocus() } } }
     // Open with nothing selected (the list had just changed, e.g. Continue Watching switched off, so the first
     // title wasn't there yet when it was asked for): the remote did nothing. Its first title is selected then.
+    LaunchedEffect(active) { if (!active) lastAt[0] = null }
     LaunchedEffect(active, hasAny, libFocused, cw.isEmpty()) {
         if (!active || !hasAny || libFocused) return@LaunchedEffect
         repeat(10) {
             delay(60)
             if (libFocused) return@LaunchedEffect
+            (lastAt[0] as? String)?.let { l -> val i = lastAt[1] as Int
+                for (k in listOf(i, i - 1)) if (k >= 0 && runCatching { itemReqs["$l:$k"]?.requestFocus() ?: false }.getOrDefault(false)) return@LaunchedEffect }
             runCatching { first.requestFocus() }.onFailure { runCatching { topRow[0].requestFocus() } }
         }
     }
@@ -383,6 +393,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
                             val src = cwEntries.firstOrNull { e -> e.key == it.key }?.app.orEmpty()
                             CwCard(it, src, s, wide, st.libraryCwSource, Modifier.width(cardW).then(if (i == 0) Modifier.focusRequester(first) else Modifier)
                                 .then(if (i < cwReqs.size) Modifier.focusRequester(cwReqs[i]) else Modifier)
+                                .then(keep("c", i))
                                 .onGloballyPositioned { c -> cardX[i] = c.positionInRoot().x }
                                 .onPreviewKeyEvent { e ->
                                     val n = minOf(cols, posterFirstSize, 8)
@@ -403,7 +414,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (saved.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section("Saved", s) }
                 itemsIndexed(saved, key = { _, it -> "s:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("s", i).then(topReq("s", i)).then(if (i == 0 && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("s", i).then(topReq("s", i)).then(keep("s", i)).then(if (i == 0 && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { if (st.syncAll) app.library.removeEverywhere(it) else app.library.remove(it.key); toast(ctx, "Removed · ${it.name}") })
                 }
@@ -411,7 +422,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (st.libraryNuvio && app.library.nuvio.connected) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(if (nuvioStatus.isNotBlank()) "Nuvio library · $nuvioStatus" else "Nuvio library", s) }
                 itemsIndexed(nuvio, key = { _, it -> "n:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("n", i).then(topReq("n", i)).then(if (i == 0 && saved.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("n", i).then(topReq("n", i)).then(keep("n", i)).then(if (i == 0 && saved.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.removeFromNuvio(it) { ok -> toast(ctx.applicationContext, if (ok) "Removed from your Nuvio library · ${it.name}" else "Nuvio: couldn't remove ${it.name}") } })
                 }
@@ -419,7 +430,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (st.libraryTrakt && app.cw.trakt.connected) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(if (status.isNotBlank()) "Trakt watchlist · $status" else "Trakt watchlist", s) }
                 itemsIndexed(trakt, key = { _, it -> "t:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("t", i).then(topReq("t", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("t", i).then(topReq("t", i)).then(keep("t", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.removeFromWatchlist(it); toast(ctx, "Removed from the Trakt watchlist · ${it.name}") })
                 }
@@ -427,7 +438,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (st.librarySimkl && app.cw.simkl.connected && simkl.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section("Simkl · Plan to watch", s) }
                 itemsIndexed(simkl, key = { _, it -> "k:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("k", i).then(topReq("k", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("k", i).then(topReq("k", i)).then(keep("k", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.removeFromSimkl(it); toast(ctx, "Removed from Simkl · ${it.name}") })
                 }
@@ -435,7 +446,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             if (jf.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Section("Jellyfin · Favourites", s) }
                 itemsIndexed(jf, key = { _, it -> "j:" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("j", i).then(topReq("j", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && simkl.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("j", i).then(topReq("j", i)).then(keep("j", i)).then(if (i == 0 && saved.isEmpty() && nuvio.isEmpty() && trakt.isEmpty() && simkl.isEmpty() && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) },
                         onRemove = { app.library.removeFromJellyfin(it); toast(ctx, "Removed from Jellyfin's favourites · ${it.name}") })
                 }
@@ -443,7 +454,7 @@ private fun LibraryPage(app: GlassApp, onTopUp: (() -> Unit)?, active: Boolean, 
             plat.forEachIndexed { r, row ->
                 item(span = { GridItemSpan(maxLineSpan) }, key = "ph:" + row.service.key) { Section("On ${row.service.name}", s) }
                 itemsIndexed(row.items, key = { _, it -> "p:" + row.service.key + ":" + it.key }) { i, it ->
-                    Poster(it, s, st.libraryTitles, up("p$r", i).then(topReq("p$r", i)).then(if (r == 0 && i == 0 && ownEmpty && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
+                    Poster(it, s, st.libraryTitles, up("p$r", i).then(topReq("p$r", i)).then(keep("p$r", i)).then(if (r == 0 && i == 0 && ownEmpty && cw.isEmpty()) Modifier.focusRequester(first) else Modifier),
                         onOpen = { NuvioLaunch.open(ctx, st, app.http, it) }, onRemove = null)
                 }
             }

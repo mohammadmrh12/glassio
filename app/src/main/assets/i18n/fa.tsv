@@ -48,6 +48,8 @@ Sending…	در حال ارسال…
 Sent. Thank you so much for your support!	ارسال شد. از حمایت شما بسیار سپاسگزارم!
 Support Glassio	حمایت از Glassio
 Support me	حمایت از من
+Supporters	حامیان
+Thank you for keeping Glassio going.	از اینکه Glassio را زنده نگه می‌دارید سپاسگزاریم.
 Thank you!	ممنون!
 That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	به همین وسیله دکمه‌ی Home به‌جای صفحه‌ی اصلی خود تلویزیون، Glassio را باز می‌کند، نگه داشتن Home و دکمه‌های ریموتی که انتخاب می‌کنید کار تنظیم‌شده را انجام می‌دهند،
 That isn't a PSN code: 12 letters and digits	این کد PSN نیست: 12 حرف و عدد
@@ -804,7 +806,8 @@ Looking for Glassio on your network…	در حال جستجوی Glassio در ش�
 Looks at the latest release on GitHub	آخرین نسخه را در GitHub بررسی می‌کند
 Looks for the Hue bridge on this network	پل Hue را در این شبکه جستجو می‌کند
 Lower	پایین‌تر
-Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	ساخته‌ی Mohammad (mrh12) · فونت‌ها: Inter (SIL OFL) · آب‌وهوا: Open-Meteo · این محصول از TMDB API استفاده می‌کند اما توسط TMDB تأیید یا گواهی نشده است.
+Made by Mohammad (mrh12)	ساخته‌ی Mohammad (mrh12)
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	فونت‌ها: Inter (SIL OFL) · آب‌وهوا: Open-Meteo · این محصول از TMDB API استفاده می‌کند اما توسط TMDB تأیید یا گواهی نشده است.
 Main (TMDB)	اصلی (TMDB)
 Main TV	تلویزیون اصلی
 Main TV (the others follow it)	تلویزیون اصلی (بقیه از آن پیروی می‌کنند)
@@ -1707,3 +1710,76 @@ The page stays on with one code for this TV: save it to your phone's home screen
 Change the theme, language, screensaver and more from your phone.	پوسته، زبان، محافظ صفحه و موارد دیگر را از گوشی تغییر دهید.
 Menu → Manage from phone	منو ← مدیریت از گوشی
 With Nuvio connected, the settings button becomes your Nuvio profile's picture.	با اتصال Nuvio، دکمهٔ تنظیمات تصویر نمایهٔ Nuvio شما می‌شود.
+Two by two	دو در دو
+Whole screen	تمام صفحه
+On the whole screen	روی تمام صفحه
+Cameras on the whole screen	دوربین‌ها روی تمام صفحه
+Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	خودکار: یک ردیف وقتی دوربین‌ها در این اندازه جا شوند، وگرنه دو در دو. هرگز از لبه‌های صفحه بیرون نمی‌روند
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	دوربین‌ها تا زدن بازگشت صفحه را پر می‌کنند؛ پیکان‌ها یکی را انتخاب می‌کنند و OK صدایش را روشن می‌کند (همچنین: منو ← دوربین ← تمام صفحه، یا یک دکمه ریموت)
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	دوربین‌های نمای چندگانه روی تمام صفحه · OK صدای دوربین را روشن می‌کند · بازگشت می‌بندد
+Menu's Camera opens the whole screen	دوربین منو تمام صفحه را باز می‌کند
+Menu → Camera goes straight to the cameras page instead of the live card	منو ← دوربین مستقیم صفحه دوربین‌ها را باز می‌کند، نه کارت زنده را
+Sound follows the selection	صدا همراه انتخاب
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	در تمام صفحه صدای دوربین انتخاب‌شده خودکار پخش می‌شود (دوربین‌هایی که صدا می‌فرستند)
+Lite	سبک
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	همان ظاهر، سبک‌تر برای حافظه و پردازنده: تصاویر کمتری از پیش آماده و کار کمتر در پس‌زمینه
+All of them are off	همه خاموش‌اند
+It is the TV's screensaver: choose another one first	اکنون محافظ صفحهٔ تلویزیون است: اول یکی دیگر را انتخاب کنید
+Needs TV access (ADB): System → TV access (ADB).	به دسترسی تلویزیون (ADB) نیاز دارد: سیستم ← دسترسی تلویزیون (ADB).
+None of them is on this TV.	هیچ‌کدام روی این تلویزیون نیست.
+Nothing: apps that were off before stay as they are	هیچ: برنامه‌هایی که از قبل خاموش بودند همان‌طور می‌مانند
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	فقط برنامه‌هایی که تلویزیون به آن‌ها نیاز ندارد فهرست می‌شوند: گزارش‌ها، تبلیغات و نصب‌کننده‌ها. روشن شدن، کنترل، صدا، پخش، Play Store و به‌روزرسانی‌ها هرگز دست نمی‌خورند. چیزی حذف نمی‌شود و بازنشانی تلویزیون همه را برمی‌گرداند.
+Reading the TV's apps…	در حال خواندن برنامه‌های تلویزیون…
+Turn back on what Glassio turned off	روشن کردن دوبارهٔ آنچه Glassio خاموش کرد
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	برنامه‌های تلویزیون را که فقط گزارش می‌فرستند، تبلیغ نشان می‌دهند یا برنامه نصب می‌کنند خاموش کنید. چیزی حذف نمی‌شود: یک کلید هر کدام را دوباره روشن می‌کند
+Turn them all off	خاموش کردن همه
+Unneeded apps	برنامه‌های غیرضروری
+Scan with your phone (same Wi-Fi) and change any setting there	یا با گوشی (در همان Wi-Fi) اسکن کنید و هر تنظیمی را آنجا تغییر دهید
+Google feedback	بازخورد Google
+Sends feedback and problem reports to Google	بازخورد و گزارش مشکل را به Google می‌فرستد
+Bug report sender	فرستندهٔ گزارش خطا
+Sends the TV's bug reports to Google	گزارش‌های خطای تلویزیون را به Google می‌فرستد
+Network diagnostics	عیب‌یابی شبکه
+Google's connection checks and their reports	بررسی‌های اتصال Google و گزارش‌هایشان
+Ad services	سرویس‌های تبلیغاتی
+Android's ad measurement and ad topics	سنجش تبلیغات و موضوعات تبلیغاتی Android
+Ad personalisation	شخصی‌سازی تبلیغات
+Works out personalised ads on the TV	تبلیغات شخصی را روی تلویزیون تعیین می‌کند
+Federated learning	یادگیری فدرال
+Trains Google's models with data from the TV	مدل‌های Google را با داده‌های تلویزیون آموزش می‌دهد
+Google Play Games	بازی‌های Google Play
+The games app and its sign-in	برنامهٔ بازی‌ها و ورود به آن
+Google TV purchases	خریدهای Google TV
+Films and series bought from Google: they can't be watched while it is off	فیلم‌ها و سریال‌های خریده‌شده از Google: وقتی خاموش است دیده نمی‌شوند
+Maker's app installer	نصب‌کنندهٔ برنامه‌های سازنده
+Installs the maker's chosen apps after a setup or a reset	برنامه‌های منتخب سازنده را پس از راه‌اندازی یا بازنشانی نصب می‌کند
+Ambient mode	حالت Ambient
+Google's screensaver (kept while it is the TV's screensaver)	محافظ صفحهٔ Google (تا وقتی محافظ صفحهٔ تلویزیون است می‌ماند)
+The older Ambient screensaver (kept while it is the TV's screensaver)	محافظ صفحهٔ قدیمی Ambient (تا وقتی محافظ صفحهٔ تلویزیون است می‌ماند)
+Xiaomi analytics	تحلیل‌های Xiaomi
+Sends usage data to Xiaomi	دادهٔ استفاده را به Xiaomi می‌فرستد
+Recognises what is on screen, for ads	آنچه روی صفحه است را برای تبلیغات تشخیص می‌دهد
+TCL start-up ads	تبلیغات راه‌اندازی TCL
+Ads shown when the TV starts	تبلیغاتی که هنگام روشن شدن تلویزیون نمایش داده می‌شوند
+TCL app promotions	تبلیغ برنامه‌های TCL
+Suggested apps and promotions	برنامه‌های پیشنهادی و تبلیغات
+Amazon device metrics	آمار دستگاه Amazon
+Sends usage data to Amazon	دادهٔ استفاده را به Amazon می‌فرستد
+Amazon app metrics	آمار برنامه‌های Amazon
+Sends app usage data to Amazon	دادهٔ استفاده از برنامه‌ها را به Amazon می‌فرستد
+Amazon network metrics	آمار شبکهٔ Amazon
+Sends Wi-Fi data to Amazon	دادهٔ Wi-Fi را به Amazon می‌فرستد
+Amazon logger	گزارش‌گیر Amazon
+Collects the device's logs for Amazon	گزارش‌های دستگاه را برای Amazon جمع می‌کند
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	وقتی مدتی در برنامهٔ دیگری هستید، Glassio تصاویرش را آزاد می‌کند و هنگام بازگشت برمی‌گرداند.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	همهٔ دوربین‌ها پخش می‌شوند، حتی با ویدیویی پشتشان: ویدیو منتظر می‌ماند و رمزگشایش را پس می‌دهد.
+Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	همهٔ تازه‌ها از Glassio 4.0، صفحه به صفحه، اول تازه‌های 4.4. تنظیمات شما همان‌طور می‌ماند: هر چیز تازه انتخابی است.
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	روی دوربینی که می‌چرخد (PTZ) OK را نگه دارید: با کنترل حرکتش دهید و بزرگنمایی کنید.
+Lighter	سبک‌تر
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	نمای چندگانه هرگز از صفحه بیرون نمی‌زند: چهار دوربین دو در دو، به بزرگ‌ترین اندازه‌ای که صفحه اجازه می‌دهد.
+Performance → Lite: the same look, lighter on memory and on the processor.	کارایی ← Lite: همان ظاهر، سبک‌تر برای حافظه و پردازنده.
+Settings → Smart home → Multi-view	تنظیمات ← خانهٔ هوشمند ← نمای چندگانه
+Settings → System → Performance	تنظیمات ← سیستم ← کارایی
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	صفحهٔ دوربین‌ها: دوربین‌هایتان روی تمام صفحه؛ پیکان‌ها یکی را انتخاب می‌کنند، OK صدایش را روشن می‌کند.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	برنامه‌های غیرضروری: برنامه‌های تلویزیون را که فقط گزارش می‌فرستند، تبلیغ نشان می‌دهند یا برنامه نصب می‌کنند خاموش کنید (تنظیمات ← سیستم).
+Welcome to Glassio 4.4	به Glassio 4.4 خوش آمدید

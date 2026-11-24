@@ -375,7 +375,7 @@ private fun progressOf(t: NowPlaying.Track): Float {
     val glassApp = androidx.compose.ui.platform.LocalContext.current.applicationContext as GlassApp
     val v by produceState(0f, t) {
         // (Once a second on a weak TV: each step draws the island again.)
-        val step = if (glassApp.settings.memTier == 0) 1000L else 500L
+        val step = if (glassApp.settings.lean) 1000L else 500L
         while (true) { value = if (t.duration > 0) (t.positionNow().toFloat() / t.duration).coerceIn(0f, 1f) else 0f; delay(step) }
     }
     return v
@@ -390,7 +390,7 @@ fun MusicBars(playing: Boolean, color: Color, modifier: Modifier) {
     val t by produceState(0f, playing) {
         if (!playing) return@produceState
         // (About 6 a second on a weak TV, memory tier 0.)
-        val step = if (glassApp.settings.memTier == 0) 160L else 80L
+        val step = if (glassApp.settings.lean) 160L else 80L
         while (true) { value = (android.os.SystemClock.uptimeMillis() % 1400L) / 1400f * 6.2832f; delay(step) }
     }
     val on by animateFloatAsState(if (playing) 1f else 0.15f, tween(300), label = "on")

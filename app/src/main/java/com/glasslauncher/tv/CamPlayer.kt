@@ -5,7 +5,6 @@ import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
 
@@ -31,20 +30,43 @@ object CamPlayer {
         }
     }
 
-    fun build(ctx: Context): ExoPlayer {
+    /**
+     * How many videos the TV's hardware decoders take at once (the smallest of its H.264 / HEVC ones; the Streamer
+     * says 4). Read once from the TV's own codec list.
+     */
+    val hardwareRoom: Int get() = roomOverride.takeIf { it > 0 } ?: tvRoom
+    /** QA (dev key, `--ei cam_room N`): the TV taken to have only N hardware decoders (0: its own number). */
+    @Volatile var roomOverride = 0
+    private val tvRoom: Int by lazy {
+        runCatching {
+            android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos
+                .filter { !it.isEncoder && (android.os.Build.VERSION.SDK_INT < 29 || it.isHardwareAccelerated) }
+                .flatMap { ci -> ci.supportedTypes.filter { it == "video/avc" || it == "video/hevc" }.map { t -> ci.getCapabilitiesForType(t).maxSupportedInstances } }
+                .filter { it > 0 }.minOrNull()
+        }.getOrNull() ?: 4
+    }
+
+    /**
+     * A camera's player. [softwareFirst]: the processor decodes it (see [software]); a camera beyond the TV's
+     * hardware decoders ([hardwareRoom]) too. Either way a decoder that can't start hands over to the next one in the
+     * list (decoder fallback): a fourth camera on a TV whose hardware decoders were taken failed with
+     * DECODER_INIT_FAILED and stayed dark (his "one camera doesn't play"); it now plays on the processor.
+     */
+    fun build(ctx: Context, softwareFirst: Boolean = software(ctx)): ExoPlayer {
         val b = ExoPlayer.Builder(ctx)
-        if (software(ctx)) {
+        val factory = DefaultRenderersFactory(ctx).setEnableDecoderFallback(true)
+        if (softwareFirst) {
             // Software decoders first; a hardware one only if the TV has no software decoder for the format.
-            val selector = MediaCodecSelector { mime, secure, tunneling ->
+            factory.setMediaCodecSelector { mime, secure, tunneling ->
                 MediaCodecUtil.getDecoderInfos(mime, secure, tunneling).sortedBy { if (it.softwareOnly) 0 else 1 }
             }
-            b.setRenderersFactory(DefaultRenderersFactory(ctx).setMediaCodecSelector(selector).setEnableDecoderFallback(true))
         }
+        b.setRenderersFactory(factory)
         // Its own playback thread, which outlives a reply the RTSP client can't read (#28: a camera answered
         // without a CSeq header, Media3's RtspClient threw on the player's thread and Glassio closed).
-        val (looper, thread) = safeLooper()
+        val (looper, _) = safeLooper()
         b.setPlaybackLooper(looper)
-        return b.build().apply { volume = 0f; loopers[this] = looper; thread.name = "glass-cam-play" }
+        return b.build().apply { volume = 0f; loopers[this] = looper }
     }
 
     private val loopers = java.util.Collections.synchronizedMap(java.util.WeakHashMap<ExoPlayer, android.os.Looper>())
@@ -64,7 +86,9 @@ object CamPlayer {
     private fun safeLooper(): Pair<android.os.Looper, Thread> {
         val ready = java.util.concurrent.CountDownLatch(1)
         val box = arrayOfNulls<android.os.Looper>(1)
-        val t = Thread {
+        // (Named here: named from the main thread afterwards, Android renamed the main thread instead, and every
+        // measurement showed the main thread's work as a camera's.)
+        val t = Thread({
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO)
             android.os.Looper.prepare(); box[0] = android.os.Looper.myLooper(); ready.countDown()
             var lost = 0
@@ -75,7 +99,7 @@ object CamPlayer {
                     if (lost++ == 0) com.glasslauncher.tv.data.Glog.w("Camera stream: a reply the player couldn't read was left out", e)
                 }
             }
-        }
+        }, "glass-cam-play")
         t.start(); ready.await()
         return box[0]!! to t
     }

@@ -11,6 +11,11 @@ import java.net.NetworkInterface
 import java.security.SecureRandom
 
 object Net {
+    /**
+     * The one OkHttp client the others are made from (`ok.newBuilder()`): the pictures', Home Assistant's and the
+     * cameras' controls' share its connections and threads instead of each keeping its own pool.
+     */
+    val ok: okhttp3.OkHttpClient by lazy { okhttp3.OkHttpClient() }
     fun localIp(): String? = runCatching {
         NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback }

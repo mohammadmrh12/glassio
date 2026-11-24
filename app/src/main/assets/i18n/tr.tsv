@@ -49,6 +49,8 @@ Sending…	Gönderiliyor…
 Sent. Thank you so much for your support!	Gönderildi. Desteğin için çok teşekkürler!
 Support Glassio	Glassio'yu destekle
 Support me	Beni destekle
+Supporters	Destekçiler
+Thank you for keeping Glassio going.	Glassio'yu ayakta tuttuğunuz için teşekkürler.
 Thank you!	Teşekkürler!
 That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	Home tuşu böyle TV'nin kendi ana ekranı yerine Glassio'yu açar, Home'a basılı tutma ve seçtiğin kumanda tuşları böyle ayarladığını yapar,
 That isn't a PSN code: 12 letters and digits	Bu bir PSN kodu değil: 12 harf ve rakam
@@ -801,7 +803,8 @@ Looking for Glassio on your network…	Ağında Glassio aranıyor…
 Looks at the latest release on GitHub	GitHub'daki son sürüme bakar
 Looks for the Hue bridge on this network	Bu ağda Hue köprüsünü arar
 Lower	Daha düşük
-Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Yapımcı: Mohammad (mrh12) · Yazı tipleri: Inter (SIL OFL) · Hava durumu: Open-Meteo · Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamış ya da sertifikalandırılmamıştır.
+Made by Mohammad (mrh12)	Yapımcı: Mohammad (mrh12)
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Yazı tipleri: Inter (SIL OFL) · Hava durumu: Open-Meteo · Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamış ya da sertifikalandırılmamıştır.
 Main (TMDB)	Ana (TMDB)
 Main TV	Ana TV
 Main TV (the others follow it)	Ana TV (diğerleri onu izler)
@@ -1702,3 +1705,76 @@ The page stays on with one code for this TV: save it to your phone's home screen
 Change the theme, language, screensaver and more from your phone.	Temayı, dili, ekran koruyucuyu ve daha fazlasını telefonunuzdan değiştirin.
 Menu → Manage from phone	Menü → Telefondan yönet
 With Nuvio connected, the settings button becomes your Nuvio profile's picture.	Nuvio bağlıyken ayarlar düğmesi Nuvio profil resminiz olur.
+Two by two	İkiye iki
+Whole screen	Tam ekran
+On the whole screen	Tam ekranda
+Cameras on the whole screen	Kameralar tam ekranda
+Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	Otomatik: kameralar bu boyutta sığarsa tek sıra, yoksa ikiye iki. Ekranın kenarlarını asla aşmazlar
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Kameralar Geri'ye kadar ekranı doldurur; oklar birini seçer, OK sesini açar (ayrıca: menü → Kamera → Tam ekran veya bir kumanda düğmesi)
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Çoklu görünüm kameraların tam ekranda · OK bir kameranın sesini açar · Geri kapatır
+Menu's Camera opens the whole screen	Menüdeki Kamera tam ekranı açar
+Menu → Camera goes straight to the cameras page instead of the live card	Menü → Kamera canlı kart yerine doğrudan kameralar sayfasını açar
+Sound follows the selection	Ses seçimi izler
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	Tam ekranda seçili kameranın sesi kendiliğinden çalar (ses gönderen kameralar)
+Lite	Hafif
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Aynı görünüm, bellek ve işlemci için daha hafif: daha az hazır resim, arka planda daha az iş
+All of them are off	Hepsi kapalı
+It is the TV's screensaver: choose another one first	Şu an TV'nin ekran koruyucusu: önce başka birini seçin
+Needs TV access (ADB): System → TV access (ADB).	TV erişimi (ADB) gerekir: Sistem → TV erişimi (ADB).
+None of them is on this TV.	Hiçbiri bu TV'de yok.
+Nothing: apps that were off before stay as they are	Hiçbir şey: önceden kapalı olan uygulamalar öyle kalır
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Yalnızca TV'nin ihtiyaç duymadığı uygulamalar listelenir: raporlar, reklamlar ve yükleyiciler. Açılış, kumanda, ses, yayın, Play Store ve güncellemelere asla dokunulmaz. Hiçbir şey silinmez ve TV'yi sıfırlamak her şeyi geri getirir.
+Reading the TV's apps…	TV'nin uygulamaları okunuyor…
+Turn back on what Glassio turned off	Glassio'nun kapattıklarını yeniden aç
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	TV'nin yalnızca rapor gönderen, reklam gösteren veya başka uygulama yükleyen uygulamalarını kapatın. Hiçbir şey silinmez: bir anahtar her birini yeniden açar
+Turn them all off	Hepsini kapat
+Unneeded apps	Gereksiz uygulamalar
+Scan with your phone (same Wi-Fi) and change any setting there	Ya da telefonunuzla tarayın (aynı Wi-Fi) ve oradan herhangi bir ayarı değiştirin
+Google feedback	Google geri bildirimi
+Sends feedback and problem reports to Google	Geri bildirim ve sorun raporlarını Google'a gönderir
+Bug report sender	Hata raporu gönderici
+Sends the TV's bug reports to Google	TV'nin hata raporlarını Google'a gönderir
+Network diagnostics	Ağ tanılama
+Google's connection checks and their reports	Google'ın bağlantı kontrolleri ve raporları
+Ad services	Reklam hizmetleri
+Android's ad measurement and ad topics	Android'in reklam ölçümü ve reklam konuları
+Ad personalisation	Reklam kişiselleştirme
+Works out personalised ads on the TV	TV'de kişiselleştirilmiş reklamları belirler
+Federated learning	Birleşik öğrenme
+Trains Google's models with data from the TV	Google'ın modellerini TV'den gelen verilerle eğitir
+Google Play Games	Google Play Oyunlar
+The games app and its sign-in	Oyun uygulaması ve oturum açma
+Google TV purchases	Google TV satın alımları
+Films and series bought from Google: they can't be watched while it is off	Google'dan satın alınan filmler ve diziler: kapalıyken izlenemez
+Maker's app installer	Üreticinin uygulama yükleyicisi
+Installs the maker's chosen apps after a setup or a reset	Kurulum veya sıfırlamadan sonra üreticinin seçtiği uygulamaları yükler
+Ambient mode	Ambient modu
+Google's screensaver (kept while it is the TV's screensaver)	Google'ın ekran koruyucusu (TV'nin ekran koruyucusu olduğu sürece kalır)
+The older Ambient screensaver (kept while it is the TV's screensaver)	Eski Ambient ekran koruyucusu (TV'nin ekran koruyucusu olduğu sürece kalır)
+Xiaomi analytics	Xiaomi analizleri
+Sends usage data to Xiaomi	Kullanım verilerini Xiaomi'ye gönderir
+Recognises what is on screen, for ads	Reklam için ekrandakini tanır
+TCL start-up ads	TCL açılış reklamları
+Ads shown when the TV starts	TV açılırken gösterilen reklamlar
+TCL app promotions	TCL uygulama tanıtımları
+Suggested apps and promotions	Önerilen uygulamalar ve tanıtımlar
+Amazon device metrics	Amazon cihaz ölçümleri
+Sends usage data to Amazon	Kullanım verilerini Amazon'a gönderir
+Amazon app metrics	Amazon uygulama ölçümleri
+Sends app usage data to Amazon	Uygulama kullanım verilerini Amazon'a gönderir
+Amazon network metrics	Amazon ağ ölçümleri
+Sends Wi-Fi data to Amazon	Wi-Fi verilerini Amazon'a gönderir
+Amazon logger	Amazon günlükçüsü
+Collects the device's logs for Amazon	Cihazın günlüklerini Amazon için toplar
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Bir süre başka bir uygulamadayken Glassio resimlerini bırakır, döndüğünüzde geri getirir.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Arkasında bir video olsa da her kamera oynar: video bekler ve kod çözücüsünü geri verir.
+Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	Glassio 4.0'dan beri tüm yenilikler, sayfa sayfa, önce 4.4'ün yenilikleri. Kurulumunuz olduğu gibi kalır: her yenilik bir seçimdir.
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Dönebilen bir kamerada (PTZ) OK'yi basılı tutun: kumandayla hareket ettirin ve yakınlaştırın.
+Lighter	Daha hafif
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	Çoklu görünüm asla ekranı aşmaz: dört kamera ikiye iki, ekranın izin verdiği kadar büyük.
+Performance → Lite: the same look, lighter on memory and on the processor.	Performans → Lite: aynı görünüm, bellek ve işlemci için daha hafif.
+Settings → Smart home → Multi-view	Ayarlar → Akıllı ev → Çoklu görünüm
+Settings → System → Performance	Ayarlar → Sistem → Performans
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Kameralar sayfası: kameralarınız tüm ekranda; oklar birini seçer, OK sesini açar.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Gereksiz uygulamalar: TV'nin yalnızca rapor gönderen, reklam gösteren veya başka uygulama yükleyen uygulamalarını kapatın (Ayarlar → Sistem).
+Welcome to Glassio 4.4	Glassio 4.4'e hoş geldiniz

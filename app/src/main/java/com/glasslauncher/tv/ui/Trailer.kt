@@ -333,9 +333,24 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
             if (!popup && frames) VideoFrames.clear()
         }
     }
-    // The screensaver's trailer pauses while the multi-view cameras are up (it plays on when they go).
-    val camsUp = onEnded != null && com.glasslauncher.tv.MultiCamOverlay.open.value
-    LaunchedEffect(Trailers.held.value, camsUp) { player.playWhenReady = !camsUp && (req.overlay || !Trailers.held.value) }
+    // Every trailer (the screensaver's, the carousel's, the home player's) waits while the cameras are up (multi-view
+    // or their whole-screen page) and goes on where it was when they go. It lets its decoder go meanwhile, as the
+    // screensaver's and the background's videos do: paused it kept one, and the fourth camera found none. Not drawn
+    // until it plays again (the page's picture shows meanwhile). (Only the screensaver's waited before.)
+    val camsUp = com.glasslauncher.tv.MultiCamOverlay.open.value
+    val heldAt = remember { longArrayOf(-1L) }
+    LaunchedEffect(Trailers.held.value, camsUp) {
+        player.playWhenReady = !camsUp && (req.overlay || !Trailers.held.value)
+        if (camsUp) {
+            kotlinx.coroutines.delay(300)
+            if (com.glasslauncher.tv.MultiCamOverlay.open.value && player.playbackState != androidx.media3.common.Player.STATE_IDLE) {
+                heldAt[0] = player.currentPosition; rendered = false; player.stop()
+            }
+        } else if (heldAt[0] >= 0) {
+            val at = heldAt[0]; heldAt[0] = -1L
+            player.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC); player.seekTo(at); player.prepare(); player.setSeekParameters(androidx.media3.exoplayer.SeekParameters.DEFAULT)
+        }
+    }
     // Subtitles: loaded here and shown by the trailer's time.
     if (st.trailerSubs) LaunchedEffect(Unit) {
         val got = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.glasslauncher.tv.data.TrailerSubs.load(streams.subs, st.trailerSubLang) }

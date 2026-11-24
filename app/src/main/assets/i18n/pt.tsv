@@ -50,6 +50,8 @@ Sending…	Enviando…
 Sent. Thank you so much for your support!	Enviado. Muito obrigado pelo seu apoio!
 Support Glassio	Apoiar o Glassio
 Support me	Apoie-me
+Supporters	Apoiadores
+Thank you for keeping Glassio going.	Obrigado por manter o Glassio vivo.
 Thank you!	Obrigado!
 That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	É assim que o botão Home abre o Glassio em vez da tela inicial da própria TV, e que segurar o Home e os botões do controle que você escolher fazem o que você definir,
 That isn't a PSN code: 12 letters and digits	Este não é um código PSN: 12 letras e números
@@ -796,7 +798,8 @@ Looking for Glassio on your network…	Procurando o Glassio na sua rede…
 Looks at the latest release on GitHub	Consulta a versão mais recente no GitHub
 Looks for the Hue bridge on this network	Procura o Hue Bridge nesta rede
 Lower	Menor
-Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Feito por Mohammad (mrh12) · Fontes: Inter (SIL OFL) · Clima: Open-Meteo · Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.
+Made by Mohammad (mrh12)	Feito por Mohammad (mrh12)
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Fontes: Inter (SIL OFL) · Clima: Open-Meteo · Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.
 Main (TMDB)	Principal (TMDB)
 Main TV	TV principal
 Main TV (the others follow it)	TV principal (as outras a seguem)
@@ -1688,3 +1691,75 @@ The page stays on with one code for this TV: save it to your phone's home screen
 Change the theme, language, screensaver and more from your phone.	Mude o tema, o idioma, a proteção de ecrã e mais a partir do telemóvel.
 Menu → Manage from phone	Menu → Gerir a partir do telemóvel
 With Nuvio connected, the settings button becomes your Nuvio profile's picture.	Com o Nuvio ligado, o botão das definições passa a ser a foto do seu perfil Nuvio.
+Two by two	Dois por dois
+Whole screen	Tela inteira
+On the whole screen	Na tela inteira
+Cameras on the whole screen	Câmeras na tela inteira
+Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	Automático: uma fileira quando as câmeras cabem neste tamanho; senão, dois por dois. Nunca passam das bordas da tela
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	As câmeras preenchem a tela até Voltar; as setas escolhem uma e OK liga o som dela (também: menu → Câmera → Tela inteira, ou um botão do controle)
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Suas câmeras da visão múltipla na tela inteira · OK liga o som de uma câmera · Voltar fecha
+Menu's Camera opens the whole screen	A câmera do menu abre a tela inteira
+Menu → Camera goes straight to the cameras page instead of the live card	Menu → Câmera vai direto para a página das câmeras em vez do cartão ao vivo
+Sound follows the selection	O som segue a seleção
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	Na tela inteira, o som da câmera escolhida toca sozinho (câmeras que enviam som)
+Lite	Leve
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	A mesma aparência, mais leve para a memória e o processador: menos imagens preparadas e menos trabalho em segundo plano
+All of them are off	Todos estão desligados
+It is the TV's screensaver: choose another one first	É o protetor de tela da TV agora: escolha outro primeiro
+Needs TV access (ADB): System → TV access (ADB).	Precisa de acesso à TV (ADB): Sistema → Acesso à TV (ADB).
+None of them is on this TV.	Nenhum deles está nesta TV.
+Nothing: apps that were off before stay as they are	Nada: os apps que já estavam desligados continuam assim
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Só aparecem apps de que a TV não precisa: relatórios, anúncios e instaladores. A inicialização, o controle, o som, a transmissão, a Play Store e as atualizações nunca são tocados. Nada é removido, e redefinir a TV traz tudo de volta.
+Reading the TV's apps…	Lendo os apps da TV…
+Turn back on what Glassio turned off	Religar o que o Glassio desligou
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	Desligue os apps da TV que só enviam relatórios, mostram anúncios ou instalam outros apps. Nada é removido: um botão religa cada um
+Turn them all off	Desligar todos
+Unneeded apps	Apps desnecessários
+Scan with your phone (same Wi-Fi) and change any setting there	Ou escaneie com o celular (mesma Wi-Fi) e mude qualquer ajuste por lá
+Google feedback	Feedback do Google
+Sends feedback and problem reports to Google	Envia feedback e relatórios de problemas ao Google
+Bug report sender	Envio de relatórios de erros
+Sends the TV's bug reports to Google	Envia os relatórios de erros da TV ao Google
+Network diagnostics	Diagnóstico de rede
+Google's connection checks and their reports	As verificações de conexão do Google e seus relatórios
+Ad services	Serviços de anúncios
+Android's ad measurement and ad topics	Medição e tópicos de anúncios do Android
+Ad personalisation	Personalização de anúncios
+Works out personalised ads on the TV	Calcula anúncios personalizados na TV
+Federated learning	Aprendizado federado
+Trains Google's models with data from the TV	Treina os modelos do Google com dados da TV
+The games app and its sign-in	O app de jogos e seu login
+Google TV purchases	Compras do Google TV
+Films and series bought from Google: they can't be watched while it is off	Filmes e séries comprados no Google: não podem ser assistidos enquanto estiver desligado
+Maker's app installer	Instalador de apps do fabricante
+Installs the maker's chosen apps after a setup or a reset	Instala os apps escolhidos pelo fabricante após a configuração ou uma redefinição
+Ambient mode	Modo Ambient
+Google's screensaver (kept while it is the TV's screensaver)	O protetor de tela do Google (mantido enquanto for o da TV)
+The older Ambient screensaver (kept while it is the TV's screensaver)	O protetor Ambient mais antigo (mantido enquanto for o da TV)
+Xiaomi analytics	Análises da Xiaomi
+Sends usage data to Xiaomi	Envia dados de uso à Xiaomi
+Recognises what is on screen, for ads	Reconhece o que está na tela, para anúncios
+TCL start-up ads	Anúncios de início da TCL
+Ads shown when the TV starts	Anúncios exibidos ao ligar a TV
+TCL app promotions	Promoções de apps da TCL
+Suggested apps and promotions	Apps sugeridos e promoções
+Amazon device metrics	Métricas do dispositivo Amazon
+Sends usage data to Amazon	Envia dados de uso à Amazon
+Amazon app metrics	Métricas de apps da Amazon
+Sends app usage data to Amazon	Envia dados de uso dos apps à Amazon
+Amazon network metrics	Métricas de rede da Amazon
+Sends Wi-Fi data to Amazon	Envia dados de Wi-Fi à Amazon
+Amazon logger	Registro da Amazon
+Collects the device's logs for Amazon	Coleta os registros do dispositivo para a Amazon
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Depois de um tempo em outro app, o Glassio libera suas imagens e as traz de volta quando você retorna.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Todas as câmeras aparecem, mesmo com um vídeo atrás: o vídeo espera e devolve seu decodificador.
+Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	Tudo de novo desde o Glassio 4.0, página por página, primeiro o da 4.4. Sua configuração continua igual: cada novidade é uma escolha.
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Segure OK numa câmera que gira (PTZ): mova e dê zoom com o controle.
+Lighter	Mais leve
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	A multivisão nunca passa da tela: quatro câmeras dois por dois, tão grandes quanto a tela permite.
+Performance → Lite: the same look, lighter on memory and on the processor.	Desempenho → Lite: o mesmo visual, mais leve para a memória e o processador.
+Settings → Smart home → Multi-view	Configurações → Casa inteligente → Multivisão
+Settings → System → Performance	Configurações → Sistema → Desempenho
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	A página de câmeras: suas câmeras na tela toda; as setas escolhem uma, OK liga o som dela.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Apps desnecessários: desligue os apps da TV que só enviam relatórios, mostram anúncios ou instalam outros apps (Configurações → Sistema).
+Welcome to Glassio 4.4	Bem-vindo ao Glassio 4.4

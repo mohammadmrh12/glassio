@@ -334,7 +334,8 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                                 ev.type != KeyEventType.KeyDown -> false
                                 ev.key == Key.DirectionRight -> { camIndex++; true }
                                 ev.key == Key.DirectionLeft -> { if (cams.size > 1) camIndex-- else { target = camRow; camPage = false }; true }
-                                ev.key == Key.DirectionUp || ev.key == Key.DirectionDown -> true
+                                ev.key == Key.DirectionDown -> { runCatching { reqs[1].requestFocus() }; true }
+                                ev.key == Key.DirectionUp -> true
                                 else -> false
                             }
                         }, onClick = {
@@ -345,6 +346,16 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         })) {
                         if (cam != null) androidx.compose.runtime.key(cam.url) { CameraView(cam, s, Modifier.fillMaxSize()) }
                     }
+                    Spacer(Modifier.height((6 * s).dp))
+                    // The cameras page (#30): the multi-view cameras filling the screen, until Back.
+                    // (Not "first": Up goes back to the camera's card above it.)
+                    MenuRow(s, light, "Whole screen", "", modifier = Modifier.focusRequester(reqs[1]),
+                        first = false, last = true, onLeft = { target = camRow; camPage = false },
+                        glyph = { c -> glyph("camera", c) }, onClick = {
+                            val svc = com.glasslauncher.tv.HomeKeyService.instance
+                            if (svc == null) toast(ctx, "Multi-view needs the Home button service (Glassio settings → System)")
+                            else { onClose(); svc.toggleMulti(bottom = false, full = true) }
+                        })
                 } else if (bgPage) {
                     Text("Background", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
                         modifier = Modifier.padding(start = (10 * s).dp, bottom = (4 * s).dp))
@@ -491,7 +502,11 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                         if (st.menuInputs) add(Triple("inputs", "Inputs") { target = 0; inputsPage = true })
                         if (st.menuRecents) add(Triple("recents", "Recent apps") { onClose(); runCatching { ctx.startActivity(Intent(ctx, com.glasslauncher.tv.RecentsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } })
                         if (st.menuThemes) add(Triple("theme", "Themes") { target = 0; themes = true })
-                        if (st.menuCamera && cams.isNotEmpty()) add(Triple("camera", "Camera") { target = 0; camPage = true })
+                        if (st.menuCamera && cams.isNotEmpty()) add(Triple("camera", "Camera") {
+                            val svc = com.glasslauncher.tv.HomeKeyService.instance
+                            // (Settings → Smart home: the menu's Camera can open the cameras page straight away.)
+                            if (st.cameraMenuFull && svc != null) { onClose(); svc.toggleMulti(bottom = false, full = true) } else { target = 0; camPage = true }
+                        })
                         if (st.menuSaver) add(Triple("saver", "Screensaver") { target = 0; saverPage = true })
                         if (st.menuTrailer) add(Triple("trailer", "Trailer") { target = 0; trailerPage = true })
                         if (st.menuBackground) add(Triple("background", "Background") { target = BG_MODES.indexOfFirst { it.first == bgKey(st.bgMode) }.coerceAtLeast(0); bgPage = true })

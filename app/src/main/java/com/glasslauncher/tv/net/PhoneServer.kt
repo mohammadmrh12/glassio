@@ -419,6 +419,12 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             Pref("saverInHome", "bg", "One player", "The screensaver plays on the home screen itself: back at once", onOff),
             Pref("saverShuffle", "bg", "Shuffle the screensaver", "", onOff),
             Pref("bgClock", "bg", "Large clock", "The big glass clock over your own background", onOff),
+            // (Since 4.4: the cameras' layout and page, and the Performance mode with Lite.)
+            Pref("multiLayout", "home", "Multi-view layout", "One row when the cameras fit, else two by two", listOf("auto" to "Automatic", "row" to "One row", "grid" to "Two by two")),
+            Pref("cameraMenuFull", "home", "Menu's Camera opens the whole screen", "Straight to the cameras page", onOff),
+            Pref("cameraSoundFollows", "home", "Sound follows the selection", "On the whole screen, the selected camera is heard", onOff),
+            Pref("perfMode", "system", "Performance mode", "Lite keeps the look and is lighter on memory", listOf("auto" to "Auto", "lite" to "Lite",
+                "performance" to "Performance", "balanced" to "Balanced", "quality" to "Quality")),
             Pref("searchPhoneQr", "system", "QR code in Settings' search", "This page's code where the search is empty", onOff),
             Pref("updateChannel", "system", "Updates", "Stable releases, or betas too", listOf("stable" to "Stable", "beta" to "Beta"))
                 .takeIf { !com.glasslauncher.tv.data.Store.PLAY },
@@ -430,6 +436,8 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
         "menuPhone" -> st.menuPhone.toString(); "heroAutoplay" -> st.heroAutoplay.toString(); "saverMode" -> st.saverMode
         "idleSeconds" -> st.idleSeconds.toString(); "saverInHome" -> st.saverInHome.toString(); "saverShuffle" -> st.saverShuffle.toString()
         "bgClock" -> st.bgClock.toString(); "searchPhoneQr" -> st.searchPhoneQr.toString(); "updateChannel" -> st.updateChannel
+        "multiLayout" -> st.multiLayout; "cameraMenuFull" -> st.cameraMenuFull.toString(); "cameraSoundFollows" -> st.cameraSoundFollows.toString()
+        "perfMode" -> st.perfMode
         else -> "" } }
 
     private fun setPref(k: String, v: String): String {
@@ -443,6 +451,9 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             "showClock" -> st.showClock = b; "menuPhone" -> st.menuPhone = b; "heroAutoplay" -> st.heroAutoplay = b; "saverMode" -> st.saverMode = v
             "idleSeconds" -> st.idleSeconds = v.toInt(); "saverInHome" -> st.saverInHome = b; "saverShuffle" -> st.saverShuffle = b
             "bgClock" -> st.bgClock = b; "searchPhoneQr" -> st.searchPhoneQr = b; "updateChannel" -> st.updateChannel = v
+            "multiLayout" -> st.multiLayout = v; "cameraMenuFull" -> st.cameraMenuFull = b; "cameraSoundFollows" -> st.cameraSoundFollows = b
+            // (A mode sets its values, as the TV's own Mode row does; your own changes stay.)
+            "perfMode" -> st.applyMode(v)
         }
         return "${p.title}: $label"
     }

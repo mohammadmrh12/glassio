@@ -72,7 +72,7 @@ fun HueDriver(app: GlassApp, item: HeroItem?, on: Boolean) {
             if (img !== seen) { seen = img; seenAt = now }
             // Settled: the sharp picture for a moment, or the blurred copy for longer (it may be all there is).
             val settled = now - seenAt >= (if (art != null || e.sharp != null) 200L else 900L)
-            val due = if (video) now - lastVideoAt >= (if (st.hueVideoSec <= 0) 500L else st.hueVideoSec * 1000L) else img !== last && settled
+            val due = if (video) now - lastVideoAt >= (if (st.hueVideoSec <= 0) (if (st.lean) 2000L else 500L) else st.hueVideoSec * 1000L) else img !== last && settled
             if (img != null && due) {
                 last = img; lastVideoAt = now
                 val b = (img as? Bitmap) ?: (img as androidx.compose.ui.graphics.ImageBitmap).asAndroidBitmap()

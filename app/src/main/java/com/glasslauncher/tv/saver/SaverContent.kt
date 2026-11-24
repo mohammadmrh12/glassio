@@ -239,11 +239,58 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             // A frame of the new video is on screen (the fade back in waits for it).
             val rendered = remember { BooleanArray(1) }
             // More buffered before it starts (the first seconds of a new video stuttered while it downloaded).
-            val load = remember { androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(20_000, 60_000, 4_000, 6_000).build() }
+            // (Lite / Performance: 25 s at most and 32 MB ahead, against 60 s.)
+            val load = remember { if (st.lean) androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 25_000, 4_000, 6_000)
+                .setTargetBufferBytes(32 * 1024 * 1024).setPrioritizeTimeOverSizeThresholds(false).build()
+                else androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(20_000, 60_000, 4_000, 6_000).build() }
+            // The video let go under the cameras and not drawn again yet: the blurred copy stays over it till then.
+            val underCams = remember { mutableStateOf(false) }
+            val stillFrame = remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+            val resumedAt = remember { longArrayOf(0L) }
             val players = remember { Array(1) { k -> ExoPlayer.Builder(ctx).setMediaSourceFactory(factory).setLoadControl(load).build().apply {
                 volume = 0f
-                addListener(object : Player.Listener { override fun onRenderedFirstFrame() { rendered[k] = true } })
+                addListener(object : Player.Listener { override fun onRenderedFirstFrame() {
+                    rendered[k] = true
+                    if (underCams.value) com.glasslauncher.tv.data.Glog.i("Saver: back after the cameras in ${android.os.SystemClock.uptimeMillis() - resumedAt[0]} ms")
+                    underCams.value = false
+                } })
             } } }
+            // The cameras up (▼, multi-view): the video waits under them and goes on from there when they close (his
+            // idea). Behind the cameras it is blurred and dimmed anyway, and playing on it cost the TV a decoder's
+            // work and a fresh blurred copy of it for every frame, with three or four cameras' videos on top. Paused
+            // it still held its decoder, and the fourth camera found none (DECODER_INIT_FAILED, his "one camera
+            // doesn't play"): once the veil has its copy it is let go, and taken up again where it was.
+            val view = remember { arrayOfNulls<SurfaceView>(1) }
+            val camsUp = com.glasslauncher.tv.MultiCamOverlay.open.value
+            val heldAt = remember { longArrayOf(-1L) }
+            LaunchedEffect(camsUp) {
+                val p = players[0]
+                if (camsUp) {
+                    p.playWhenReady = false
+                    delay(300)
+                    if (p.currentMediaItem != null && p.playbackState != Player.STATE_IDLE) {
+                        // A sharp copy of where it stopped stands in for it after the cameras close, until it draws
+                        // again (~1 s): the blur goes with the cameras (it stayed that second, his report).
+                        view[0]?.takeIf { it.holder.surface.isValid }?.let { v ->
+                            val b = android.graphics.Bitmap.createBitmap(960, 540, android.graphics.Bitmap.Config.ARGB_8888)
+                            val ok = kotlinx.coroutines.suspendCancellableCoroutine<Boolean> { c ->
+                                runCatching { android.view.PixelCopy.request(v, b, { r -> if (c.isActive) c.resumeWith(Result.success(r == android.view.PixelCopy.SUCCESS)) }, android.os.Handler(android.os.Looper.getMainLooper())) }
+                                    .onFailure { if (c.isActive) c.resumeWith(Result.success(false)) }
+                            }
+                            stillFrame.value = if (ok) b.asImageBitmap() else null
+                        }
+                        heldAt[0] = p.currentPosition; underCams.value = true; rendered[0] = false; p.stop()
+                    }
+                } else if (heldAt[0] >= 0) {
+                    val at = heldAt[0]; heldAt[0] = -1L
+                    // (To the nearest key frame before preparing: the exact place took 1.3 s to decode its way to, the
+                    // veil's wait he saw after the cameras closed.)
+                    resumedAt[0] = android.os.SystemClock.uptimeMillis(); p.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC); p.seekTo(at); p.prepare(); p.playWhenReady = true
+                    p.setSeekParameters(androidx.media3.exoplayer.SeekParameters.DEFAULT)
+                    // (Not for ever, if it never draws: the veil goes after 4 s.)
+                    delay(4000); underCams.value = false
+                } else p.playWhenReady = true
+            }
             // Glassio left (another app in front): the video stops now. Drawn on the home screen, the screensaver is only
             // taken down when Glassio draws again, and its player went on streaming under the other app until then.
             val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
@@ -257,20 +304,25 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             // One SurfaceView: the video goes straight to the TV at its own size and colour, so 4K is really 4K and
             // HDR / Dolby Vision is shown as HDR. Changing video fades through black with a layer above it (the
             // TV ignored a SurfaceView's own transparency, so cross-fading two of them cut instead).
-            val view = remember { arrayOfNulls<SurfaceView>(1) }
             val black = remember { Animatable(1f) }
             AndroidView(factory = { c -> SurfaceView(c).also { view[0] = it } }, modifier = Modifier.fillMaxSize())
+            // (The cameras over it don't ask the TV to blur behind their window: this draws its own veil.)
+            DisposableEffect(Unit) { com.glasslauncher.tv.MultiCamOverlay.ownVeil++; onDispose { com.glasslauncher.tv.MultiCamOverlay.ownVeil-- } }
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = black.value }.background(Color.Black))
             // The large clock in a glass look shows this video through its digits, like the dock's glass: live
             // copies of the video (PixelCopy, scaled on the GPU), ~15 a second, only while the clock is up.
             // Multi-view cameras over the screensaver: its video blurs behind them (a small live copy of it, blurred
             // and stretched over it: the TV can't blur behind a window, nor a video surface directly).
             val multiOpen = com.glasslauncher.tv.MultiCamOverlay.open.value
-            val multiVeil by androidx.compose.animation.core.animateFloatAsState(if (multiOpen) 1f else 0f, androidx.compose.animation.core.tween(if (multiOpen) 180 else 150), label = "multiVeil")
+            // (The video let go and not back yet: its sharp still frame, without the blur; the blur only while the
+            // cameras show, or when there is no still frame.)
+            if (underCams.value) stillFrame.value?.let { f -> androidx.compose.foundation.Image(f, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
+            val multiVeil by androidx.compose.animation.core.animateFloatAsState(if (multiOpen || (underCams.value && stillFrame.value == null)) 1f else 0f, androidx.compose.animation.core.tween(if (multiOpen) 180 else 150), label = "multiVeil")
             if (multiVeil > 0.01f) {
-                // Android 12+: a small copy blurred by the GPU; older TVs: a tiny copy stretched over the screen
-                // (stretching it that much is itself a soft blur).
-                val gpuBlur = android.os.Build.VERSION.SDK_INT >= 31
+                // A tiny copy, softened on the processor and stretched over the screen (stretching it that much is
+                // itself a soft blur), on every TV. The GPU's blur of a screen-size picture in every frame, with the
+                // cameras' videos over it, took the frames from 14 to ~50 ms on the Streamer (his "lag").
+                val gpuBlur = false
                 val frame = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
                 LaunchedEffect(Unit) {
                     val bufs = Array(2) { if (gpuBlur) android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888)
@@ -287,6 +339,8 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                             }
                             if (ok && !gpuBlur) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { softBlur(b) }
                             if (ok) frame.value = b.asImageBitmap()
+                            // (The video waits while the cameras are up: one copy is all it takes.)
+                            if (ok && multiOpen) break
                         }
                         delay(70)
                     }
@@ -309,9 +363,11 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 val buf = android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888)
                 val h = android.os.Handler(android.os.Looper.getMainLooper())
                 while (true) {
-                    delay(if (st.hueVideoSec <= 0) 500L else st.hueVideoSec * 1000L)
+                    delay(if (st.hueVideoSec <= 0) (if (st.lean) 2000L else 500L) else st.hueVideoSec * 1000L)
                     val v = view[0] ?: continue
-                    if (!v.holder.surface.isValid || black.value > 0.5f) continue
+                    // (Not while the cameras are up: the video waits, its colours don't change, and a copy of a 4K
+                    // picture is costly for the drawing thread while the cameras play.)
+                    if (!v.holder.surface.isValid || black.value > 0.5f || com.glasslauncher.tv.MultiCamOverlay.open.value) continue
                     val ok = kotlinx.coroutines.suspendCancellableCoroutine<Boolean> { k ->
                         runCatching { android.view.PixelCopy.request(v, buf, { r -> if (k.isActive) k.resumeWith(Result.success(r == android.view.PixelCopy.SUCCESS)) }, h) }
                             .onFailure { if (k.isActive) k.resumeWith(Result.success(false)) }
@@ -356,7 +412,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                 try {
                     while (true) {
                         delay(66)
-                        if (!SaverControl.clockShown.value || !rendered[0] || !v.holder.surface.isValid) continue
+                        if (!SaverControl.clockShown.value || !rendered[0] || !v.holder.surface.isValid || com.glasslauncher.tv.MultiCamOverlay.open.value) continue
                         if (!busy.compareAndSet(false, true)) continue
                         val dst = bufs[k++ % 3]
                         runCatching {
@@ -410,8 +466,13 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                         if (d > 0 && p.currentPosition >= d - outMs - 200) break
                     }
                     if (errors > list.size.coerceAtMost(8)) { failed = true; return@LaunchedEffect }
-                    // ◀ goes straight to the one before, ▶ (or the end) to the next.
-                    idx += if (manual < 0) -1 else 1
+                    // ◀ goes straight to the one before, ▶ (or the end) to the next; a video hidden meanwhile
+                    // (*Don't show it again*) is passed over: the list is the one the screensaver started with, and ◀
+                    // brought the hidden one back.
+                    val dir = if (manual < 0) -1 else 1
+                    idx += dir
+                    var passed = 0
+                    while (passed++ < list.size && AerialSource.idOfUrl[list[idx.mod(list.size)].second]?.let { id -> st.saverHidden.any { it.substringBefore('\t') == id } } == true) idx += dir
                     val quick = manual != 0
                     if (fade) black.animateTo(1f, tween(if (quick) 260 else outMs)) else black.snapTo(1f)
                     start(idx)

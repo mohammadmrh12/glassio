@@ -48,6 +48,8 @@ Sending…	جارٍ الإرسال…
 Sent. Thank you so much for your support!	تم الإرسال. شكرًا جزيلًا على دعمك!
 Support Glassio	دعم Glassio
 Support me	ادعمني
+Supporters	الداعمون
+Thank you for keeping Glassio going.	شكرًا لكم على دعم Glassio واستمراره.
 Thank you!	شكرًا لك!
 That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	بهذه الطريقة يفتح زر Home تطبيق Glassio بدلًا من الشاشة الرئيسية الخاصة بالتلفاز، وبها تؤدي الضغطة المطولة على Home وأزرار جهاز التحكم التي تختارها ما حددته لها،
 That isn't a PSN code: 12 letters and digits	هذا ليس رمز PSN: يتكون من 12 حرفًا ورقمًا
@@ -804,7 +806,8 @@ Looking for Glassio on your network…	جارٍ البحث عن Glassio في ش�
 Looks at the latest release on GitHub	يفحص أحدث إصدار على GitHub
 Looks for the Hue bridge on this network	يبحث عن جسر Hue في هذه الشبكة
 Lower	أدنى
-Made by Mohammad (mrh12) · Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	من تطوير Mohammad (mrh12) · الخطوط: Inter (SIL OFL) · الطقس: Open-Meteo · يستخدم هذا المنتج واجهة TMDB API لكنه غير معتمد أو مُصدَّق من TMDB.
+Made by Mohammad (mrh12)	من تطوير Mohammad (mrh12)
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	الخطوط: Inter (SIL OFL) · الطقس: Open-Meteo · يستخدم هذا المنتج واجهة TMDB API لكنه غير معتمد أو مُصدَّق من TMDB.
 Main (TMDB)	الرئيسية (TMDB)
 Main TV	التلفاز الرئيسي
 Main TV (the others follow it)	التلفاز الرئيسي (تتبعه الأخرى)
@@ -1705,3 +1708,76 @@ The page stays on with one code for this TV: save it to your phone's home screen
 Change the theme, language, screensaver and more from your phone.	غيّر السمة واللغة وشاشة التوقف وغيرها من هاتفك.
 Menu → Manage from phone	القائمة ← الإدارة من الهاتف
 With Nuvio connected, the settings button becomes your Nuvio profile's picture.	عند ربط Nuvio يصبح زر الإعدادات صورة ملفك الشخصي في Nuvio.
+Two by two	اثنان في اثنين
+Whole screen	ملء الشاشة
+On the whole screen	على الشاشة كاملة
+Cameras on the whole screen	الكاميرات على الشاشة كاملة
+Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	تلقائي: صف واحد عندما تتسع الكاميرات بهذا الحجم، وإلا اثنان في اثنين. لا تتجاوز حواف الشاشة أبدًا
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	الكاميرات تملأ الشاشة حتى الرجوع؛ الأسهم تختار كاميرا وزر OK يشغّل صوتها (أيضًا: القائمة ← الكاميرا ← ملء الشاشة، أو زر في جهاز التحكم)
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	كاميرات العرض المتعدد تملأ الشاشة · OK يشغّل صوت الكاميرا · الرجوع يغلق
+Menu's Camera opens the whole screen	كاميرا القائمة تفتح الشاشة كاملة
+Menu → Camera goes straight to the cameras page instead of the live card	القائمة ← الكاميرا تفتح صفحة الكاميرات مباشرة بدل البطاقة المباشرة
+Sound follows the selection	الصوت يتبع التحديد
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	في الشاشة الكاملة يعمل صوت الكاميرا المحددة تلقائيًا (للكاميرات التي ترسل صوتًا)
+Lite	خفيف
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	المظهر نفسه، وأخف على الذاكرة والمعالج: صور أقل مُجهَّزة مسبقًا وعمل أقل في الخلفية
+All of them are off	كلها متوقفة
+It is the TV's screensaver: choose another one first	إنه شاشة التوقف الحالية للتلفاز: اختر غيره أولًا
+Needs TV access (ADB): System → TV access (ADB).	يحتاج إلى الوصول إلى التلفاز (ADB): النظام ← الوصول إلى التلفاز (ADB).
+None of them is on this TV.	لا يوجد أيٌّ منها على هذا التلفاز.
+Nothing: apps that were off before stay as they are	لا شيء: التطبيقات التي كانت متوقفة من قبل تبقى كما هي
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	تُعرض فقط التطبيقات التي لا يحتاجها التلفاز: التقارير والإعلانات وأدوات التثبيت. لا يُمَسّ التشغيل ولا جهاز التحكم ولا الصوت ولا البث ولا متجر Play ولا التحديثات. لا يُحذف شيء، وإعادة ضبط التلفاز تُعيد كل شيء.
+Reading the TV's apps…	جارٍ قراءة تطبيقات التلفاز…
+Turn back on what Glassio turned off	إعادة تشغيل ما أوقفه Glassio
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	أوقف تطبيقات التلفاز التي ترسل التقارير أو تعرض الإعلانات أو تثبّت تطبيقات أخرى فقط. لا يُحذف شيء: يعيد المفتاح تشغيل كل منها
+Turn them all off	إيقافها كلها
+Unneeded apps	تطبيقات غير ضرورية
+Scan with your phone (same Wi-Fi) and change any setting there	أو امسح الرمز بهاتفك (على شبكة Wi-Fi نفسها) وغيّر أي إعداد من هناك
+Google feedback	ملاحظات Google
+Sends feedback and problem reports to Google	يرسل الملاحظات وتقارير المشكلات إلى Google
+Bug report sender	مرسِل تقارير الأخطاء
+Sends the TV's bug reports to Google	يرسل تقارير أخطاء التلفاز إلى Google
+Network diagnostics	تشخيص الشبكة
+Google's connection checks and their reports	فحوصات Google للاتصال وتقاريرها
+Ad services	خدمات الإعلانات
+Android's ad measurement and ad topics	قياس الإعلانات وموضوعاتها في Android
+Ad personalisation	تخصيص الإعلانات
+Works out personalised ads on the TV	يحدد الإعلانات المخصصة على التلفاز
+Federated learning	التعلّم الموحّد
+Trains Google's models with data from the TV	يدرّب نماذج Google ببيانات من التلفاز
+Google Play Games	ألعاب Google Play
+The games app and its sign-in	تطبيق الألعاب وتسجيل الدخول فيه
+Google TV purchases	مشتريات Google TV
+Films and series bought from Google: they can't be watched while it is off	الأفلام والمسلسلات المشتراة من Google: لا يمكن مشاهدتها وهو متوقف
+Maker's app installer	مثبّت تطبيقات الشركة المصنّعة
+Installs the maker's chosen apps after a setup or a reset	يثبّت التطبيقات التي تختارها الشركة المصنّعة بعد الإعداد أو إعادة الضبط
+Ambient mode	وضع Ambient
+Google's screensaver (kept while it is the TV's screensaver)	شاشة توقف Google (تبقى ما دامت شاشة توقف التلفاز)
+The older Ambient screensaver (kept while it is the TV's screensaver)	شاشة توقف Ambient الأقدم (تبقى ما دامت شاشة توقف التلفاز)
+Xiaomi analytics	تحليلات Xiaomi
+Sends usage data to Xiaomi	يرسل بيانات الاستخدام إلى Xiaomi
+Recognises what is on screen, for ads	يتعرّف على ما يُعرض على الشاشة لأجل الإعلانات
+TCL start-up ads	إعلانات بدء تشغيل TCL
+Ads shown when the TV starts	إعلانات تظهر عند تشغيل التلفاز
+TCL app promotions	عروض تطبيقات TCL
+Suggested apps and promotions	تطبيقات مقترحة وعروض ترويجية
+Amazon device metrics	مقاييس جهاز Amazon
+Sends usage data to Amazon	يرسل بيانات الاستخدام إلى Amazon
+Amazon app metrics	مقاييس تطبيقات Amazon
+Sends app usage data to Amazon	يرسل بيانات استخدام التطبيقات إلى Amazon
+Amazon network metrics	مقاييس شبكة Amazon
+Sends Wi-Fi data to Amazon	يرسل بيانات Wi-Fi إلى Amazon
+Amazon logger	سجلّات Amazon
+Collects the device's logs for Amazon	يجمع سجلّات الجهاز لـ Amazon
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	عند الابتعاد في تطبيق آخر لبعض الوقت، يحرّر Glassio صوره ويعيدها عند عودتك.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	تعمل كل كاميرا، حتى مع فيديو خلفها: ينتظر الفيديو ويعيد وحدة فك الترميز.
+Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	كل ما هو جديد منذ Glassio 4.0، صفحة بصفحة، وجديد 4.4 أولًا. يبقى إعدادك كما هو: كل ميزة جديدة اختيارية.
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	اضغط مطولًا على OK فوق كاميرا تدور (PTZ): حرّكها وقرّبها بجهاز التحكم.
+Lighter	أخف
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	لا يتجاوز العرض المتعدد حدود الشاشة: أربع كاميرات اثنتان في اثنتين، بأكبر حجم تسمح به الشاشة.
+Performance → Lite: the same look, lighter on memory and on the processor.	الأداء ← Lite: الشكل نفسه، وأخف على الذاكرة والمعالج.
+Settings → Smart home → Multi-view	الإعدادات ← المنزل الذكي ← العرض المتعدد
+Settings → System → Performance	الإعدادات ← النظام ← الأداء
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	صفحة الكاميرات: كاميراتك على الشاشة كلها؛ تختار الأسهم واحدة، ويشغّل OK صوتها.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	التطبيقات غير الضرورية: أوقف تطبيقات التلفاز التي ترسل التقارير أو تعرض الإعلانات أو تثبّت تطبيقات أخرى فقط (الإعدادات ← النظام).
+Welcome to Glassio 4.4	مرحبًا بك في Glassio 4.4

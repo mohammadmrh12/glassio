@@ -3,7 +3,6 @@ package com.glasslauncher.tv.net
 import com.glasslauncher.tv.data.Bg
 import com.glasslauncher.tv.GlassApp
 import com.glasslauncher.tv.data.Glog
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -24,7 +23,7 @@ object HaWatch {
     @Volatile private var started = false
 
     private val client by lazy {
-        OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS)
+        Net.ok.newBuilder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS)
             .pingInterval(30, TimeUnit.SECONDS).build()
     }
 
