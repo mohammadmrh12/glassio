@@ -60,6 +60,8 @@ import com.glasslauncher.tv.data.Channels
 object ChannelsUi {
     /** The app selected in the dock's first row (nothing when the selection is elsewhere). */
     val dockPkg = mutableStateOf<String?>(null)
+    /** The app whose own "Continue watching" row shows as cards above the dock instead of its rows (ContinueCards). */
+    val cardsPkg = mutableStateOf<String?>(null)
     /** The app whose rows show now. */
     val stagePkg = mutableStateOf<String?>(null)
     /** The selection is inside the rows. */
@@ -69,6 +71,11 @@ object ChannelsUi {
     val showing get() = stagePkg.value != null
     /** Up from the rows went to the carousel: Down from it goes back to this app (not the first one). */
     @Volatile var back: FocusRequester? = null
+    /** The app last selected in the dock (kept when the selection goes up to the carousel or the cards). */
+    @Volatile var lastPkg: String? = null
+    /** Down back to the dock: to the app the selection came up from, else [first]. (It went to the first app, #… his
+     *  report: Down from Stremio's cards landed on Nuvio.) */
+    fun dockTile(first: FocusRequester): FocusRequester = lastPkg?.let { MusicUi.tileFor(it) } ?: first
     /** The rows are on screen (the glass then refracts the grey page, not the carousel's picture). */
     val shown = mutableStateOf(false)
     /** The page and the glass have switched to the rows' background (the music page waits for this to give way). */

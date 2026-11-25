@@ -17,6 +17,15 @@ import com.glasslauncher.tv.GlassApp
  * when idle in any app, not only on the home screen. It shows exactly what Glassio's screensaver shows.
  */
 class GlassDreamService : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
+    companion object {
+        /**
+         * The screensaver the TV is showing now (Glassio's). Home is taken by the Home button service before it
+         * reaches the screensaver: Glassio then opened under it and nothing seemed to happen (in Stremio, 2026-11-25).
+         * The service ends it first ([HomeKeyService]).
+         */
+        @Volatile var current: GlassDreamService? = null
+    }
+
     private val registry = LifecycleRegistry(this)
     private val saved = SavedStateRegistryController.create(this)
     override val lifecycle: Lifecycle get() = registry
@@ -44,6 +53,8 @@ class GlassDreamService : DreamService(), LifecycleOwner, SavedStateRegistryOwne
         setContentView(view)
     }
 
+    override fun onDetachedFromWindow() { if (current === this) current = null; super.onDetachedFromWindow() }
+
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val k = event.keyCode
         if (SaverControl.popOpen.value) return super.dispatchKeyEvent(event)
@@ -54,10 +65,11 @@ class GlassDreamService : DreamService(), LifecycleOwner, SavedStateRegistryOwne
     }
     override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean { wakeUp(); return true }
 
-    override fun onDreamingStarted() { super.onDreamingStarted(); if (registry.currentState.isAtLeast(Lifecycle.State.CREATED)) registry.currentState = Lifecycle.State.RESUMED }
+    override fun onDreamingStarted() { super.onDreamingStarted(); current = this; if (registry.currentState.isAtLeast(Lifecycle.State.CREATED)) registry.currentState = Lifecycle.State.RESUMED }
     // (Android calls onDreamingStopped from onDestroy too, after the state is DESTROYED: moving back to CREATED then
     // threw and Glassio closed, #36.)
     override fun onDreamingStopped() {
+        if (current === this) current = null
         if (registry.currentState.isAtLeast(Lifecycle.State.CREATED)) registry.currentState = Lifecycle.State.CREATED
         super.onDreamingStopped()
     }

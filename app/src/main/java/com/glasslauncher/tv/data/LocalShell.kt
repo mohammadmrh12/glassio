@@ -266,6 +266,8 @@ object LocalShell {
     @Volatile private var askedByPerson = 0L
     /** TV access has worked on this TV at least once (kept in its own file: never in a backup or sync). */
     private fun everOk(ctx: Context) = ctx.getSharedPreferences("tv_access", Context.MODE_PRIVATE).getBoolean("ok", false)
+    /** TV access has worked here before: a use that isn't worth the TV's "Allow USB debugging?" window checks this first. */
+    fun worked(ctx: Context) = everOk(ctx)
     private fun markOk(ctx: Context) { if (!everOk(ctx)) ctx.getSharedPreferences("tv_access", Context.MODE_PRIVATE).edit().putBoolean("ok", true).apply() }
     /** Cancel was chosen on the TV's window for Glassio's key (see [open]). */
     @Volatile private var declined = false

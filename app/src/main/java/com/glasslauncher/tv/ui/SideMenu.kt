@@ -42,6 +42,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -75,7 +80,7 @@ private val THEMES = listOf(
  * then Library, Glassio settings, Android settings, Wi-Fi and Themes. ◀ or Back closes it.
  */
 @Composable
-fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier) {
+fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier, bottom: Float = 0f) {
     val st = app.settings
     val s = s0 * st.menuScale
     val ctx = LocalContext.current
@@ -141,7 +146,9 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     Box(
         modifier
             .onFocusChanged { inside = it.hasFocus }
-            .padding(top = (14 * s).dp, end = (22 * s).dp)
+            // (Never down over the dock or the cards above it: with many rows on (or a large menu size) it ran off the
+            // screen's bottom, the last rows out of reach, and the dock showed through it. Its rows scroll instead.)
+            .padding(top = (14 * s).dp, end = (22 * s).dp, bottom = maxOf(14 * s, bottom).dp)
             .width((272 * s).dp)
             .graphicsLayer {
                 alpha = enter.value
@@ -222,6 +229,24 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     Spacer(Modifier.height((8 * s).dp))
                 }
 
+                // (Only the page's rows scroll: the clock, the weather and the TV's numbers stay at the top. With the whole
+                // menu scrolling, going down and back up left the clock cut off at the top, his photo. Each page starts
+                // at its top.)
+                val pageScroll = remember(themes, bgPage, camPage, saverPage, saverSub, trailerPage, inputsPage, btPage, musicPage, phonePage) { androidx.compose.foundation.ScrollState(0) }
+                // (Never a row cut in half at the bottom, his photo: the rows' part is as tall as the whole rows that fit,
+                // the bottom of each row known from where it was placed (MenuEdges); the rest scrolls.)
+                val edges = remember(pageScroll) { androidx.compose.runtime.mutableStateMapOf<String, Float>() }
+                val content = remember(pageScroll) { arrayOfNulls<androidx.compose.ui.layout.LayoutCoordinates>(1) }
+                Column(Modifier.fillMaxWidth().weight(1f, fill = false)
+                    .layout { m, c ->
+                        val all = edges.values.maxOrNull() ?: 0f
+                        val fit = if (c.hasBoundedHeight && all > c.maxHeight) edges.values.filter { it <= c.maxHeight }.maxOrNull() else null
+                        val p = m.measure(if (fit != null) c.copy(maxHeight = fit.toInt().coerceAtLeast(c.minHeight)) else c)
+                        layout(p.width, p.height) { p.place(0, 0) }
+                    }
+                    .verticalScroll(pageScroll)
+                    .onPlaced { content[0] = it }) {
+                androidx.compose.runtime.CompositionLocalProvider(LocalMenuEdges provides MenuEdges(edges, content)) {
                 if (musicPage) {
                     MusicMenuPage(app, s, light, reqs[0], onBack = { musicPage = false }, onApps = {
                         val apps = installedMusicApps(ctx)
@@ -401,15 +426,23 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             first = false, last = false, onLeft = back,
                             glyph = { c -> glyph("dotOff", c) }, onClick = { target = n + 1; CustomBackground.nextNow(st) })
                         // The large clock over your own background (as in Settings → Background & screensaver).
+                        // (Continue Watching cards: only above a dock at the bottom.)
+                        val cardsRow = st.dockPos == "bottom"
                         MenuRow(s, light, "Large clock", if (st.bgClock) "On" else "Off",
                             modifier = Modifier.focusRequester(reqs[n + 2]), onFocused = { current = n + 2 },
-                            first = false, last = !plays, onLeft = back,
+                            first = false, last = !plays && !cardsRow, onLeft = back,
                             glyph = { c -> glyph(if (st.bgClock) "dotOn" else "dotOff", c) }, onClick = { target = n + 2; st.bgClock = !st.bgClock })
-                        // The videos' quality behind the glass: 1080p (the lightest) or the screensaver's (as in Settings).
-                        if (plays) MenuRow(s, light, "Quality", if (st.bgAerialQuality == "saver") "Screensaver's" else "1080p",
+                        // What you're watching as small cards above the dock (as in Settings → Background & screensaver).
+                        if (cardsRow) MenuRow(s, light, "Continue Watching cards", if (st.bgContinue) "On" else "Off",
                             modifier = Modifier.focusRequester(reqs[n + 3]), onFocused = { current = n + 3 },
+                            first = false, last = !plays, onLeft = back,
+                            glyph = { c -> glyph(if (st.bgContinue) "dotOn" else "dotOff", c) }, onClick = { target = n + 3; st.bgContinue = !st.bgContinue })
+                        // The videos' quality behind the glass: 1080p (the lightest) or the screensaver's (as in Settings).
+                        val q = if (cardsRow) n + 4 else n + 3
+                        if (plays) MenuRow(s, light, "Quality", if (st.bgAerialQuality == "saver") "Screensaver's" else "1080p",
+                            modifier = Modifier.focusRequester(reqs[q]), onFocused = { current = q },
                             first = false, last = true, onLeft = back,
-                            glyph = { c -> glyph("more", c) }, onClick = { target = n + 3; st.bgAerialQuality = if (st.bgAerialQuality == "saver") "1080" else "saver" })
+                            glyph = { c -> glyph("more", c) }, onClick = { target = q; st.bgAerialQuality = if (st.bgAerialQuality == "saver") "1080" else "saver" })
                     }
                 } else if (trailerPage) {
                     Text("Trailer", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,
@@ -475,7 +508,8 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             add(Triple("YouTube lists", "${yts.count { it !in st.saverYtOff }} / ${yts.size} ›") { saverSubRow = current; target = 0; saverSub = "yt" })
                         add(Triple("My videos", if (st.saverMode == "aerial" && st.saverMine) "✓" else "") { st.saverMode = "aerial"; st.saverMine = !st.saverMine; st.saverPick = "" })
                         // The screensaver on the home screen itself (one player, back at once).
-                        if (st.saverMode != "system") add(Triple("One player", if (st.saverInHome) "On" else "Off") { st.saverInHome = !st.saverInHome })
+                        // (Always here: with the TV's screensaver app as the type it reads Off, and On makes the type Videos, #40.)
+                        add(Triple("One player", if (st.saverInHome && st.saverMode != "system") "On" else "Off") { st.saverInHome = !(st.saverInHome && st.saverMode != "system") })
                         add(Triple("Shuffle", if (st.saverShuffle) "On" else "Off") { st.saverShuffle = !st.saverShuffle })
                         if (st.saverLock) add(Triple("Locked only", if (st.saverLockedOnly) "On" else "Off · ${st.saverLocked.size}") { st.saverLockedOnly = !st.saverLockedOnly })
                         add(Triple("Large clock", if (st.saverBigClock) "On" else "Off") { st.saverBigClock = !st.saverBigClock })
@@ -578,6 +612,8 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                     }
                 }
             }
+            }
+                }
         }
     }
 }
@@ -590,6 +626,17 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
 internal fun menuGreeting(icon: String, hello: String, name: String): Pair<String, Boolean> =
     (if (icon == "hello" || icon == "helloScript") name.trim() else "$hello, ${name.trim()}") to (icon != "picture")
 
+/** Where each row of a menu page ends (its bottom, in the page's own coordinates): the page shows whole rows only. */
+internal class MenuEdges(val map: MutableMap<String, Float>, val content: Array<androidx.compose.ui.layout.LayoutCoordinates?>) {
+    fun note(key: String, c: androidx.compose.ui.layout.LayoutCoordinates) {
+        val root = content[0] ?: return
+        if (!root.isAttached || !c.isAttached) return
+        val y = root.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).y + c.size.height
+        if (map[key] != y) map[key] = y
+    }
+}
+internal val LocalMenuEdges = androidx.compose.runtime.compositionLocalOf<MenuEdges?> { null }
+
 @Composable
 private fun MenuRow(
     s: Float, light: Boolean, label: String, value: String, chevron: Boolean = false, modifier: Modifier = Modifier,
@@ -597,14 +644,18 @@ private fun MenuRow(
     onFocused: () -> Unit = {}, onRight: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
+    // (QA: the selected row, logged again when the same place shows another row.)
+    if (focused) androidx.compose.runtime.LaunchedEffect(label, value) { android.util.Log.d("GlassMenuRow", "row|$label|$value|$chevron") }
     val lit by animateFloatAsState(if (focused) 1f else 0f, tween(120), label = "rowLit")
     val ink = if (light) Color(0xFF111114) else Color.White
     val hi = if (light) Color(0xFF111114) else Color.White
     val fg = androidx.compose.ui.graphics.lerp(ink, if (light) Color.White else Color(0xFF111114), lit)
+    val edges = LocalMenuEdges.current
     Row(
         modifier
             .fillMaxWidth()
             .height((34 * s).dp)
+            .then(if (edges != null) Modifier.onPlaced { edges.note("row:" + label, it) } else Modifier)
             .clip(RoundedCornerShape((12 * s).dp))
             .background(hi.copy(alpha = 0.95f * lit))
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
@@ -643,6 +694,7 @@ private class Chip(val label: String, val on: Boolean, val glyph: DrawScope.(Col
  * Right move between them (Left on the first goes back), Down to the settings under it. With more than four the
  * boxes show only their picture and the name of the one selected (or in use) is written under the row.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun MenuChips(
     s: Float, light: Boolean, chips: List<Chip>, reqs: List<FocusRequester>, onLeft: () -> Unit,
@@ -653,7 +705,13 @@ private fun MenuChips(
     val named = chips.size <= 4
     var at by remember { mutableStateOf(-1) }
     Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((5 * s).dp)) {
+        // (Coming into the row from below or above: the one in use, not the one nearest by place (Posters, in the
+        // middle, was selected on the way up from Collections, his photo: one OK from changing the screensaver).)
+        val inUse = chips.indexOfFirst { it.on }
+        val edges = LocalMenuEdges.current
+        Row(Modifier.fillMaxWidth().focusProperties { enter = { reqs.getOrNull(inUse) ?: FocusRequester.Default } }.focusGroup()
+            .then(if (edges != null) Modifier.onPlaced { edges.note("chips", it) } else Modifier),
+            horizontalArrangement = Arrangement.spacedBy((5 * s).dp)) {
             chips.forEachIndexed { i, c ->
                 var focused by remember { mutableStateOf(false) }
                 val lit by animateFloatAsState(if (focused) 1f else 0f, tween(120), label = "chipLit")
@@ -669,7 +727,7 @@ private fun MenuChips(
                                 .clip(shape)
                                 .then(Modifier.border(((if (focused) 2f else 0.8f) * s).dp, ink.copy(alpha = if (focused) 0.95f else 0.22f), shape))
                                 .focusRequester(reqs[i])
-                                .onFocusChanged { focused = it.isFocused; if (it.isFocused) { at = i; onFocused(i) } else if (at == i) at = -1 }
+                                .onFocusChanged { focused = it.isFocused; if (it.isFocused) { at = i; onFocused(i); android.util.Log.d("GlassMenuRow", "chip|$i|${c.label}|${c.on}") } else if (at == i) at = -1 }
                                 .tvPress(onKey = { ev ->
                                     when {
                                         ev.type != KeyEventType.KeyDown -> false
@@ -691,7 +749,7 @@ private fun MenuChips(
                         .clip(RoundedCornerShape((11 * s).dp))
                         .background(hi.copy(alpha = 0.95f * lit + (if (c.on) 0.10f else 0.04f) * (1f - lit)))
                         .focusRequester(reqs[i])
-                        .onFocusChanged { focused = it.isFocused; if (it.isFocused) { at = i; onFocused(i) } else if (at == i) at = -1 }
+                        .onFocusChanged { focused = it.isFocused; if (it.isFocused) { at = i; onFocused(i); android.util.Log.d("GlassMenuRow", "chip|$i|${c.label}|${c.on}") } else if (at == i) at = -1 }
                         .tvPress(onKey = { ev ->
                             when {
                                 ev.type != KeyEventType.KeyDown -> false

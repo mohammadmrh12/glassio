@@ -270,7 +270,7 @@ internal fun Dock(
                                 FolderTile(
                                     app, s, radius, moving = movingPkg == FOLDER,
                                     modifier = base.focusRequester(folderFocus).onGloballyPositioned { PopAnchors.tiles[FOLDER] = it.boundsInRoot() },
-                                    onFocus = { f -> DockFocus.on(idx, f); if (f) { onExpanded(r > 0); onMove() } },
+                                    onFocus = { f -> DockFocus.on(idx, f); if (f) { onExpanded(r > 0); onMove(); ChannelsUi.lastPkg = FOLDER } },
                                     onMoveKey = onMoveKey, onClick = onFolder, onLong = onFolderMenu, edges = edges,
                                 )
                             }
@@ -284,6 +284,7 @@ internal fun Dock(
                                 onFocus = { f ->
                                     DockFocus.on(idx, f); if (f) { onExpanded(r > 0); onMove(); ChannelsUi.back = null }
                                     // Channels: the app selected in the first row (its rows take the carousel's place).
+                                    if (f) ChannelsUi.lastPkg = e.pkg
                                     if (f && r == 0) ChannelsUi.dockPkg.value = e.pkg else if (ChannelsUi.dockPkg.value == e.pkg) ChannelsUi.dockPkg.value = null
                                 },
                                 onMoveKey = onMoveKey,
@@ -457,6 +458,7 @@ private fun StripDock(
                                 .onGloballyPositioned { PopAnchors.tiles[e.pkg] = it.boundsInRoot() },
                             onFocus = { f ->
                                 DockFocus.on(i, f); if (f) { onSel(i); onExpanded(false); onMove(); ChannelsUi.back = null }
+                                if (f) ChannelsUi.lastPkg = e.pkg
                                 if (f) ChannelsUi.dockPkg.value = e.pkg else if (ChannelsUi.dockPkg.value == e.pkg) ChannelsUi.dockPkg.value = null
                             },
                             onMoveKey = onMoveKey,

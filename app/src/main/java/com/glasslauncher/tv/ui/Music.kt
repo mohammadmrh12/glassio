@@ -293,6 +293,8 @@ object MusicUi {
     /** The island opened up (▲ on the screensaver) with its buttons; [islandSel] is the button selected. */
     val islandOpen = mutableStateOf(false)
     val islandSel = androidx.compose.runtime.mutableIntStateOf(2)
+    /** The paused song the island went away from (it isn't shown again until something plays). */
+    @Volatile var awayKey: String? = null
     /** Shuffle as the playing app last reported it (the island's shuffle button). */
     val shuffled = NowPlaying.shuffled
 
@@ -431,9 +433,18 @@ fun MusicIsland(app: GlassApp, s: Float) {
     val open = MusicUi.islandOpen.value
     val ctx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(open) { if (open) { MusicUi.islandSel.intValue = 2 } }
-    // Paused for a while: the island goes away (back as soon as it plays, or when opened).
-    var away by remember { mutableStateOf(false) }
-    LaunchedEffect(tr.playing, open) { if (tr.playing || open) away = false else { kotlinx.coroutines.delay(20_000); away = true } }
+    // Paused for a while (*A paused song goes*, 20 s by default): the island goes away (back as soon as it plays, or
+    // when opened). The song that went is remembered (MusicUi.awayKey): the island made again (back to the home screen,
+    // another page) showed the paused song for its whole wait again each time (#49: "still shows with no song playing").
+    var away by remember(tr.key) { mutableStateOf(!tr.playing && MusicUi.awayKey == tr.key) }
+    LaunchedEffect(tr.playing, open, tr.key) {
+        if (tr.playing || open) { away = false; if (MusicUi.awayKey == tr.key) MusicUi.awayKey = null }
+        else if (!away) {
+            val sec = st.islandPausedSec
+            if (sec < 0) return@LaunchedEffect
+            kotlinx.coroutines.delay(sec * 1000L); away = true; MusicUi.awayKey = tr.key
+        }
+    }
     val shown by animateFloatAsState(if (away) 0f else 1f, tween(600), label = "islandShown")
     // (It fades out but stays composed: leaving the composition from here while its animations were still
     // being drawn crashed the home screen once — "a state created after the snapshot was taken".)

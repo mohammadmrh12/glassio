@@ -1806,3 +1806,13 @@ Rows from…	Satırlar şuradan…
 Its own rows	Kendi satırları
 It has none now	Şu an hiç yok
 Its catalogs show instead (OK → Show)	Yerine katalogları gösteriliyor (OK → Göster)
+Continue Watching cards	İzlemeye devam et kartları
+What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	İzledikleriniz dock'un üstünde küçük kartlarda, arka plan bütün kalır. Dock'tan yukarı onlara gider
+  · Cards	  · Kartlar
+How many at most	En fazla kaç tane
+Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	Kendi arka planınız (başlık görselleri değil) ve altta dock gerekir: o zaman izledikleriniz dock'un üstünde küçük kartlarda görünür
+  · Apps' Continue watching	  · Uygulamaların İzlemeye devam et
+An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	Kendi İzlemeye devam et satırı olan bir uygulama (Netflix, YouTube…) satırları yerine onu da kartlarla gösterir. Uygulama başına: Müzik ve uygulama satırları → Kanallı uygulamalar
+Small cards above the dock over your own background	Kendi arka planınızın üstünde, dock'un üzerinde küçük kartlar
+Continue watching as cards: on	Kart olarak izlemeye devam et: açık
+Continue watching as cards: off	Kart olarak izlemeye devam et: kapalı

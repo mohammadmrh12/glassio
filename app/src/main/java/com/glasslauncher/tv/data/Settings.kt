@@ -735,6 +735,8 @@ class Settings(private val ctx: Context) {
     var cornerKey: Int get() = i("cornerKey", 0); set(v) = putI("cornerKey", v)
     /** Remote buttons that open an app, the Apps folder, the recent apps or an input ([RemoteMap]). */
     var keyMaps: List<String> get() = list("keyMaps"); set(v) = putList("keyMaps", v)
+    /** "raw button id=package": the app the TV itself opens for a raw button ([RawKeys]), closed when it is pressed. */
+    var rawLaunches: List<String> get() = list("rawLaunches"); set(v) = putList("rawLaunches", v)
     var doorbellChime: Boolean get() = b("doorbellChime", true); set(v) = putB("doorbellChime", v)
     /** Doorbell straight from Home Assistant (no automation): its link, a long-lived token, and the sensor to watch. */
     var haUrl: String get() = s("haUrl", ""); set(v) = putS("haUrl", v.trim().trimEnd('/'))
@@ -767,7 +769,10 @@ class Settings(private val ctx: Context) {
     /** The screensaver starts with the video the aerial background is showing, and the background goes on with the one the screensaver ended on. */
     var saverSameVideo: Boolean get() = b("saverSameVideo", true); set(v) = putB("saverSameVideo", v)
     /** The screensaver drawn on the home screen itself (no screen of its own): see HomeSaver. */
-    var saverInHome: Boolean get() = b("saverInHome", true); set(v) = putB("saverInHome", v)
+    // (One player is Glassio's own screensaver: turned on while the type is the TV's screensaver app, which is another
+    // process and never plays on the home screen, the type becomes Videos. Before, the row was hidden then and the
+    // phone page's switch did nothing: #40.)
+    var saverInHome: Boolean get() = b("saverInHome", true); set(v) { putB("saverInHome", v); if (v && saverMode == "system") saverMode = "aerial" }
     /** YouTube links of My videos left out for now (kept in the list, not played). */
     var saverYtOff: List<String> get() = list("saverYtOff"); set(v) = putList("saverYtOff", v)
     /** A TV with less than 3 GB of memory (an onn 4K Pro, a Chromecast HD): what saves memory is on from the start there. */
@@ -791,6 +796,12 @@ class Settings(private val ctx: Context) {
     var bgInfoSec: Int get() = i("bgInfoSec", 10); set(v) = putI("bgInfoSec", v.coerceIn(0, 600))
     /** Your own background: a large clock in the middle, like a phone's lock screen. */
     var bgClock: Boolean get() = b("bgClock", true); set(v) = putB("bgClock", v)
+    /** Your own background: Continue Watching as small glass cards above the dock (off: nothing there, as before). */
+    var bgContinue: Boolean get() = b("bgContinue", false); set(v) = putB("bgContinue", v)
+    /** With the cards on: an app's own "Continue watching" row shows as cards too, instead of its rows (but the apps in [bgContinueAppsOff]). */
+    var bgContinueApps: Boolean get() = b("bgContinueApps", true); set(v) = putB("bgContinueApps", v)
+    var bgContinueAppsOff: List<String> get() = list("bgContinueAppsOff"); set(v) = putList("bgContinueAppsOff", v)
+    var bgContinueCount: Int get() = i("bgContinueCount", 3).coerceIn(1, 4); set(v) = putI("bgContinueCount", v.coerceIn(1, 4))
     var bgClockSize: Float get() = f("bgClockSize", 0.8f); set(v) = putF("bgClockSize", v.coerceIn(0.6f, 1.6f))
     /** Depth effect: on a photo, what's in front (a mountain, a person) covers the large clock. */
     var bgDepth: Boolean get() = b("bgDepth", true); set(v) = putB("bgDepth", v)
@@ -947,6 +958,8 @@ class Settings(private val ctx: Context) {
     var inputsOrder: List<String> get() = list("inputsOrder"); set(v) = putList("inputsOrder", v)
     /** The island: a song name too long for it scrolls by (else it is shortened with "…"). */
     var islandMarquee: Boolean get() = b("islandMarquee", true); set(v) = putB("islandMarquee", v)
+    /** Seconds a paused song stays in the island before it goes (0 at once, -1 never; #49). */
+    var islandPausedSec: Int get() = i("islandPausedSec", 20); set(v) = putI("islandPausedSec", v)
     /** Photos from subreddits: their names (comma separated), and the Reddit app id that lets Glassio in. */
     var photoSubreddit: String get() = s("photoSubreddit", "EarthPorn"); set(v) = putS("photoSubreddit", v.trim())
     var redditAppId: String get() = s("redditAppId", ""); set(v) = putS("redditAppId", v.trim())

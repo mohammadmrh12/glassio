@@ -118,6 +118,16 @@ object Channels {
         refresh(app)
     }
 
+    /**
+     * An app's "Continue watching" row: Android's own (Watch Next), or a row the app itself named so (Stremio's
+     * "Continue Watching" is a plain row). The Watch Next one first. For the cards above the dock (ContinueCards).
+     */
+    fun continueOf(pkg: String?): Channel? {
+        if (pkg == null) return null
+        val l = all.value.filter { it.pkg == pkg && it.programs.isNotEmpty() }
+        return l.firstOrNull { it.name == WATCH_NEXT_NAME } ?: l.firstOrNull { it.name.trim().equals("continue watching", true) }
+    }
+
     /** The apps that have rows (their packages). */
     fun apps(): List<String> = all.value.map { it.pkg }.distinct()
 
@@ -170,8 +180,10 @@ object Channels {
     fun allFor(st: Settings, pkg: String): List<Channel> {
         val order = st.channelsOrder
         val src = sourceOf(st, pkg)
+        // (Ordered by this app's own keys for borrowed rows: reordering TizenTube's copy of SmartTube's rows reordered
+        // SmartTube's own as well.)
         return all.value.filter { it.pkg == src }.withIndex()
-            .sortedBy { (i, ch) -> order.indexOf(ch.key).let { o -> if (o >= 0) o else 1000 + i } }.map { it.value }
+            .sortedBy { (i, ch) -> order.indexOf(hideKey(pkg, ch)).let { o -> if (o >= 0) o else 1000 + i } }.map { it.value }
     }
 
     /** The rows of [pkg] (one or two show at once, the others with Up / Down): none for an app switched off or locked; without the hidden ones. */

@@ -9,6 +9,8 @@ object KeyHub {
     @Volatile var homeInFront = false
     /** Settings is waiting for "press the button you want". */
     @Volatile var capture: ((Int) -> Unit)? = null
+    /** When a key last arrived while learning (any key: a raw press with a key behind it is not a raw button). */
+    @Volatile var captureKeyAt = 0L
     private val nav = setOf(
         android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_DPAD_LEFT,
         android.view.KeyEvent.KEYCODE_DPAD_RIGHT, android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER,
@@ -27,7 +29,7 @@ object KeyHub {
     fun handle(app: GlassApp, code: Int, down: Boolean): Boolean {
         capture?.let { c ->
             // (In the log, so a problem report shows what a button that won't be learnt really sends.)
-            if (down) com.glasslauncher.tv.data.Glog.i("Remote button while learning: $code" + if (usable(code)) "" else " (not usable)")
+            if (down) { captureKeyAt = android.os.SystemClock.uptimeMillis(); com.glasslauncher.tv.data.Glog.i("Remote button while learning: $code" + if (usable(code)) "" else " (not usable)") }
             if (!usable(code)) return false
             if (!down) { capture = null; main.post { c(code) } }
             return true

@@ -158,6 +158,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // (Every state kept outside a screen, made before anything is drawn: see warmStates, #39.)
+        com.glasslauncher.tv.ui.warmStates()
         com.glasslauncher.tv.data.NetState.watch(this)
         // A launcher must never vanish silently: keep the last crash for Settings → About.
         val previous = Thread.getDefaultUncaughtExceptionHandler()
@@ -206,6 +208,7 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
                     if (i.action == android.content.Intent.ACTION_SCREEN_ON) {
                         val slept = if (offSince > 0L) android.os.SystemClock.elapsedRealtime() - offSince else 0L
                         offSince = 0L
+                        com.glasslauncher.tv.data.RawKeys.screenOn(this@GlassApp)
                         if (slept > 5 * 60_000L && settings.setupDone) com.glasslauncher.tv.ui.ProfilesUi.wake(this@GlassApp)
                         return
                     }
@@ -218,6 +221,8 @@ class GlassApp : Application(), coil3.SingletonImageLoader.Factory {
             else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(r, f)
         }
         Bg.io("glass-start") { runCatching { DevHooks.key(this) } }
+        // Remote buttons the TV keeps for itself, read through TV access (waits while none is mapped).
+        com.glasslauncher.tv.data.RawKeys.start(this)
         // Manage from phone set to Always: the page is there whenever Glassio runs (the network may come a moment later).
         if (settings.phoneAlways) Bg.io("glass-phone") {
             repeat(12) { if (com.glasslauncher.tv.net.PhoneHost.start(this@GlassApp) != null) return@io; kotlinx.coroutines.delay(5000L) }

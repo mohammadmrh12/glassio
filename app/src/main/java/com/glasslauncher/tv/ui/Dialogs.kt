@@ -3,6 +3,7 @@ package com.glasslauncher.tv.ui
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 
 fun toast(ctx: Context, msg: String) {
@@ -165,7 +167,7 @@ private fun DialogSurface(width: Int = 420, modifier: Modifier = Modifier, conte
 @Composable
 private fun ConsentDialogView(d: ConsentDialog, onDismiss: () -> Unit) {
     val fr = remember { FocusRequester() }
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         DialogSurface(width = 520) {
             Text(d.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
             Text(d.text, color = Color.White.copy(alpha = 0.82f), fontSize = 12.5.sp, lineHeight = 18.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp))
@@ -203,7 +205,7 @@ private fun DialogButton(text: String, modifier: Modifier = Modifier, onClick: (
 private fun TextEntryDialog(d: TextEntry, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(d.initial) }
     val fr = remember { FocusRequester() }
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         DialogSurface {
             Text(d.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(4.dp))
@@ -233,7 +235,7 @@ private fun MenuDialogView(d: MenuDialog, onDismiss: () -> Unit) {
     // The menu opens while OK is still held (long press). Ignore that OK until it is released
     // and pressed again, otherwise the release would trigger the first option.
     var armed by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         DialogSurface(
             width = if (d.options.any { it.first.length > 30 }) 400 else 230,
             modifier = Modifier.onPreviewKeyEvent { ev ->
@@ -261,9 +263,12 @@ private fun KeyCaptureView(d: KeyCaptureDialog, onDismiss: () -> Unit) {
     var hint by remember { mutableStateOf("Press the button on the remote you want to use (Back cancels)") }
     // The OK that opened this is still being released: ignored.
     var armed by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         DialogSurface(width = 330, modifier = Modifier.focusRequester(fr).onPreviewKeyEvent { ev ->
             val code = com.glasslauncher.tv.KeyHub.idOf(ev.nativeKeyEvent)
+            // (A key that reached this window is no raw button: without the Home button service it never passes
+            // KeyHub, and an arrow pressed here was learnt as one.)
+            com.glasslauncher.tv.KeyHub.captureKeyAt = android.os.SystemClock.uptimeMillis()
             if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
             // (A button with neither a key code nor a scan code can't be told from any other: left alone.)
             if (code == 0) { hint = "This button sends nothing Glassio can tell apart: pick another button"; return@onPreviewKeyEvent true }
@@ -294,6 +299,8 @@ private fun KeyCaptureView(d: KeyCaptureDialog, onDismiss: () -> Unit) {
 /** A remote button's name for Settings ("Red", "Play/Pause"…). */
 fun keyName(code: Int): String = when (code) {
     0 -> "Not set"
+    // (A button the TV keeps for itself, read through TV access: see RawKeys.)
+    in Int.MIN_VALUE..-com.glasslauncher.tv.data.RawKeys.BASE -> "Button " + "%06X".format(com.glasslauncher.tv.data.RawKeys.usageOf(code)) + " (TV access)"
     // (A button known by its scan code only: see KeyHub.idOf.)
     in Int.MIN_VALUE..-1 -> "Button " + -code
     else -> android.view.KeyEvent.keyCodeToString(code).removePrefix("KEYCODE_").split('_')
@@ -306,18 +313,23 @@ private fun ReorderDialogView(d: ReorderDialog, onDismiss: () -> Unit) {
     val names = remember { d.items.toMap() }
     var held by remember { mutableStateOf<String?>(null) }
     val frs = remember { HashMap<String, FocusRequester>() }
+    // (The rows scroll, and the one carried stays in view: with 15 menu items the list ran off the screen and the item
+    // moved down went out of sight, his video.)
+    val views = remember { HashMap<String, androidx.compose.foundation.relocation.BringIntoViewRequester>() }
     var armed by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = { d.onDone(order.toList()); onDismiss() }) {
+    GlassDialog(onDismissRequest = { d.onDone(order.toList()); onDismiss() }) {
         DialogSurface(width = 300) {
             Text(d.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
             Text(if (held == null) "OK picks a row up · Back saves" else "▲ ▼ move it · OK puts it down", color = Color.White.copy(alpha = 0.55f), fontSize = 10.5f.sp,
                 modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 10.dp))
+            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
             order.forEachIndexed { i, k ->
                 val fr = frs.requester(k)
                 var f by remember { mutableStateOf(false) }
                 val lifted = held == k
+                val view = remember(k) { views.getOrPut(k) { androidx.compose.foundation.relocation.BringIntoViewRequester() } }
                 Row(
-                    Modifier.fillMaxWidth().padding(bottom = 3.dp).focusRequester(fr).onFocusChanged { f = it.isFocused }
+                    Modifier.fillMaxWidth().padding(bottom = 3.dp).bringIntoViewRequester(view).focusRequester(fr).onFocusChanged { f = it.isFocused }
                         .clip(RoundedCornerShape(9.dp))
                         .background(when { lifted -> editAccent(); f -> Color.White.copy(alpha = 0.92f); else -> Color.White.copy(alpha = 0.06f) })
                         .onPreviewKeyEvent { ev ->
@@ -341,10 +353,11 @@ private fun ReorderDialogView(d: ReorderDialog, onDismiss: () -> Unit) {
                     if (lifted) Text("↕", color = Color.White, fontSize = 13.sp)
                 }
             }
+            }
         }
     }
-    // The row that's carried keeps the focus as it moves.
-    LaunchedEffect(order.toList(), held) { held?.let { runCatching { frs[it]?.requestFocus() } } }
+    // The row that's carried keeps the focus as it moves, and stays in view.
+    LaunchedEffect(order.toList(), held) { held?.let { runCatching { frs[it]?.requestFocus() }; androidx.compose.runtime.withFrameNanos { }; runCatching { views[it]?.bringIntoView() } } }
     LaunchedEffect(Unit) { runCatching { frs[order.first()]?.requestFocus() } }
 }
 
@@ -355,7 +368,7 @@ private fun QrCodeDialogView(d: QrCodeDialog, onDismiss: () -> Unit) {
     LaunchedEffect(code) { if (code != null) seen = true else if (seen) onDismiss() }
     val qr = remember(d.url) { com.glasslauncher.tv.net.Net.qr(d.url, 360).asImageBitmap() }
     val fr = remember { FocusRequester() }
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         DialogSurface(width = 460) {
             Text(d.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(10.dp))
@@ -387,7 +400,7 @@ private fun QrCodeDialogView(d: QrCodeDialog, onDismiss: () -> Unit) {
 @Composable
 private fun ThumbDialogView(d: ThumbDialog, onDismiss: () -> Unit) {
     val fr = remember { FocusRequester() }
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         DialogSurface(width = 520) {
             Text(d.title, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
@@ -450,7 +463,7 @@ private fun PickDialogView(d: PickDialog, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { if (!overSettingsOuter && act != null) ScreenGlass.capture(act, st) { behind = it } }
     // A light pop-up list on the menus' own glass (the menu's look, so also Black AMOLED and Black on white). Its
     // window covers the screen and dims nothing: the glass then sits over the page where it is drawn, as a menu's does.
-    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+    GlassDialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         val dv = androidx.compose.ui.platform.LocalView.current
         val overSettings = LocalOverSettings.current != null
         LaunchedEffect(overSettings) { (dv.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setDimAmount(if (overSettings) SettingsGlass.DIM else 0.18f) }
@@ -512,7 +525,7 @@ private fun ReportDialogView(d: ReportDialog, onDismiss: () -> Unit) {
     // No relay in this build, or it didn't take the report: the phone opens a new issue with the short summary.
     val phone = !R.relay || sent?.ok == false
     val link = remember { R.issueLink(d.data) }
-    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+    GlassDialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         DialogSurface(width = 640) {
             Text(if (sent?.ok == true) "Report sent" else "Report a problem", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
@@ -578,7 +591,7 @@ private fun SupportDialogView(d: SupportDialog, onDismiss: () -> Unit) {
     val sendBtn = remember { FocusRequester() }
     val field = remember { FocusRequester() }
     val ok = d.clean(code)
-    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+    GlassDialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         // At the top of the screen: the TV's keyboard takes the bottom half.
         val dv = androidx.compose.ui.platform.LocalView.current
         LaunchedEffect(Unit) { (dv.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.setGravity(android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL) }
@@ -648,3 +661,17 @@ private fun SupportDialogView(d: SupportDialog, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(80); runCatching { codeRow.requestFocus() } }
 }
 
+
+
+/**
+ * A pop-up window of Glassio's. Its keys go to its own window, not the home screen's, so Glassio took nobody to be at the
+ * remote while one was in use: the screensaver started under the menu's order being arranged (his video). Every key
+ * here counts as someone there ([GlassApp.touch]).
+ */
+@Composable
+internal fun GlassDialog(onDismissRequest: () -> Unit, properties: DialogProperties = DialogProperties(), content: @Composable () -> Unit) {
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as com.glasslauncher.tv.GlassApp
+    Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        androidx.compose.foundation.layout.Box(Modifier.onPreviewKeyEvent { app.touch(); false }) { content() }
+    }
+}

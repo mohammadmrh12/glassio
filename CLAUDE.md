@@ -63,7 +63,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.6.0 (code 83, stable, 2026-11-25)**, public `8b2c496`, sha256 `89de4238…afdbdb`; 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.6.1 (code 84, stable, 2026-11-25)**, public `7c4dd9f`, sha256 `17d0ef75…f2ea8b`; 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -2321,6 +2321,145 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   Nothing changed on the TV; no TV access: one line saying so. Seen on the Streamer: F12 from a `hid` keyboard showed
   `KEY_F12 DOWN/UP` with `MSC_SCAN 00070045`. (A `hid` report's key must be ≤ 101 for that descriptor: F13 = 104 is
   dropped silently.) Next: SER sends a report after pressing Netflix in the learning window.
+- **4.6.1 released (2026-11-25, his "سوي ريليس و جاوب الissue"):** #47, #44 (+ Show its rows), the button probe, the
+  see-through cover, reports' appStage. Public `7c4dd9f` (tree of local `beta` at `9907505`), *latest*, assets compared
+  (also `releases/latest`; the Streamer's file). Play: 84 sent to Alpha. Replied: #47 (closed), #45 (probe steps; #43
+  closed as its duplicate), #44 (Show its rows), #46 (questions: two versions taking turns as home?), #40 (TV screensaver
+  app is a separate process: use Videos + One player; offered to make the dream continue the background), #42 (Russian
+  exists). Code 85+ next.
+- **Raw buttons (#48, SER's Netflix button; 2026-11-25, local):** the probe showed it: the remote (`B21 Keyboard`)
+  sends HID usage `0x0C0078` (KEY_UNKNOWN) and the box's own `PhoneWindowManager.launchNetflix` ("netflix key do one
+  touch play") starts Netflix (`NETFLIX_KEY_START`, from uid 1000) before any app or accessibility service sees it.
+  `data/RawKeys.kt`: such a button is learnt when a raw press comes with no key behind it (`KeyProbe.raw`, 700 ms;
+  id `-(100_000_000 + usage)`, shown as "Button 0C0078 (TV access)"), and the app the system starts for it right after
+  is noted (`rawLaunches`, the TV's). While one is mapped, `getevent -l` runs through TV access (reconnects with a
+  growing wait, at once on screen on) and feeds `KeyHub.handle` (press / double / hold); that app coming to the front
+  within 4 s is force-stopped. On screen on, the log's last `START u0 … from uid 1000` of that app within 25 s = the
+  press woke the TV: the job runs and the app is stopped. Seen on the Streamer: F12's usage mapped as a raw button opened
+  the Apps folder; Play Store set as its app and opened right after the press was closed. **Not seen:** learning a
+  button the system keeps (no such button here), the wake path (`am start` from adb is uid 2000).
+- **Continue Watching cards over your own background (SER's idea, 2026-11-25, local):** `bgContinue` (off) and
+  `bgContinueCount` (3, 1-4), Settings → Background & screensaver → *Over the background*, shown with a dock at the
+  bottom. `ui/ContinueCards.kt`: up to N glass cards (the dock's glass style) right above the dock on the right:
+  picture, name, S·E or year, progress. They take the hero's focus (the dock's ▲ lands on the last one used), ▲ from a
+  card = the old Up (menu), ▼ = the dock, OK opens like the Library. Nothing in progress: as before. Seen on the
+  Streamer with the aerial background (3 of his 15 titles), ▲ / ◀ / ▼. Not seen: OK on a card (same call as the
+  Library), photos / picture backgrounds, Arabic. Add *Continue Watching cards* to the next `NEW_IN`.
+  Then (his photos): smaller, every title (`bgContinueCount` no longer read), from the left, filling the dock's own
+  width (`metrics.sideMargin`; as many whole cards as fit at 165 dp or more, widened to fill it); the window moves a
+  card at a time at its ends, never cut by the screen. Always listed in Settings (its text says what it needs), linked
+  from Continue Watching & Library. *Apps' Continue watching* (`bgContinueApps`, on; per app `bgContinueAppsOff`, Apps
+  with channels → "Continue watching as cards"): a dock app with a "Continue watching" row shows it as cards instead
+  of its rows (`ChannelsUi.cardsPkg`; OK opens it in that app). The app's name with a coloured dot was tried and
+  dropped (his ask). Seen: 5 cards over the dock's width, ▶ ×5 moved the row one card; Netflix's own Continue
+  watching as cards. Settings put back.
+  Then: an app's own row named "Continue Watching" (any case; Stremio's is a plain row, not Watch Next) counts too
+  (`Channels.continueOf`, Watch Next first). Seen: Stremio's Continue Watching as cards, its Library row not shown.
+  The menu's Background page has *Continue Watching cards* after *Large clock* (dock at the bottom only). Seen: Off
+  hid the cards, On brought them back (his own setting, on, left on).
+  **Down back to the app you came from** (his report: ▼ from Stremio's cards went to Nuvio, the first app): the dock
+  keeps the last app selected (`ChannelsUi.lastPkg`, set by both dock kinds) and `ChannelsUi.dockTile(first)` is the
+  way down from the cards and from the carousel (it went to the first tile too). Seen: Stremio → cards → ▶ → ▼ =
+  Stremio; on the carousel background, an input's tile → ▲ → ▼ = that tile, not the first.
+- **White date removed, a crash fixed (2026-11-25, his ask; local):** with *White date* off Glassio closed at once
+  (`IllegalArgumentException: Cannot perform operation for Unspecified type`, the TV's crash log): the 2× rim paint
+  (`paint2`) doubled the date style's unset line height. Now only set sizes are doubled (`twice`), the date is always
+  white with its shadow, and the *White date* row is gone (`bgClockDateWhite` stays in Settings.kt, unread). Seen:
+  the home screen's clock and date drawn, no new crash.
+- **Review of everything since 4.4.2 (2026-11-25, two read-only agents: code + the web), fixes (local):**
+  see-through glass only for the home page (`sharpIsPage`), never for windows with their own picture (pop-ups over
+  Settings, pick lists, What's new, inputs: they showed the video through); KeyProbe learns the system's app from the
+  start lines seen just before (they come before the 700 ms wait), marks keys reaching its own window (an arrow was
+  learnt as a raw button without the service), never makes the first TV-access connection (`LocalShell.worked`),
+  logs a start line as "START pkg from uid" only; RawKeys follows Glassio's Shuffle / Multi-view / Corner buttons too,
+  ends its stream when nothing is mapped, calls KeyHub on the main thread, keeps an app the button's own job opens,
+  skips the wake check after a press it saw, and the wake check's grep can't fail (`|| true`, one loop, `break`);
+  Play Nuvio in app carousels (`pkgOf`); Down from the cards to the Apps folder; requestFocus false → first tile;
+  the dock effect's keys (cards, borrowed rows, catalogs loaded); borrowed rows ordered by the app's own keys; no
+  package lookups in the cards; the "Rows of … not shown" line once per app and reason; the see-through cover after
+  700 ms. Seen: a Settings pop-up frosted with see-through glass over a video; Down from Stremio's cards to Stremio.
+  Left on purpose (his decision): TV access in the Play build, targetSdk 37, the accessibility declaration. Not
+  changed: the clock's 2x rim memory, Android 17 background audio, Xiaomi's Home key (from one blog post).
+- **The large clock's Still Glass style looks like Apple's lock screen (2026-11-25, his photo; local):** Oswald
+  (`res/font/oswald.ttf`, SIL OFL 1.1, licence in `assets/licenses/Oswald-OFL.txt`; `ClockTall` in Type.kt) at weight
+  500, narrowed (scaleX 0.84), its line trimmed and moved up under the date; thick glass: a refraction shader
+  (`CLOCK_LENS_SKSL`, Android 13+, a blurred copy of the digits as the height map; linear sampling or the small video
+  copy shows in squares) bends the picture along the edges and lights them from the top left, the far side darker; a
+  softer rim and a faint outline (his: less white on the sides); the date in the picture's own pale colour
+  (`pictureTint`). Other styles unchanged. Frames on the Streamer (video, home screen, 8 s): p50 15 / p90 16 ms before,
+  15 / 15-16 after, GPU 7 ms. His style put back to *With the theme*.
+- **The whole app, gone through on the Streamer (2026-11-25 evening, his ask; local):** a full copy of Glassio's data was
+  taken first (CLAUDE.local.md) and put back after every part; his settings ended equal to it. Gone through: the dock
+  (12 icons, each page, each app's menu), the carousel (Title backdrops for the test), the Library (every row, a title's
+  menu), the side menu with every row switched on (every page and sub-page, every row that opens a screen), the
+  screensaver (videos, posters, trailers, cameras, held OK, its own screen), the Apps folder, the tour, and every Settings
+  row (about 800: each switch both ways, each choice through every value and back, each page and Back) except what
+  changes the TV, the house or an account. QA hooks for it: `--ez focus_watch true` (dev key; GlassFocusW: where the
+  selection is, on every change), `GlassSetRow` / `GlassMenuRow` (debug: the selected Settings / menu row and value).
+  Fixed: (1) the side menu ran off the screen with many rows on (the last rows out of reach, the dock showing through):
+  it ends above the dock and the Continue Watching cards and its rows scroll; (2) Glassio's own icons (Search, Music,
+  an input) had App info, Rows from… and Catalogs in their menu; (3) held OK on the posters screensaver opened the title
+  (the next keys went to Nuvio): it has the trailers' menu now; (4) *Settings background* left editing after one step
+  (the page is rebuilt glass ⇄ flat; Compose reports "not focused" once as a row is made: only a real focus loss ends
+  editing now, `AdjustEdit`); (5) *Manage from phone* opened with the selection on the section's name (its rows weren't
+  the page's): its first row takes it. Not touched: sign-ins, Hue, the doorbell, Home Assistant, sync, backups, locks,
+  Unneeded apps, TV access, updates, language, performance mode. The tour's first page still says "Welcome to Glassio
+  4.5" (no tour change since).
+- **#39, #40, #49 (2026-11-25 night; local, nothing posted):**
+  - *#39's crash* ("Reading a state that was created after the snapshot was taken", a Fire TV on 4.4.2 and a Xiaomi MiTV
+    on 4.6.1, in a window's first composition reading an IntState). 4.6.1 was rebuilt from `9907505` in a worktree (map
+    id `e285242e…`, the release's); R8's own retrace (9.5.29 from Google Maven) leaves Glassio's frame unnamed (a merged
+    lambda class). Cause from the code, not seen: a state in an `object` (or at the top of a file) is made the first
+    time it is touched; touched first while a screen draws, it belongs to that drawing until it ends, and another
+    window's first drawing (the TV's screensaver, the cameras' window, Recent apps) can't read it. `ui/StatesWarm.kt`
+    makes all 41 such holders in `GlassApp.onCreate` (a new one goes in its list). Started fine, windows checked.
+  - *#49* (the island kept showing a paused Spotify song): it goes after 20 s, but the wait lived in the island, so
+    every new island (each screensaver start, back to the home screen) showed it 20 s again (seen on the Streamer with
+    his paused Spotify: shown again 3 s into the next screensaver; after: not). `MusicUi.awayKey` remembers the song
+    that went; new `islandPausedSec` (Music & app rows → Island → *A paused song goes*: At once / 5 / 20 (default) /
+    60 s / Never; seen: At once). Reports carry the island's settings.
+  - *#40* (One player not found): hidden while the type is the TV's screensaver app. Now always listed (Settings,
+    menu); it reads Off then, and On makes the type Videos (`Settings.saverInHome` setter, so the phone page too).
+    Seen: type set to the TV's app, the row Off, OK → On and Type → Videos. His settings put back from the copy.
+- **One player and the TV's screensaver together (2026-11-25 night, his yes; local):** with One player on and Glassio as
+  the TV's screensaver (`screensaver_components` is Glassio's dream), the home screen starts One player 8 s before the
+  TV's own time, also with *Start after* Off or longer (`MainActivity.homeIdleSeconds`): on the home screen always One
+  player (the background's video, quick back), in other apps the TV's (Glassio's dream). Another app's dream is left
+  as before (`systemSaverFirst`). **The TV's sleep:** One player kept the screen on, so the TV never slept under it
+  (measured: 5.6 min awake with a 4 min sleep time); and a playing home video kept Google TV from its screensaver and
+  its sleep, also before (the TV's Settings started the screensaver at 123 s, the home screen never). Now at the TV's
+  sleep time (`sleep_timeout` / `attentive_timeout`, counted from the last real key: `userAt`) One player ends and the
+  video stands still (`CustomBackground.resting`); any key, touch or return plays it again. Measured with a 150 s
+  sleep time: One player 61 s, let go 160 s, the TV's screensaver 271 s (clearing keep-screen-on counts as activity
+  for Android: its 120 s again), asleep 308 s; woken: the video plays, nothing stuck. His `sleep_timeout` (30 min) put
+  back after each test.
+- **The side menu's header stays (2026-11-25 night, his photo; local):** with the menu scrolling as a whole (the fix above),
+  down and back up left the clock cut off at the top. Now only the page's rows scroll (`pageScroll`, made anew for each
+  page), the clock, weather and TV numbers stay. Also: Up into a row of choices (Screensaver's type, the themes, the
+  backgrounds) landed on the nearest one by place (Posters, one OK from changing the screensaver): `MenuChips` enters on
+  the one in use (Themes also opens on it now). Seen on the Streamer: the three pages, down to the end and back.
+- **His video and photo (2026-11-25 night; local):** (1) the screensaver started while he arranged the menu's order: a
+  pop-up's keys go to its own window, never to `onUserInteraction`. Every Compose `Dialog` is now `GlassDialog`
+  (`ui/Dialogs.kt`): its keys call `GlassApp.touch()`, which the idle and sleep timers read (`app.interaction`). Seen:
+  95 s of keys in the Menu order window, idle time 60 s, no screensaver. (2) The reorder list didn't scroll: the item
+  carried past the 13th row went out of sight; it scrolls (380 dp) and the carried row is brought into view. Seen:
+  Background carried 12 → 15 and back, in view all the way. (3) The side menu ends above the Continue Watching cards
+  again (his choice) and its rows' part is as tall as the whole rows that fit (`MenuEdges`: each row notes its bottom),
+  so no row is cut in half; the rest scrolls a row at a time. Seen: 5 whole rows, down to Manage from phone, the
+  Screensaver page too. During the test a wrong row was opened (TV info) and CPU and Storage were switched off: put back
+  on at once (the full copy is older than his own changes tonight, so not used).
+- **Home over the TV's screensaver (2026-11-25 night, his report from Stremio; local):** the Home button service takes
+  Home before the screensaver sees it, so Glassio opened under the screensaver and nothing seemed to happen. Glassio's
+  own (`GlassDreamService.current`) is ended first (`wakeUp`); another app's (its window comes as that app's
+  FrameLayout, matched with `screensaver_components`: `dreamFront`) gets the Home itself (the TV ends it and goes to
+  Google TV's home) and Glassio comes 0.6 s later. Seen with a real Home from a `hid` remote (consumer usage 0x0223),
+  Stremio in front: Glassio's screensaver and Android's Colors (set for the test, put back), both → Glassio; a plain
+  Home in Glassio unchanged. His own `screen_off_timeout` of 30 s (set by him for his test) left as he set it.
+- **Every key counts, also outside pop-ups (same night):** the Home button service sees every key on the TV and now
+  calls `GlassApp.touch()` for each: the cameras' page and the corner camera (their own windows, keys through the service)
+  no longer let the screensaver start under them. Seen: the cameras' page up 106 s with real arrows every 10 s (a `hid`
+  keyboard), no screensaver; 22 s after the last key One player came, as it should (his TV timeout was 30 s, so
+  One player's time was 22 s). Before: from the code, not seen.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

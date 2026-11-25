@@ -109,6 +109,7 @@ private val NEW_IN = mapOf(
     "4.2.0" to listOf("Recommended for this TV", "  · Where", "Glass over the video", "Plays", "Connect Jellyfin", "One player", "YouTube lists", "Rows above the dock", "Same video as the screensaver", "Let the video go while away", "Pexels", "  · Pexels key", "  · Pexels words",
         "Hold OK asks", "Hidden videos"),
     "4.5.0" to listOf("  · Page behind the player"),
+    "4.7.0" to listOf("Continue Watching cards", "  · Apps' Continue watching", "  · A paused song goes"),
     "4.4.0" to listOf("  · Layout", "  · Menu's Camera opens the whole screen", "  · Sound follows the selection", "  · On the whole screen", "Unneeded apps"),
     "4.3.0" to listOf("  · Nuvio's picture by itself", "QR code in Settings' search", "New code"),
     "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
@@ -818,6 +819,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     }))
 
                 add(Note("Continue Watching"))
+                add(link("Background & screensaver", "Continue Watching cards", "Small cards above the dock over your own background"))
                 add(Adjust("Show Continue Watching", "Where titles you are watching appear", {
                     when (st.continueMode) { "off" -> "Off"; "mixed" -> "Mixed with catalogs"; else -> "At the start" }
                 }, { st.continueMode = cycle(listOf("first", "mixed", "off"), st.continueMode, it) }))
@@ -1376,6 +1378,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     add(Note("Over the background"))
                     add(Toggle("Left shade", "The dark shade along the left side (it keeps the clock and text readable on bright pictures)", { !st.sideShadeOff }, { st.sideShadeOff = !it }))
                 }
+                // (Always listed, so it can be found: it shows with your own background and the dock at the bottom.)
+                add(Toggle("Continue Watching cards", if (st.bgMode == "carousel" || st.dockPos != "bottom") "Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock"
+                    else "What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them", { st.bgContinue }, { st.bgContinue = it }))
+                if (st.bgContinue) add(Toggle("  · Apps' Continue watching", "An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels", { st.bgContinueApps }, { st.bgContinueApps = it }))
 
                 // One large clock, for the home screen and the screensaver: its look is set once here.
                 add(Note("Large clock"))
@@ -1385,7 +1391,6 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         when (st.bgClockStyle) { "white" -> "White"; "still" -> "Still Glass"; else -> "With the theme" }
                     }, { st.bgClockStyle = cycle(listOf("theme", "still", "white"), st.bgClockStyle, it) }))
                     add(Adjust("  · Glass", "How much the glass digits show: lower is clearer glass (Still / Dynamic / Frosted / Clear looks)", { "${st.bgClockGlass} %" }, { st.bgClockGlass += it * 10 }))
-                    add(Toggle("  · White date", "The date above the time in white, whatever the clock's look", { st.bgClockDateWhite }, { st.bgClockDateWhite = it }))
                     add(Adjust("  · Size", "", { pct(st.bgClockSize) }, { st.bgClockSize = ((st.bgClockSize * 10).roundToInt() + it) / 10f }))
                     add(Adjust("  · Position", "◀ higher · lower ▶", {
                         val v = (st.bgClockOffset * 100).roundToInt(); if (v == 0) "Middle" else if (v < 0) "Up ${-v}" else "Down $v"
@@ -1410,10 +1415,10 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
 
                 // ── The screensaver.
                 add(Note("Screensaver · When"))
-                add(Adjust("Start after (on the home screen)", if (ours) "Not needed while Glassio is the TV screensaver" else "Idle time on the launcher", { st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" } }, {
+                add(Adjust("Start after (on the home screen)", if (ours && st.saverInHome && st.saverMode != "system") "With One player it starts here a little before the TV's own, Off or not" else if (ours) "Not needed while Glassio is the TV screensaver" else "Idle time on the launcher", { st.idleSeconds.let { v -> if (v == 0) "Off" else if (v < 60) "$v s" else "${v / 60} min" } }, {
                     st.idleSeconds = cycle(listOf(0, 10, 30, 60, 120, 180, 300, 600, 900, 1800), st.idleSeconds, it)
                 }))
-                if (st.saverMode != "system") add(Toggle("One player", "Shown on the home screen itself instead of a screen of its own: back at once, nothing loaded again. With the aerial background it goes on with the background's own video", { st.saverInHome }, { st.saverInHome = it }))
+                add(Toggle("One player", if (st.saverMode == "system") "Off while the type is the TV's screensaver app (another process). On: the type becomes Videos, shown on the home screen itself" else "Shown on the home screen itself instead of a screen of its own: back at once, nothing loaded again. With the aerial background it goes on with the background's own video", { st.saverInHome && st.saverMode != "system" }, { st.saverInHome = it }))
                 add(Toggle("Glassio is the TV screensaver (ADB)", if (ours) "On: it starts in every app when the TV is idle, not only on the home screen"
                     else if (tvEnabled && comp.isNotBlank()) "Now the TV uses ${comp.substringBefore('/')}" else "Off",
                     { ours }, { on ->
@@ -1672,6 +1677,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         if (st.islandTitle) add(Toggle("  · Scroll long names", "A song name too long for the island scrolls by (off: shortened with …)", { st.islandMarquee }, { st.islandMarquee = it }))
                         add(Toggle("  · Progress bar", "", { st.islandProgress }, { st.islandProgress = it }))
                         add(Adjust("  · Bars colour", "", { if (st.islandBars == "white") "White" else "From the artwork" }, { st.islandBars = cycle(listOf("art", "white"), st.islandBars, it) }))
+                        add(Adjust("  · A paused song goes", "How long the island stays once nothing plays (it comes back when a song plays, or with ▲)",
+                            { when (val t = st.islandPausedSec) { 0 -> "At once"; -1 -> "Never"; 60 -> "After 1 min"; else -> "After $t s" } },
+                            { st.islandPausedSec = cycle(listOf(0, 5, 20, 60, -1), st.islandPausedSec, it) }))
                     }
                 }
 
@@ -1726,10 +1734,17 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                                 })
                                             }
                                             if (rows.size > 1) add("Change the order of its rows" to {
-                                                dialog = ReorderDialog("${label(pkg)}: rows, first on top", rows.map { it.key to it.name }) { keys ->
-                                                    st.channelsOrder = st.channelsOrder.filterNot { o -> rows.any { it.key == o } } + keys; tvRev.intValue++
+                                                dialog = ReorderDialog("${label(pkg)}: rows, first on top", rows.map { ch.hideKey(pkg, it) to it.name }) { keys ->
+                                                    st.channelsOrder = st.channelsOrder.filterNot { o -> rows.any { ch.hideKey(pkg, it) == o } } + keys; tvRev.intValue++
                                                 }
                                             })
+                                            // Its own Continue watching row as cards above the dock (Continue Watching cards).
+                                            if (st.bgContinue && st.bgContinueApps && com.glasslauncher.tv.data.Channels.continueOf(pkg) != null) {
+                                                val asCards = pkg !in st.bgContinueAppsOff
+                                                add((if (asCards) "Continue watching as cards: on" else "Continue watching as cards: off") to {
+                                                    st.bgContinueAppsOff = if (asCards) st.bgContinueAppsOff + pkg else st.bgContinueAppsOff - pkg; tvRev.intValue++
+                                                })
+                                            }
                                             // Whose rows it shows (also in the dock's menu).
                                             add("Rows from: " + (if (src == pkg) "its own" else label(src)) to { dialog = rowsFromDialog(app, pkg, label(pkg)) })
                                         })
@@ -2892,7 +2907,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
     }
     DialogHost(dialog) { dialog = null }
     if (phoneDialog) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { phoneDialog = false }) {
+        GlassDialog(onDismissRequest = { phoneDialog = false }) {
             Box(
                 Modifier.width((520 * s).dp).height((380 * s).dp).clip(RoundedCornerShape((18 * s).dp))
                     .background(Color(0xF0181820)).padding((18 * s).dp)
@@ -2922,6 +2937,9 @@ private fun appMenu(app: GlassApp, e: AppEntry, ctx: Context, scope: kotlinx.cor
 }
 
 /** What Settings looked up once while Glassio runs: the icon packs, and whether each TMDB token works. */
+/** For [warmStates]. */
+internal fun settingsStates(): Any = SettingsCache
+
 private object SettingsCache {
     val packs = mutableStateOf<List<com.glasslauncher.tv.data.IconPackInfo>?>(null)
     val tmdb = HashMap<String, Boolean?>()
@@ -2974,19 +2992,23 @@ private fun RowView(row: SRow, s: Float, app: GlassApp, onApp: (AppEntry) -> Uni
             }
         }
         is Adjust -> {
-            var editing by remember { mutableStateOf(false) }
+            // (A step that rebuilds the page (Settings background: glass ⇄ flat panel) made the row anew out of editing:
+            // the next ◀ went to the sections. The row made again within a moment of its own step goes on editing.)
+            var editing by remember { mutableStateOf(AdjustEdit.title == row.title && android.os.SystemClock.uptimeMillis() - AdjustEdit.at < 1500) }
+            var hadFocus by remember { mutableStateOf(false) }
             Frame(s, pos = pos, editing = editing, onKey = { ev ->
                 when {
                     !editing -> false
                     ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight -> {
-                        if (ev.type == KeyEventType.KeyDown) row.step(if (ev.key == Key.DirectionLeft) -1 else 1); true
+                        if (ev.type == KeyEventType.KeyDown) { row.step(if (ev.key == Key.DirectionLeft) -1 else 1); AdjustEdit.title = row.title; AdjustEdit.at = android.os.SystemClock.uptimeMillis() }; true
                     }
-                    ev.key == Key.Back -> { if (ev.type == KeyEventType.KeyUp) editing = false; true }
+                    ev.key == Key.Back -> { if (ev.type == KeyEventType.KeyUp) { editing = false; AdjustEdit.at = 0L }; true }
                     // Up/Down while editing: stay on the row
                     ev.key == Key.DirectionUp || ev.key == Key.DirectionDown -> true
                     else -> false
                 }
-            }, onFocus = { if (!it) editing = false }, onClick = { editing = !editing }) { f ->
+            // (Only a focus really lost ends editing: Compose reports "not focused" once as the row is made.)
+            }, onFocus = { if (it) hadFocus = true else if (hadFocus) editing = false }, onClick = { editing = !editing; AdjustEdit.at = 0L }) { f ->
                 Label(row.title, if (editing) "◀ ▶ to change · OK when done" else row.desc, s, Modifier.weight(1f))
                 val ink = LocalInk.current
                 if (editing) Text("‹  ${com.glasslauncher.tv.data.I18n.tr(row.value())}  ›", color = Color.White, fontSize = (13.5f * s).sp, fontWeight = FontWeight.SemiBold)
@@ -3085,6 +3107,27 @@ private fun Frame(
     }
 }
 
+/** The Adjust row last stepped, and when (see `is Adjust` in RowView). */
+private object AdjustEdit { var title: String? = null; var at = 0L }
+
+private fun rowValue(r: SRow): String = when (r) {
+    is Toggle -> runCatching { r.get().toString() }.getOrDefault("?")
+    is Adjust -> runCatching { r.value() }.getOrDefault("?")
+    else -> ""
+}
+
+/** For QA (logcat "GlassSetRow", debug level): the row selected, its kind and value, as the all-settings test reads them. */
+private fun logRow(section: String, i: Int, r: SRow) {
+    val (kind, v) = when (r) {
+        is Toggle -> "T" to runCatching { r.get().toString() }.getOrDefault("?")
+        is Adjust -> "A" to runCatching { r.value() }.getOrDefault("?")
+        is Act -> (if (r.sub != null) "P" else "X") to r.value
+        is AppItem -> "I" to r.entry.pkg
+        is Note -> "N" to ""
+    }
+    android.util.Log.d("GlassSetRow", "$section|$i|$kind|${rowTitle(r)}|$v")
+}
+
 private fun rowTitle(r: SRow): String = when (r) { is Toggle -> r.title; is Adjust -> r.title; is Act -> r.title; is Note -> r.text; is AppItem -> r.entry.label }
 
 /** One page of Settings (its own part of the screen: moving in the list on the left doesn't build it again). */
@@ -3095,7 +3138,7 @@ private fun SettingsPage(s: Float, c: Category, sc: Int, app: GlassApp, listStat
                          seek: String? = null, onSeek: (Int) -> Unit = {}) {
     Column(Modifier.padding((18 * s).dp)) {
         Text(title ?: com.glasslauncher.tv.data.I18n.tr(c.title), maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.White, fontSize = (22 * s).sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = (6 * s).dp, bottom = (10 * s).dp))
-        if (c.kind == Kind.Phone) PhonePane(app, s)
+        if (c.kind == Kind.Phone) PhonePane(app, s, first = rowFocus.requester(sc * 10_000L))
         else if (c.kind == Kind.About) AboutPane(app, s, onApp = onAppMenu)
         else {
             val rows = c.rows()
@@ -3117,7 +3160,9 @@ private fun SettingsPage(s: Float, c: Category, sc: Int, app: GlassApp, listStat
                         var has by remember { mutableStateOf(false) }
                         // (Moved while selected: the page's remembered place follows it.)
                         if (has) androidx.compose.runtime.SideEffect { lastRow[sc] = i }
-                        Box(Modifier.focusRequester(rowFocus.requester(sc * 10_000L + i)).onFocusChanged { has = it.hasFocus; if (it.hasFocus) lastRow[sc] = i }
+                        // (QA: the selected row's value, logged again whenever it changes.)
+                        if (has) { val vNow = rowValue(rows[i]); LaunchedEffect(vNow) { logRow(c.title, i, rows[i]) } }
+                        Box(Modifier.focusRequester(rowFocus.requester(sc * 10_000L + i)).onFocusChanged { has = it.hasFocus; if (it.hasFocus) { lastRow[sc] = i; logRow(c.title, i, rows[i]) } }
                             .onPreviewKeyEvent { ev ->
                                 if (ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight)) {
                                     val t0 = rowTitle(rows[i]); if (!t0.trim().startsWith("→") && norm(t0) in nm.titles) nm.used(norm(t0))
@@ -3218,7 +3263,7 @@ private fun SearchPane(app: GlassApp, s: Float, query: String, onQuery: (String)
 }
 
 @Composable
-private fun PhonePane(app: GlassApp, s: Float) {
+private fun PhonePane(app: GlassApp, s: Float, first: FocusRequester? = null) {
     var url by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }
     var qr by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
@@ -3251,7 +3296,9 @@ private fun PhonePane(app: GlassApp, s: Float) {
         }
         Spacer(Modifier.height((10 * s).dp))
         val st = app.settings
-        RowView(Adjust("Keep the page on", "After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs", {
+        // (Its first row is the one the page asks for as it opens, like any page's row 0: without it the selection
+        // went to the section's name on the left, and ▼ then moved through the sections.)
+        Box(if (first != null) Modifier.focusRequester(first) else Modifier) { RowView(Adjust("Keep the page on", "After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs", {
             com.glasslauncher.tv.net.PhoneHost.keepLabel(com.glasslauncher.tv.net.PhoneHost.keepNow(app))
         }, { d ->
             val next = cycle(com.glasslauncher.tv.net.PhoneHost.KEEP, com.glasslauncher.tv.net.PhoneHost.keepNow(app), d)
@@ -3260,7 +3307,7 @@ private fun PhonePane(app: GlassApp, s: Float) {
                 val bmp = u?.let { Net.qr(it, 480).asImageBitmap() }
                 kotlinx.coroutines.withContext(Dispatchers.Main) { url = u; qr = bmp }
             }
-        }), s, app, onApp = {})
+        }), s, app, onApp = {}) }
         Spacer(Modifier.height((4 * s).dp))
         RowView(Act("New code", "Every QR code and page saved on a phone stops working; scan the new code", "") {
             app.scope.launch(Dispatchers.IO) {

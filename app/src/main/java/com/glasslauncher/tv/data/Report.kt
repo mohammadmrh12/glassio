@@ -63,7 +63,7 @@ object Report {
     // ---- What goes in ----
 
     /** The settings that say how Glassio is set up (looks, modes, sizes): names and plain values, never text a person typed. */
-    private val SETTINGS = listOf("theme", "dockStyle", "dockPos", "tileStyle", "dockColumns", "bgMode", "bgClockStyle", "saverMode", "islandStyle",
+    private val SETTINGS = listOf("theme", "dockStyle", "dockPos", "tileStyle", "dockColumns", "bgMode", "bgClockStyle", "saverMode", "islandStyle", "islandPausedSec", "musicIsland", "islandHome",
         "menuStyle", "menuMode", "settingsIcon", "slideAnim", "heroAutoplay", "transitionMs", "perfMode", "memTier", "glassRes", "imageQuality",
         "pageScale", "prefetchDepth", "refraction", "libraryColumns", "libraryPlatforms", "playInApp", "continueMode", "updateChannel",
         "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "photoSource",

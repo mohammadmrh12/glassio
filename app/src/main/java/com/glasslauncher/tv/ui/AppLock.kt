@@ -100,7 +100,7 @@ fun AppLockHost(app: GlassApp, s: Float, style: String) {
     val a = AppLock.ask.value ?: return
     // Its own full-screen window: the focus goes back where it was when it closes, and the glass still lines up
     // with the picture behind (the window covers the whole screen, like the page).
-    androidx.compose.ui.window.Dialog(onDismissRequest = { AppLock.ask.value = null },
+    GlassDialog(onDismissRequest = { AppLock.ask.value = null },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val view = androidx.compose.ui.platform.LocalView.current
         val overSettings = SettingsGlass.env.value != null

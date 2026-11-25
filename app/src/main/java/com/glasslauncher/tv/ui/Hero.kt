@@ -260,7 +260,7 @@ internal fun HeroSection(
     val appCw = if (appList == null || appPkg == null || mode == "off" || settings.appCatalogsCw == "off") emptyList() else remember(appPkg, cwItems, enrichedRaw, hiddenKeys, com.glasslauncher.tv.data.AppCatalogs.testOwner.size) {
         com.glasslauncher.tv.data.AppCatalogs.continueFor(appPkg, cwItems.filterNot { it.key in hiddenKeys },
             platformOf = { (enrichedRaw[it.key] ?: it).platform },
-            watchedIn = { c -> com.glasslauncher.tv.data.AppCatalogs.testOwner[c.name] ?: NuvioLaunch.sourceTarget(ctx, NuvioLaunch.cwSource(c.key))?.let { t -> NuvioLaunch.TARGETS[t] } },
+            watchedIn = { c -> com.glasslauncher.tv.data.AppCatalogs.testOwner[c.name] ?: NuvioLaunch.sourceTarget(ctx, NuvioLaunch.cwSource(c.key))?.let { t -> NuvioLaunch.pkgOf(ctx, t) } },
             installed = { p -> NuvioLaunch.installed(ctx, p) })
     }
     val items = if (appList != null) remember(appList, hiddenKeys, appCw) {
@@ -686,8 +686,12 @@ internal fun HeroSection(
             val infoChange = remember(info) { (info?.first ?: "").hashCode() }
             if (info != null) com.glasslauncher.tv.saver.SaverInfo(app, info.first, infoChange, com.glasslauncher.tv.saver.InfoLook.background(settings), credit = info.second,
                 padTop = 30 * s, padBottom = if (settings.dockPos == "bottom") metrics.collapsedH + metrics.bottomMargin - 30 * s else 0f)
+            // Continue Watching as small cards above the dock (*Continue Watching cards*): the dock's Up goes to them.
+            val cards = if (settings.bgContinue && settings.dockPos == "bottom") continueCards(app) else emptyList()
+            if (cards.isNotEmpty())
+                ContinueCards(app, s, metrics.collapsedH + metrics.bottomMargin, metrics.sideMargin, cards, heroFocus, firstTile, onCustomUp)
             // Holds the dock's Up: opens the menu (or selects the settings button) straight away.
-            Box(Modifier.align(Alignment.TopStart).padding(start = (48 * s).dp, top = (300 * s).dp).size(1.dp)
+            else Box(Modifier.align(Alignment.TopStart).padding(start = (48 * s).dp, top = (300 * s).dp).size(1.dp)
                 .focusRequester(heroFocus)
                 .onFocusChanged { if (it.isFocused) onCustomUp() }
                 .focusable())
@@ -814,7 +818,7 @@ private fun HeroInfo(
             .width((440 * s).dp)
             .focusRequester(heroFocus)
             // Down: back to the app whose channels Up came from (the first app otherwise).
-            .focusProperties { down = ChannelsUi.back ?: firstTile }
+            .focusProperties { down = ChannelsUi.back ?: ChannelsUi.dockTile(firstTile) }
             .onKeyEvent { ev ->
                 when {
                     ev.key == Key.DirectionRight && ev.type == KeyEventType.KeyDown -> {

@@ -194,6 +194,8 @@ internal fun TopBar(app: GlassApp, s: Float, gearReq: FocusRequester, menuOpen: 
 
 /** True while the Update pill in the top bar is selected: the banner below it shows what's new. */
 private val updateFocused = mutableStateOf(false)
+/** For [warmStates]. */
+internal fun topBarStates(): Any = updateFocused
 
 /**
  * A small pill when a new version is on GitHub, next to the settings button. Select it (Up, then Left)

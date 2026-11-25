@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -264,20 +265,31 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
         Column(Modifier.fillMaxWidth().padding(top = h * clockTop(k, off))
             .graphicsLayer { translationY = drop * density; if (look == "white") compositingStrategy = CompositingStrategy.Offscreen },
             horizontalAlignment = Alignment.CenterHorizontally) {
-            val small = TextStyle(fontSize = (12 * s * k).sp, fontWeight = FontWeight.SemiBold)
-            val big = TextStyle(fontSize = (118 * s * k).sp, lineHeight = (118 * s * k).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-2 * s * k).sp)
+            // The Glass style (Still Glass) looks like Apple's lock screen: tall narrow digits of thick glass, the date in
+            // the picture's own colour.
+            val apple = st.bgClockStyle == "still"
+            val small = if (apple) TextStyle(fontSize = (14 * s * k).sp, fontWeight = FontWeight.SemiBold)
+                else TextStyle(fontSize = (12 * s * k).sp, fontWeight = FontWeight.SemiBold)
+            // (Narrowed a little more than the font itself: Apple's digits are tall and close together.)
+            // (Its line trimmed to the digits themselves: Oswald's tall line put a gap under the date (his photo).)
+            val big = if (apple) TextStyle(fontFamily = ClockTall, fontSize = (132 * s * k).sp, lineHeight = (118 * s * k).sp, fontWeight = FontWeight.Medium, letterSpacing = (0.5f * s * k).sp,
+                    textGeometricTransform = androidx.compose.ui.text.style.TextGeometricTransform(scaleX = 0.84f),
+                    lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both))
+                else TextStyle(fontSize = (118 * s * k).sp, lineHeight = (118 * s * k).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-2 * s * k).sp)
             // The date in the same style as the time.
             // Frosted is the blurred glass; Still, Dynamic and Clear stay sharp (all of them were blurred, and the
             // theme's clock looked the same in every theme).
             val blurOn = st.blurRadius > 0 && look == "liquid"
-            // The date can be white on its own (Settings), whatever the time's look.
-            // (The white date: a clear shadow just under its letters; the wide soft one left it unreadable over a
-            // bright sky: his photo.)
-            if (look == "white" || st.bgClockDateWhite) Text(date, color = Color.White.copy(alpha = 0.95f), style = small.merge(TextStyle(shadow =
-                Shadow(Color.Black.copy(alpha = 0.6f), offset = Offset(0f, 2f * s), blurRadius = 5f * s))))
-            else ThemedNumerals(date, small, look, blurOn = blurOn, rim = false, saver = inSaver, blurDp = st.blurRadius * 0.45f, opacity = st.bgClockGlass / 100f)
+            // The date is always white, with a clear shadow just under its letters (the wide soft one left it unreadable
+            // over a bright sky). (Its own switch, *White date*, was removed: his ask.)
+            val dateColor = if (apple) pictureTint() else Color.White.copy(alpha = 0.95f)
+            Text(date, color = dateColor, style = small.merge(TextStyle(shadow =
+                Shadow(Color.Black.copy(alpha = if (apple) 0.35f else 0.6f), offset = Offset(0f, (if (apple) 1.5f else 2f) * s), blurRadius = (if (apple) 6f else 5f) * s))))
             if (look == "white") Text(time, color = Color.White.copy(alpha = 0.94f), style = big.merge(shade))
-            else ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver, blurDp = st.blurRadius * 0.45f, opacity = st.bgClockGlass / 100f)
+            // (Oswald's digits sit low in their line: moved up under the date, as on Apple's lock screen.)
+            else Box(if (apple) Modifier.offset(y = androidx.compose.ui.unit.Dp(-24 * s * k)) else Modifier) {
+                ThemedNumerals(time, big, look, blurOn = blurOn, saver = inSaver, blurDp = st.blurRadius * 0.45f, opacity = st.bgClockGlass / 100f, apple = apple)
+            }
         }
         // Depth: the subject drawn again over the clock, only where the clock is.
         val cut = if (inSaver) null else Depth.fg.value
@@ -308,7 +320,7 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
  * filled digits themselves, so no inner outlines show where the font's strokes overlap).
  */
 @Composable
-private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true, saver: Boolean = false, blurDp: Float = 0f, opacity: Float = 1f) {
+private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn: Boolean, rim: Boolean = true, saver: Boolean = false, blurDp: Float = 0f, opacity: Float = 1f, apple: Boolean = false) {
     val env = LocalGlassEnv.current
     // The screen's size (the screensaver has no home page around it to give it).
     val rootView = androidx.compose.ui.platform.LocalView.current.rootView
@@ -317,10 +329,11 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
     // The digits' shape and their rim are painted once (when the time changes), not on every frame. Each frame
     // then draws the picture through that shape in one pass (a shader, no extra layer, no blur pass): cheap enough
     // to follow every new copy of a video, in step with the dock's glass.
-    val art = remember(text, style, rim) {
+    val art = remember(text, style, rim, apple) {
         val layout = tm.measure(text, style)
         val w = layout.size.width.coerceAtLeast(1); val h = layout.size.height.coerceAtLeast(1)
-        val edge = 1.6f * density.density
+        // (Thick glass: a wider, brighter rim.)
+        val edge = (if (apple) 2f else 1.6f) * density.density
         fun paint(block: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit): ImageBitmap =
             ImageBitmap(w, h).also { img ->
                 androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(density, androidx.compose.ui.unit.LayoutDirection.Ltr,
@@ -330,7 +343,10 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
         val mask = paint { drawText(layout, color = Color.White) }
         // The rim: light along the top of each stroke, a little shadow along the bottom (like the Still Glass rim),
         // painted at twice the size (drawn down to the digits' size, see below).
-        val big = style.copy(fontSize = style.fontSize * 2, lineHeight = style.lineHeight * 2, letterSpacing = style.letterSpacing * 2)
+        // (Only the sizes the style sets: an unset one (the date has no line height) can't be doubled, and doubling it
+        // threw "Cannot perform operation for Unspecified type" and closed Glassio.)
+        fun twice(u: androidx.compose.ui.unit.TextUnit) = if (u != androidx.compose.ui.unit.TextUnit.Unspecified) u * 2 else u
+        val big = style.copy(fontSize = twice(style.fontSize), lineHeight = twice(style.lineHeight), letterSpacing = twice(style.letterSpacing))
         val layout2 = tm.measure(text, big)
         fun paint2(block: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit): ImageBitmap =
             ImageBitmap(w * 2, h * 2).also { img ->
@@ -348,11 +364,31 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
                 drawText(layout2, color = Color.Black.copy(alpha = cut), topLeft = Offset(0f, dir * edge * 2 * (i + 1) / steps.size * 1.5f), blendMode = BlendMode.DstOut)
             }
         }
-        val rimImg = if (rim) paint2 { fadingEdge(Color.White.copy(alpha = 0.85f), 1f) } else null
-        val shadeImg = if (rim) paint2 { fadingEdge(Color.Black.copy(alpha = 0.26f), -1f) } else null
-        Triple(mask, rimImg, shadeImg)
+        val rimImg = if (rim) paint2 {
+            fadingEdge(Color.White.copy(alpha = if (apple) 0.7f else 0.85f), 1f)
+            // (Thick glass: only a faint line round each digit; the edge's light is the picture's own, see CLOCK_LENS_SKSL.)
+            if (apple) drawText(layout2, color = Color.White.copy(alpha = 0.3f), drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f * density.density * 2))
+        } else null
+        val shadeImg = if (rim) paint2 { fadingEdge(Color.Black.copy(alpha = if (apple) 0.42f else 0.26f), -1f) } else null
+        // The glass's shape as a height map for the refraction: the digits blurred (made small and drawn back up),
+        // flat inside and sloping at the edges like a rounded slab.
+        // (A real blur, three box passes: a map only made small and drawn back up sloped in straight pieces, and the
+        // picture bent in visible steps.)
+        val height = if (apple) android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888).also { hb ->
+            // (A narrow slope: all the bending is in a band along the edges, the middle stays flat.)
+            val soft = preBlurred(mask, 8f * density.density).asAndroidBitmap()
+            android.graphics.Canvas(hb).drawBitmap(soft, null, android.graphics.Rect(0, 0, w, h), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        } else null
+        Art(mask, rimImg, shadeImg, height)
     }
     val (mask, rimImg, shadeImg) = art
+    // Refraction (Android 13+): the picture inside the digits bends along their edges like light through thick glass.
+    val lens = remember(art.height) {
+        if (art.height == null || android.os.Build.VERSION.SDK_INT < 33) null
+        else runCatching { android.graphics.RuntimeShader(CLOCK_LENS_SKSL) to android.graphics.BitmapShader(art.height, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
+            .also { it.filterMode = android.graphics.BitmapShader.FILTER_MODE_LINEAR } }.getOrNull()
+    }
+    val lensPaint = remember { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG) }
     // A state, so the picture in the digits follows them when the page moves (down to the Library and back):
     // it stayed where it was until the next picture came.
     val posS = remember { androidx.compose.runtime.mutableStateOf(Offset.Zero) }
@@ -413,7 +449,20 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
                 val oy = cy + ((rootH - pic.height * sc0) / 2f - cy) * mag - pos[0].y
                 m.reset(); m.setScale(sc0 * mag, sc0 * mag); m.postTranslate(ox, oy)
                 paint.colorFilter = tint
-                drawIntoCanvas { it.nativeCanvas.drawBitmap(pic.asAndroidBitmap(), m, paint) }
+                val bent = lens != null && android.os.Build.VERSION.SDK_INT >= 33 && runCatching {
+                    val (rs, hs) = lens
+                    // (Smooth sampling: a shader's picture is read pixel by pixel otherwise, and the small video copy,
+                    // enlarged, showed in squares.)
+                    val bg = android.graphics.BitmapShader(pic.asAndroidBitmap(), android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
+                        .also { it.setLocalMatrix(m); it.filterMode = android.graphics.BitmapShader.FILTER_MODE_LINEAR }
+                    rs.setInputShader("bg", bg); rs.setInputShader("hmap", hs)
+                    rs.setFloatUniform("k", 26f * density.density)
+                    lensPaint.shader = rs
+                    drawIntoCanvas { it.nativeCanvas.drawRect(0f, 0f, this.size.width, this.size.height, lensPaint) }
+                }.isSuccess
+                if (!bent) drawIntoCanvas { it.nativeCanvas.drawBitmap(pic.asAndroidBitmap(), m, paint) }
+                // Thick glass is lighter than what is behind it (Apple's digits look milky against the picture).
+                if (apple) drawRect(Color.White.copy(alpha = 0.1f))
                 // Between two videos the background fades through black: the digits darken with it.
                 val d = if (saver) com.glasslauncher.tv.saver.SaverFrames.dim.floatValue else VideoFrames.dim.floatValue
                 if (d > 0.003f) drawRect(Color.Black.copy(alpha = d))
@@ -431,6 +480,55 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
             rimImg?.let { drawImage(it, dstSize = d, filterQuality = FilterQuality.High) }
             shadeImg?.let { drawImage(it, dstSize = d, filterQuality = FilterQuality.High) }
         }
+    }
+}
+
+private class Art(val mask: ImageBitmap, val rim: ImageBitmap?, val shade: ImageBitmap?, val height: android.graphics.Bitmap?) {
+    operator fun component1() = mask; operator fun component2() = rim; operator fun component3() = shade
+}
+
+/**
+ * The clock's lens: the picture moved along the slope of the glass's height map, so all round each digit its edge
+ * shows the picture bent and caught brighter (a reflection of what is behind, not a white line), the flat middle as
+ * it is. The light falls from the top left: edges facing it are brighter than those facing away.
+ */
+private const val CLOCK_LENS_SKSL = """
+uniform shader bg;
+uniform shader hmap;
+uniform float k;
+half4 main(float2 p) {
+    float hx = hmap.eval(p + float2(3.0, 0.0)).a - hmap.eval(p - float2(3.0, 0.0)).a;
+    float hy = hmap.eval(p + float2(0.0, 3.0)).a - hmap.eval(p - float2(0.0, 3.0)).a;
+    float2 g = float2(hx, hy);
+    half4 c = bg.eval(p - g * k);
+    float slope = clamp(length(g) * 3.5, 0.0, 1.0);
+    float lit = clamp(0.5 + dot(normalize(g + float2(0.0001, 0.0001)), float2(0.6, 0.8)) * 0.5, 0.0, 1.0);
+    half3 shine = min(c.rgb * 1.7 + 0.16, half3(1.0));
+    c.rgb = mix(c.rgb, shine, slope * lit);
+    // The side away from the light a little darker: the glass's thickness.
+    c.rgb *= 1.0 - slope * (1.0 - lit) * 0.35;
+    return c;
+}
+"""
+
+/** A light colour taken from the picture behind (its middle top, where the clock is), for the Glass clock's date. */
+@Composable
+private fun pictureTint(): Color {
+    val env = LocalGlassEnv.current
+    val src = env.bmp ?: env.sharp
+    return remember(src) {
+        val b = src?.asAndroidBitmap()
+        if (b == null || b.config == android.graphics.Bitmap.Config.HARDWARE) return@remember Color(0xFFF2EADF)
+        runCatching {
+            var r = 0L; var g = 0L; var bl = 0L; var n = 0
+            val x0 = b.width / 3; val x1 = b.width * 2 / 3; val y1 = (b.height * 0.35f).toInt().coerceAtLeast(1)
+            for (y in 0 until y1 step (y1 / 12).coerceAtLeast(1)) for (x in x0 until x1 step ((x1 - x0) / 16).coerceAtLeast(1)) {
+                val c = b.getPixel(x, y); r += (c shr 16) and 255; g += (c shr 8) and 255; bl += c and 255; n++
+            }
+            // Its colour, lifted towards white so it reads (Apple's date is a pale tint of the wallpaper).
+            val c = Color(r / n / 255f, g / n / 255f, bl / n / 255f)
+            androidx.compose.ui.graphics.lerp(c, Color.White, 0.72f)
+        }.getOrDefault(Color(0xFFF2EADF))
     }
 }
 

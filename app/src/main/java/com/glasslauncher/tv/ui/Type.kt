@@ -31,6 +31,16 @@ val BoldInter = FontFamily(
     Font(R.font.inter_bold, FontWeight.Bold),
 )
 
+/**
+ * The large clock's Glass style (Apple's lock screen look): Oswald, a tall narrow open font (SIL OFL 1.1, licence in
+ * assets/licenses), a variable font set to the weight asked for.
+ */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+val ClockTall = FontFamily(
+    Font(R.font.oswald, FontWeight.Medium, variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(500))),
+    Font(R.font.oswald, FontWeight.SemiBold, variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(600))),
+)
+
 object TextLook { val bold = androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
 
 /** Apple TV's secondary text (synopsis, metadata): soft grey rather than white. */

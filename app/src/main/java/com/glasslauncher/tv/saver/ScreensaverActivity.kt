@@ -175,10 +175,31 @@ internal fun Slideshow(app: GlassApp) {
     // OK opens the title on screen in Nuvio.
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val itemNow = androidx.compose.runtime.rememberUpdatedState(item)
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        SaverControl.onOk = { itemNow.value?.let { com.glasslauncher.tv.data.NuvioLaunch.open(ctx, app.settings, app.http, it); SaverControl.afterOpen?.invoke() } }
-        onDispose { SaverControl.onOk = null }
+    // Held OK: the title's menu, as on the trailers (it opened the title like OK, and the next keys went to Nuvio).
+    var pop by remember { mutableStateOf<com.glasslauncher.tv.ui.PopState?>(null) }
+    fun openIt(it: com.glasslauncher.tv.data.HeroItem) { com.glasslauncher.tv.data.NuvioLaunch.open(ctx, app.settings, app.http, it); SaverControl.afterOpen?.invoke() }
+    fun menuFor(it: com.glasslauncher.tv.data.HeroItem) {
+        val inLib = app.library.has(it.key)
+        val liked = app.settings.liked(it.key)
+        pop = com.glasslauncher.tv.ui.PopState(it.name, listOf(
+            com.glasslauncher.tv.ui.PopOption("Open in Nuvio") { openIt(it) },
+            com.glasslauncher.tv.ui.PopOption("Next") { SaverControl.step = 1 },
+            com.glasslauncher.tv.ui.PopOption(if (inLib) "Remove from Library" else "Add to Library", if (inLib) "✓" else "") {
+                val now = app.library.toggle(it)
+                com.glasslauncher.tv.ui.toast(ctx, if (now) "Saved to Library · ${it.name}" else "Removed from Library · ${it.name}")
+            },
+            com.glasslauncher.tv.ui.PopOption(if (liked) "Liked" else "Like", if (liked) "♥" else "") {
+                val now = app.library.toggleLike(it)
+                com.glasslauncher.tv.ui.toast(ctx, if (now) "Liked · ${it.name}" else "Like removed · ${it.name}")
+            },
+        ), null)
     }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        SaverControl.onOk = { itemNow.value?.let { openIt(it) } }
+        SaverControl.onLong = { itemNow.value?.let { menuFor(it) } }
+        onDispose { SaverControl.onOk = null; SaverControl.onLong = null; SaverControl.popOpen.value = false }
+    }
+    LaunchedEffect(pop) { SaverControl.popOpen.value = pop != null }
     val url = item?.background
     val t = rememberInfiniteTransition(label = "kb")
     val scale by t.animateFloat(1.0f, 1.14f, infiniteRepeatable(tween(12_000, easing = LinearEasing), RepeatMode.Reverse), label = "s")
@@ -202,6 +223,19 @@ internal fun Slideshow(app: GlassApp) {
                     modifier = Modifier.size(380.dp, 150.dp),
                 ) else com.glasslauncher.tv.ui.Plain(it.name, color = Color.White, fontSize = 40.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
+        }
+    }
+    // The menu (held OK) in the screensaver's own glass, as the trailers' one.
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val s = maxWidth.value / 960f
+        val st = app.settings
+        val env = remember(constraints.maxWidth, constraints.maxHeight, st.blurRadius) {
+            val blank = androidx.compose.ui.graphics.ImageBitmap(1, 1)
+            com.glasslauncher.tv.ui.GlassEnv(blank, blank, blank, constraints.maxWidth, constraints.maxHeight, st.glassTint, st.refraction, blurDp = st.blurRadius * 0.45f)
+        }
+        val envRef = androidx.compose.runtime.rememberUpdatedState(env)
+        androidx.compose.runtime.CompositionLocalProvider(com.glasslauncher.tv.ui.LocalGlassEnv provides env, com.glasslauncher.tv.ui.LocalGlassEnvRef provides envRef) {
+            com.glasslauncher.tv.ui.PopMenuHost(pop, s, st.menuStyle) { pop = null }
         }
     }
 }

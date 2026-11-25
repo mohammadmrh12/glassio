@@ -36,6 +36,29 @@ object DevHooks {
         return want.isNotBlank() && MessageDigest.isEqual(given.toByteArray(), want.toByteArray())
     }
 
+    /** The side menu is open (set by the home screen; for the QA focus watch). */
+    @Volatile var menuOpen = false
+    private var watching: Runnable? = null
+
+    /** QA (--ez focus_watch true|false): logs where the selection is (GlassFocusW) every time it changes, 4 times a second. */
+    private fun focusWatch(a: MainActivity, on: Boolean) {
+        val h = android.os.Handler(android.os.Looper.getMainLooper())
+        watching?.let { h.removeCallbacks(it) }; watching = null
+        if (!on) return
+        var last = ""
+        val r = object : Runnable { override fun run() {
+            val f = com.glasslauncher.tv.ui.DockFocus
+            val line = "screen=${a.screenName} menu=$menuOpen saver=${com.glasslauncher.tv.saver.HomeSaver.state.value} hero=${f.hero} top=${f.top} dock=${f.dock} idx=${f.idx} " +
+                "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} " +
+                "musicStage=${com.glasslauncher.tv.ui.MusicUi.stageFocused} musicApps=${com.glasslauncher.tv.ui.MusicUi.appsFocused} inputs=${com.glasslauncher.tv.ui.InputsUi.focused} " +
+                "search=${com.glasslauncher.tv.ui.SearchUi.focused} rows=${com.glasslauncher.tv.ui.ChannelsUi.focused} cams=${MultiCamOverlay.open.value} " +
+                "chooser=${com.glasslauncher.tv.ui.ProfilesUi.open.value} state=${a.lifecycle.currentState}"
+            if (line != last) { last = line; android.util.Log.i("GlassFocusW", line) }
+            h.postDelayed(this, 250)
+        } }
+        watching = r; h.post(r)
+    }
+
     fun handle(app: GlassApp, a: MainActivity, i: Intent?) {
         i ?: return
         // ---- Open a screen (safe for anyone)
@@ -153,6 +176,11 @@ object DevHooks {
         // A Home Assistant for cam_test ha://… (a test server; "-" back to the one set).
         i.getStringExtra("ha_test")?.let { v -> if (v == "-") { com.glasslauncher.tv.CamPlayer.haTestUrl = null; com.glasslauncher.tv.CamPlayer.haTestToken = null }
             else { com.glasslauncher.tv.CamPlayer.haTestUrl = v.substringBefore('|'); com.glasslauncher.tv.CamPlayer.haTestToken = v.substringAfter('|', "test") } }
+        // QA: a whole copy of Glassio's data before a long test, and putting it back (FullBackup).
+        if (i.getBooleanExtra("full_backup", false)) Bg.io("glass-dev") { runCatching { com.glasslauncher.tv.data.FullBackup.save(app) }.onFailure { com.glasslauncher.tv.data.Glog.w("QA full copy", it) } }
+        i.getStringExtra("full_restore")?.let { n -> Bg.io("glass-dev") {
+            runCatching { com.glasslauncher.tv.data.FullBackup.restore(app, java.io.File(app.getExternalFilesDir(null), java.io.File(n).name)) }.onFailure { com.glasslauncher.tv.data.Glog.w("QA full restore", it) }
+        } }
         // QA: asks the other build (GitHub <-> Play) for its settings and logs what came, without restoring anything.
         if (i.getBooleanExtra("backup_other", false)) Bg.io("glass-dev") {
             val j = com.glasslauncher.tv.data.Backup.fromOtherGlassio(app)
@@ -190,7 +218,7 @@ object DevHooks {
                 android.graphics.Canvas(b).drawPaint(android.graphics.Paint().apply { shader = android.graphics.LinearGradient(0f, 0f, 300f, 300f, 0xFF7B61FF.toInt(), 0xFFFF6FA8.toInt(), android.graphics.Shader.TileMode.CLAMP) })
                 com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", i.getStringExtra("fake_title") ?: "Test song", "Test artist", "Album",
                     if (i.getBooleanExtra("fake_noart", false)) com.glasslauncher.tv.data.PlaceholderArt.of("Test song") else b,
-                    200_000, 60_000, android.os.SystemClock.elapsedRealtime(), 1f, true)
+                    200_000, 60_000, android.os.SystemClock.elapsedRealtime(), 1f, !i.getBooleanExtra("fake_paused", false))
             } else com.glasslauncher.tv.data.NowPlaying.track.value = null
         }
         if (i.getBooleanExtra("dump_media", false)) com.glasslauncher.tv.data.NowPlaying.dump()
@@ -310,6 +338,7 @@ object DevHooks {
                 "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} glassPass=${com.glasslauncher.tv.ui.VideoGlass.clear.value && com.glasslauncher.tv.ui.VideoFrames.showing.value} videoShowing=${com.glasslauncher.tv.ui.VideoFrames.showing.value} cams=${MultiCamOverlay.open.value} " +
                 "writes=${app.settings.recentWrites.joinToString(",")}")
         }
+        if (i.hasExtra("focus_watch")) focusWatch(a, i.getBooleanExtra("focus_watch", false))
         if (i.getBooleanExtra("dump_hidden", false)) android.util.Log.i("GlassPrefs", "hiddenApps(all)=" + st.hiddenApps.joinToString(","))
         i.getStringExtra("icon_pack")?.let { p ->
             if (p == "none") st.iconPack = "" else if (app.packs.installed().any { it.pkg == p }) st.iconPack = p

@@ -99,6 +99,9 @@ class HomeKeyService : AccessibilityService() {
         )
     }
 
+    /** A screensaver (any app's) is the window in front. */
+    @Volatile private var dreamFront = false
+
     /** Home key events reach this service on this TV: the window-change fallback is then never needed. */
     private val sp by lazy { getSharedPreferences("glass_home_key", MODE_PRIVATE) }
 
@@ -106,6 +109,9 @@ class HomeKeyService : AccessibilityService() {
     private fun agreed(): Boolean = !com.glasslauncher.tv.data.Store.PLAY || (application as? GlassApp)?.settings?.a11yConsent == true
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
+        // (Every key on the TV passes here: someone is at the remote, also for windows whose keys never reach the home
+        // screen (the cameras' page, the corner camera): the screensaver doesn't start under them.)
+        (application as? GlassApp)?.touch()
         // The camera in the corner: Back closes it (holding Home again too); every other key goes to the app as usual.
         multi?.takeIf { it.showing }?.let { m ->
             // (Back on the cameras page leaves a camera's controls first.)
@@ -123,6 +129,13 @@ class HomeKeyService : AccessibilityService() {
         val shell = com.glasslauncher.tv.data.LocalShell
         if (event.keyCode == KeyEvent.KEYCODE_HOME && shell.promptUp && android.os.SystemClock.uptimeMillis() - shell.promptSeenAt < 120_000) return true
         if (event.keyCode != KeyEvent.KEYCODE_HOME || !enabled()) return false
+        // (Another app's screensaver up (the TV's own): Home is left to the TV, which ends it; taken here, Glassio
+        // opened under it and it stayed. Glassio's own screensaver is ended below.)
+        if (dreamFront && com.glasslauncher.tv.saver.GlassDreamService.current == null) {
+            // (Then Glassio, a moment later: the TV went on to its own home screen, Google TV's.)
+            if (event.action == KeyEvent.ACTION_UP) { com.glasslauncher.tv.data.Glog.i("Home over another screensaver: the TV ends it, then Glassio"); handler.postDelayed({ showGlass() }, 600) }
+            return false
+        }
         if (!sp.getBoolean("keys", false)) sp.edit().putBoolean("keys", true).apply()
         val recents = (application as? GlassApp)?.settings?.homeLong.let { it != null && it != "off" }
         when (event.action) {
@@ -135,7 +148,11 @@ class HomeKeyService : AccessibilityService() {
             KeyEvent.ACTION_UP -> {
                 handler.removeCallbacks(longPress)
                 // Back from an input Glassio switched to: the TV comes back to this box first.
-                if (!longDone) { com.glasslauncher.tv.data.Inputs.comeBack(this); showGlass() }
+                if (!longDone) {
+                    // (The TV's screensaver up (Glassio's): it goes first, or Glassio opened under it, unseen.)
+                    com.glasslauncher.tv.saver.GlassDreamService.current?.let { d -> runCatching { d.wakeUp() }; com.glasslauncher.tv.data.Glog.i("Home over the TV's screensaver: it ends") }
+                    com.glasslauncher.tv.data.Inputs.comeBack(this); showGlass()
+                }
                 longDone = false
             }
         }
@@ -176,6 +193,8 @@ class HomeKeyService : AccessibilityService() {
             com.glasslauncher.tv.data.NuvioWatch.onWindow(p, event.className?.toString().orEmpty())
             // Recent apps without ADB: the app now on screen.
             (application as? GlassApp)?.let { a -> com.glasslauncher.tv.data.AppHistory.onFront(this, p) { k -> a.apps.apps.value.any { it.pkg == k } } }
+            // The app the TV opens itself for a raw remote button just pressed: closed.
+            (application as? GlassApp)?.let { a -> com.glasslauncher.tv.data.RawKeys.onFront(this, a.settings, p) }
         }
         // The TV's "Allow USB debugging?" window: nothing of Glassio comes over it (see LocalShell.promptUp). It comes as
         // SystemUI's android.app.Dialog on the Streamer (the activity is UsbDebuggingActivity); a SystemUI dialog only
@@ -184,6 +203,9 @@ class HomeKeyService : AccessibilityService() {
         val wPkg = event.packageName?.toString().orEmpty()
         val wCls = event.className?.toString().orEmpty()
         android.util.Log.i("GlassA11y", "window $wPkg $wCls")
+        // (A screensaver's window comes as its app's FrameLayout, not as an activity: the app the TV has as its screensaver.)
+        if (wPkg.isNotEmpty()) dreamFront = wCls == "android.service.dreams.DreamActivity" || (wCls == "android.widget.FrameLayout" &&
+            runCatching { android.provider.Settings.Secure.getString(contentResolver, "screensaver_components") }.getOrNull().orEmpty().split(',').any { it.substringBefore('/') == wPkg })
         val justClosed = android.os.SystemClock.uptimeMillis() - shell.promptClosedAt < 5_000
         if (wPkg == "com.android.systemui" && (wCls.contains("UsbDebugging") || (wCls == "android.app.Dialog" && (shell.asking() || justClosed)))) {
             if (!shell.promptUp) { com.glasslauncher.tv.data.Glog.i("The TV asks: Allow USB debugging (Glassio stays behind it)"); shell.promptSeenAt = android.os.SystemClock.uptimeMillis() }

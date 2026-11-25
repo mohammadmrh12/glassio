@@ -86,7 +86,7 @@ object PeerSync {
         k == "hueIp" || k == "hueUser" -> "hue"
         NEVER_PREFIX.any { prefixed(k, it) } -> null
         k == "cameras" || k == "cornerCamera" || prefixed(k, "camera") || prefixed(k, "multi") || prefixed(k, "doorbell") -> "cameras"
-        k in setOf("keyMaps", "shuffleKey", "multiKey", "cornerKey", "homeLong", "homeRecents") -> "remote"
+        k in setOf("keyMaps", "rawLaunches", "shuffleKey", "multiKey", "cornerKey", "homeLong", "homeRecents") -> "remote"
         k == "lockCode" || k == "lockedApps" || k.startsWith("lockHint") -> "lock"
         k in LOOK -> "look"
         k in LISTS -> "lists"

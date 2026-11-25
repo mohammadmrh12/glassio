@@ -32,6 +32,12 @@ import kotlinx.coroutines.sync.withLock
  */
 object CustomBackground {
     val exts = setOf("jpg", "jpeg", "png", "webp")
+    /**
+     * The TV's sleep time came with nobody at the remote: the video stands still. A playing video kept Google TV from
+     * starting its screensaver and from sleeping (seen: the TV's own Settings started it at 120 s, the home screen with
+     * a video never). Any key or touch plays it again.
+     */
+    val resting = androidx.compose.runtime.mutableStateOf(false)
     /** The background video Glassio left (another app or the screensaver came in front) and where it was in it. */
     @Volatile var leftVideo: String? = null
     @Volatile var leftPos = 0L

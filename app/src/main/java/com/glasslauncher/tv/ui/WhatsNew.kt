@@ -41,7 +41,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 71
+    const val ID = 72
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -63,11 +63,23 @@ object WhatsNew {
 
     // A welcome first, then everything new since 4.0.0, newest last, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("Welcome to Glassio 4.5", listOf(
-            "Everything new since Glassio 4.0, page by page, 4.5's first. Your setup stays as it is: each new thing is a choice.",
+        Page("Welcome to Glassio 4.7", listOf(
+            "Everything new since Glassio 4.0, page by page, 4.7's first. Your setup stays as it is: each new thing is a choice.",
             "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
         ), "Settings → About → What's new"),
+        // (New in 4.7.)
+        Page("Continue Watching cards", listOf(
+            "Over your own background, what you're watching as small glass cards right above the dock: the picture stays whole.",
+            "An app with its own Continue watching row (Netflix, Stremio…) shows it as cards too while it is selected.",
+            "Up from the dock goes to them, OK opens the title. Off by default.",
+        ), "Settings → Background & screensaver → Continue Watching cards"),
+        Page("Screensaver and clock", listOf(
+            "One player starts on the home screen just before the TV's own screensaver, which stays for other apps; the TV still sleeps on time.",
+            "Home over the TV's screensaver now takes you straight to Glassio.",
+            "The large clock's Still Glass style looks like the lock screen: tall digits of thick glass under the date.",
+            "A paused song leaves the music island and stays gone (Island → A paused song goes).",
+        ), "Settings → Background & screensaver · Music & app rows → Island"),
         // (New in 4.5.)
         Page("A tidier menu", listOf(
             "Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.",

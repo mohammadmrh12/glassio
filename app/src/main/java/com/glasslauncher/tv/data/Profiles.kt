@@ -75,7 +75,7 @@ object Profiles {
         // Cameras, the doorbell, Home Assistant
         "cameras", "cornerCamera", "cameraCycleSec", "cameraScale", "cameraCornerSec", "multiCams", "multiScale", "multiLayout", "cameraMenuFull", "cameraSoundFollows", "multiSec", "saverMultiCam",
         // The remote
-        "keyMaps", "homeLong", "multiKey", "cornerKey",
+        "keyMaps", "rawLaunches", "homeLong", "multiKey", "cornerKey",
         // Inputs
         "inputsIcon", "inputsHidden", "inputsOrder", "inputPlayer",
         // Nuvio's link to this TV, and what opens a title

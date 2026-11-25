@@ -152,11 +152,13 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     var libFromDock by remember { mutableStateOf(false) }
     /** When the dock's selection last moved (see the Search icon's wait while it is only passed over). */
     val dockMovedAt = remember { longArrayOf(0L) }
+    val rowsNoteFor = remember { arrayOf("") }
     var libWarm by remember { mutableStateOf(false) }
     // Up from the Library: the home screen is drawn once under it first (its first frame is the slow one),
     // then the page scrolls down, so the scroll itself runs at full speed.
     var homePrep by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    androidx.compose.runtime.SideEffect { com.glasslauncher.tv.DevHooks.menuOpen = menuOpen }
     androidx.compose.runtime.DisposableEffect(Unit) { com.glasslauncher.tv.saver.HomeSaver.closeMenu = { menuOpen = false }; onDispose { com.glasslauncher.tv.saver.HomeSaver.closeMenu = null } }
     // The home screen stops taking the focus only once the menu holds it (and takes it back before the menu goes):
     // switching it off the moment the menu opened dropped the focus onto the dock for a frame or two.
@@ -169,7 +171,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     var menuClosedAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     var folderMoving by remember { mutableStateOf<String?>(null) }
     val tileFocus = remember { HashMap<String, FocusRequester>() }
-    androidx.compose.runtime.SideEffect { MusicUi.tileFor = { tileFocus[it] } }
+    androidx.compose.runtime.SideEffect { MusicUi.tileFor = { if (it == FOLDER) folderFocus else tileFocus[it] } }
 
     // The current backdrop as a small bitmap: every glass surface refracts it. The page backdrop only
     // switches once the glass copy is ready, and both crossfade together, so the glass never lags behind.
@@ -1032,7 +1034,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // apps without rows). Worked out once the selection rests a moment, and all changed together: cleared
                     // at once, the carousel (or the music page) flashed between two of them.
                     LaunchedEffect(dockPkg, settings.musicOn, settings.channelsOn, settings.channelsMusicRowApps, settings.channelsOffApps, settings.musicIdleOn, settings.musicIdleOffApps, dockMid, trackPkgNow.takeIf { dockPkg != null }, com.glasslauncher.tv.data.Channels.all.value, expanded, pop != null, pickerFor != null,
-                        settings.appCatalogsOn, settings.appStage, appTitles) {
+                        settings.appCatalogsOn, settings.appStage, appTitles, app.catalogs.appItemsLoaded.collectAsState().value,
+                        // (Cards and borrowed rows: a change shows at once, not at the next move.)
+                        settings.bgMode, settings.dockPos, settings.bgContinue, settings.bgContinueApps, settings.bgContinueAppsOff, settings.channelsFrom) {
                         if (dockPkg == null) {
                             // (Down into the open dock's second row: what shows above stays, its background too.)
                             delay(150)
@@ -1065,7 +1069,12 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         // after the start", #44, #30.)
                         val waitCats = settings.appCatalogsOn && AC.stage(settings, dockPkg) == AC.CATALOGS && !app.catalogs.appItemsLoaded.value
                         val stand = if (waitCats) AC.NONE else if (settings.appCatalogsOn) AC.effective(AC.stage(settings, dockPkg), hasRows, hasCats) else if (hasRows) AC.ROWS else AC.NONE
-                        val rows = hasRows && stand == AC.ROWS
+                        // Its own "Continue watching" row as cards above the dock instead of its rows (your own background,
+                        // *Continue Watching cards* → *Apps' Continue watching*, per app in Apps with channels).
+                        val cwCards = settings.bgMode != "carousel" && settings.bgContinue && settings.bgContinueApps && settings.dockPos == "bottom" &&
+                            dockPkg !in settings.bgContinueAppsOff && com.glasslauncher.tv.data.Channels.continueOf(dockPkg) != null
+                        ChannelsUi.cardsPkg.value = dockPkg.takeIf { cwCards }
+                        val rows = hasRows && stand == AC.ROWS && !cwCards
                         val cats = hasCats && stand == AC.CATALOGS
                         // (To the search, and away from it to whatever is next to it: at once, both ways. The longer rest is for
                         // pages that would flash while the selection only passes over their icon.)
@@ -1091,7 +1100,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         if (dockPkg != MusicUi.DOCK_PKG) MusicUi.forced.value = false
                         MusicUi.carouselApp.value = com.glasslauncher.tv.data.Channels.keepsCarousel(dockPkg) && !rows
                         // (An app that has rows but doesn't show them: why, for a problem report.)
-                        if (!rows && settings.channelsOn && com.glasslauncher.tv.data.Channels.allFor(settings, dockPkg).isNotEmpty())
+                        // (Once per app and reason: logged at every step over it, it filled the report's log.)
+                        if (!rows && settings.channelsOn && com.glasslauncher.tv.data.Channels.allFor(settings, dockPkg).isNotEmpty() && rowsNoteFor[0] != "$dockPkg/$stand/$waitCats".also { rowsNoteFor[0] = it })
                             com.glasslauncher.tv.data.Glog.i("Rows of $dockPkg not shown: ${com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).size} to show, music app $musicApp, catalogs $hasCats ($stand, chosen ${AC.stage(settings, dockPkg).ifBlank { "auto" }}${if (waitCats) ", loading" else ""}), off ${dockPkg in settings.channelsOffApps}")
                         // Another app's rows: their background starts from their first card (the card selected on an
                         // earlier visit showed its blur for a moment first).
@@ -1280,8 +1290,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     SearchStage(app, s, bottom = 20 * s, leave = closeSearch, toMenu = { })
                 }
             } else if (SearchUi.full.value) androidx.compose.runtime.SideEffect { SearchUi.full.value = false }
+            // (The menu ends above the dock at the bottom, and above the Continue Watching cards over it.)
+            val menuBottom = run {
+                val ownBg = settings.bgMode != "carousel"
+                val dockLow = !ownBg || settings.dockPos == "bottom"
+                if (!dockLow) 0f else metrics.collapsedH + metrics.bottomMargin + 8 * s + (if (ownBg && settings.bgContinue) 64 * s else 0f)
+            }
             if (screen == Screen.Home && menuOpen) SideMenu(
-                app, s, modifier = Modifier.align(Alignment.TopEnd).onFocusChanged { menuHasFocus = it.hasFocus },
+                app, s, bottom = menuBottom, modifier = Modifier.align(Alignment.TopEnd).onFocusChanged { menuHasFocus = it.hasFocus },
                 onClose = {
                     menuClosedAt = android.os.SystemClock.uptimeMillis()
                     // With your own background there is no carousel to go back to (its stand-in passes focus up to
@@ -1382,9 +1398,11 @@ private fun appMenu(
     pickRows: (() -> Unit)? = null,
 ): DialogState {
     val hidden = e.pkg in app.settings.hiddenApps
+    // (Glassio's own icons (Search, Music, an input: "kind:…") are no apps: no App info, no rows or catalogs of theirs.)
+    val real = ':' !in e.pkg
     val opts = mutableListOf<Pair<String, () -> Unit>>()
     if (hidden) opts += "Open" to { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) }
-    opts += "App info" to {
+    if (real) opts += "App info" to {
         runCatching {
             ctx.startActivity(
                 Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${e.pkg}"))
@@ -1410,9 +1428,9 @@ private fun appMenu(
         }
     }
     // Another app's rows on this app's icon (TubeRows' rows on TizenTube's, #30).
-    if (pickRows != null && st.channelsOn && com.glasslauncher.tv.data.Channels.apps().any { it != e.pkg }) opts += "Rows from…" to pickRows
+    if (real && pickRows != null && st.channelsOn && com.glasslauncher.tv.data.Channels.apps().any { it != e.pkg }) opts += "Rows from…" to pickRows
     // Its catalogs in the carousel while it is selected (see AppCatalogs); not for the apps that keep the carousel anyway.
-    if (pickCatalogs != null && app.catalogs.catalogs.value.isNotEmpty() && !com.glasslauncher.tv.data.Channels.keepsCarousel(e.pkg)) opts += "Catalogs" to pickCatalogs
+    if (real && pickCatalogs != null && app.catalogs.catalogs.value.isNotEmpty() && !com.glasslauncher.tv.data.Channels.keepsCarousel(e.pkg)) opts += "Catalogs" to pickCatalogs
     opts += (if (hidden) "Show in dock" else "Hide") to { app.apps.toggleHidden(e.pkg) }
     // Asks for the 4-digit code when opened from Glassio (Settings → System sets the code).
     opts += (if (AppLock.locked(app, e.pkg)) "Unlock" else "Lock") to { AppLock.toggle(app, ctx, e, verified) }
@@ -1461,5 +1479,5 @@ internal fun WhenResumed(vararg keys: Any?, block: suspend kotlinx.coroutines.Co
 @Composable
 internal fun VideoBackgroundInFront(list: List<String>, start: Int, wanted: Boolean, advance: Boolean, onItem: (String) -> Unit) {
     val resumed by inFront()
-    VideoBackground(list, start, playing = wanted && resumed, advance = advance, onItem = onItem)
+    VideoBackground(list, start, playing = wanted && resumed && !CustomBackground.resting.value, advance = advance, onItem = onItem)
 }

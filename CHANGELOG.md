@@ -2,6 +2,32 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.7.0 — Continue Watching cards, a smarter screensaver, fixes
+
+- **Continue Watching cards:** over your own background, the titles in progress as small glass cards right above the
+  dock, from the left across the dock's width (the picture behind stays whole). Up from the dock goes to them, OK opens
+  the title, ▼ goes back to the app you came from. An app with its own *Continue watching* row (Netflix, Stremio…)
+  shows it as cards while it's selected (per app). Off by default: Settings → Background & screensaver, or the menu's
+  Background page.
+- **One player and the TV's screensaver together:** with Glassio as the TV's screensaver, the home screen starts One
+  player just before the TV's own (the background's own video, back at once), and the TV's screensaver stays for other
+  apps. *One player* is always listed now; turned on while the type is the TV's app, the type becomes Videos (#40).
+- **The TV sleeps on time:** at the TV's sleep time One player ends and a video background stands still, so the TV goes
+  on to its screensaver and sleep (a playing video kept it awake before).
+- **Home over the TV's screensaver** (in another app) now brings Glassio up; before, Glassio opened under it.
+- **Large clock, Still Glass:** tall narrow digits of thick glass right under the date, bending the picture at their
+  edges, the date in the picture's own colour, like a phone's lock screen.
+- **Music island:** a paused song goes and stays gone until something plays (it came back for 20 s each time the
+  screensaver started); new *A paused song goes* (at once, 5 s, 20 s, 1 min, never) (#49).
+- **Remote buttons the TV keeps for itself** (the Netflix button of some boxes) can be learnt through TV access: the app
+  the TV opens for it is closed and the button does what you set (#48).
+- **Fixes:** the side menu scrolls with many items (the last ones were out of reach) and shows whole rows only; the
+  screensaver no longer starts while a pop-up or the cameras' page is in use; the menu order list scrolls with the item
+  you carry; Glassio's own dock icons no longer offer App info, rows or catalogs; held OK on the posters screensaver
+  opens a menu; *Settings background* steps through all its looks; *Manage from phone* opens on its first row; Up into
+  the menu's row of choices lands on the one in use; the *White date* switch is gone (it could close Glassio); a crash
+  when a second window drew at start (#39).
+
 ## 4.6.1 — fixes
 
 - **Nuvio from Google Play** (`com.nuvio.app`) is recognised like the GitHub build: titles open in it and *Open titles

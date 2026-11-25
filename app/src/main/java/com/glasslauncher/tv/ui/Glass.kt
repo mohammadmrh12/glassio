@@ -391,9 +391,12 @@ fun LiquidSurface(
     val videoBehind = VideoFrames.showing.value && !ignoreVideo
     // *Glass over a video: See-through*: the video itself shows through (nothing drawn of it here), only the glass's
     // colour, the veil and the shuffle's black on top; no bending or blur (they would act on nothing).
-    // (Also over the song player's artwork: the page there is a picture drawn over the video, ignoreVideo, and the
-    // glass went back to bending it on the Music icon only, then see-through again on the next app: his video.)
-    val passThrough = VideoGlass.clear.value && VideoFrames.showing.value
+    // (Also over the song player's artwork: the home page there is a picture drawn over the video, ignoreVideo, and
+    // the glass went back to bending it on the Music icon only, then see-through again on the next app: his video.
+    // Only that page (sharpIsPage): the windows with a fixed picture of their own (pop-ups over Settings, the pick
+    // lists' copy of the screen, What's new, the inputs picker) stay frosted, the video never shows through them.)
+    val ownPicture by remember(ref) { androidx.compose.runtime.derivedStateOf { ref.value.ignoreVideo && !ref.value.sharpIsPage } }
+    val passThrough = VideoGlass.clear.value && VideoFrames.showing.value && !ownPicture
     val pos = remember { mutableStateOf(Offset.Zero) }
     var sz by remember { mutableStateOf(IntSize.Zero) }
     val refractor = remember { Refractor() }

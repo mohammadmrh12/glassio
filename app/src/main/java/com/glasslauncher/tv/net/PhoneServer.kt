@@ -434,7 +434,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
     private fun prefValue(k: String): String { val st = app.settings; return when (k) {
         "theme" -> st.theme; "glassColor" -> st.glassColor; "lang" -> st.lang; "showClock" -> st.showClock.toString()
         "menuPhone" -> st.menuPhone.toString(); "heroAutoplay" -> st.heroAutoplay.toString(); "saverMode" -> st.saverMode
-        "idleSeconds" -> st.idleSeconds.toString(); "saverInHome" -> st.saverInHome.toString(); "saverShuffle" -> st.saverShuffle.toString()
+        "idleSeconds" -> st.idleSeconds.toString(); "saverInHome" -> (st.saverInHome && st.saverMode != "system").toString(); "saverShuffle" -> st.saverShuffle.toString()
         "bgClock" -> st.bgClock.toString(); "searchPhoneQr" -> st.searchPhoneQr.toString(); "updateChannel" -> st.updateChannel
         "multiLayout" -> st.multiLayout; "cameraMenuFull" -> st.cameraMenuFull.toString(); "cameraSoundFollows" -> st.cameraSoundFollows.toString()
         "perfMode" -> st.perfMode

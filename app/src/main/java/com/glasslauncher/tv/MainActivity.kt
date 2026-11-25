@@ -29,6 +29,10 @@ class MainActivity : ComponentActivity() {
     val screenName get() = screen.name
     private var resumed by mutableStateOf(false)
     @Volatile private var lastInput = System.currentTimeMillis()
+    /** The last real key or touch: not counted again while the screensaver shows (for the TV's own sleep time). */
+    @Volatile private var userAt = System.currentTimeMillis()
+    /** One player stopped keeping the screen on: the TV's sleep time came (see the idle loop). */
+    private val sleepLetGo = androidx.compose.runtime.mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,15 +57,36 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 while (true) {
                     delay(2_000)
-                    val secs = app.settings.idleSeconds
+                    val secs = homeIdleSeconds()
                     // A trailer playing counts as watching: the screensaver waits until it ends (and the full idle
                     // time after that).
                     if (com.glasslauncher.tv.ui.Trailers.playing.value != null) lastInput = System.currentTimeMillis()
+                    // (Keys in Glassio's pop-up windows reach their own window, not this one: they count through
+                    // GlassApp.touch. Without them the screensaver started under a pop-up in use, his video.)
+                    val tapped = app.interaction.longValue
+                    if (tapped > userAt) {
+                        userAt = tapped; if (tapped > lastInput) lastInput = tapped
+                        if (sleepLetGo.value) { sleepLetGo.value = false; com.glasslauncher.tv.ui.CustomBackground.resting.value = false }
+                    }
                     val idle = System.currentTimeMillis() - lastInput
                     if (com.glasslauncher.tv.saver.HomeSaver.state.value != 0) lastInput = System.currentTimeMillis()
-                    if (secs > 0 && idle > secs * 1000L && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !systemSaverFirst(secs)) {
+                    if (secs > 0 && idle > secs * 1000L && !sleepLetGo.value && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !systemSaverFirst(secs)) {
                         lastInput = System.currentTimeMillis()
                         com.glasslauncher.tv.saver.HomeSaver.begin(this@MainActivity)
+                    }
+                    // One player keeps the screen on, so the TV never slept under it (measured: 5.6 min with a 4 min
+                    // sleep time). At the TV's own sleep time, counted from the last real key, it lets go of the screen
+                    // and the TV goes on as it would without Glassio.
+                    // (The home screen's video stands still too: playing, it kept the TV from its screensaver and its
+                    // sleep, also before One player existed. Then the TV goes on as it would: its screensaver, its sleep.)
+                    if (!sleepLetGo.value && resumed) {
+                        val sleep = tvSleepMs()
+                        if (sleep > 0 && System.currentTimeMillis() - userAt > sleep) {
+                            sleepLetGo.value = true
+                            com.glasslauncher.tv.ui.CustomBackground.resting.value = true
+                            com.glasslauncher.tv.saver.HomeSaver.exit()
+                            com.glasslauncher.tv.data.Glog.i("The TV's sleep time came: the screensaver and the background video stop, the TV may sleep")
+                        }
                     }
                 }
             }
@@ -99,7 +124,7 @@ class MainActivity : ComponentActivity() {
                     // The screensaver on the home screen (*On the home screen*): over it, under the profile chooser.
                     if (!setup) com.glasslauncher.tv.saver.HomeSaverLayer(app)
                     // Kept awake while it shows, as its own screen keeps the TV awake.
-                    val saverOn = com.glasslauncher.tv.saver.HomeSaver.state.value != 0
+                    val saverOn = com.glasslauncher.tv.saver.HomeSaver.state.value != 0 && !sleepLetGo.value
                     androidx.compose.runtime.LaunchedEffect(saverOn) {
                         if (saverOn) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -147,6 +172,34 @@ class MainActivity : ComponentActivity() {
      * earlier: leave it to the TV. Starting Glassio's as well put one on top of the other, and Back then had
      * to be pressed twice (issue #9). With Type "TV screensaver" Glassio only asks the TV to start its own.
      */
+    /**
+     * The idle time before the screensaver on the home screen. With One player and Glassio as the TV's screensaver, One
+     * player comes a little before the TV's own time even when *Start after* is off or longer: the TV's would start on
+     * the home screen as a separate screen with its own player (not the background's video, no quick way back), and in
+     * other apps the TV's still does (EB's #40).
+     */
+    private fun homeIdleSeconds(): Int {
+        val st = (application as GlassApp).settings
+        val secs = st.idleSeconds
+        if (!com.glasslauncher.tv.saver.HomeSaver.wanted(st)) return secs
+        val cr = contentResolver
+        val on = runCatching { android.provider.Settings.Secure.getInt(cr, "screensaver_enabled", 1) == 1 }.getOrDefault(false)
+        val comp = runCatching { android.provider.Settings.Secure.getString(cr, "screensaver_components") }.getOrNull().orEmpty()
+        if (!on || !comp.startsWith(packageName)) return secs
+        val tv = runCatching { android.provider.Settings.System.getInt(cr, "screen_off_timeout") }.getOrDefault(0)
+        if (tv <= 0) return secs
+        val before = ((tv - 8_000) / 1000).coerceAtLeast(10)
+        return if (secs <= 0) before else minOf(secs, before)
+    }
+
+    /** The TV's own sleep time (Settings → Energy), 0 when it never sleeps or it can't be read. */
+    private fun tvSleepMs(): Long {
+        val cr = contentResolver
+        val sleep = runCatching { android.provider.Settings.Secure.getLong(cr, "sleep_timeout") }.getOrDefault(-1L)
+        val attentive = runCatching { android.provider.Settings.Secure.getLong(cr, "attentive_timeout") }.getOrDefault(-1L)
+        return listOf(sleep, attentive).filter { it > 0 }.minOrNull() ?: 0L
+    }
+
     private fun systemSaverFirst(secs: Int): Boolean {
         val app = application as GlassApp
         if (app.settings.saverMode == "system") return false
@@ -184,7 +237,7 @@ class MainActivity : ComponentActivity() {
         underSeeThrough.value = false
         // Pictures that failed while Glassio was up are asked again now (the network may be back meanwhile).
         com.glasslauncher.tv.data.NetState.retryIfFailed("back on the home screen")
-        lastInput = System.currentTimeMillis()
+        lastInput = System.currentTimeMillis(); userAt = lastInput; sleepLetGo.value = false; com.glasslauncher.tv.ui.CustomBackground.resting.value = false
         hideBars()
         (application as GlassApp).cw.pollNow()
         com.glasslauncher.tv.data.PeerSync.resumed()
@@ -214,7 +267,8 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         resumed = false
         // (Still started a moment later: something see-through is in front, see underSeeThrough.)
-        window.decorView.postDelayed(seeThroughCheck, 250)
+        // (700 ms: an ordinary page that is slow to draw stops Glassio by then; Settings went dark for a moment first.)
+        window.decorView.postDelayed(seeThroughCheck, 700)
         KeyHub.homeInFront = false
     }
 
@@ -247,7 +301,7 @@ class MainActivity : ComponentActivity() {
             screen = Screen.Home
             (application as GlassApp).homeRev.intValue++
         }
-        lastInput = System.currentTimeMillis()
+        lastInput = System.currentTimeMillis(); userAt = lastInput; sleepLetGo.value = false; com.glasslauncher.tv.ui.CustomBackground.resting.value = false
     }
 
     override fun dispatchGenericMotionEvent(ev: android.view.MotionEvent): Boolean {
@@ -262,6 +316,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserInteraction() {
         lastInput = System.currentTimeMillis()
+        userAt = lastInput; sleepLetGo.value = false; com.glasslauncher.tv.ui.CustomBackground.resting.value = false
         (application as GlassApp).touch()
     }
 
