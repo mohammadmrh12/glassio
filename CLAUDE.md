@@ -63,7 +63,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.5.0 (code 81, stable, 2026-11-25)**, public `2f851e8`, sha256 `be56af3f…a9a440`; 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.6.0 (code 83, stable, 2026-11-25)**, public `8b2c496`, sha256 `89de4238…afdbdb`; 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -2278,6 +2278,49 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   **TizenTube is no music app** (his ask): out of `NowPlaying.YOUTUBE_CLIENTS`, into `VIDEO_APPS`. Seen: its sound
   stops when it leaves the screen (no session, no audio player running once Glassio is in front), and after a video
   its icon shows its rows, not its idle player ("TizenTube · Nothing playing" stood there before).
+- **4.5.1 (code 82) and 4.6.0 (code 83) released as stable (2026-11-25):** 4.5.1 = Settings rows keyed by title, the
+  remote's new jobs, the reports' rows settings (public `9fe45a7`, sha256 `e960e8d2…015efbcc`). 4.6.0 = rows from another
+  app, TizenTube with SmartTube's rows, the held-arrow and menu fixes, TizenTube a video app (public `8b2c496`, tree of
+  local `beta` at `8b19fb6`, sha256 `89de4238…afdbdb`; assets downloaded and compared, also `releases/latest`; the
+  Streamer's file). No `NEW_IN` entries (no new Settings rows), tour unchanged (`WhatsNew.ID` 71). Play: 82, then 83
+  sent to Alpha's review (81 was still in review; the Console showed 12 testers opted in, the 14 days still to run);
+  bundles in the Desktop folder. #30 told (TubeRows no longer needed). Code 84+ next.
+- **See-through TV pages over Settings (2026-11-25, his video; local):** the TV's *Default home app* page
+  (`permissioncontroller`, opened by *Choose default home app*) is see-through, and Settings' rows showed through and
+  mixed with its own. MainActivity: paused but still started 250 ms later = a see-through window in front
+  (`underSeeThrough`); Settings and the setup then show a plain dark cover until onResume / onStop (the home screen
+  doesn't: the TV's side panels are made to sit beside an app). Seen on the Streamer: the page on dark, Back to the row.
+  **#43 (Homatics Box R 4K Plus, his Telegram friend):** the Netflix button never reached Glassio while learning (only
+  Back 4 and Home 3 in the log); Nuvio TV Launcher (Br0ck25/TV-Launcher, GPL) reads buttons the same way (accessibility
+  key filter, key codes incl. VIDEO_APP 289-296 / FEATURED_APP 297-300 / DEMO_APP 301-304) and could map it; Glassio was
+  already his default home. Not solved; the button's code is wanted (Nuvio Launcher's capture dialog shows it).
+  Launcher Manager (Fire TV tool, no official source, not installed) catches Home by reading logcat over ADB.
+- **#44 (EB's report, 4.6.0): Nuvio One's rows go ~10 s after the start** (and #30's video). The new log line showed
+  it: `Rows of app.onetube.tv not shown: 4 to show, … catalogs true (catalogs)`: Nuvio One is set to *Its catalogs in
+  the carousel* (its Catalogs list's first row, cycled with OK, easy to change by mistake) with *Catalogs for apps* on;
+  until the apps' catalogs had loaded that choice fell back to its rows, then the catalogs took their place. Now a
+  chosen *catalogs* waits on the general carousel until they're loaded (`CatalogRepository.appItemsLoaded`, set before
+  the list); the log line adds the choice; reports carry `appStage` and `channelsFrom`. On the Streamer the catalogs
+  load in 1.3 s, so the waiting itself was not seen; SmartTube set to catalogs with none linked kept its rows. Not
+  replied (his ask).
+  Then (his "he wants the rows"): with its catalogs chosen in its place, an app's menu says *Show its rows* (it said
+  *Hide its rows* and did nothing useful) and it sets that choice back to automatic (rows first); the same in Settings →
+  Apps with channels ("Its catalogs show instead (OK → Show)"). Seen on Netflix (rows on, catalogs chosen: the
+  carousel; Show its rows → its Continue watching row, `appStage` empty); his Netflix setup put back after.
+- **#47 (official Nuvio from Google Play "not installed"):** its Play build is the same app's `playstore` flavor under
+  `com.nuvio.app` (NuvioMedia/NuvioTV `app/build.gradle.kts`); Glassio only knew `com.nuvio.tv`. `NuvioLaunch.pkgOf` /
+  `has`: the official target uses whichever build is here; both in `<queries>`, the dock's preferred apps and the video
+  apps. Seen: Nuvio 1.1.0 from Play installed on the Streamer (removed after), *Open titles in* → Nuvio (official), Play
+  on a slide opened `com.nuvio.app` with `nuvio://meta` (its sign-in page first). Not replied.
+  #46 (EB, Play build stuck: his video shows the TV's own home and Glassio's dock taking turns, not a freeze) and #40's
+  new comment (screensaver as the TV's app restarts the list, not in step with the background) looked at, not fixed.
+- **Button probe for #43 / #45 (SER's Netflix button, 2026-11-25, local):** `data/KeyProbe.kt`, started by the
+  learning window (`KeyCaptureDialog`): with TV access already working, 20 s of the TV's raw input (`getevent -lt`, key
+  and scan lines) and the system log's key lines, plus the input devices (`getevent -p`; `/proc/bus/input/devices` is
+  denied to the shell on Android 14), all into Glassio's log (`Button probe …`), so a report right after shows them.
+  Nothing changed on the TV; no TV access: one line saying so. Seen on the Streamer: F12 from a `hid` keyboard showed
+  `KEY_F12 DOWN/UP` with `MSC_SCAN 00070045`. (A `hid` report's key must be ≤ 101 for that descriptor: F13 = 104 is
+  dropped silently.) Next: SER sends a report after pressing Netflix in the learning window.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

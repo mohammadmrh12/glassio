@@ -272,6 +272,8 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
 
     /** Each app's titles from the catalogs linked to it (see AppCatalogs), loaded ahead so the carousel has them at once. */
     val appItems = MutableStateFlow<Map<String, List<HeroItem>>>(emptyMap())
+    /** The apps' catalogs were asked for at least once since Glassio started (empty or not). */
+    val appItemsLoaded = MutableStateFlow(false)
 
     /** Loads [links] (app → its catalogs). An app whose catalogs didn't answer keeps the titles it had. */
     suspend fun loadApps(links: Map<String, List<String>>) = withContext(Dispatchers.IO) {
@@ -286,6 +288,8 @@ class CatalogRepository(private val ctx: Context, private val settings: Settings
             }.awaitAll()
         }
         val before = appItems.value
+        // (Set before the list: the home screen reads both when the list changes.)
+        appItemsLoaded.value = true
         appItems.value = links.mapValues { (pkg, keys) ->
             // One from each catalog in turn (films and series mixed), each title once.
             val its = keys.mapNotNull { fetched[it] }.map { it.iterator() }

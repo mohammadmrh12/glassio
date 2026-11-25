@@ -106,6 +106,11 @@ class MainActivity : ComponentActivity() {
                     }
                     // "Who is watching?" over everything (the home screen, Settings, the setup).
                     com.glasslauncher.tv.ui.ProfileChooserHost(app)
+                    // A see-through TV page in front (Default home app, …): Settings and the setup go dark behind
+                    // it, their rows showed through and mixed with its own (his video). The home screen stays: the
+                    // TV's side panels are made to sit beside an app.
+                    if (underSeeThrough.value && (setup || screen == Screen.Settings))
+                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0E0E12)))
                     // Back from the screensaver: out of black (it closes faded to black, so nothing snaps).
                     if (com.glasslauncher.tv.ui.SaverGate.cover.floatValue > 0f) {
                         // Runs once the home screen draws again (a stopped activity doesn't compose).
@@ -167,8 +172,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** True while another app's window is in front and Glassio is still visible under it (paused, not stopped). */
+    private val underSeeThrough = androidx.compose.runtime.mutableStateOf(false)
+    private val seeThroughCheck = Runnable {
+        if (!resumed && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) underSeeThrough.value = true
+    }
+
     override fun onResume() {
         super.onResume()
+        window.decorView.removeCallbacks(seeThroughCheck)
+        underSeeThrough.value = false
         // Pictures that failed while Glassio was up are asked again now (the network may be back meanwhile).
         com.glasslauncher.tv.data.NetState.retryIfFailed("back on the home screen")
         lastInput = System.currentTimeMillis()
@@ -189,6 +202,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        window.decorView.removeCallbacks(seeThroughCheck)
+        underSeeThrough.value = false
         MultiHost.windowGone()
         // Another app or the TV's own screensaver in front: the screensaver on the home screen ends (as its own
         // screen does).
@@ -198,6 +213,8 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         resumed = false
+        // (Still started a moment later: something see-through is in front, see underSeeThrough.)
+        window.decorView.postDelayed(seeThroughCheck, 250)
         KeyHub.homeInFront = false
     }
 

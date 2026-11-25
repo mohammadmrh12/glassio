@@ -1060,7 +1060,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         // Catalogs of this app (see AppCatalogs): its rows, its catalogs in the carousel, or nothing.
                         val AC = com.glasslauncher.tv.data.AppCatalogs
                         val hasCats = settings.appCatalogsOn && !musicIcon && !musicApp && !inputsIcon && !searchIcon && !app.catalogs.appItems.value[dockPkg].isNullOrEmpty()
-                        val stand = if (settings.appCatalogsOn) AC.effective(AC.stage(settings, dockPkg), hasRows, hasCats) else if (hasRows) AC.ROWS else AC.NONE
+                        // (Its catalogs chosen but not loaded yet, in the first seconds after a start: the general carousel
+                        // until they are, not its rows. The rows showed for ~10 s, then went for good: "its rows go away
+                        // after the start", #44, #30.)
+                        val waitCats = settings.appCatalogsOn && AC.stage(settings, dockPkg) == AC.CATALOGS && !app.catalogs.appItemsLoaded.value
+                        val stand = if (waitCats) AC.NONE else if (settings.appCatalogsOn) AC.effective(AC.stage(settings, dockPkg), hasRows, hasCats) else if (hasRows) AC.ROWS else AC.NONE
                         val rows = hasRows && stand == AC.ROWS
                         val cats = hasCats && stand == AC.CATALOGS
                         // (To the search, and away from it to whatever is next to it: at once, both ways. The longer rest is for
@@ -1088,7 +1092,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         MusicUi.carouselApp.value = com.glasslauncher.tv.data.Channels.keepsCarousel(dockPkg) && !rows
                         // (An app that has rows but doesn't show them: why, for a problem report.)
                         if (!rows && settings.channelsOn && com.glasslauncher.tv.data.Channels.allFor(settings, dockPkg).isNotEmpty())
-                            com.glasslauncher.tv.data.Glog.i("Rows of $dockPkg not shown: ${com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).size} to show, music app $musicApp, catalogs $hasCats ($stand), off ${dockPkg in settings.channelsOffApps}")
+                            com.glasslauncher.tv.data.Glog.i("Rows of $dockPkg not shown: ${com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).size} to show, music app $musicApp, catalogs $hasCats ($stand, chosen ${AC.stage(settings, dockPkg).ifBlank { "auto" }}${if (waitCats) ", loading" else ""}), off ${dockPkg in settings.channelsOffApps}")
                         // Another app's rows: their background starts from their first card (the card selected on an
                         // earlier visit showed its blur for a moment first).
                         if (rows && ChannelsUi.stagePkg.value != dockPkg) ChannelsUi.art.value =
@@ -1393,9 +1397,15 @@ private fun appMenu(
     // Its rows in the carousel's place (Settings → Channels): hidden or shown again from here too.
     val st = app.settings
     if (st.channelsOn && com.glasslauncher.tv.data.Channels.allFor(st, e.pkg).isNotEmpty()) {
-        val off = e.pkg in st.channelsOffApps
+        // (Its catalogs chosen to stand in its place (Catalogs → In the carousel's place, easily changed by mistake):
+        // its rows don't show either, and "Show its rows" brings them back by setting that choice to automatic,
+        // which prefers rows. It only switched rows off and on, and nothing changed: #44.)
+        val AC = com.glasslauncher.tv.data.AppCatalogs
+        val catsInstead = st.appCatalogsOn && AC.stage(st, e.pkg) == AC.CATALOGS
+        val off = e.pkg in st.channelsOffApps || catsInstead
         opts += (if (off) "Show its rows" else "Hide its rows") to {
-            st.channelsOffApps = if (off) st.channelsOffApps - e.pkg else st.channelsOffApps + e.pkg
+            if (off) { st.channelsOffApps = st.channelsOffApps - e.pkg; if (catsInstead) AC.setStage(st, e.pkg, "") }
+            else st.channelsOffApps = st.channelsOffApps + e.pkg
             toast(ctx, if (off) "${e.label}: its rows show again" else "${e.label}: the carousel stays in place of its rows")
         }
     }

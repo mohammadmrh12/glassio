@@ -2,6 +2,18 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.6.1 — fixes
+
+- **Nuvio from Google Play** (`com.nuvio.app`) is recognised like the GitHub build: titles open in it and *Open titles
+  in → Nuvio (official)* finds it (#47).
+- **An app's rows no longer disappear a few seconds after start** when its catalogs were chosen in their place: the
+  carousel waits for the catalogs instead of showing the rows first (#44). *Show its rows* (the app's menu in the dock,
+  or Settings → Music & app rows → Apps with channels) brings the rows back in that case.
+- **Remote buttons:** while a button is learnt, Glassio writes what the TV itself sees from the remote (through TV
+  access) to its log, so a problem report sent right after shows what a button that never arrives sends (#45).
+- The TV's see-through pages (*Default home app*) no longer show Glassio's settings through them.
+- Problem reports include what stands in each app's place and whose rows it shows.
+
 ## 4.6.0 — TizenTube's rows, and rows from another app
 
 - **TizenTube shows rows:** TizenTube Cobalt publishes none, so its icon now shows SmartTube's rows (Subscriptions,

@@ -282,6 +282,9 @@ private fun KeyCaptureView(d: KeyCaptureDialog, onDismiss: () -> Unit) {
     }
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(400); armed = true; runCatching { fr.requestFocus() } }
     // Buttons the system keeps from apps (YouTube, Netflix, the star…) are caught by the Home button service.
+    // (And what the TV itself sees of the remote meanwhile, in the log: for a button that never arrives here, #45.)
+    val probeCtx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) { com.glasslauncher.tv.data.KeyProbe.start(probeCtx) }
     androidx.compose.runtime.DisposableEffect(Unit) {
         com.glasslauncher.tv.KeyHub.capture = { code -> onDismiss(); d.onKey(code) }
         onDispose { com.glasslauncher.tv.KeyHub.capture = null }

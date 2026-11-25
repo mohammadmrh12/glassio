@@ -504,8 +504,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     val n = NuvioLaunch.NAMES[st.nuvioTarget] ?: "Auto"
                     val r = NuvioLaunch.resolve(ctx, st)
                     when {
-                        st.nuvioTarget == "auto" -> "Auto · " + (if (NuvioLaunch.TARGETS.values.any { NuvioLaunch.installed(ctx, it) }) NuvioLaunch.NAMES[r] else "none installed")
-                        !NuvioLaunch.installed(ctx, NuvioLaunch.TARGETS.getValue(r)) -> "$n (not installed)"
+                        st.nuvioTarget == "auto" -> "Auto · " + (if (NuvioLaunch.TARGETS.keys.any { NuvioLaunch.has(ctx, it) }) NuvioLaunch.NAMES[r] else "none installed")
+                        !NuvioLaunch.has(ctx, r) -> "$n (not installed)"
                         else -> n
                     }
                 }, { st.nuvioTarget = cycle(listOf("auto") + NuvioLaunch.TARGETS.keys, st.nuvioTarget, it) }))
@@ -1702,17 +1702,21 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                 if (access && apps.isEmpty()) add(Note("No app on this TV has published channels yet. Open YouTube, Netflix… once and come back."))
                                 apps.forEach { pkg ->
                                     val rows = ch.allFor(st, pkg)
-                                    val off = pkg in st.channelsOffApps
+                                    // (Its catalogs chosen in its place: its rows don't show; see the dock menu's "Show its rows".)
+                                    val catsInstead = st.appCatalogsOn && com.glasslauncher.tv.data.AppCatalogs.stage(st, pkg) == com.glasslauncher.tv.data.AppCatalogs.CATALOGS && rows.isNotEmpty()
+                                    val off = pkg in st.channelsOffApps || catsInstead
                                     val locked = pkg in st.lockedApps
                                     val src = ch.sourceOf(st, pkg)
                                     // (Another app's rows: whose, before their names.)
                                     val from = if (src != pkg) "From ${label(src)} · " else ""
                                     val shown = rows.count { ch.hideKey(pkg, it) !in st.channelsHidden }
-                                    add(Act(label(pkg), if (locked) "Locked app: its channels don't show" else if (off) "Off" else if (rows.isEmpty()) "No rows of its own · OK → Rows from" else from + rows.filter { ch.hideKey(pkg, it) !in st.channelsHidden }.joinToString(" · ") { it.name }.ifBlank { "Every row is hidden" },
+                                    add(Act(label(pkg), if (locked) "Locked app: its channels don't show" else if (catsInstead) "Its catalogs show instead (OK → Show)" else if (off) "Off" else if (rows.isEmpty()) "No rows of its own · OK → Rows from" else from + rows.filter { ch.hideKey(pkg, it) !in st.channelsHidden }.joinToString(" · ") { it.name }.ifBlank { "Every row is hidden" },
                                         if (off || locked) "Off" else "On · $shown", ok = if (off || locked) null else true) {
                                         dialog = MenuDialog(label(pkg), buildList {
                                             add((if (off) "Show this app's channels" else "Don't show this app's channels") to {
-                                                st.channelsOffApps = if (off) st.channelsOffApps - pkg else st.channelsOffApps + pkg; tvRev.intValue++
+                                                if (off) { st.channelsOffApps = st.channelsOffApps - pkg; if (catsInstead) com.glasslauncher.tv.data.AppCatalogs.setStage(st, pkg, "") }
+                                                else st.channelsOffApps = st.channelsOffApps + pkg
+                                                tvRev.intValue++
                                             })
                                             rows.forEach { r ->
                                                 val k = ch.hideKey(pkg, r)

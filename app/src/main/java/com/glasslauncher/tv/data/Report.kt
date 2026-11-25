@@ -68,7 +68,9 @@ object Report {
         "pageScale", "prefetchDepth", "refraction", "libraryColumns", "libraryPlatforms", "playInApp", "continueMode", "updateChannel",
         "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "photoSource",
         // (An app's rows and the pages around them, #30.)
-        "channelsOn", "channelsLayout", "channelsBg", "channelsLow", "appCatalogsOn", "musicOn", "musicMode", "stagePageBg", "videoGlass", "musicPageBg")
+        "channelsOn", "channelsLayout", "channelsBg", "channelsLow", "appCatalogsOn", "musicOn", "musicMode", "stagePageBg", "videoGlass", "musicPageBg",
+        // (What stands in each app's place, and whose rows an app shows: package names only.)
+        "appStage", "channelsFrom")
 
     /** The exception's kind and the first of Glassio's own lines in it: the same crash again gives the same text. */
     fun crashKey(crash: String): String {

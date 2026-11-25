@@ -33,7 +33,7 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
     val apps: StateFlow<List<AppEntry>> = _apps
 
     private val preferred = listOf(
-        "space.nuvio.nativelegacy", "com.nuvio.tv", "com.nuvio.tv.test", "com.nuvioreshaped.tv", "com.apple.atve.androidtv.appletv",
+        "space.nuvio.nativelegacy", "com.nuvio.tv", "com.nuvio.app", "com.nuvio.tv.test", "com.nuvioreshaped.tv", "com.apple.atve.androidtv.appletv",
         "com.google.android.youtube.tv", "com.google.android.apps.youtube.unplugged",
         "com.netflix.ninja", "com.disney.disneyplus", "com.amazon.amazonvideo.livingroom",
         "com.google.android.videos", "com.android.vending",

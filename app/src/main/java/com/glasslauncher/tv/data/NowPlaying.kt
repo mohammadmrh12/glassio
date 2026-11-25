@@ -58,7 +58,7 @@ object NowPlaying {
         "com.google.android.apps.podcasts" to "Podcasts", "au.com.shiftyjelly.pocketcasts" to "Pocket Casts", "com.audible.application" to "Audible",
     )
     private val VIDEO_APPS = setOf(
-        "space.nuvio.nativelegacy", "com.nuvio.tv", "com.nuvio.tv.test", "com.nuvioreshaped.tv", "com.stremio.one", "com.netflix.ninja",
+        "space.nuvio.nativelegacy", "com.nuvio.tv", "com.nuvio.app", "com.nuvio.tv.test", "com.nuvioreshaped.tv", "com.stremio.one", "com.netflix.ninja",
         "com.apple.atve.androidtv.appletv", "com.amazon.amazonvideo.livingroom", "com.disney.disneyplus",
         "org.videolan.vlc", "org.xbmc.kodi", "net.mbc.shahidTV", "com.glasslauncher.tv", "com.glasslauncher.tv.play",
         // TizenTube Cobalt: no playing on in the background (its sound stops when it leaves the screen), so it is no music

@@ -13,6 +13,9 @@ import org.json.JSONObject
 object NuvioLaunch {
     const val LEGACY_PKG = "space.nuvio.nativelegacy"
     const val OFFICIAL_PKG = "com.nuvio.tv"
+    /** The official app from Google Play: the same app built as its "playstore" flavor (no plugins, no in-app
+     *  updates), under its own package (#47: Glassio said Nuvio wasn't installed). */
+    const val OFFICIAL_PLAY_PKG = "com.nuvio.app"
     const val ARC_PKG = "com.nuvio.tv.test"
     const val RESHAPED_PKG = "com.nuvioreshaped.tv"
     /** Nuvio One (zoga2o3-ops/Nuvio-One): a fork of Nuvio TV with its own package; it reads the same nuvio:// links. */
@@ -32,23 +35,31 @@ object NuvioLaunch {
 
     fun installed(ctx: Context, pkg: String) = runCatching { ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess
 
+    /** A target's package on this TV: for the official app, its GitHub or its Google Play build, whichever is here. */
+    fun pkgOf(ctx: Context, target: String): String {
+        val p = TARGETS.getValue(target)
+        return if (p == OFFICIAL_PKG && !installed(ctx, p) && installed(ctx, OFFICIAL_PLAY_PKG)) OFFICIAL_PLAY_PKG else p
+    }
+    /** Is this target's app here (any build of it)? */
+    fun has(ctx: Context, target: String) = installed(ctx, pkgOf(ctx, target))
+
     /** The target actually used: the chosen one, or for "auto" the first installed (Legacy if none). */
     fun resolve(ctx: Context, s: Settings): String {
         val t = s.nuvioTarget
         if (t in TARGETS) return t
-        return TARGETS.entries.firstOrNull { installed(ctx, it.value) }?.key ?: "legacy"
+        return TARGETS.keys.firstOrNull { has(ctx, it) } ?: "legacy"
     }
 
-    fun packageName(ctx: Context, s: Settings) = TARGETS.getValue(resolve(ctx, s))
+    fun packageName(ctx: Context, s: Settings) = pkgOf(ctx, resolve(ctx, s))
 
-    fun intent(ctx: Context, s: Settings, type: String, id: String): Intent = intentFor(resolve(ctx, s), type, id)
+    fun intent(ctx: Context, s: Settings, type: String, id: String): Intent = intentFor(ctx, resolve(ctx, s), type, id)
 
     /** The installed apps a title can be opened in (Nuvio's versions and Stremio), as target → name. */
     fun installedTargets(ctx: Context): List<Pair<String, String>> =
-        TARGETS.entries.filter { installed(ctx, it.value) }.map { it.key to NAMES.getValue(it.key) }
+        TARGETS.keys.filter { has(ctx, it) }.map { it to NAMES.getValue(it) }
 
     /** Opens the title in one particular app ([target] as in [TARGETS]). */
-    fun openIn(ctx: Context, target: String, item: HeroItem): Boolean = runCatching { ctx.startActivity(intentFor(target, item.type, item.id)) }
+    fun openIn(ctx: Context, target: String, item: HeroItem): Boolean = runCatching { ctx.startActivity(intentFor(ctx, target, item.type, item.id)) }
         .onFailure { Glog.w("Open in $target", it); Toast.makeText(ctx, "${NAMES[target]} can't open this title", Toast.LENGTH_LONG).show() }.isSuccess
 
     /**
@@ -63,7 +74,7 @@ object NuvioLaunch {
         val made = runCatching {
         val t = if (item.type.equals("movie", true)) "movie" else "series"
         val id = item.id.trim()
-        val pkg = TARGETS.getValue(target)
+        val pkg = pkgOf(ctx, target)
         val i = when {
             target == "legacy" -> { NuvioWatch.opened(t, id)
                 Intent(Intent.ACTION_VIEW, Uri.Builder().scheme("nuvio-legacy").authority("play").appendPath(t).appendPath(id).build()).setPackage(pkg) }
@@ -109,7 +120,7 @@ object NuvioLaunch {
         ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }.isSuccess
 
-    private fun intentFor(target: String, type: String, id: String): Intent {
+    private fun intentFor(ctx: Context, target: String, type: String, id: String): Intent {
         if (target == "legacy") NuvioWatch.opened(type, id.trim())
         // No CLEAR_TASK: a running Nuvio is brought forward and opens the title at once, without
         // restarting (no splash). If Nuvio is not running it starts normally.
@@ -117,7 +128,7 @@ object NuvioLaunch {
         // the front on its home page), so its task starts again and the title's page opens (still quick: warm start).
         val flags = if (target == "stremio") Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             else Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        val pkg = TARGETS.getValue(target)
+        val pkg = pkgOf(ctx, target)
         val t = if (type.equals("movie", true)) "movie" else "series"
         val uri = if (target == "stremio") {
             // Stremio's own link: stremio:///detail/movie/tt0111161 (its page for the title, with your add-ons' streams).
@@ -139,7 +150,7 @@ object NuvioLaunch {
     fun sourceTarget(ctx: Context, source: String?): String? = when (source) {
         "Nuvio Legacy" -> "legacy".takeIf { installed(ctx, LEGACY_PKG) }
         // The Nuvio account: the official app or a fork that syncs with it, then Legacy.
-        "Nuvio" -> listOf("official", "arc", "reshaped", "one", "iptv", "legacy").firstOrNull { installed(ctx, TARGETS.getValue(it)) }
+        "Nuvio" -> listOf("official", "arc", "reshaped", "one", "iptv", "legacy").firstOrNull { has(ctx, it) }
         "Stremio" -> "stremio".takeIf { installed(ctx, STREMIO_PKG) }
         else -> null  // Trakt, Simkl: no app of their own
     }
@@ -178,7 +189,7 @@ object NuvioLaunch {
 
     private fun openUsual(ctx: Context, s: Settings, http: Http, item: HeroItem, own: String?) {
         try {
-            ctx.startActivity(if (own != null) intentFor(own, item.type, item.id) else intent(ctx, s, item.type, item.id))
+            ctx.startActivity(if (own != null) intentFor(ctx, own, item.type, item.id) else intent(ctx, s, item.type, item.id))
         } catch (e: Exception) {
             Glog.w("Open ${item.type} ${item.id} in ${packageName(ctx, s)}", e)
             Toast.makeText(ctx, "${NAMES[resolve(ctx, s)]} is not installed or can't open this title", Toast.LENGTH_LONG).show()
