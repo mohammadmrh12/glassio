@@ -121,10 +121,56 @@ object Channels {
     /** The apps that have rows (their packages). */
     fun apps(): List<String> = all.value.map { it.pkg }.distinct()
 
+    const val TIZENTUBE = "io.gh.reisxd.tizentube.cobalt"
+    /** SmartTube under every package name it has shipped as (the same list TubeRows uses). */
+    val SMARTTUBE = listOf("org.smarttube.stable", "org.smarttube.beta", "app.smarttube.fdroid", "app.smarttube",
+        "com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "com.liskovsoft.smarttubetv")
+
+    /**
+     * Apps whose rows come from another app by default, in order of preference. TizenTube Cobalt publishes none (#30):
+     * it shows TubeRows' (`tv.tuberows.app`, SmartTube's rows re-published for TizenTube) when that is installed, else
+     * SmartTube's own, each card then opening in TizenTube (see [open]). Used only while the app has no rows of its
+     * own, and never over a choice made in its menu (*Rows from…*).
+     */
+    private val BORROW = mapOf(TIZENTUBE to listOf("tv.tuberows.app") + SMARTTUBE)
+
+    /** Whose rows [pkg] shows: its own, the app chosen in its menu (*Rows from…*), or the one it borrows by default. */
+    fun sourceOf(st: Settings, pkg: String): String {
+        st.channelsFrom.firstOrNull { it.startsWith("$pkg=") }?.substringAfter('=')?.takeIf { it.isNotBlank() }?.let { return it }
+        val l = all.value
+        BORROW[pkg]?.let { srcs -> if (l.none { it.pkg == pkg }) srcs.firstOrNull { s -> l.any { it.pkg == s } }?.let { return it } }
+        return pkg
+    }
+
+    /**
+     * The apps with rows for Settings: those that publish some, then those that show another app's (TizenTube with
+     * SmartTube's, or one chosen in a menu) when [installed].
+     */
+    fun settingsApps(st: Settings, installed: (String) -> Boolean): List<String> {
+        val own = apps()
+        val l = all.value
+        // (An app chosen in a menu stays listed after "Its own rows" is chosen again: it went from the list with nothing
+        // left to choose it back with; one that can borrow rows stays while any of them is there.)
+        val chosen = st.channelsFrom.map { it.substringBefore('=') }
+        val canBorrow = BORROW.filter { (_, srcs) -> srcs.any { s -> l.any { it.pkg == s } } }.keys
+        val others = (chosen + canBorrow).distinct().filter { it !in own && installed(it) }
+        return own + others
+    }
+
+    /** The key that hides row [ch] on [pkg]: its own key for its own rows; for another app's rows one of [pkg]'s (hiding
+     *  SmartTube's History on TizenTube leaves it on SmartTube). */
+    fun hideKey(pkg: String, ch: Channel) = if (ch.pkg == pkg) ch.key else "$pkg>${ch.key}"
+
+    /** Sets whose rows [pkg] shows ([src] == [pkg]: its own). */
+    fun setSource(st: Settings, pkg: String, src: String) {
+        st.channelsFrom = st.channelsFrom.filterNot { it.startsWith("$pkg=") } + "$pkg=$src"
+    }
+
     /** Every row of [pkg], in your order (Settings → Channels), the hidden ones too. */
     fun allFor(st: Settings, pkg: String): List<Channel> {
         val order = st.channelsOrder
-        return all.value.filter { it.pkg == pkg }.withIndex()
+        val src = sourceOf(st, pkg)
+        return all.value.filter { it.pkg == src }.withIndex()
             .sortedBy { (i, ch) -> order.indexOf(ch.key).let { o -> if (o >= 0) o else 1000 + i } }.map { it.value }
     }
 
@@ -132,13 +178,27 @@ object Channels {
     fun rowsFor(st: Settings, pkg: String?): List<Channel> {
         if (pkg == null || !st.channelsOn || pkg in st.channelsOffApps || pkg in st.lockedApps) return emptyList()
         val hidden = st.channelsHidden
-        return allFor(st, pkg).filter { it.key !in hidden }
+        return allFor(st, pkg).filter { hideKey(pkg, it) !in hidden }
     }
 
-    /** Opens what the row's card stands for, in its app. */
-    fun open(ctx: Context, pkg: String, p: Program) {
+    /**
+     * Opens what the row's card stands for, in its app. [from]: the app whose row it is, when [pkg] shows another app's
+     * rows: the card's link then opens in [pkg] itself when it takes it (SmartTube's cards in TizenTube, like TubeRows
+     * does), else as the card says.
+     */
+    fun open(ctx: Context, pkg: String, p: Program, from: String = pkg) {
         runCatching {
             val i = Intent.parseUri(p.intent, Intent.URI_INTENT_SCHEME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val link = i.data
+            if (from != pkg && link != null && (link.scheme == "https" || link.scheme == "http")) {
+                val here = Intent(Intent.ACTION_VIEW, link).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (here.resolveActivity(ctx.packageManager) != null) {
+                    ctx.startActivity(here)
+                    // SmartTube refreshes its rows when asked (so the video lands in its History row), as TubeRows asks it.
+                    if (from in SMARTTUBE) refreshSmartTube(ctx, from, delayMs = 2 * 60_000L)
+                    return
+                }
+            }
             // In the row's own app when it takes the link (a web link went to the browser otherwise).
             if (i.component == null && i.`package` == null) {
                 val own = Intent(i).setPackage(pkg)
@@ -149,6 +209,35 @@ object Channels {
             Glog.w("Channel card", it)
             runCatching { ctx.packageManager.getLeanbackLaunchIntentForPackage(pkg)?.let { l -> ctx.startActivity(l.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
         }
+    }
+
+    @Volatile private var smartTubeAskedAt = 0L
+
+    /**
+     * Asks SmartTube to refresh its rows: any broadcast to its exported `UpdateChannelsReceiver` re-runs its channel
+     * worker at once (read in TubeRows' source, which does the same). At most once in 10 minutes. Used when another
+     * app shows SmartTube's rows: SmartTube is never opened there, and Android lets an app no one opens refresh
+     * less and less often.
+     */
+    fun refreshSmartTube(ctx: Context, pkg: String, delayMs: Long = 0L) {
+        val app = ctx.applicationContext
+        main.postDelayed({
+            val now = System.currentTimeMillis()
+            if (now - smartTubeAskedAt < 10 * 60_000L) return@postDelayed
+            smartTubeAskedAt = now
+            runCatching {
+                app.sendBroadcast(Intent("com.glasslauncher.tv.action.REFRESH_ROWS")
+                    .setClassName(pkg, "com.liskovsoft.leanbackassistant.channels.UpdateChannelsReceiver")
+                    .addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES))
+                Glog.i("Rows: asked $pkg to refresh its rows")
+            }.onFailure { Glog.w("SmartTube refresh", it) }
+        }, delayMs)
+    }
+
+    /** When [pkg] shows SmartTube's rows: asks SmartTube for fresh ones if it wasn't asked in the last 30 minutes. */
+    fun freshen(ctx: Context, st: Settings, pkg: String) {
+        val src = sourceOf(st, pkg)
+        if (src != pkg && src in SMARTTUBE && System.currentTimeMillis() - smartTubeAskedAt > 30 * 60_000L) refreshSmartTube(ctx, src)
     }
 
     /** For testing: what the TV hands over (log "GlassChannels"). */
@@ -166,7 +255,7 @@ object Channels {
         }.onFailure { android.util.Log.i("GlassChannels", "WN failed: ${it.message}") }
         read(ctx).onSuccess { l ->
             android.util.Log.i("GlassChannels", "${l.size} channels")
-            l.forEach { ch -> android.util.Log.i("GlassChannels", "${ch.pkg} · ${ch.name} · ${ch.programs.size} · ${ch.programs.firstOrNull()?.let { it.title.take(30) + " | wide=" + it.wide + " | " + it.poster.take(40) + " | " + it.intent.take(50) }}") }
+            l.forEach { ch -> android.util.Log.i("GlassChannels", "${ch.pkg} · ${ch.name} · ${ch.programs.size} · ${ch.programs.firstOrNull()?.let { it.title.take(30) + " | wide=" + it.wide + " | " + it.poster.take(40) + " | " + it.intent.take(300) }}") }
         }.onFailure { android.util.Log.i("GlassChannels", "failed: ${it.javaClass.simpleName} ${it.message}") }
     }
 }

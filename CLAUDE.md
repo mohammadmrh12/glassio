@@ -2254,6 +2254,30 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   maintainer never answered there; newer requests #77 #201 #389 #392 closed as its duplicates; PR #382 adding preview
   channels + Watch Next closed by reisxd without a note): would he accept it, what blocked #382; offered to test on the
   Streamer. Workaround someone published: TubeRows (mirrors SmartTube's channels). Follow #27 for an answer.
+- **Rows from another app (#30, after 4.5.1, local):** `channelsFrom` ("app=other" lines, per profile; the dock's menu →
+  *Rows from…*, `rowsFromDialog`): an app shows another app's rows (`Channels.sourceOf`). By default TizenTube Cobalt
+  (no rows of its own) takes TubeRows' (`tv.tuberows.app`) when installed, else SmartTube's (any of its package names,
+  `Channels.SMARTTUBE`). A borrowed card's https link opens in the selected app itself when it takes it (SmartTube's
+  cards in TizenTube, as TubeRows' PlayActivity does), else as the card says. SmartTube is asked to refresh (broadcast
+  to its exported `com.liskovsoft.leanbackassistant.channels.UpdateChannelsReceiver`, read in TubeRows' source) when
+  its rows are shown elsewhere and it wasn't asked for 30 min, and 2 min after a card opens; at most once in 10 min.
+  Seen on the Streamer: TizenTube with TubeRows' rows by itself, the menu's list (TubeRows ticked), SmartTube's rows on
+  TizenTube, SmartTube answering the broadcast (its worker started), its card opening straight in TizenTube.
+  TizenTube 2.0.3 and TubeRows 1.2.1 stay installed on the Streamer (his ask).
+  Then (his photo: TizenTube nowhere in Settings): *Apps with channels* lists the apps that show another app's rows
+  (`Channels.settingsApps`: "From SmartTube · …"; also one chosen once in a menu, and one that can borrow, so "Its own
+  rows" doesn't drop it: "No rows of its own · OK → Rows from"), each with Hide / Show per row that leaves the source
+  app's rows alone (`Channels.hideKey`: "app>row key" in `channelsHidden`), the order, and *Rows from: …*. Seen.
+  TubeRows was removed from the Streamer at 03:15 (a package delete, not mine): TizenTube then took SmartTube's rows
+  by itself (the fallback, seen). **A held ◀ / ▶ along an app's rows** went to the dock after a few cards (the focus
+  search ran ahead of the cards being built): the rows page moves the selection itself (`focusCard`, retried until the
+  card is built), never out of the row. Seen: ▶ held 6 s then ◀ held 6 s, back on the first card, still in the row.
+  **The side menu's Music page after Themes / Background / Screensaver** had nothing selected (the row number left
+  from the page before pointed at no row there): a page's focus falls back to its first row. Seen: Themes → Back → ▶,
+  play selected, ▶ moved it on.
+  **TizenTube is no music app** (his ask): out of `NowPlaying.YOUTUBE_CLIENTS`, into `VIDEO_APPS`. Seen: its sound
+  stops when it leaves the screen (no session, no audio player running once Glassio is in front), and after a video
+  its icon shows its rows, not its idle player ("TizenTube · Nothing playing" stood there before).
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

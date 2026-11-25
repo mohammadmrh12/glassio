@@ -964,6 +964,8 @@ class Settings(private val ctx: Context) {
     var musicIdleOffApps: List<String> get() = list("musicIdleOffApps"); set(v) = putList("musicIdleOffApps", v)
     /** Apps whose rows don't show. */
     var channelsOffApps: List<String> get() = list("channelsOffApps"); set(v) = putList("channelsOffApps", v)
+    /** "app=other app" lines: the dock app shows the other app's rows (its own: "app=app"). See Channels.sourceOf. */
+    var channelsFrom: List<String> get() = list("channelsFrom"); set(v) = putList("channelsFrom", v)
     /** Rows that don't show ("package|name"), and your order of the rows. */
     var channelsHidden: List<String> get() = list("channelsHidden"); set(v) = putList("channelsHidden", v)
     var channelsOrder: List<String> get() = list("channelsOrder"); set(v) = putList("channelsOrder", v)

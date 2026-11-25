@@ -141,11 +141,14 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
         val n = rows[r].programs.size
         if (n == 0) return
         val idx = i.coerceIn(0, n - 1)
-        if (runCatching { req(r, idx).requestFocus() }.isFailure) scope.launch {
-            // Not built yet (scrolled away): bring it in, then select it.
-            runCatching { states[r].scrollToItem(idx) }
-            androidx.compose.runtime.withFrameNanos { }
-            runCatching { req(r, idx).requestFocus() }
+        // (requestFocus answers false, without throwing, for a card that isn't built yet.)
+        if (!runCatching { req(r, idx).requestFocus() }.getOrDefault(false)) scope.launch {
+            // Not built yet (scrolled away): bring it in, then select it as soon as it is there.
+            if (states[r].layoutInfo.visibleItemsInfo.none { it.index == idx }) runCatching { states[r].scrollToItem(idx) }
+            repeat(10) {
+                androidx.compose.runtime.withFrameNanos { }
+                if (runCatching { req(r, idx).requestFocus() }.getOrDefault(false)) return@launch
+            }
         }
     }
     fun centreOf(r: Int, i: Int): Float? = states[r].layoutInfo.visibleItemsInfo.firstOrNull { it.index == i }?.let { it.offset + it.size / 2f }
@@ -203,9 +206,11 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                     Key.DirectionDown -> { if (down) { if (r == rows.lastIndex) onDown() else goRow(r + 1) }; true }
                     // Back: to the app in the dock (the selection was lost).
                     Key.Back -> { if (ev.type == KeyEventType.KeyUp) onDown(); true }
-                    // The ends of a row: the selection stays.
-                    Key.DirectionRight -> i >= cards - 1
-                    Key.DirectionLeft -> i <= 0
+                    // Along a row the page moves the selection itself, one card a press (or a repeat), and never out of
+                    // the row: left to the focus search, a held ◀ ran ahead of the cards being built, found none in the
+                    // row and went down to the dock after a few cards (his report). The ends of a row: it stays.
+                    Key.DirectionRight -> { if (down && i < cards - 1) focusCard(r, i + 1); true }
+                    Key.DirectionLeft -> { if (down && i > 0) focusCard(r, i - 1); true }
                     else -> false
                 }
             }
@@ -258,7 +263,7 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                                             if (f.isFocused) { sel = i; at[0] = r; at[1] = i; lastSel[ch.key] = i }
                                             else if (sel == i) sel = -1
                                         },
-                                    onOpen = { Channels.open(ctx, pkg, p) })
+                                    onOpen = { Channels.open(ctx, pkg, p, from = ch.pkg) })
                             }
                         }
                         }

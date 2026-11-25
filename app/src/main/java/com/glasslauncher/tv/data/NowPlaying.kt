@@ -61,6 +61,9 @@ object NowPlaying {
         "space.nuvio.nativelegacy", "com.nuvio.tv", "com.nuvio.tv.test", "com.nuvioreshaped.tv", "com.stremio.one", "com.netflix.ninja",
         "com.apple.atve.androidtv.appletv", "com.amazon.amazonvideo.livingroom", "com.disney.disneyplus",
         "org.videolan.vlc", "org.xbmc.kodi", "net.mbc.shahidTV", "com.glasslauncher.tv", "com.glasslauncher.tv.play",
+        // TizenTube Cobalt: no playing on in the background (its sound stops when it leaves the screen), so it is no music
+        // app: its idle player with its icon stood in its rows' place after a video (his report). It shows its rows.
+        "io.gh.reisxd.tizentube.cobalt",
     )
 
     private fun listener(ctx: Context) = ComponentName(ctx, MusicListener::class.java)
@@ -115,7 +118,7 @@ object NowPlaying {
 
     /** Other YouTube apps for the TV, each with its name (they play music and video, like YouTube). */
     val YOUTUBE_CLIENTS = linkedMapOf(
-        "io.gh.reisxd.tizentube.cobalt" to "TizenTube", "org.smarttube.stable" to "SmartTube", "org.smarttube.beta" to "SmartTube Beta",
+"org.smarttube.stable" to "SmartTube", "org.smarttube.beta" to "SmartTube Beta",
         "com.teamsmart.videomanager.tv" to "SmartTube", "com.liskovsoft.smarttubetv" to "SmartTube", "com.liskovsoft.smarttubetv.beta" to "SmartTube Beta",
     )
     /** Apps that play music as well as video: followed while they play (music left playing in YouTube). */

@@ -2,6 +2,17 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.6.0 — TizenTube's rows, and rows from another app
+
+- **TizenTube shows rows:** TizenTube Cobalt publishes none, so its icon now shows SmartTube's rows (Subscriptions,
+  Recommended, History) by itself, and every card opens in TizenTube. SmartTube has to be installed and signed in
+  (the rows come from it); Glassio asks it to refresh them now and then. No companion app is needed (#30).
+- **Rows from another app:** any app can show another app's rows: hold OK on its icon in the dock → *Rows from…*, or
+  Settings → Music & app rows → *Apps with channels*, where such an app is listed with its own switches for each row.
+- TizenTube is treated as a video app: after a video its rows come back, not an empty music player.
+- **Fixes:** holding ◀ or ▶ along an app's rows no longer drops the selection to the dock; the side menu's music
+  player keeps the selection after Themes, Background or Screensaver was opened.
+
 ## 4.5.1 — fixes, and more for the remote's buttons
 
 - **Settings keep the selection** when a row above the one you're on comes or goes: changing the screensaver's *Type*

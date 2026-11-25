@@ -1694,33 +1694,40 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                     if (st.channelsGlow != "off") add(Adjust("  · Glow size", "How far and how strong it is", { pct(st.channelsGlowSize) }, { st.channelsGlowSize = ((st.channelsGlowSize * 10).roundToInt() + it) / 10f }))
                     add(Adjust("App name", "The app's name over the rows: white, or in its icon's colour", { if (st.channelsLabel == "icon") "Icon colour" else "White" },
                         { st.channelsLabel = cycle(listOf("white", "icon"), st.channelsLabel, it) }))
-                    add(pageRow("Apps with channels", "Each app's rows: off, hidden one by one, or in another order", more(ch.apps().size), sp = SubPage("Apps with channels") {
+                    val isInstalled: (String) -> Boolean = { p -> runCatching { ctx.packageManager.getApplicationInfo(p, 0) }.isSuccess }
+                    add(pageRow("Apps with channels", "Each app's rows: off, hidden one by one, in another order, or another app's", more(ch.settingsApps(st, isInstalled).size), sp = SubPage("Apps with channels") {
                             tvRev.intValue
                             buildList {
-                                val apps = ch.apps()
+                                val apps = ch.settingsApps(st, isInstalled)
                                 if (access && apps.isEmpty()) add(Note("No app on this TV has published channels yet. Open YouTube, Netflix… once and come back."))
                                 apps.forEach { pkg ->
                                     val rows = ch.allFor(st, pkg)
                                     val off = pkg in st.channelsOffApps
                                     val locked = pkg in st.lockedApps
-                                    val shown = rows.count { it.key !in st.channelsHidden }
-                                    add(Act(label(pkg), if (locked) "Locked app: its channels don't show" else if (off) "Off" else rows.filter { it.key !in st.channelsHidden }.joinToString(" · ") { it.name }.ifBlank { "Every row is hidden" },
+                                    val src = ch.sourceOf(st, pkg)
+                                    // (Another app's rows: whose, before their names.)
+                                    val from = if (src != pkg) "From ${label(src)} · " else ""
+                                    val shown = rows.count { ch.hideKey(pkg, it) !in st.channelsHidden }
+                                    add(Act(label(pkg), if (locked) "Locked app: its channels don't show" else if (off) "Off" else if (rows.isEmpty()) "No rows of its own · OK → Rows from" else from + rows.filter { ch.hideKey(pkg, it) !in st.channelsHidden }.joinToString(" · ") { it.name }.ifBlank { "Every row is hidden" },
                                         if (off || locked) "Off" else "On · $shown", ok = if (off || locked) null else true) {
                                         dialog = MenuDialog(label(pkg), buildList {
                                             add((if (off) "Show this app's channels" else "Don't show this app's channels") to {
                                                 st.channelsOffApps = if (off) st.channelsOffApps - pkg else st.channelsOffApps + pkg; tvRev.intValue++
                                             })
                                             rows.forEach { r ->
-                                                val hidden = r.key in st.channelsHidden
+                                                val k = ch.hideKey(pkg, r)
+                                                val hidden = k in st.channelsHidden
                                                 add((if (hidden) "Show: " else "Hide: ") + r.name + "  (${r.programs.size})" to {
-                                                    st.channelsHidden = if (hidden) st.channelsHidden - r.key else st.channelsHidden + r.key; tvRev.intValue++
+                                                    st.channelsHidden = if (hidden) st.channelsHidden - k else st.channelsHidden + k; tvRev.intValue++
                                                 })
                                             }
                                             if (rows.size > 1) add("Change the order of its rows" to {
                                                 dialog = ReorderDialog("${label(pkg)}: rows, first on top", rows.map { it.key to it.name }) { keys ->
-                                                    st.channelsOrder = st.channelsOrder.filterNot { it.startsWith("$pkg|") } + keys; tvRev.intValue++
+                                                    st.channelsOrder = st.channelsOrder.filterNot { o -> rows.any { it.key == o } } + keys; tvRev.intValue++
                                                 }
                                             })
+                                            // Whose rows it shows (also in the dock's menu).
+                                            add("Rows from: " + (if (src == pkg) "its own" else label(src)) to { dialog = rowsFromDialog(app, pkg, label(pkg)) })
                                         })
                                     })
                                 }

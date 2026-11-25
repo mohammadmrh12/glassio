@@ -652,6 +652,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             pickIcon = { pickerFor = e },
             verified = verified,
             pickCatalogs = { dialogReturn[0] = if (inFolder) null else tileFocus[e.pkg]; dialog = appCatalogsDialog(app, e.pkg, e.label) },
+            pickRows = { dialogReturn[0] = if (inFolder) null else tileFocus[e.pkg]; dialog = rowsFromDialog(app, e.pkg, e.label) },
         ) as MenuDialog
         // The glass menu right above the app (in the Apps folder: in the middle of the screen).
         popReturn = if (inFolder) null else tileFocus[e.pkg]
@@ -1093,6 +1094,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         if (rows && ChannelsUi.stagePkg.value != dockPkg) ChannelsUi.art.value =
                             com.glasslauncher.tv.data.Channels.rowsFor(settings, dockPkg).firstOrNull()?.programs?.firstOrNull()?.poster?.takeIf { it.isNotBlank() }?.let { it to null }
                         ChannelsUi.stagePkg.value = dockPkg.takeIf { rows }
+                        if (rows) com.glasslauncher.tv.data.Channels.freshen(ctx, settings, dockPkg)
                         MusicUi.dockApp.value = dockPkg.takeIf { musicApp }
                         MusicUi.appsOn.value = musicIcon
                         InputsUi.on.value = inputsIcon
@@ -1373,6 +1375,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
 private fun appMenu(
     app: GlassApp, e: AppEntry, ctx: android.content.Context,
     startMove: (() -> Unit)?, pickIcon: () -> Unit, verified: Boolean = false, pickCatalogs: (() -> Unit)? = null,
+    pickRows: (() -> Unit)? = null,
 ): DialogState {
     val hidden = e.pkg in app.settings.hiddenApps
     val opts = mutableListOf<Pair<String, () -> Unit>>()
@@ -1396,6 +1399,8 @@ private fun appMenu(
             toast(ctx, if (off) "${e.label}: its rows show again" else "${e.label}: the carousel stays in place of its rows")
         }
     }
+    // Another app's rows on this app's icon (TubeRows' rows on TizenTube's, #30).
+    if (pickRows != null && st.channelsOn && com.glasslauncher.tv.data.Channels.apps().any { it != e.pkg }) opts += "Rows from…" to pickRows
     // Its catalogs in the carousel while it is selected (see AppCatalogs); not for the apps that keep the carousel anyway.
     if (pickCatalogs != null && app.catalogs.catalogs.value.isNotEmpty() && !com.glasslauncher.tv.data.Channels.keepsCarousel(e.pkg)) opts += "Catalogs" to pickCatalogs
     opts += (if (hidden) "Show in dock" else "Hide") to { app.apps.toggleHidden(e.pkg) }

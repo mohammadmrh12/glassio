@@ -113,7 +113,10 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
     LaunchedEffect(Unit) { enter.animateTo(1f, tween(260, easing = EASE)) }
     var inside by remember { mutableStateOf(false) }
     // Take focus from the settings button (or wherever it is): retry until a row has it.
-    LaunchedEffect(themes, bgPage, camPage, saverPage, saverSub, trailerPage, inputsPage, btPage, musicPage, phonePage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect; runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() } } }
+    // (The row asked for, else the page's first row: a page that uses fewer rows than the one before left the row
+    // number pointing at nothing (Music after Themes or Background: nothing selected, his report).)
+    LaunchedEffect(themes, bgPage, camPage, saverPage, saverSub, trailerPage, inputsPage, btPage, musicPage, phonePage, style) { inside = false; repeat(16) { delay(25); if (inside) return@LaunchedEffect
+        if (!runCatching { reqs[target.coerceIn(0, reqs.lastIndex)].requestFocus() }.getOrDefault(false)) runCatching { reqs[0].requestFocus() } } }
     var themesRow by remember { mutableIntStateOf(0) }
     var bgRow by remember { mutableIntStateOf(0) }
     BackHandler { if (themes) { target = themesRow; themes = false } else if (bgPage) { target = bgRow; bgPage = false } else if (camPage) { target = camRow; camPage = false } else if (saverPage && saverSub != "") { target = saverSubRow; saverSub = "" } else if (saverPage) { target = saverRow; saverPage = false } else if (trailerPage) { target = trailerRow; trailerPage = false } else if (inputsPage) { target = inputsRow; inputsPage = false } else if (btPage) { target = btRow; btPage = false } else if (phonePage) { target = phoneRow; phonePage = false } else if (musicPage) { musicPage = false } else onClose() }
@@ -536,7 +539,7 @@ fun SideMenu(app: GlassApp, s0: Float, onClose: () -> Unit, onLibrary: () -> Uni
                             modifier = Modifier.focusRequester(reqs[i]), onFocused = { current = i },
                             first = i == 0, last = i == rows.lastIndex, onLeft = onClose, glyph = { c -> glyph(icon, c) }, onClick = act,
                             // ▶: the menu turns into the music player.
-                            onRight = if (st.musicOn && st.musicMenu) ({ musicPage = true }) else null)
+                            onRight = if (st.musicOn && st.musicMenu) ({ target = 0; musicPage = true }) else null)
                     }
                 } else {
                     Text("Themes", color = soft, fontSize = (9 * s).sp, fontWeight = FontWeight.SemiBold, letterSpacing = (0.8f * s).sp,

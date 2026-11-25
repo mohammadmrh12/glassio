@@ -104,6 +104,20 @@ fun appCatalogsDialog(app: com.glasslauncher.tv.GlassApp, pkg: String, label: St
         rows, st.menuStyle)
 }
 
+/** Whose rows an app shows in the carousel's place: its own, or another app's (the dock's menu → Rows from…). */
+fun rowsFromDialog(app: com.glasslauncher.tv.GlassApp, pkg: String, label: String): DialogState {
+    val C = com.glasslauncher.tv.data.Channels
+    val st = app.settings
+    val rows = ArrayList<PickRow>()
+    rows += PickRow("Its own rows", if (C.all.value.none { it.pkg == pkg }) "It has none now" else "", { if (C.sourceOf(st, pkg) == pkg) "✓" else "" }) { C.setSource(st, pkg, pkg) }
+    C.apps().filter { it != pkg }.forEach { other ->
+        val name = runCatching { app.packageManager.getApplicationLabel(app.packageManager.getApplicationInfo(other, 0)).toString() }.getOrDefault(other)
+        val n = C.all.value.count { it.pkg == other }
+        rows += PickRow(name, if (n == 1) "1 row" else "$n rows", { if (C.sourceOf(st, pkg) == other) "✓" else "" }) { C.setSource(st, pkg, other) }
+    }
+    return PickDialog("$label · Rows from", "Shown while $label is selected in the dock", rows, st.menuStyle)
+}
+
 /** A problem report before it goes: what will be sent, Send, and a QR code for the phone when it can't be sent from here. */
 class ReportDialog(val data: com.glasslauncher.tv.data.Report.Data, val send: (com.glasslauncher.tv.data.Report.Data) -> com.glasslauncher.tv.data.Report.Sent) : DialogState
 /**
