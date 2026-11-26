@@ -134,7 +134,8 @@ object Channels {
     const val TIZENTUBE = "io.gh.reisxd.tizentube.cobalt"
     /** SmartTube under every package name it has shipped as (the same list TubeRows uses). */
     val SMARTTUBE = listOf("org.smarttube.stable", "org.smarttube.beta", "app.smarttube.fdroid", "app.smarttube",
-        "com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "com.liskovsoft.smarttubetv")
+        "com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "com.liskovsoft.smarttubetv",
+        "org.cygnusx1.electriceel.stable", "org.cygnusx1.electriceel.beta")
 
     /**
      * Apps whose rows come from another app by default, in order of preference. TizenTube Cobalt publishes none (#30):

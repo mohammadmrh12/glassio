@@ -2,6 +2,12 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.7.2 — Electric Eel
+
+- **Electric Eel** (a SmartTube fork) works like SmartTube: what it plays is followed as music (the player, the
+  island, playing on in the background), its rows are asked to refresh, and the search's YouTube videos can open in it
+  (#51).
+
 ## 4.7.1 — crash reports, fixes
 
 - **After a crash, Glassio offers its report** at the next start: the whole report to read first, then Send or Cancel,

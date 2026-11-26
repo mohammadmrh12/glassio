@@ -120,6 +120,8 @@ object NowPlaying {
     val YOUTUBE_CLIENTS = linkedMapOf(
 "org.smarttube.stable" to "SmartTube", "org.smarttube.beta" to "SmartTube Beta",
         "com.teamsmart.videomanager.tv" to "SmartTube", "com.liskovsoft.smarttubetv" to "SmartTube", "com.liskovsoft.smarttubetv.beta" to "SmartTube Beta",
+        // (Electric Eel, a SmartTube fork (#51): followed for music and background playing like SmartTube.)
+        "org.cygnusx1.electriceel.stable" to "Electric Eel", "org.cygnusx1.electriceel.beta" to "Electric Eel Beta",
     )
     /** Apps that play music as well as video: followed while they play (music left playing in YouTube). */
     private val SOMETIMES_MUSIC = setOf("com.google.android.youtube.tv", "com.google.android.youtube.googletv", "com.google.android.youtube") + YOUTUBE_CLIENTS.keys

@@ -196,7 +196,7 @@ object Search {
     // ---- Videos and songs ----
 
     /** SmartTube's builds and YouTube's own TV app, in the order "auto" tries them. */
-    val YOUTUBE_APPS = listOf("org.smarttube.stable", "org.smarttube.beta", "com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "com.google.android.youtube.tv")
+    val YOUTUBE_APPS = listOf("org.smarttube.stable", "org.smarttube.beta", "com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta", "org.cygnusx1.electriceel.stable", "org.cygnusx1.electriceel.beta", "com.google.android.youtube.tv")
     const val SPOTIFY = "com.spotify.tv.android"
     const val SOUNDCLOUD = "com.soundcloud.android"
 
