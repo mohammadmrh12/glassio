@@ -121,7 +121,7 @@ fun rowsFromDialog(app: com.glasslauncher.tv.GlassApp, pkg: String, label: Strin
 }
 
 /** A problem report before it goes: what will be sent, Send, and a QR code for the phone when it can't be sent from here. */
-class ReportDialog(val data: com.glasslauncher.tv.data.Report.Data, val send: (com.glasslauncher.tv.data.Report.Data) -> com.glasslauncher.tv.data.Report.Sent) : DialogState
+class ReportDialog(val data: com.glasslauncher.tv.data.Report.Data, val title: String = "Report a problem", val send: (com.glasslauncher.tv.data.Report.Data) -> com.glasslauncher.tv.data.Report.Sent) : DialogState
 /**
  * What a right is used for, read before it is asked for (Google Play: the accessibility service needs the person's
  * agreement first). [onAgree] runs on the first button; the second, or Back, changes nothing.
@@ -527,7 +527,7 @@ private fun ReportDialogView(d: ReportDialog, onDismiss: () -> Unit) {
     val link = remember { R.issueLink(d.data) }
     GlassDialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         DialogSurface(width = 640) {
-            Text(if (sent?.ok == true) "Report sent" else "Report a problem", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(if (sent?.ok == true) "Report sent" else d.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
             Text(when {
                 sent?.ok == true -> (sent?.note?.takeIf { it.isNotBlank() }?.plus(" · ") ?: "") + "Thank you!" + (if ((sent?.number ?: 0) > 0) " It is issue #${sent?.number} on GitHub" else "")

@@ -959,6 +959,8 @@ class Settings(private val ctx: Context) {
     /** The island: a song name too long for it scrolls by (else it is shortened with "…"). */
     var islandMarquee: Boolean get() = b("islandMarquee", true); set(v) = putB("islandMarquee", v)
     /** Seconds a paused song stays in the island before it goes (0 at once, -1 never; #49). */
+    /** After a crash, its report goes without asking (off: the next start asks, with the report to read first). */
+    var crashAutoSend: Boolean get() = b("crashAutoSend", false); set(v) = putB("crashAutoSend", v)
     var islandPausedSec: Int get() = i("islandPausedSec", 20); set(v) = putI("islandPausedSec", v)
     /** Photos from subreddits: their names (comma separated), and the Reddit app id that lets Glassio in. */
     var photoSubreddit: String get() = s("photoSubreddit", "EarthPorn"); set(v) = putS("photoSubreddit", v.trim())

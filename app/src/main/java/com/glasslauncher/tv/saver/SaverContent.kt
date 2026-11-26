@@ -245,13 +245,22 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             val underCams = remember { mutableStateOf(false) }
             val stillFrame = remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
             val resumedAt = remember { longArrayOf(0L) }
+            val saverErrors = remember { IntArray(1) }
             val players = remember { Array(1) { k -> ExoPlayer.Builder(ctx).setMediaSourceFactory(factory).setLoadControl(load).build().apply {
                 volume = 0f
-                addListener(object : Player.Listener { override fun onRenderedFirstFrame() {
-                    rendered[k] = true
-                    if (underCams.value) com.glasslauncher.tv.data.Glog.i("Saver: back after the cameras in ${android.os.SystemClock.uptimeMillis() - resumedAt[0]} ms")
-                    underCams.value = false
-                } })
+                addListener(object : Player.Listener {
+                    override fun onRenderedFirstFrame() {
+                        rendered[k] = true; saverErrors[0] = 0
+                        if (underCams.value) com.glasslauncher.tv.data.Glog.i("Saver: back after the cameras in ${android.os.SystemClock.uptimeMillis() - resumedAt[0]} ms")
+                        underCams.value = false
+                    }
+                    // (A video that fails was left on screen as it was (a Fire TV's green picture, #40) and nothing was
+                    // written: now it's in the log and the next one comes, as the background does; six in a row at most.)
+                    override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
+                        com.glasslauncher.tv.data.MediaLog.error("Screensaver", this@apply, e)
+                        if (++saverErrors[0] <= 6) SaverControl.step = 1
+                    }
+                })
             } } }
             // The cameras up (▼, multi-view): the video waits under them and goes on from there when they close (his
             // idea). Behind the cameras it is blurred and dimmed anyway, and playing on it cost the TV a decoder's

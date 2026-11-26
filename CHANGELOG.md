@@ -2,6 +2,20 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.7.1 — crash reports, fixes
+
+- **After a crash, Glassio offers its report** at the next start: the whole report to read first, then Send or Cancel,
+  once per crash. **Settings → About → Send crash reports by themselves** (off by default) sends it without asking.
+- **Problem reports say more:** the TV's memory and storage, what its video decoders can do, its home and screensaver
+  apps, whether the Home button service and TV access work; a video that fails is logged with its format and the
+  decoder's words; a crash from an earlier version is no longer included (#39).
+- **Screensaver:** a video that fails to play is skipped instead of staying on screen (a Fire TV showed a green
+  picture, #40).
+- **Search:** YouTube videos open in any installed app that opens YouTube links, so SmartTube's forks (Electric Eel)
+  show up under *YouTube opens in* (#51).
+- *Show Continue Watching* says it is for the carousel and names the Library's own switch (#50).
+- Remote buttons the TV keeps for itself: reports show whether one is set and being watched (#52).
+
 ## 4.7.0 — Continue Watching cards, a smarter screensaver, fixes
 
 - **Continue Watching cards:** over your own background, the titles in progress as small glass cards right above the

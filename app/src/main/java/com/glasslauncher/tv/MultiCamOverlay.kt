@@ -146,6 +146,7 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
                         audio[i] = tracks.containsType(androidx.media3.common.C.TRACK_TYPE_AUDIO); if (root != null) mark()
                     }
                     override fun onPlayerError(error: PlaybackException) {
+                        com.glasslauncher.tv.data.MediaLog.error("Multi-view ${c.name}" + if (onMain) " (main stream)" else " (small stream)", p, error)
                         if (onMain) { onMain = false; com.glasslauncher.tv.data.Glog.w("Multi-view ${c.name}: main stream ${error.errorCodeName}, the small one instead"); CamPlayer.play(ctx, this@apply, CamPlayer.subStream(c.url)); return }
                         again(error.errorCodeName)
                     }

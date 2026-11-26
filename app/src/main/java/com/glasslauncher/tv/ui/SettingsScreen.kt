@@ -725,7 +725,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                                 { st.searchMine }, { st.searchMine = it }))
                             // Videos and songs: found here (the github build), opened in their apps.
                             if (com.glasslauncher.tv.data.MediaSearch.AVAILABLE) {
-                                val tube = com.glasslauncher.tv.data.Search.YOUTUBE_APPS.filter { NuvioLaunch.installed(ctx, it) }
+                                val tube = com.glasslauncher.tv.data.Search.youtubeApps(ctx)
                                 add(Toggle("YouTube", if (tube.isEmpty()) "No YouTube app or SmartTube on this TV" else "Videos under the titles; one opens in the app below", { st.searchYoutube }, { st.searchYoutube = it }))
                                 if (st.searchYoutube && tube.size > 1) add(Adjust("  · YouTube opens in", "", { if (st.searchYoutubeApp == "auto") "Automatic" else com.glasslauncher.tv.data.Search.appLabel(ctx, st.searchYoutubeApp) },
                                     { st.searchYoutubeApp = cycle(listOf("auto") + tube, st.searchYoutubeApp.takeIf { a -> a == "auto" || a in tube } ?: "auto", it) }))
@@ -820,7 +820,8 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
 
                 add(Note("Continue Watching"))
                 add(link("Background & screensaver", "Continue Watching cards", "Small cards above the dock over your own background"))
-                add(Adjust("Show Continue Watching", "Where titles you are watching appear", {
+                // (In the carousel only: the Library's row has its own switch, and Off here left it there, #50.)
+                add(Adjust("Show Continue Watching", "In the carousel. The Library's row: Continue Watching in the Library, below", {
                     when (st.continueMode) { "off" -> "Off"; "mixed" -> "Mixed with catalogs"; else -> "At the start" }
                 }, { st.continueMode = cycle(listOf("first", "mixed", "off"), st.continueMode, it) }))
                 if (st.continueMode == "first") add(Adjust("Slides at the start", "How many titles in progress open the carousel", {
@@ -3395,6 +3396,8 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
                     }
                 }
             })
+            add(Toggle("Send crash reports by themselves", "After Glassio closes by itself, its report goes without asking. Off: the next start asks, and you see the report first",
+                { app.settings.crashAutoSend }, { app.settings.crashAutoSend = it }))
             // Support: a PSN gift card code, typed here and sent straight to the developer (see Support).
             if (!com.glasslauncher.tv.data.Store.PLAY) add(Note("Support me"))
             if (!com.glasslauncher.tv.data.Store.PLAY) add(Act("PlayStation gift card (PSN, USA)", if (com.glasslauncher.tv.data.Support.ready) "Type the code and press Send: it comes straight to me. Thank you!"

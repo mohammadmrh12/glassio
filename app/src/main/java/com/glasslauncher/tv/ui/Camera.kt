@@ -58,7 +58,7 @@ fun CameraView(cam: Cam, s: Float, modifier: Modifier = Modifier) {
         com.glasslauncher.tv.CamPlayer.build(ctx).apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) state = "" }
-                override fun onPlayerError(error: PlaybackException) { state = "Can't reach the camera" }
+                override fun onPlayerError(error: PlaybackException) { com.glasslauncher.tv.data.MediaLog.error("Menu camera", null, error); state = "Can't reach the camera" }
             })
         }
     }

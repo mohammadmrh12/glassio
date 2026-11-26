@@ -63,7 +63,7 @@ object Report {
     // ---- What goes in ----
 
     /** The settings that say how Glassio is set up (looks, modes, sizes): names and plain values, never text a person typed. */
-    private val SETTINGS = listOf("theme", "dockStyle", "dockPos", "tileStyle", "dockColumns", "bgMode", "bgClockStyle", "saverMode", "islandStyle", "islandPausedSec", "musicIsland", "islandHome",
+    private val SETTINGS = listOf("theme", "dockStyle", "dockPos", "tileStyle", "dockColumns", "bgMode", "bgClockStyle", "saverMode", "libraryCw", "bgContinue", "islandStyle", "islandPausedSec", "musicIsland", "islandHome",
         "menuStyle", "menuMode", "settingsIcon", "slideAnim", "heroAutoplay", "transitionMs", "perfMode", "memTier", "glassRes", "imageQuality",
         "pageScale", "prefetchDepth", "refraction", "libraryColumns", "libraryPlatforms", "playInApp", "continueMode", "updateChannel",
         "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "photoSource",
@@ -85,8 +85,15 @@ object Report {
 
     fun build(ctx: Context, s: Settings, version: String, description: String, signedIn: Map<String, Boolean>): Data {
         val all = s.dumpAll()
-        val set = SETTINGS.mapNotNull { k -> all[k]?.let { v -> "$k=" + v.toString().take(40) } }.joinToString("  ")
-        val crash = runCatching { java.io.File(ctx.filesDir, "last-crash.txt").takeIf { it.isFile }?.readText() }.getOrNull().orEmpty().take(3000)
+        val set = SETTINGS.mapNotNull { k -> all[k]?.let { v -> "$k=" + v.toString().take(40) } }.joinToString("  ") +
+            // (Buttons the TV keeps for itself, read through TV access: whether one is set and the watcher runs, #52.)
+            "  rawButtons=" + RawKeys.status(s) +
+            // (The TV itself: memory, video decoders, its home and screensaver apps, Glassio's own services.)
+            "  tv: " + DeviceFacts.line(ctx)
+        // (Only a crash of the version installed now: an older one stayed in every report until cleared by hand, and
+        // the relay filed a new report under that old crash's issue (a 4.7.0 "green screensaver" went to #39).)
+        val updated = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).lastUpdateTime }.getOrDefault(0L)
+        val crash = runCatching { java.io.File(ctx.filesDir, "last-crash.txt").takeIf { it.isFile && it.lastModified() >= updated }?.readText() }.getOrNull().orEmpty().take(3000)
         val dm = ctx.resources.displayMetrics
         val known = Profiles.known(ctx).size.coerceAtLeast(1)
         return Data(

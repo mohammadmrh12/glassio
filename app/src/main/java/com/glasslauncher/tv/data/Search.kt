@@ -200,9 +200,22 @@ object Search {
     const val SPOTIFY = "com.spotify.tv.android"
     const val SOUNDCLOUD = "com.soundcloud.android"
 
-    /** The app a YouTube video opens in: the one chosen when it is installed, else the first of [YOUTUBE_APPS] that is. */
+    /** The app a YouTube video opens in: the one chosen when it is installed, else the first of [youtubeApps]. */
     fun youtubeApp(ctx: Context, s: Settings): String? =
-        s.searchYoutubeApp.takeIf { it != "auto" && NuvioLaunch.installed(ctx, it) } ?: YOUTUBE_APPS.firstOrNull { NuvioLaunch.installed(ctx, it) }
+        s.searchYoutubeApp.takeIf { it != "auto" && NuvioLaunch.installed(ctx, it) } ?: youtubeApps(ctx).firstOrNull()
+
+    /**
+     * The installed apps a YouTube video can open in: the known ones first ([YOUTUBE_APPS]), then any other app that
+     * opens YouTube's links itself (a SmartTube fork like Electric Eel, #51), browsers left out (they open any link).
+     */
+    fun youtubeApps(ctx: Context): List<String> {
+        val pm = ctx.packageManager
+        fun handlers(url: String) = runCatching { pm.queryIntentActivities(Intent(Intent.ACTION_VIEW, Uri.parse(url)), 0).map { it.activityInfo.packageName } }.getOrDefault(emptyList()).toSet()
+        val browsers = handlers("https://example.com/")
+        val others = (handlers("https://www.youtube.com/watch?v=dQw4w9WgXcQ") + handlers("https://youtu.be/dQw4w9WgXcQ"))
+            .filter { it !in browsers && it != ctx.packageName }
+        return (YOUTUBE_APPS.filter { NuvioLaunch.installed(ctx, it) } + others.sorted()).distinct()
+    }
 
     fun musicApp(ctx: Context, s: Settings, key: String, pkg: String) = s.searchMusic && key !in s.searchMusicOff && NuvioLaunch.installed(ctx, pkg)
 

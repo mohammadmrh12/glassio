@@ -117,7 +117,7 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
             setVideoTextureView(tex)
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) status?.visibility = View.GONE }
-                override fun onPlayerError(error: PlaybackException) { status?.text = "Can't reach the camera"; status?.visibility = View.VISIBLE }
+                override fun onPlayerError(error: PlaybackException) { com.glasslauncher.tv.data.MediaLog.error("Corner camera", null, error); status?.text = "Can't reach the camera"; status?.visibility = View.VISIBLE }
             })
         }
         play()

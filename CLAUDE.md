@@ -63,7 +63,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.6.1 (code 84, stable, 2026-11-25)**, public `7c4dd9f`, sha256 `17d0ef75…f2ea8b`; 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.7.0 (code 85, stable, 2026-11-25)**, public `d4db232`, sha256 `a8a17aee…1f874ab39`; 4.6.1 (code 84, `7c4dd9f`); 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -2460,6 +2460,53 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   no longer let the screensaver start under them. Seen: the cameras' page up 106 s with real arrows every 10 s (a `hid`
   keyboard), no screensaver; 22 s after the last key One player came, as it should (his TV timeout was 30 s, so
   One player's time was 22 s). Before: from the code, not seen.
+- **4.7.0 released (2026-11-25 night, his "سوي نشر"):** everything since 4.6.1 (Continue Watching cards, raw remote
+  buttons, the Still Glass clock, the whole-app check's fixes, #39 #40 #49, One player with the TV's screensaver and
+  the TV's sleep, Home over the TV's screensaver, pop-ups and the cameras' page counting as use). Public `d4db232` (tree
+  of local `beta` at `85a0cb0`), tag `v4.7.0`, *latest*, both APKs (sha256 `a8a17aee…`, downloaded and compared, also
+  `releases/latest`; the Streamer's file). `NEW_IN` 4.7.0: Continue Watching cards, Apps' Continue watching, A paused
+  song goes. Tour: *Continue Watching cards* and *Screensaver and clock* first (`WhatsNew.ID` 72, 18 pages; his
+  `tourSeen` put back to 71). Play: bundle 85 sent to Alpha with `tools/play/publish.py`, a copy in the Desktop folder.
+  Code 86+ next. Replied (his "جاوب ع الكل"): #49 (closed, completed), #45 (how to learn the Netflix button through TV
+  access), #48 (pointed to #45, closed completed), #40 (One player, with the TV's screensaver), #39 (the crash's cause
+  from the code; the Fire TV report still wanted), #46 (4.7.0 on the Play test track, two questions). #44 #42 #31 #30
+  #29 wait on their authors: nothing new for them.
+- **#52 (SER on 4.7.0, local):** his report shows the Netflix button learnt (`0C0078`, "the TV opens com.netflix.ninja
+  for it") but sent right after learning: no watcher line yet (it checks every 15 s, and the probe held TV access until
+  then), so it can't tell whether it works. Now `RawKeys.status` goes into reports (`rawButtons=N set · apps · state`:
+  not started / waiting / watching / no TV access / dropped) and a TV access that doesn't answer is logged once. Seen:
+  `0 set · no app · waiting`; a raw id on Shuffle for a moment → `watching the remote (1 mapped)` and `1 set · no app ·
+  watching`; Shuffle put back to 0. SER asked (through him, Telegram) to press the button half a minute after setting it,
+  then report.
+- **#51 (EB, Electric Eel, a SmartTube fork; local):** its rows already work (any app's rows are read). The search's
+  YouTube videos only opened in a fixed list (`Search.YOUTUBE_APPS`): now `Search.youtubeApps` adds every installed app
+  that opens YouTube's links itself (`queryIntentActivities` on a watch link and youtu.be), browsers left out (the apps
+  that also open https://example.com), with `<queries>` for those intents. On the Streamer: SmartTube and TizenTube;
+  the Downloader app and the framework stub (browsers) left out; *YouTube opens in* now shows (it needs two apps).
+  Electric Eel's package isn't known here (not found on the web): not installed, never opened.
+- **#39 / #40 (Mubde, Fire TV AFTHA001, 4.7.0; local):** his "green screensaver" report was filed under #39 because it
+  carried an old crash (2026-11-23) and the relay groups reports by crash. Reports now carry `last-crash.txt` only when
+  it is newer than the installed version (`lastUpdateTime`). Seen: the Streamer's old crash left out of a preview. His
+  log: One player on the background, videos changed fast, `DECODING_FAILED` and low-memory warnings; no camera line.
+  He says the cameras section makes the screensaver go green with static: not reproduced (no Fire TV); asked nothing yet.
+- **More in the log and in reports (2026-11-26, his ask; local):** `data/MediaLog.kt`: one line for a video that
+  fails (background, screensaver, trailer, the three camera windows): the error, the video's format (codec, size, fps)
+  and the decoder's own words. The screensaver's own player had no error handler at all: a failing video stayed on
+  screen (a Fire TV's green screensaver, #40) and nothing was written; it is logged and the next video comes (six in a
+  row at most), as the background does. `data/DeviceFacts.kt`: a `tv:` part in every report (RAM and free, Glassio's
+  memory, free storage, the H.264 / HEVC hardware decoders: how many at once and 4K, the home app (`<queries>` for HOME:
+  without it Glassio saw Google's setup app as the home), the TV's screensaver app, the Home button service, TV access,
+  the other Glassio build, where Glassio came from). Seen on the Streamer: the tv line (launcherx, H.264 ×4 4K, HEVC ×4
+  4K…); an unreachable test camera wrote its error line.
+- **The crash's report after a crash (2026-11-26, his yes; local):** `data/CrashReport.kt`: a crash of the installed
+  version not offered yet makes the next start (4 s in, the home screen) show the report window titled *Glassio closed by
+  itself. Send this report?*, the whole report to read, Send / Cancel; once per crash (`crashOffered` in the `report` file,
+  never synced or backed up). New `crashAutoSend` (off, the TV's: `Profiles.DEVICE`; About → *Send crash reports by
+  themselves*): sent without asking, logged "Crash report sent by itself". Optional by design: the privacy policy and
+  Play's data safety say reports are the person's choice. QA (dev key): `--ez crash_test true` (a crash on the main
+  thread), `--ez crash_clear true` (deletes `last-crash.txt`). Seen: test crash → the window with the report (tv line in
+  it) → Cancel; restarted: not asked again; the test crash cleared after. Not tried: the automatic send (it would open a
+  real issue).
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

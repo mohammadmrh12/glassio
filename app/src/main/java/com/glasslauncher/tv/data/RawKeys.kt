@@ -29,6 +29,11 @@ object RawKeys {
     @Volatile private var pressedId = 0
     @Volatile private var running = false
     @Volatile private var kick = 0L
+    /** What the watcher is doing, for problem reports: not started, waiting (nothing mapped), watching, no TV access, dropped. */
+    @Volatile private var state = "not started"
+    private fun setState(s: String, log: String? = null) { if (state != s) { state = s; log?.let { Glog.i("Raw buttons: $it") } } }
+    /** For problem reports (#52): how many raw buttons are set, the apps the TV opens for them, and the watcher's state. */
+    fun status(st: Settings): String = "${mapped(st).size} set · ${st.rawLaunches.joinToString(",") { it.substringAfter('=') }.ifBlank { "no app" }} · $state"
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private class StopWatching : RuntimeException("no raw button mapped")
 
@@ -44,9 +49,10 @@ object RawKeys {
         Bg.io("glass-raw-keys") {
             var wait = 5_000L
             while (true) {
-                if (mapped(app.settings).isEmpty()) { pause(15_000); continue }
+                if (mapped(app.settings).isEmpty()) { setState("waiting"); pause(15_000); continue }
                 val began = android.os.SystemClock.uptimeMillis()
                 runCatching { watch(app) }.onFailure { if (it !is StopWatching) Glog.w("Raw buttons", it) }
+                if (state == "watching") setState("dropped", "the connection to the remote ended, trying again")
                 // (A connection that lasted resets the wait; one that drops at once waits longer each time.)
                 wait = if (android.os.SystemClock.uptimeMillis() - began > 60_000) 5_000L else (wait * 2).coerceAtMost(60_000L)
                 pause(wait)
@@ -70,7 +76,9 @@ object RawKeys {
     }
 
     private fun watch(app: GlassApp) {
-        if (LocalShell.run(app, "true").isFailure) return
+        // (Said once, not at every try: before, a TV access that didn't answer left nothing in the log, #52.)
+        if (LocalShell.run(app, "true").isFailure) { setState("no TV access", "TV access didn't answer, trying again later"); return }
+        state = "watching"
         Glog.i("Raw buttons: watching the remote (${mapped(app.settings).size} mapped)")
         val scan = HashMap<String, Int>()
         LocalShell.stream(app, "getevent -l 2>/dev/null | grep -E 'EV_KEY|EV_MSC'") { line ->

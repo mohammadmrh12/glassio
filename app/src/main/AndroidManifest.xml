@@ -36,6 +36,13 @@
         <package android:name="com.glasslauncher.tv"/>
         <package android:name="com.glasslauncher.tv.play"/>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent>
+        <!-- The home apps: problem reports say which one the TV has (#46: two home screens taking turns). -->
+        <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.HOME"/></intent>
+        <!-- The apps that open YouTube's links (the search's YouTube videos: SmartTube's forks too, #51), and the
+             browsers, to leave those out. -->
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https" android:host="www.youtube.com"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https" android:host="youtu.be"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https"/></intent>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
         <intent><action android:name="org.adw.launcher.THEMES"/></intent>
         <intent><action android:name="com.novalauncher.THEME"/></intent>

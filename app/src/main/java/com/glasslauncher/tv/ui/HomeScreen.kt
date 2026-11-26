@@ -138,6 +138,22 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     LaunchedEffect(SearchUi.want.intValue) { if (SearchUi.want.intValue != searchAsked[0]) { searchAsked[0] = SearchUi.want.intValue; expanded = false } }
     var movingPkg by remember { mutableStateOf<String?>(null) }
     var dialog by remember { mutableStateOf<DialogState?>(null) }
+    // Glassio closed by itself last time: its report, offered once (or sent by itself), a moment after the start.
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(4000)
+        val ctx0 = app.applicationContext
+        if (!com.glasslauncher.tv.data.CrashReport.pending(ctx0)) return@LaunchedEffect
+        com.glasslauncher.tv.data.CrashReport.offered(ctx0)
+        val R = com.glasslauncher.tv.data.Report
+        val data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            R.build(ctx0, app.settings, app.updater.current, com.glasslauncher.tv.data.CrashReport.DESCRIPTION, mapOf("Nuvio" to app.library.nuvio.connected, "Trakt" to app.cw.trakt.connected,
+                "Simkl" to app.cw.simkl.connected, "Stremio" to app.cw.stremio.connected, "Jellyfin" to app.cw.jellyfin.connected))
+        }
+        if (app.settings.crashAutoSend && R.relay) {
+            val sent = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { R.send(ctx0, data) }
+            com.glasslauncher.tv.data.Glog.i("Crash report sent by itself: " + if (sent.ok) "issue #${sent.number}" else sent.note)
+        } else if (dialog == null) dialog = ReportDialog(data, "Glassio closed by itself. Send this report?") { d -> R.send(ctx0, d) }
+    }
     var settingsCat by remember { mutableIntStateOf(0) }
     val firstTile = remember { FocusRequester() }
     val homeHasFocus = remember { booleanArrayOf(false) }

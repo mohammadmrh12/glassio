@@ -339,6 +339,9 @@ object DevHooks {
                 "writes=${app.settings.recentWrites.joinToString(",")}")
         }
         if (i.hasExtra("focus_watch")) focusWatch(a, i.getBooleanExtra("focus_watch", false))
+        // QA: a crash on the main thread, to try the report offered after a crash.
+        if (i.getBooleanExtra("crash_clear", false)) { java.io.File(app.filesDir, "last-crash.txt").delete(); com.glasslauncher.tv.data.Glog.i("QA: last crash cleared") }
+        if (i.getBooleanExtra("crash_test", false)) android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ throw RuntimeException("QA: a crash to try the crash report") }, 500)
         if (i.getBooleanExtra("dump_hidden", false)) android.util.Log.i("GlassPrefs", "hiddenApps(all)=" + st.hiddenApps.joinToString(","))
         i.getStringExtra("icon_pack")?.let { p ->
             if (p == "none") st.iconPack = "" else if (app.packs.installed().any { it.pkg == p }) st.iconPack = p

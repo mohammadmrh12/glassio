@@ -323,7 +323,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
                 else if (state == androidx.media3.common.Player.STATE_ENDED && Trailers.playing.value?.rev == req.rev) { Trailers.stop(); if (!req.overlay) Trailers.endedRev.intValue++ }
             }
             override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
-                Glog.w("Trailer ${req.ytId}: own player ${e.errorCodeName}")
+                com.glasslauncher.tv.data.MediaLog.error("Trailer ${req.ytId}", player, e)
                 if (onFailed != null) onFailed() else Trailers.failed(req)
             }
         }
