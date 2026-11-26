@@ -59,6 +59,8 @@ object PeerSync {
         "nuvioToken", "nuvioTarget", "cameraDecoder", "phoneMinutes", "phoneAlways", "photoLast", "syncAll", "nuvioPush", "aerialUrls", "bgImage", "bgVideo",
         // (Which of this TV's own links are off: the links stay on each TV, so does this.)
         "saverYtOff",
+        // (Whether HEVC plays is this TV's own decoder.)
+        "hevcFailed",
     )
     // (Hue: the bridge and its key are shared on request; the lights and rooms each TV drives stay its own.)
     private val NEVER_PREFIX = listOf("hue", "sys", "saverCache", "settingsLast")

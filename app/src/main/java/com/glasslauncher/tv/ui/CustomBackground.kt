@@ -354,7 +354,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                 list.firstOrNull { CustomBackground.uri(it) == u }?.let { Glog.i("Background video: $it"); onItem(it) }
             }
             override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
-                com.glasslauncher.tv.data.MediaLog.error("Background video", player, e)
+                com.glasslauncher.tv.data.MediaLog.error("Background video", player, e, hevcOf = st)
                 // That one doesn't play (gone from the feed, network): the next one, a few times.
                 if (++errors <= list.size.coerceAtMost(6) && list.size > 1) { player.seekToNextMediaItem(); player.prepare() }
             }

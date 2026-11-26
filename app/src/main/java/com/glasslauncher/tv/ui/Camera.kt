@@ -54,18 +54,28 @@ data class Cam(val name: String, val url: String) {
 fun CameraView(cam: Cam, s: Float, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     var state by remember(cam.url) { mutableStateOf("Connecting…") }
+    val view = remember(cam.url) { arrayOfNulls<TextureView>(1) }
     val player = remember(cam.url) {
         com.glasslauncher.tv.CamPlayer.build(ctx).apply {
+            var tries = 0
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
             addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) state = "" }
-                override fun onPlayerError(error: PlaybackException) { com.glasslauncher.tv.data.MediaLog.error("Menu camera", null, error); state = "Can't reach the camera" }
+                override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) { state = ""; tries = 0 } }
+                // (Tried twice more before "Can't reach", as multi-view does; a Home Assistant camera looks after itself.)
+                override fun onPlayerError(error: PlaybackException) {
+                    com.glasslauncher.tv.data.MediaLog.error("Menu camera", this@apply, error)
+                    if (com.glasslauncher.tv.CamPlayer.selfHealing(cam.url)) return
+                    val p = this@apply
+                    if (tries++ < 2) { handler.postDelayed({ view[0]?.let { tv -> runCatching { com.glasslauncher.tv.CamPlayer.play(ctx, p, cam.url, tv) } } }, 1500L * tries); return }
+                    state = "Can't reach the camera"
+                }
             })
         }
     }
     DisposableEffect(player) { onDispose { com.glasslauncher.tv.CamPlayer.release(player) } }
     Box(modifier.clip(RoundedCornerShape((14 * s).dp)).background(Color.Black)) {
         // (Started once the view is there: a Home Assistant camera without a stream draws its pictures on it.)
-        AndroidView(factory = { c -> TextureView(c).also { tv -> player.setVideoTextureView(tv); com.glasslauncher.tv.CamPlayer.play(ctx, player, cam.url, tv, onFail = { state = "Can't reach the camera" }) { state = "" } } }, modifier = Modifier.fillMaxSize())
+        AndroidView(factory = { c -> TextureView(c).also { tv -> view[0] = tv; player.setVideoTextureView(tv); com.glasslauncher.tv.CamPlayer.play(ctx, player, cam.url, tv, onFail = { state = "Can't reach the camera" }) { state = "" } } }, modifier = Modifier.fillMaxSize())
         if (state.isNotBlank()) Text(state, color = Color.White.copy(alpha = 0.7f), fontSize = (10 * s).sp, modifier = Modifier.align(Alignment.Center))
         Row(
             Modifier.align(Alignment.TopStart).padding((8 * s).dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.45f))

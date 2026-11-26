@@ -2,6 +2,20 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.7.3-beta1 — HEVC, Home Assistant cameras, Reolink PTZ
+
+- **A green or black screensaver on some TVs (#40):** Amazon's aerial videos are HEVC only, and some TVs' HEVC decoder
+  fails on them. After the first HEVC video that fails to play on a TV, Glassio plays only H.264 videos there (the
+  background and the screensaver; Amazon's collection is left out), by itself. **Settings → Background & screensaver →
+  HEVC videos** turns them back on. Problem reports say whether it happened.
+- **Home Assistant cameras that said "Can't reach the camera" at random (#40):** a camera whose stream fails, or isn't
+  playing after 15 seconds, asks Home Assistant for it again, then shows the camera's live MJPEG picture or its
+  snapshots, which Home Assistant has for every camera. The corner camera and the menu's camera try a failing link
+  twice more before giving up, as multi-view does.
+- **PTZ for Reolink cameras from Home Assistant (#40):** hold OK on a camera of the cameras page: the arrows use the
+  Reolink integration's *PTZ* buttons (left, right, up, down, stop; zoom when it is turned on in Home Assistant) and
+  ◀ ▶ its *PTZ preset* list. ONVIF cameras work as before.
+
 ## 4.7.2 — Electric Eel
 
 - **Electric Eel** (a SmartTube fork) works like SmartTube: what it plays is followed as music (the player, the

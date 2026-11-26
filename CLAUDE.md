@@ -63,7 +63,7 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.7.1 (code 86, stable, 2026-11-26)**, public `b7c9f9e`, sha256 `dd022b36…3add5a0c`; 4.7.0 (code 85, `d4db232`); 4.6.1 (code 84, `7c4dd9f`); 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.7.2 (code 87, stable, 2026-11-26)**, public `69142ca`, sha256 `b7325ef2…2b449e69`; 4.7.1 (code 86, `b7c9f9e`); 4.7.0 (code 85, `d4db232`); 4.6.1 (code 84, `7c4dd9f`); 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
@@ -2490,6 +2490,13 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   `Channels.SMARTTUBE` and `Search.YOUTUBE_APPS` (stable and beta packages). Seen: a video playing in it, back in
   Glassio it kept playing and the player page showed it ("Electric Eel"; GlassMedia music=true followed=true);
   stopped after.
+  **Its background playing stopping** (his report, looked into, nothing to change in Glassio): it is Electric Eel's own
+  *System → General → Background playback* (his: *Only audio (by pressing HOME)*). A real Home (through Glassio's
+  service): it played on behind Glassio for 8+ minutes and across video changes. Left any other way (Back, an app
+  opened, `am start`): it pauses itself ~7 s later. Once (14:44, after a long session in it) its screens were
+  destroyed with reason `low-mem` while the TV's memory was normal (no lmkd, no `am_mem_factor`): that is the app
+  freeing its own hidden screens when its Java heap passes 75 % of its 512 MB (it plays from a screen, not a
+  foreground service). SmartTube was uninstalled from the Streamer at 13:36 (not by me), so it couldn't be compared.
 - **#39 / #40 (Mubde, Fire TV AFTHA001, 4.7.0; local):** his "green screensaver" report was filed under #39 because it
   carried an old crash (2026-11-23) and the relay groups reports by crash. Reports now carry `last-crash.txt` only when
   it is newer than the installed version (`lastUpdateTime`). Seen: the Streamer's old crash left out of a preview. His
@@ -2521,6 +2528,10 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   marks stay. Tour unchanged (`WhatsNew.ID` 72). Play: bundle 86 sent to Alpha. Code 87+ next. Replied: #51 (closed,
   completed), #40 (update, report right after the green screen, which cameras), #39 (why that report landed there). #52
   (SER) through him on Telegram; #46 nothing new.
+- **4.7.2 released (2026-11-26, his "ريليس سريع بدون بلي ستور"):** Electric Eel beside SmartTube only. Public `69142ca`
+  (tree of local `beta` at `9c6626a`), tag `v4.7.2`, *latest*, both APKs (sha256 `b7325ef2…`, downloaded and compared,
+  also `releases/latest`; the Streamer's file). **Not sent to Google Play** (his ask): Play's Alpha still has 86 (4.7.1)
+  in review. Code 88+ next.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

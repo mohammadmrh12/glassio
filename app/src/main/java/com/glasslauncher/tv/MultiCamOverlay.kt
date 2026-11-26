@@ -147,6 +147,8 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
                     }
                     override fun onPlayerError(error: PlaybackException) {
                         com.glasslauncher.tv.data.MediaLog.error("Multi-view ${c.name}" + if (onMain) " (main stream)" else " (small stream)", p, error)
+                        // (A Home Assistant camera asks for its stream again, then shows its pictures: CamPlayer.)
+                        if (CamPlayer.selfHealing(c.url)) return
                         if (onMain) { onMain = false; com.glasslauncher.tv.data.Glog.w("Multi-view ${c.name}: main stream ${error.errorCodeName}, the small one instead"); CamPlayer.play(ctx, this@apply, CamPlayer.subStream(c.url)); return }
                         again(error.errorCodeName)
                     }
@@ -157,7 +159,7 @@ class MultiCamOverlay(private val ctx: Context, private val cams: List<Cam>, pri
                 handler.postDelayed({
                     if (root == null) return@postDelayed
                     CamPlayer.play(ctx, p, if (main && !beyond) c.url else CamPlayer.subStream(c.url), tex, onFail = { again("no picture") }) { live = true; status.visibility = View.GONE }
-                    handler.postDelayed({ if (!live) again("no picture after 10 s") }, 10_000)
+                    if (!CamPlayer.selfHealing(c.url)) handler.postDelayed({ if (!live) again("no picture after 10 s") }, 10_000)
                 }, 260L + 150L * i)
             }
         }

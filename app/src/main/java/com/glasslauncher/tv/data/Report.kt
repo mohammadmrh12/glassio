@@ -66,7 +66,7 @@ object Report {
     private val SETTINGS = listOf("theme", "dockStyle", "dockPos", "tileStyle", "dockColumns", "bgMode", "bgClockStyle", "saverMode", "libraryCw", "bgContinue", "islandStyle", "islandPausedSec", "musicIsland", "islandHome",
         "menuStyle", "menuMode", "settingsIcon", "slideAnim", "heroAutoplay", "transitionMs", "perfMode", "memTier", "glassRes", "imageQuality",
         "pageScale", "prefetchDepth", "refraction", "libraryColumns", "libraryPlatforms", "playInApp", "continueMode", "updateChannel",
-        "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "photoSource",
+        "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "hevcFailed", "photoSource",
         // (An app's rows and the pages around them, #30.)
         "channelsOn", "channelsLayout", "channelsBg", "channelsLow", "appCatalogsOn", "musicOn", "musicMode", "stagePageBg", "videoGlass", "musicPageBg",
         // (What stands in each app's place, and whose rows an app shows: package names only.)

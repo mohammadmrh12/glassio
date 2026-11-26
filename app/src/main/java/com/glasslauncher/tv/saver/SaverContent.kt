@@ -199,7 +199,8 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
     // Where the first video starts (Same video: where the background was in it).
     // (Remembered: a plain variable is a new one at every recomposition, and the player read 0.)
     val sameFromBox = remember { longArrayOf(0L) }
-    val items by produceState<List<Pair<String, String>>?>(if (slideshow) emptyList() else null) {
+    // (Made again when HEVC is found not to play here: the rest of the list was HEVC too, #53.)
+    val items by produceState<List<Pair<String, String>>?>(if (slideshow) emptyList() else null, st.hevcFailed) {
         if (!slideshow) value = withContext(Dispatchers.IO) { AerialSource.playlistItems(app) }.let { l ->
             // *Same video*: with the aerial background, the screensaver starts with the video the background was
             // showing, where it was, instead of loading a second one (on a TV with little memory that was felt, #22).
@@ -257,7 +258,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                     // (A video that fails was left on screen as it was (a Fire TV's green picture, #40) and nothing was
                     // written: now it's in the log and the next one comes, as the background does; six in a row at most.)
                     override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
-                        com.glasslauncher.tv.data.MediaLog.error("Screensaver", this@apply, e)
+                        com.glasslauncher.tv.data.MediaLog.error("Screensaver", this@apply, e, hevcOf = st)
                         if (++saverErrors[0] <= 6) SaverControl.step = 1
                     }
                 })

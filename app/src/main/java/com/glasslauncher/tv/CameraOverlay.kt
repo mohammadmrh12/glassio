@@ -41,6 +41,8 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
     private var name: TextView? = null
     private var status: TextView? = null
     private var index = start.coerceAtLeast(0)
+    /** Tries of the camera on screen (a link that fails is tried twice more before "Can't reach"). */
+    private var tries = 0
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val autoClose = Runnable { close() }
     // Goes round the cameras on its own; it doesn't keep the corner open longer (only a press does).
@@ -117,7 +119,14 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
             setVideoTextureView(tex)
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY) status?.visibility = View.GONE }
-                override fun onPlayerError(error: PlaybackException) { com.glasslauncher.tv.data.MediaLog.error("Corner camera", null, error); status?.text = "Can't reach the camera"; status?.visibility = View.VISIBLE }
+                // (One error was the end of it: tried twice more first, as multi-view does. A Home Assistant camera
+                // looks after itself in CamPlayer and says so through onFail.)
+                override fun onPlayerError(error: PlaybackException) {
+                    com.glasslauncher.tv.data.MediaLog.error("Corner camera", this@apply, error)
+                    if (CamPlayer.selfHealing(cams[index.mod(cams.size)].url)) return
+                    if (tries++ < 2) { val at = index; handler.postDelayed({ if (root != null && index == at) play(retry = true) }, 1500L * tries); return }
+                    status?.text = "Can't reach the camera"; status?.visibility = View.VISIBLE
+                }
             })
         }
         play()
@@ -125,8 +134,9 @@ class CameraOverlay(private val ctx: Context, private val cams: List<Cam>, priva
         restartRotation()
     }
 
-    private fun play() {
+    private fun play(retry: Boolean = false) {
         val p = player ?: return
+        if (!retry) tries = 0
         val c = cams[index.mod(cams.size)]
         name?.text = c.name
         status?.text = "Connecting…"; status?.visibility = View.VISIBLE

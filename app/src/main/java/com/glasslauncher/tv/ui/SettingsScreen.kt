@@ -1547,6 +1547,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         }))
                     add(Adjust("Quality", "Videos without it play the nearest one", { AerialSource.QUALITIES.firstOrNull { it.first == st.saverQuality }?.second ?: st.saverQuality },
                         { st.saverQuality = cycle(AerialSource.QUALITIES.map { it.first }, st.saverQuality, it); st.ownPerf("saverQuality") }))
+                    // (Only once an HEVC video failed here: H.264 only since, #53.)
+                    if (st.hevcFailed) add(Toggle("HEVC videos", "Off by itself: one failed to play on this TV (a green or black picture). Only H.264 videos play, without Amazon's",
+                        { !st.hevcFailed }, { st.hevcFailed = !it }))
                     add(Toggle("Shuffle", "Off: in the collections' order", { st.saverShuffle }, { st.saverShuffle = it }))
                     add(Act("Play one video only", if (st.saverPick.isBlank()) "All of them" else "One video", if (st.saverPick.isBlank()) "" else "Change") {
                         io {

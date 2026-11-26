@@ -4,6 +4,18 @@
 
 شنو تغيّر بكل نسخة من Glassio. التحميل: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [English](../CHANGELOG.md)
 
+## 4.7.3-beta1 — HEVC، كاميرات Home Assistant، PTZ لـ Reolink
+
+- **سكرين سيفر أخضر أو أسود ببعض التلفزيونات (#40):** فيديوهات Amazon الجوية كلها HEVC، وفك HEVC ببعض التلفزيونات يخرب
+  عليها. بعد أول فيديو HEVC يخرب على تلفزيون، كلاسيو يشغّل بس فيديوهات H.264 بذاك التلفزيون (الخلفية والسكرين سيفر؛
+  مجموعة Amazon تنشال)، لحاله. **Settings → Background & screensaver → HEVC videos** يرجّعها. وتقارير المشاكل تبين إذا صار.
+- **كاميرات Home Assistant اللي جانت تطلع "Can't reach the camera" بشكل عشوائي (#40):** الكاميرا اللي يخرب بثها، أو ما يشتغل
+  خلال 15 ثانية، تطلب البث من Home Assistant مرة ثانية، وبعدها تعرض صورة MJPEG الحية أو لقطاتها، وهذي موجودة بـ
+  Home Assistant لكل كاميرا. وكاميرا الزاوية وكاميرا المنيو صارن يعيدن الرابط الخربان مرتين قبل ما يستسلمن، مثل multi-view.
+- **PTZ لكاميرات Reolink من Home Assistant (#40):** اضغط OK مطوّل على كاميرا بصفحة الكاميرات: الأسهم تستعمل أزرار *PTZ*
+  مال إضافة Reolink (يسار، يمين، فوك، جوه، وقوف؛ والزوم إذا مشغّل بـ Home Assistant)، و ◀ ▶ قائمة *PTZ preset* مالتها.
+  كاميرات ONVIF تبقى مثل ما هي.
+
 ## 4.7.2 — Electric Eel
 
 - **Electric Eel** (نسخة من SmartTube) صار يشتغل مثل SmartTube: اللي يشغّله ينتابع كموسيقى (المشغّل، والآيلاند،

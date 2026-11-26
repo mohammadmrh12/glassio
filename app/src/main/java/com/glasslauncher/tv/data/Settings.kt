@@ -961,6 +961,12 @@ class Settings(private val ctx: Context) {
     /** Seconds a paused song stays in the island before it goes (0 at once, -1 never; #49). */
     /** After a crash, its report goes without asking (off: the next start asks, with the report to read first). */
     var crashAutoSend: Boolean get() = b("crashAutoSend", false); set(v) = putB("crashAutoSend", v)
+    /**
+     * An HEVC video failed to decode on this TV (#40, #53: a Fire TV's green screensaver): from then on the background
+     * and the screensaver play only H.264 files here (Amazon's collection, HEVC only, is left out). The TV's own; set
+     * back from Settings → Background & screensaver (*HEVC videos*).
+     */
+    var hevcFailed: Boolean get() = b("hevcFailed", false); set(v) = putB("hevcFailed", v)
     var islandPausedSec: Int get() = i("islandPausedSec", 20); set(v) = putI("islandPausedSec", v)
     /** Photos from subreddits: their names (comma separated), and the Reddit app id that lets Glassio in. */
     var photoSubreddit: String get() = s("photoSubreddit", "EarthPorn"); set(v) = putS("photoSubreddit", v.trim())

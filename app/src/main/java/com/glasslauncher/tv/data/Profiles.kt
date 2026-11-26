@@ -68,7 +68,7 @@ object Profiles {
      * Hue, cameras and the doorbell, Home Assistant, the remote's buttons, the inputs, Nuvio's link, updates, start-up,
      * app locks, the keys of outside services), not how Glassio looks or what it shows.
      */
-    private val DEVICE = setOf("crashAutoSend", 
+    private val DEVICE = setOf("crashAutoSend", "hevcFailed", 
         // Performance and storage (what this TV can carry)
         "perfMode", "perfOwn", "heroAutoplayWhere", "pageScale", "memTier", "glassRes", "imageQuality", "prefetchDepth", "cacheMb", "saverCache", "saverCacheGb",
         "photoCacheMb", "bgAerialQuality", "saverQuality", "multiQuality", "cameraDecoder",

@@ -884,7 +884,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             }
             // Screensaver as background: one of its aerial videos (your links and / or Apple's feed).
             val aerialKey = settings.saverSources.joinToString() + settings.saverQuality + settings.saverPick + settings.saverMine + settings.bgAerialQuality +
-                settings.bgVideos + settings.aerialUrls.joinToString() + settings.saverYtOff.joinToString() + settings.saverHidden.joinToString()
+                settings.bgVideos + settings.aerialUrls.joinToString() + settings.saverYtOff.joinToString() + settings.saverHidden.joinToString() + settings.hevcFailed
             var lastAerialKey by remember { mutableStateOf(aerialKey) }
             LaunchedEffect(settings.bgMode, aerialKey) {
                 // The screensaver's video choice changed: pick again from the new list.
