@@ -48,9 +48,13 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 37 && checkSelfPermission(LOCAL_NETWORK) != android.content.pm.PackageManager.PERMISSION_GRANTED)
             runCatching { requestPermissions(arrayOf(LOCAL_NETWORK), 37) }
         val app = application as GlassApp
+        com.glasslauncher.tv.data.Backup.restarted(this)
+        DevHooks.atStart(this)
         handleExtras(intent)
         // The TV has just started: who is watching (or straight to the automatic profile), once the setup is done.
-        if (savedInstanceState == null && app.settings.setupDone && com.glasslauncher.tv.data.Profiles.newBoot(this)) com.glasslauncher.tv.ui.ProfilesUi.wake(app)
+        // (Also when Glassio starts again with a PIN still being asked: closing Glassio is no way round it.)
+        if (savedInstanceState == null && app.settings.setupDone &&
+            (com.glasslauncher.tv.data.Profiles.newBoot(this) || com.glasslauncher.tv.data.ProfilePin.gate(this))) com.glasslauncher.tv.ui.ProfilesUi.wake(app)
         setContent {
             // A launcher never exits on Back; it just returns to its home view.
             BackHandler(enabled = true) { screen = Screen.Home }
@@ -131,6 +135,8 @@ class MainActivity : ComponentActivity() {
                     }
                     // "Who is watching?" over everything (the home screen, Settings, the setup).
                     com.glasslauncher.tv.ui.ProfileChooserHost(app)
+                    // A profile's PIN, over the chooser and over Settings.
+                    com.glasslauncher.tv.ui.PinHost(app)
                     // A see-through TV page in front (Default home app, …): Settings and the setup go dark behind
                     // it, their rows showed through and mixed with its own (his video). The home screen stays: the
                     // TV's side panels are made to sit beside an app.
@@ -154,7 +160,7 @@ class MainActivity : ComponentActivity() {
                     }
                     // (Where the screensaver may be drawn on the home screen itself: see HomeSaver.homeShown. Read here, in
                     // the composition, so a change of any of them is seen: read inside the SideEffect it wasn't.)
-                    val homeShown = screen == Screen.Home && !setup && !com.glasslauncher.tv.ui.ProfilesUi.open.value && !com.glasslauncher.tv.ui.WhatsNew.open.value
+                    val homeShown = screen == Screen.Home && !setup && !com.glasslauncher.tv.ui.ProfilesUi.open.value && com.glasslauncher.tv.ui.PinUi.ask.value == null && !com.glasslauncher.tv.ui.WhatsNew.open.value
                     androidx.compose.runtime.SideEffect {
                         KeyHub.homeInFront = resumed && screen == Screen.Home && !setup
                         com.glasslauncher.tv.saver.HomeSaver.homeShown = homeShown
@@ -322,6 +328,11 @@ class MainActivity : ComponentActivity() {
 
     @android.annotation.SuppressLint("RestrictedApi") // normal Activity override; lint misreads the androidx stub
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Every key here is someone at the remote. The What's new tour, the PIN pad, "Who is watching?" and the cameras
+        // shown in this window take their keys below, before the Activity counts them (onUserInteraction): without the
+        // Home button service (which counts every key on the TV) the screensaver started while the tour was being read
+        // or a PIN typed. Seen with keys sent past the service: it started 1.4 s after a ▶ in the tour.
+        if (event.action == KeyEvent.ACTION_DOWN) (application as GlassApp).touch()
         // The key that ended the screensaver on the home screen: its release doesn't reach the home screen.
         if (com.glasslauncher.tv.saver.HomeSaver.eatAfterEnd(event)) return true
         // The screensaver on the home screen takes the remote while it shows (◀ ▶ OK ▲ ▼; anything else ends it).
@@ -336,6 +347,7 @@ class MainActivity : ComponentActivity() {
         // The What's new tour takes the remote while it shows.
         if (com.glasslauncher.tv.ui.WhatsNew.onKey(application as GlassApp, event.keyCode, event.action == KeyEvent.ACTION_DOWN)) return true
         // "Who is watching?" takes it too.
+        if (com.glasslauncher.tv.ui.PinUi.onKey(event)) return true
         if (com.glasslauncher.tv.ui.ProfilesUi.onKey(application as GlassApp, event)) return true
         return super.dispatchKeyEvent(event)
     }

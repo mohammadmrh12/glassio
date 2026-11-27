@@ -13,20 +13,24 @@ Camera	Caméra
 Can't reach the camera	Caméra inaccessible
 Connecting…	Connexion…
 Name|url	Nom|url
-Next	Suivant
+Continue watching	Reprendre
+(TV access)	(accès TV)
+1 row	1 rangée
 and enter	et entrez
-and how a camera or the doorbell can show over another app.	et comment une caméra ou la sonnette peut s'afficher par-dessus une autre appli.
 Automatic ·	Automatique ·
 Button	Bouton
 Cancel	Annuler
 Close	Fermer
 Couldn't send it. Check the internet and try again	Envoi impossible. Vérifiez Internet et réessayez
 Gift card code	Code de la carte cadeau
-Glassio uses Android's Accessibility API for one thing: to notice the buttons of your remote, and when the TV's own home screen comes up.	Glassio utilise l'API d'accessibilité d'Android pour une seule chose : repérer les touches de votre télécommande et l'ouverture de l'écran d'accueil de la TV.
+Glassio comes back when you leave an app it opened, it waits while the TV asks you to allow USB debugging, and a camera or the doorbell can show over another app.	Glassio revient quand vous quittez une appli qu'il a ouverte, il attend que la TV vous demande d'autoriser le débogage USB, et une caméra ou la sonnette peut s'afficher par-dessus une autre appli.
+Glassio uses Android's Accessibility API for two things: to notice the buttons of your remote, and to know which app is in front (its name only).	Glassio utilise l'API d'accessibilité d'Android pour deux choses : repérer les touches de votre télécommande et savoir quelle appli est au premier plan (son nom uniquement).
 Glassio's accessibility service	Service d'accessibilité de Glassio
 In the carousel's place	À la place du carrousel
+It has none now	Elle n'en a plus
 It only works after you turn it on yourself in the TV's Accessibility settings, and you can turn it off there at any time.	Il ne fonctionne qu'après son activation par vous dans les réglages d'accessibilité de la TV, et vous pouvez le désactiver à tout moment.
 Its catalogs	Ses catalogues
+Its own rows	Ses propres rangées
 Its rows	Ses rangées
 No catalogs yet: add an add-on in Settings → Catalogs	Aucun catalogue : ajoutez une extension dans Réglages → Catalogues
 Not now	Pas maintenant
@@ -49,13 +53,11 @@ Sending…	Envoi…
 Sent. Thank you so much for your support!	Envoyé. Merci beaucoup pour votre soutien !
 Support Glassio	Soutenir Glassio
 Support me	Me soutenir
-Supporters	Soutiens
-Thank you for keeping Glassio going.	Merci de faire vivre Glassio.
 Thank you!	Merci !
-That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	C'est ce qui permet au bouton Home d'ouvrir Glassio à la place de l'accueil de la TV, et à un appui long sur Home et aux touches choisies de faire ce que vous avez défini,
+That is how the Home button opens Glassio instead of the TV's own home screen, the remote buttons you choose do what you set, Recent apps lists the apps you used,	C'est ainsi que la touche Accueil ouvre Glassio au lieu de l'écran d'accueil de la TV, que les touches de télécommande choisies font ce que vous avez défini, que les applis récentes sont listées,
 That isn't a PSN code: 12 letters and digits	Ce n'est pas un code PSN : 12 lettres et chiffres
 The arrows and OK move around Glassio: pick another button	Les flèches et OK servent à naviguer dans Glassio : choisissez une autre touche
-The service does not read what is on the screen, does not read what you type, and collects or shares nothing.	Le service ne lit pas ce qui s'affiche à l'écran, ne lit pas ce que vous saisissez, et ne collecte ni ne partage rien.
+The service does not read what is on the screen, does not read what you type, and collects or shares nothing: what it notices stays on this TV.	Le service ne lit pas ce qui s'affiche à l'écran ni ce que vous saisissez, et ne collecte ni ne partage rien : ce qu'il repère reste sur cette TV.
 This button sends nothing Glassio can tell apart: pick another button	Ce bouton n'envoie rien que Glassio puisse distinguer : choisissez-en un autre
 This is everything that will be sent. It becomes a public issue on GitHub: addresses, keys, emails and names were removed	Voici tout ce qui sera envoyé. Cela devient un ticket public sur GitHub : adresses, clés, e-mails et noms ont été retirés
 Type the code first	Saisissez d'abord le code
@@ -72,12 +74,9 @@ Glass like glass	Verre comme du verre
 None (clear)	Aucun (transparent)
 Petrol	Bleu pétrole
 Glassio is the TV screensaver	Glassio est l'économiseur d'écran de la TV
-Add to Library	Ajouter à la Bibliothèque
 Change artwork	Changer l'affiche
 Continue	Reprendre
 Hide this title	Masquer ce titre
-Like	J'aime
-Liked	Aimé
 Loading…	Chargement…
 Movie	Film
 Music apps	Applis de musique
@@ -86,7 +85,6 @@ No music app on this TV	Aucune appli de musique sur cette TV
 Open Catalogs	Ouvrir les catalogues
 Open Settings → Catalogs & add-ons to connect Nuvio and fill the carousel.	Ouvrez Réglages → Catalogues et extensions pour connecter Nuvio et remplir le carrousel.
 Play	Lecture
-Remove from Library	Retirer de la Bibliothèque
 Series	Série
 Stop trailer	Arrêter la bande-annonce
 Trailer	Bande-annonce
@@ -102,12 +100,14 @@ Apps folder hidden. Show it again: Settings → Dock & icons	Dossier Applis masq
 Catalogs	Catalogues
 Catalogs & add-ons	Catalogues et extensions
 Change icon	Changer l'icône
+Glassio closed by itself. Send this report?	Glassio s'est fermé tout seul. Envoyer ce rapport ?
 Hide	Masquer
 Hide from the dock	Masquer du dock
 Hide its rows	Masquer ses rangées
 Lock	Verrouiller
 Move	Déplacer
 Open	Ouvrir
+Rows from…	Rangées de…
 Show in dock	Afficher dans le dock
 Show its rows	Afficher ses rangées
 Unlock	Déverrouiller
@@ -153,29 +153,48 @@ Save to the Library	Enregistrer dans la Bibliothèque
 Saved	Enregistré
 Simkl · Plan to watch	Simkl · À voir
 Trakt watchlist	Liste de suivi Trakt
+doesn't play	ne lit rien
+has no session	n'a pas de session
+Looking for the lyrics…	Recherche des paroles…
+No lyrics for this song	Pas de paroles pour ce titre
 No music app on this TV (Spotify, YouTube Music, Apple Music…)	Aucune appli de musique sur cette TV (Spotify, YouTube Music, Apple Music…)
 Nothing is playing. Pick a music app to start something.	Aucune lecture en cours. Choisissez une appli de musique pour lancer quelque chose.
 Nothing playing	Aucune lecture
+the letters dance while the name moves	les lettres dansent pendant que le nom défile
+This song again	Ce titre en boucle
+to its own receiver	vers son propre récepteur
 1280 enhanced	1280 amélioré
 High	Élevée
+Checking…	Vérification…
+Nuvio can't be reached to check this PIN	Impossible de joindre Nuvio pour vérifier ce PIN
+The remote's number keys work too · Back cancels	Les touches numériques de la télécommande fonctionnent aussi · Retour annule
+Too many wrong tries. Try again in	Trop d'essais incorrects. Réessayez dans
+Wrong PIN	PIN incorrect
 Ask	Demander
 At start	Au démarrage
 Automatic	Automatique
+Choose a profile and enter its PIN	Choisissez un profil et saisissez son PIN
+Enter the PIN	Saisissez le PIN
 Glassio will start as	Glassio démarrera avec le profil
 In use	Utilisé
 Main profile	Profil principal
 OK opens a profile · hold OK to always start as it	OK ouvre un profil · OK long pour toujours démarrer avec lui
 Opening Glassio as	Ouverture de Glassio avec le profil
 Opening …	Ouverture …
-PIN in Nuvio	PIN dans Nuvio
-This profile has a PIN in Nuvio: it can't be opened from here yet	Ce profil a un PIN dans Nuvio : impossible de l'ouvrir d'ici pour l'instant
+This profile's PIN in Nuvio	PIN de ce profil dans Nuvio
 Credit	Crédit
 EEEE, d MMMM	EEEE d MMMM
 Place	Lieu
 Storage	Stockage
 Time	Heure
 Weather	Météo
+Add to Library	Ajouter à la Bibliothèque
 Allow USB debugging for Glassio to use the TV screensaver	Autorisez le débogage USB pour que Glassio utilise l'économiseur d'écran de la TV
+Like	J'aime
+Liked	Aimé
+Next	Suivant
+Open in Nuvio	Ouvrir dans Nuvio
+Remove from Library	Retirer de la Bibliothèque
 Asking the add-ons…	Interrogation des extensions…
 Films and series	Films et séries
 Its own search	Sa propre recherche
@@ -190,9 +209,11 @@ Search	Recherche
 Searched before	Recherches récentes
 Searching…	Recherche…
 The search didn't answer	La recherche n'a pas répondu
+app=other app	app=autre appli
 Hello, …	Bonjour, …
 Name|rtsp://…	Nom|rtsp://…
 Plan to watch	À voir
+raw button id=package	bouton brut id=package
 Videos · My videos	Vidéos · Mes vidéos
 (first its app id, from the phone)	(d'abord son identifiant d'appli, depuis le téléphone)
 + button	Bouton +
@@ -223,6 +244,7 @@ A live camera in the corner, over any app	Une caméra en direct dans un coin, pa
 A music app selected in the dock with nothing playing: its icon and Play. Off: its rows, or the carousel (its player still comes while its song is on)	Une appli de musique sélectionnée dans le dock sans lecture : son icône et Lecture. Désactivé : ses rangées, ou le carrousel (son lecteur s'affiche toujours pendant un morceau)
 A Music icon (move, hide and change it like an app): opens the player	Une icône Musique (à déplacer, masquer et changer comme une appli) : ouvre le lecteur
 A new one when each ends, fading through black like the screensaver	Une nouvelle à la fin de chacune, avec fondu par le noir comme l'économiseur d'écran
+A paused song goes	Un titre en pause disparaît
 A picture or a video of your own as the background, from a link or the folder	Votre propre image ou vidéo en arrière-plan, depuis un lien ou le dossier
 A pill appears next to the clock when a new version is out.	Une pastille apparaît à côté de l'horloge quand une nouvelle version est disponible.
 A random mix from all your catalogs (different titles each time), fetched again on its own	Un mélange aléatoire de tous vos catalogues (des titres différents à chaque fois), rechargé automatiquement
@@ -233,6 +255,7 @@ A short tour of what's new and where to change it	Un petit tour des nouveautés 
 A soft ding-dong when it shows	Un petit ding-dong à l'apparition
 A song name too long for the island scrolls by (off: shortened with …)	Un nom de morceau trop long pour l'îlot défile (désactivé : raccourci avec …)
 A song plays under the search	Le morceau joue sous la recherche
+A song's words beside the player, in time with it, lighting as they are sung. Found by the song's name and artist (only those are sent, to the sources below). The player's and the island's lyrics buttons do the same	Les paroles d'un titre à côté du lecteur, en rythme, éclairées au fil du chant. Trouvées par le nom et l'artiste du titre (seuls ceux-ci sont envoyés, aux sources ci-dessous). Les boutons de paroles du lecteur et de l'îlot font de même
 A tall poster or a wide card with the title's backdrop. The name, the year and the rating are inside the picture, like a Continue Watching card of the Library	Une affiche en hauteur ou une carte large avec l'arrière-plan du titre. Le nom, l'année et la note sont dans l'image, comme une carte Reprendre de la Bibliothèque
 A tint through all the glass (dock, icons, menus, panels), still see-through, like a tinted window	Une teinte sur tout le verre (dock, icônes, menus, panneaux), toujours transparente, comme une vitre teintée
 A title here opens in its own app: Nuvio Legacy, Nuvio or Stremio (Trakt and Simkl titles: Open titles in)	Un titre ici s'ouvre dans sa propre appli : Nuvio Legacy, Nuvio ou Stremio (titres Trakt et Simkl : Ouvrir les titres dans)
@@ -263,16 +286,19 @@ Add-ons asked	Extensions interrogées
 Add-ons asked for sources	Extensions interrogées pour les sources
 Add-ons from my Nuvio account	Extensions de mon compte Nuvio
 Add-ons, tokens, icons, cameras, videos and backups from your phone's browser	Extensions, jetons, icônes, caméras, vidéos et sauvegardes depuis le navigateur de votre téléphone
+After 1 min	Après 1 min
 After each new photo or video	Après chaque nouvelle photo ou vidéo
 After each new trailer	Après chaque nouvelle bande-annonce
 After each new video	Après chaque nouvelle vidéo
+After Glassio closes by itself, its report goes without asking. Off: the next start asks, and you see the report first	Quand Glassio se ferme tout seul, son rapport part sans demander. Désactivé : au prochain démarrage, la question est posée et vous voyez d'abord le rapport
 After this long on a title its trailer starts; when it ends (or ◀ ▶) the next title comes	Après ce délai sur un titre, sa bande-annonce démarre ; à la fin (ou ◀ ▶) le titre suivant arrive
 After you finish an episode, the next one waits here (from the Nuvio account and what Glassio saw)	Quand vous finissez un épisode, le suivant vous attend ici (d'après le compte Nuvio et ce que Glassio a vu)
-After you leave this screen. The code changes each time it starts again	Après avoir quitté cet écran. Le code change à chaque nouveau démarrage
+After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	Après avoir quitté cet écran. L'adresse et le code restent les mêmes, la page enregistrée sur votre téléphone fonctionne donc dès que la page est active. Toujours : tant que Glassio fonctionne
 Agree and open the TV's Accessibility settings	Accepter et ouvrir les réglages d'accessibilité de la TV
 All	Tout
 All of Glassio's writing a step bolder	Tout le texte de Glassio un cran plus gras
 All of them	Tous
+All of them are off	Toutes sont désactivées
 All the lights	Toutes les lampes
 All the lights take the colour of the app selected in the dock (its glow's colour)	Toutes les lampes prennent la couleur de l'appli sélectionnée dans le dock (celle de sa lueur)
 All the lights take the colour of the card you're on in an app's rows (as bright as the Library's posters)	Toutes les lampes prennent la couleur de la carte sélectionnée dans les rangées d'une appli (aussi vive que les affiches de la Bibliothèque)
@@ -295,12 +321,16 @@ Also in the menu (hold OK)	Aussi dans le menu (OK long)
 Also, if your TVs are in the same home (off unless you turn them on)	Aussi, si vos TV sont dans la même maison (désactivé tant que vous ne l'activez pas)
 Always	Toujours
 AMOLED black	Noir AMOLED
+An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	Une appli avec sa propre rangée Reprendre (Netflix, YouTube…) l'affiche aussi sous forme de cartes, à la place de ses rangées. Par appli : Musique et rangées d'applis → Applis avec chaînes
 An icon in the dock: select it and the search bar comes up in the carousel's place; OK types. Glassio plays nothing itself: a title opens in an app	Une icône dans le dock : sélectionnez-la et la barre de recherche apparaît à la place du carrousel ; OK pour saisir. Glassio ne lit rien lui-même : un titre s'ouvre dans une appli
 Android settings	Réglages Android
 Any title your server has opens on its page in the Jellyfin app (off: only titles from the server itself)	Tout titre présent sur votre serveur s'ouvre sur sa page dans l'appli Jellyfin (désactivé : seulement les titres du serveur lui-même)
 Anything you like (even the code itself)	Ce que vous voulez (même le code lui-même)
 Anywhere: the camera in the corner (again closes it)	Partout : la caméra dans le coin (un nouvel appui la ferme)
+Anywhere: the camera in the corner · press again to close	Partout : la caméra dans le coin · appuyez à nouveau pour fermer
 Anywhere: the cameras in the middle (again closes them)	Partout : les caméras au centre (un nouvel appui les ferme)
+Anywhere: the cameras in the middle · press again to close	Partout : les caméras au milieu · appuyez à nouveau pour fermer
+API key	Clé API
 API Key, not the token	Clé API, pas le jeton
 App	Appli
 App lock	Verrouillage d'appli
@@ -316,6 +346,7 @@ Apps folder	Dossier Applis
 Apps in a row	Applis par rangée
 Apps with channels	Applis avec chaînes
 Apps without a TV launcher entry	Applis sans entrée dans le lanceur TV
+Apps' Continue watching	Reprendre des applis
 Aqara (through HomeKit), Frigate, Ring, Tapo… any camera Home Assistant shows. Uses the Home Assistant link and token (Doorbell → Home Assistant link)	Aqara (via HomeKit), Frigate, Ring, Tapo… toute caméra affichée par Home Assistant. Utilise le lien et le jeton Home Assistant (Sonnette → Lien Home Assistant)
 Around the settings button (it fills in white when selected)	Autour du bouton des réglages (il se remplit de blanc quand il est sélectionné)
 Arrange apps	Organiser les applis
@@ -324,14 +355,18 @@ As before Hue Sync	Comme avant Hue Sync
 As Glassio shows this profile. Empty: the name it has in Nuvio	Tel que Glassio affiche ce profil. Vide : le nom qu'il a dans Nuvio
 As in Nuvio	Comme dans Nuvio
 As they were before Hue Sync (they follow the screen again on the home screen)	Comme avant Hue Sync (elles suivent de nouveau l'écran sur l'accueil)
+Ask for the PIN	Demander le PIN
 Ask who is watching	Demander qui regarde
+At once	Immédiatement
 At the start	Au début
 At the top, with where each title came from	En haut, avec la provenance de chaque titre
 Auto uses the first installed: Nuvio Legacy, Nuvio (official), Nuvio Arc, Nuvio Re-Shaped	Auto utilise la première installée : Nuvio Legacy, Nuvio (officielle), Nuvio Arc, Nuvio Re-Shaped
 Auto-hide	Masquage auto
 Auto-hide the top bar	Masquer la barre du haut automatiquement
 Auto-play	Lecture auto
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Automatique : une seule rangée quand les caméras tiennent à cette taille, sinon une grille (deux par deux, trois par trois au-delà de quatre). Elles ne dépassent jamais les bords de l'écran
 Automatic: what you change on the main TV shows here a moment later. Manual: only when you press Sync now	Automatique : ce que vous changez sur la TV principale apparaît ici un instant après. Manuel : seulement quand vous appuyez sur Synchroniser maintenant
+Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	Automatique : votre arrière-plan avec verre transparent sur une vidéo, sinon la pochette du titre. Votre arrière-plan : votre vidéo ou image reste derrière le lecteur. La pochette du titre : son image remplit la page
 Back as they were	Remises comme avant
 Back from Nuvio, the carousel shows that title first	Au retour de Nuvio, le carrousel affiche d'abord ce titre
 Back on the home screen starts it	Back sur l'écran d'accueil le lance
@@ -345,7 +380,6 @@ Backdrop gallery	Galerie de fonds
 Background	Arrière-plan
 Background & glass	Arrière-plan et verre
 Background & screensaver	Arrière-plan et économiseur d'écran
-Baghdad	Bagdad
 Balanced	Équilibré
 Bar	Barre
 Bars colour	Couleur des barres
@@ -362,7 +396,7 @@ Beta: new things first, they may still have bugs	Bêta : les nouveautés en prem
 Between Play and Next: saves the title to your Library	Entre Lecture et Suivant : enregistre le titre dans votre Bibliothèque
 Between posters and between rows	Entre les affiches et entre les rangées
 Bigger files are left out	Les fichiers plus gros sont ignorés
-Bing and Wikimedia need no account; Unsplash needs a free key	Bing et Wikimedia n'exigent aucun compte ; Unsplash demande une clé gratuite
+Bing, Windows Spotlight, Wikimedia and the paintings need no account; Unsplash and Pexels each need a free key	Bing, Windows Spotlight, Wikimedia et les peintures ne demandent aucun compte ; Unsplash et Pexels demandent chacun une clé gratuite
 Black AMOLED	Noir AMOLED
 Black on white	Noir sur blanc
 Blink it	La faire clignoter
@@ -390,6 +424,7 @@ Cameras	Caméras
 Cameras found	Caméras trouvées
 Cameras from Home Assistant	Caméras de Home Assistant
 Cameras on the screensaver: ▼ brings them up from the bottom	Caméras sur l'économiseur d'écran : ▼ les fait monter du bas
+Cameras on the whole screen	Caméras en plein écran
 Cancelled	Annulé
 Card	Carte
 Card size	Taille des cartes
@@ -409,6 +444,7 @@ Change one icon: on the home screen hold OK on the app → Change icon. Pick fro
 Change speed	Vitesse de changement
 Change the code	Changer le code
 Change the order of its rows	Changer l'ordre de ses rangées
+Change the PIN	Changer le PIN
 Change who is watching (shown when your Nuvio account has more than one profile)	Changer qui regarde (affiché quand votre compte Nuvio a plusieurs profils)
 Changed	Modifié
 Changed settings	Réglages modifiés
@@ -417,11 +453,11 @@ Channels	Chaînes
 Channels on	Chaînes activées
 Check	Vérifier
 Check for updates	Rechercher des mises à jour
-Checking…	Vérification…
 Chime	Carillon
 Choose Always allow on the TV, then press OK here again	Choisissez Toujours autoriser sur la TV, puis appuyez de nouveau sur OK ici
 Choose another button	Choisissez une autre touche
 Choose default home app	Choisir l'appli d'accueil par défaut
+choose one	en choisir un
 Choose the video first: My pictures & videos → Video from the folder or a link	Choisissez d'abord la vidéo : Mes images et vidéos → Vidéo du dossier ou d'un lien
 Chosen	Choisi
 Cinematic (fill)	Cinéma (remplir)
@@ -456,6 +492,9 @@ Connected	Connecté
 Connected to the Hue bridge: now choose the lights	Connecté au pont Hue : choisissez maintenant les lampes
 Connections	Connexions
 Continue Watching & Library	Reprendre et Bibliothèque
+Continue watching as cards: off	Reprendre en cartes : désactivé
+Continue watching as cards: on	Reprendre en cartes : activé
+Continue Watching cards	Cartes Reprendre
 Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use it. Three steps, once	Reprendre depuis Nuvio Legacy, Glassio comme économiseur d'écran de la TV, les infos TV, l'ouverture d'applis, le démarrage avec la TV et les mises à jour silencieuses l'utilisent. Trois étapes, une seule fois
 Continue Watching in app carousels	Reprendre dans les carrousels d'applis
 Continue Watching in the Library	Reprendre dans la Bibliothèque
@@ -509,7 +548,7 @@ Dynamic Glass	Verre dynamique
 e.g. year we met	ex. année de notre rencontre
 Each app has its own number for a title. Wikidata has some; JustWatch knows many more and what can be watched now, through its site's own search (not an official service)	Chaque appli a son propre numéro pour un titre. Wikidata en a certains ; JustWatch en connaît bien plus, et ce qui est disponible maintenant, via la recherche de son site (service non officiel)
 Each app's rows, the music player and the island	Les rangées de chaque appli, le lecteur de musique et l'îlot
-Each app's rows: off, hidden one by one, or in another order	Les rangées de chaque appli : désactivées, masquées une par une, ou dans un autre ordre
+Each app's rows: off, hidden one by one, in another order, or another app's	Les rangées de chaque appli : désactivées, masquées une à une, dans un autre ordre, ou celles d'une autre appli
 Each film and series library as a catalog, newest first (Catalogs & add-ons → Catalogs in the carousel)	Chaque bibliothèque de films et de séries comme un catalogue, les plus récents d'abord (Catalogues et extensions → Catalogues dans le carrousel)
 Each input as an icon: move, hide and change its icon like an app	Chaque entrée en icône : à déplacer, masquer et changer comme une appli
 Each light a different colour of the picture, or all of them its main colour	Chaque lampe d'une couleur différente de l'image, ou toutes de sa couleur principale
@@ -517,17 +556,20 @@ Each light · the part of the screen it follows	Chaque lampe · la partie de l'�
 Each music app selected in the dock: its player or its rows, and the player with nothing playing	Chaque appli de musique sélectionnée dans le dock : son lecteur ou ses rangées, et le lecteur sans lecture
 Each profile of your Nuvio account has its own Glassio: its look, dock, catalogs, Library and Continue Watching. Glassio starts again when you change it	Chaque profil de votre compte Nuvio a son propre Glassio : son style, son dock, ses catalogues, sa Bibliothèque et son Reprendre. Glassio redémarre quand vous en changez
 Each title's own picture, or yours: a picture, photos or videos	L'image de chaque titre, ou la vôtre : une image, des photos ou des vidéos
-EarthPorn, wallpapers	EarthPorn, fonds d'écran
+Empty: automatic (	Vide : automatique (
 Empty: the name in Nuvio	Vide : le nom dans Nuvio
 Entertainment	Divertissement
 Every	Toutes les
 Every app · press again to close it	Toutes les applis · appuyez encore pour fermer
 Every hidden title is back	Tous les titres masqués sont revenus
 Every Hue light	Toutes les lampes Hue
+Every QR code and page saved on a phone stops working; scan the new code	Tous les codes QR et les pages enregistrées sur un téléphone cessent de fonctionner ; scannez le nouveau code
 Every row is hidden	Toutes les rangées sont masquées
 Every setting is as it comes	Tous les réglages sont ceux d'origine
 Every setting, catalog, Library and Continue Watching (no sign-ins), saved to Download/Glassio on the TV (also from the phone page)	Tous les réglages, catalogues, Bibliothèque et Reprendre (sans connexions), enregistrés dans Download/Glassio sur la TV (aussi depuis la page du téléphone)
 Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private	Tous les réglages, catalogues, Bibliothèque, Reprendre, comptes et jetons, enregistrés dans Download/Glassio sur la TV (aussi depuis la page du téléphone). Gardez-le privé
+Every time	Chaque fois
+Every time: when the TV starts or wakes, and when you change to this profile. Automatic: this TV opens it without the PIN	Chaque fois : au démarrage ou au réveil de la TV, et quand vous passez à ce profil. Automatique : cette TV l'ouvre sans le PIN
 Every title in progress, or one of them	Tous les titres en cours, ou l'un d'eux
 Every title is back to the Artwork setting	Tous les titres reprennent le réglage Affiches
 Every video (Apple, Amazon or your link) is saved as it plays and starts at once next time	Chaque vidéo (Apple, Amazon ou votre lien) est enregistrée pendant la lecture et démarre aussitôt la fois suivante
@@ -563,15 +605,21 @@ Follow which TV?	Suivre quelle TV ?
 Following this TV	Suit cette TV
 Follows	Suit
 Follows another TV	Suit une autre TV
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Polices : Inter (SIL OFL) · Météo : Open-Meteo · Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.
 Forget	Oublier
 Forget the bridge	Oublier le pont
 Forget them	Les oublier
+Four digits	Quatre chiffres
+Four digits before this profile opens. A profile with a PIN in Nuvio uses that one by itself	Quatre chiffres avant l'ouverture de ce profil. Un profil avec un PIN dans Nuvio utilise celui-ci automatiquement
+Four digits before this profile opens. Kept on this TV only	Quatre chiffres avant l'ouverture de ce profil. Conservé sur cette TV uniquement
 Frame	Cadre
 Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	Gratuite sur pexels.com/api : connectez-vous, puis copiez votre clé. Gardée sur cette TV seulement
 Free videos from pexels.com for the words below	Des vidéos gratuites de pexels.com pour les mots ci-dessous
 Free videos from pexels.com for the words below. Needs your own Pexels key	Des vidéos gratuites de pexels.com pour les mots ci-dessous. Il faut votre propre clé Pexels
+Free: pexels.com/api → Your API key. The same key brings Pexels' videos to the screensaver. Easier to paste from your phone (Manage from phone)	Gratuit : pexels.com/api → Votre clé API. La même clé apporte les vidéos de Pexels à l'économiseur d'écran. Plus facile à coller depuis votre téléphone (Gérer depuis le téléphone)
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	Gratuit : unsplash.com/developers → New application → Access Key. Plus simple à coller depuis votre téléphone (Gérer depuis le téléphone)
 From a computer or phone with ADB, connected to this Fire TV, type once:	Depuis un ordinateur ou un téléphone avec ADB, connecté à ce Fire TV, saisissez une seule fois :
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Depuis Glassio (GitHub) s'il est sur cette TV, sinon la sauvegarde la plus récente dans Download/Glassio. Glassio redémarre ensuite
 From Home Assistant	Depuis Home Assistant
 From Home Assistant: the one its automation sends; or one of your cameras here	Depuis Home Assistant : celle que son automatisation envoie ; ou l'une de vos caméras ici
 From the artwork	Depuis l'affiche
@@ -617,12 +665,14 @@ Google Play is not available on this device	Google Play n'est pas disponible sur
 Green	Vert
 Greeting	Salutation
 Grey	Gris
+Grid	Grille
 Guest room	Chambre d'amis
 Hardware	Matériel
 HDR and Dolby Vision	HDR et Dolby Vision
 Hello	Bonjour
 hello (handwriting)	bonjour (écriture manuscrite)
 Hello and the profile's name at the top of the menu, with its picture (the name alone under a Hello button, no picture under a picture button)	Bonjour et le nom du profil en haut du menu, avec son image (le nom seul sous un bouton Bonjour, pas d'image sous un bouton image)
+HEVC videos	Vidéos HEVC
 Hidden	Masqué
 Hidden titles	Titres masqués
 Hidden titles · pick one to show it again	Titres masqués · choisissez-en un pour le réafficher
@@ -665,6 +715,7 @@ How colourful the lights are	Intensité des couleurs des lampes
 How deep the glass colour is	Intensité de la couleur du verre
 How far and how strong it is	Son étendue et sa force
 How it works: Nuvio Legacy writes what you play to the TV's log (title, episode, how far). Glassio reads that log through the TV's own debugging connection (ADB), so this needs ADB once: System → TV access (ADB). Nothing leaves the TV.	Fonctionnement : Nuvio Legacy écrit ce que vous lisez dans le journal de la TV (titre, épisode, progression). Glassio lit ce journal via la connexion de débogage de la TV (ADB), donc ADB est nécessaire une fois : Système → Accès à la TV (ADB). Rien ne quitte la TV.
+How long the island stays once nothing plays (it comes back when a song plays, or with ▲)	Durée pendant laquelle l'îlot reste quand rien n'est lu (il revient quand un titre est lu, ou avec ▲)
 How long the lights take to follow a video (a new title's colours come at once)	Temps que mettent les lampes à suivre une vidéo (les couleurs d'un nouveau titre arrivent aussitôt)
 How loud the trailers play (the TV's own volume stays as it is)	Volume des bandes-annonces (le volume de la TV ne change pas)
 How many cards fit across a row at first (posters are narrower: more of them show)	Combien de cartes tiennent d'abord dans une rangée (les affiches sont plus étroites : il en tient plus)
@@ -698,6 +749,7 @@ In a Jellyfin app signed in to this server: your profile → Quick Connect, then
 In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	Dans une autre appli ou l'économiseur, la vidéo du fond est libérée après quelques secondes et reprise au retour : moins de mémoire sur une petite TV
 In its own colour	Dans sa propre couleur
 In the carousel	Dans le carrousel
+In the carousel. The Library's row: Continue Watching in the Library, below	Dans le carrousel. La rangée de la Bibliothèque : Reprendre dans la Bibliothèque, ci-dessous
 In the last colours	Dans les dernières couleurs
 In the Library	Dans la Bibliothèque
 In the Library: OK opens the title like the carousel. Hold OK (or Menu) to remove it.	Dans la Bibliothèque : OK ouvre le titre comme le carrousel. OK long (ou Menu) pour le retirer.
@@ -725,9 +777,13 @@ IP address	Adresse IP
 Island	Îlot
 It goes away on its own after this (Back or holding Home again closes it sooner)	Elle disparaît toute seule après ce délai (Back ou un nouvel appui long sur Home la ferme plus tôt)
 It is off: without it no service is found for a title	Désactivé : sans cela aucun service n'est trouvé pour un titre
+It is the TV's screensaver now	C'est maintenant l'économiseur d'écran de la TV
+It is the TV's screensaver: choose another one first	C'est l'économiseur d'écran de la TV : choisissez-en d'abord un autre
 It stays below the screen until you go down to it (the dots go down too)	Il reste sous l'écran jusqu'à ce que vous descendiez vers lui (les points descendent aussi)
 Its anon (public) key	Sa clé anon (publique)
+Its catalogs show instead (OK → Show)	Ses catalogues s'affichent à la place (OK → Afficher)
 Its libraries in the carousel, what you are watching, your favourites, the search, Play	Ses bibliothèques dans le carrousel, ce que vous regardez, vos favoris, la recherche, Lecture
+its own	le sien
 Its page in Stremio	Sa page dans Stremio
 Its place in the area	Sa place dans la zone
 Its player with nothing playing	Son lecteur sans lecture
@@ -797,8 +853,9 @@ Looking for Glassio on your network…	Recherche de Glassio sur votre réseau…
 Looks at the latest release on GitHub	Consulte la dernière version sur GitHub
 Looks for the Hue bridge on this network	Cherche le pont Hue sur ce réseau
 Lower	Plus bas
-Made by Mohammad (mrh12)	Créé par Mohammad (mrh12)
-Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Polices : Inter (SIL OFL) · Météo : Open-Meteo · Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.
+Lyrics	Paroles
+Lyrics sources	Sources des paroles
+Made by Mohammad (mrh12)	Réalisé par Mohammad (mrh12)
 Main (TMDB)	Principale (TMDB)
 Main TV	TV principale
 Main TV (the others follow it)	TV principale (les autres la suivent)
@@ -810,6 +867,8 @@ Mark them all as seen	Tout marquer comme vu
 Menu & themes	Menu et thèmes
 Menu items	Éléments du menu
 Menu order	Ordre du menu
+Menu → Camera goes straight to the cameras page instead of the live card	Menu → Caméra ouvre directement la page des caméras au lieu de la carte en direct
+Menu's Camera opens the whole screen	La Caméra du menu s'ouvre en plein écran
 Middle	Milieu
 Mixed with catalogs	Mélangé aux catalogues
 More apps make the icons smaller	Plus d'applis rendent les icônes plus petites
@@ -840,18 +899,21 @@ Needs "Notification access" for Glassio in the TV's settings: press to open it	D
 Needs a TMDB token. English is used when a title has no text in this language	Demande un jeton TMDB. L'anglais est utilisé quand un titre n'a pas de texte dans cette langue
 Needs Glassio's accessibility service	Demande le service d'accessibilité de Glassio
 Needs the Home Assistant link and token (Doorbell → Home Assistant link)	Demande le lien et le jeton Home Assistant (Sonnette → Lien Home Assistant)
-Needs the Home button service: System → Turn it on	Demande le service du bouton Home : Système → L'activer
 Needs the TMDB token (Accounts & profiles) · a row per streaming service	Demande le jeton TMDB (Comptes et profils) · une rangée par service de streaming
+Needs TV access (ADB): System → TV access (ADB).	Nécessite l'accès TV (ADB) : Système → Accès TV (ADB).
 Needs TV access (ADB, System) to read the music apps: press to try again	Demande l'accès à la TV (ADB, Système) pour lire les applis de musique : appuyez pour réessayer
 Needs TV access (ADB, System), or the TV's own question: press to try again	Demande l'accès à la TV (ADB, Système), ou la question de la TV : appuyez pour réessayer
+Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	Nécessite votre propre arrière-plan (pas les fonds des titres) et le dock en bas : ce que vous regardez s'affiche alors en petites cartes au-dessus du dock
 Neither Spotify nor SoundCloud is on this TV	Ni Spotify ni SoundCloud n'est sur ce téléviseur
 Netflix (one by one)	Netflix (une par une)
 Netflix, Apple TV, Prime Video, Disney+: the ones on this TV that have the title in your country (JustWatch)	Netflix, Apple TV, Prime Video, Disney+ : celles de cette TV qui ont le titre dans votre pays (JustWatch)
 Never	Jamais
 Never synced: Nuvio, Stremio, Trakt and Simkl sign-ins. Each of them hands one TV a sign-in that the next use replaces: shared, the two TVs would sign each other out. Sign in on each TV once.	Jamais synchronisées : les connexions Nuvio, Stremio, Trakt et Simkl. Chacune donne à une TV une connexion que l'usage suivant remplace : partagées, les deux TV se déconnecteraient l'une l'autre. Connectez-vous une fois sur chaque TV.
 New	Nouveau
+New code	Nouveau code
 New mix	Nouveau mélange
 New mix every	Nouveau mélange toutes les
+New PIN	Nouveau PIN
 New settings	Nouveaux réglages
 New titles first	Nouveaux titres en premier
 Next to Play (Apple TV buttons). Hold OK on Play has Trailer too	À côté de Lecture (boutons Apple TV). OK long sur Lecture propose aussi Bande-annonce
@@ -870,6 +932,7 @@ No hidden titles	Aucun titre masqué
 No limit	Sans limite
 No main TV found. On the other TV: Settings → System → Sync between TVs → This TV → Main TV (both on the same network)	Aucune TV principale trouvée. Sur l'autre TV : Réglages → Système → Synchronisation entre TV → Cette TV → TV principale (les deux sur le même réseau)
 No results	Aucun résultat
+No rows of its own · OK → Rows from	Pas de rangées propres · OK → Rangées de
 No sensors found	Aucun capteur trouvé
 No streaming app on this TV yet	Aucune appli de streaming sur cette TV pour l'instant
 No streaming service's app on this TV yet	Aucune appli de service de streaming sur cette TV pour l'instant
@@ -883,6 +946,7 @@ none installed	aucune installée
 None linked	Aucun lié
 None linked yet	Aucun lié pour l'instant
 None of them is on this TV	Aucune n'est sur cette TV
+None of them is on this TV.	Aucune n'est sur cette TV.
 none yet	aucun pour l'instant
 None yet: add one from your phone, a link or Nuvio	Aucun pour l'instant : ajoutez-en un depuis votre téléphone, un lien ou Nuvio
 Not allowed yet: press OK, then Always allow on the TV	Pas encore autorisé : appuyez sur OK, puis Toujours autoriser sur la TV
@@ -893,6 +957,7 @@ Not set (the Hue app shows it: Settings → Bridges)	Non défini (l'appli Hue l'
 Not synced with another TV	Non synchronisé avec une autre TV
 Not working	Ne fonctionne pas
 Nothing playing: the app's player	Aucune lecture : le lecteur de l'appli
+Nothing: apps that were off before stay as they are	Rien : les applis déjà désactivées restent telles quelles
 Nuvio account	Compte Nuvio
 Nuvio account connected	Compte Nuvio connecté
 Nuvio and Stremio	Nuvio et Stremio
@@ -907,9 +972,13 @@ Nuvio plays at once	Nuvio lit aussitôt
 Nuvio server	Serveur Nuvio
 Nuvio server address (empty: the official one)	Adresse du serveur Nuvio (vide : l'officiel)
 Nuvio server set: sign in again	Serveur Nuvio défini : reconnectez-vous
+Nuvio's	Celui de Nuvio
+Nuvio's picture by itself	Image de Nuvio automatiquement
 Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio, Trakt, Simkl ou Stremio, avec un point de sa couleur
 Off	Désactivé
 Off (OK opens Settings)	Désactivé (OK ouvre les réglages)
+Off by itself: one failed to play on this TV (a green or black picture). Only H.264 videos play, without Amazon's	Désactivées automatiquement : une vidéo n'a pas pu être lue sur cette TV (image verte ou noire). Seules les vidéos H.264 sont lues, sans celles d'Amazon
+Off while the type is the TV's screensaver app (another process). On: the type becomes Videos, shown on the home screen itself	Désactivé tant que le type est l'appli d'économiseur d'écran de la TV (un autre processus). Activé : le type devient Vidéos, affichées sur l'écran d'accueil lui-même
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	Désactivé : n'importe quel appareil de la maison peut afficher la fenêtre. Activé : Home Assistant ajoute l'en-tête X-Glassio-Token (ou ?token= dans le lien)
 Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	Désactivé : maintenir OK verrouille une vidéo, comme toujours. Activé : un petit menu pour la garder ou ne plus jamais la montrer
 Off: in the collections' order	Désactivé : dans l'ordre des collections
@@ -929,6 +998,9 @@ On the Inputs icon's page (hold OK on it there to change its icon)	Sur la page d
 On the screensaver	Sur l'économiseur d'écran
 On the Search icon ▼ doesn't open the Library, and ▲ from the search bar doesn't go to the menu	Sur l'icône Recherche, ▼ n'ouvre pas la Bibliothèque et ▲ depuis la barre de recherche ne va pas au menu
 On the TV	Sur la TV
+On the video screensaver	Sur l'économiseur d'écran vidéo
+On the whole screen	En plein écran
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	En plein écran, le son de la caméra sélectionnée est lu automatiquement (caméras qui envoient du son)
 On: accounts and keys (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, the lock code) go into the backup too, to move them to another TV: keep the file private. Off: they stay on each TV	Activé : les comptes et clés (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, le code de verrouillage) entrent aussi dans la sauvegarde, pour les transférer à une autre TV : gardez le fichier privé. Désactivé : ils restent sur chaque TV
 On: following your music apps	Activé : suit vos applis de musique
 On: it starts in every app when the TV is idle, not only on the home screen	Activé : il démarre dans toutes les applis quand la TV est inactive, pas seulement sur l'accueil
@@ -949,10 +1021,12 @@ One title: on the carousel hold OK (or press Menu) to switch to its next picture
 One video	Une vidéo
 One way only: what you change here in a synced part is replaced by the main TV's next change. Apps not installed on this TV are left out of its dock.	Sens unique : ce que vous changez ici dans une partie synchronisée est remplacé par le prochain changement de la TV principale. Les applis non installées sur cette TV sont omises de son dock.
 Online	En ligne
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Seules les applis dont la TV n'a pas besoin sont listées : rapports, publicités et installateurs. Le démarrage, la télécommande, le son, la diffusion, le Play Store et les mises à jour ne sont jamais touchés. Rien n'est supprimé, et une réinitialisation de la TV remet tout en place.
 Only locked videos	Seulement les vidéos verrouillées
 Only on my services	Seulement sur mes services
 Only on the carousel	Seulement sur le carrousel
 Only on the carousel: slides change only while the carousel itself is selected (lighter on a weak TV)	Seulement sur le carrousel : les diapos ne changent que lorsque le carrousel lui-même est sélectionné (plus léger sur une TV peu puissante)
+Only the song's name, artist and length are sent, and only to the sources that are on.	Seuls le nom, l'artiste et la durée du titre sont envoyés, et uniquement aux sources activées.
 Only titles that a service's app on this TV has. Titles that are on none of them are left out, also when Nuvio or Stremio could open them	Seulement les titres qu'une appli de service sur ce téléviseur propose. Les titres qui ne sont dans aucune sont écartés, même si Nuvio ou Stremio pouvait les ouvrir
 Only when selected	Seulement si sélectionné
 Open app	Ouvrir l'appli
@@ -967,6 +1041,7 @@ Opens the first place	Ouvre le premier endroit
 Opens when you go up to it	S'ouvre quand vous montez vers lui
 Opens with OK	S'ouvre avec OK
 Optional: also lists apps opened before Glassio started	Facultatif : liste aussi les applis ouvertes avant le démarrage de Glassio
+Or scan with your phone (same Wi-Fi) and change any setting there	Ou scannez avec votre téléphone (même Wi-Fi) et modifiez n'importe quel réglage depuis celui-ci
 Order	Ordre
 Order of the list	Ordre de la liste
 Original (whole picture)	Original (image entière)
@@ -975,6 +1050,7 @@ Other apps (YouTube, Netflix, Apple TV…) keep their Continue Watching private 
 Other TVs & backups	Autres TV et sauvegardes
 Over the background	Sur l'arrière-plan
 Page background	Arrière-plan de la page
+Page behind the player	Page derrière le lecteur
 Page behind the search	Page derrière la recherche
 Password	Mot de passe
 Password (empty if it has none)	Mot de passe (vide s'il n'y en a pas)
@@ -1001,6 +1077,8 @@ Picture set	Image définie
 Pictures	Images
 Pictures in the folder	Images du dossier
 Pictures per title	Images par titre
+PIN removed	PIN supprimé
+PIN set for this profile	PIN défini pour ce profil
 Place & size	Position et taille
 Place and credit	Lieu et crédit
 placed around the TV	placées autour de la TV
@@ -1049,6 +1127,7 @@ Projectivy / Blueprint / Nova packs installed on this TV	Packs Projectivy / Blue
 Purple	Violet
 Put the lights back now	Remettre les lampes maintenant
 QR code	Code QR
+QR code in Settings' search	Code QR dans la recherche des Réglages
 Quality	Qualité
 Quick	Rapide
 RAM, CPU, GPU, storage, IP (the ones on in Look & menu → TV info)	RAM, CPU, GPU, stockage, IP (ceux activés dans Style et menu → Infos TV)
@@ -1057,14 +1136,13 @@ Rating	Note
 Rating, year, platform	Note, année, plateforme
 Rating, year, where it streams and genres, as on the carousel	Note, année, où le regarder et genres, comme sur le carrousel
 Reading the bridge…	Lecture du pont…
+Reading the TV's apps…	Lecture des applis de la TV…
 Reading what you watch in Nuvio Legacy	Lecture de ce que vous regardez dans Nuvio Legacy
 Ready-made words, or write your own below	Textes prêts à l'emploi, ou écrivez le vôtre ci-dessous
 Recent apps	Applis récentes
 Recent apps use TV access (ADB)	Les applis récentes utilisent l'accès à la TV (ADB)
 Recommended for this make	Recommandé pour cette marque
 Recommended for this TV	Recommandé pour cette TV
-Reddit app id	Identifiant d'appli Reddit
-Reddit lets apps in only with an id: reddit.com/prefs/apps → create app → "installed app" (any name, redirect http://localhost) → the id under its name	Reddit n'accepte les applis qu'avec un identifiant : reddit.com/prefs/apps → create app → « installed app » (n'importe quel nom, redirect http://localhost) → l'identifiant sous son nom
 Refresh catalogs	Actualiser les catalogues
 Reload carousel now	Recharger le carrousel maintenant
 Reload to apply	Rechargez pour appliquer
@@ -1073,6 +1151,7 @@ Remote buttons	Touches de la télécommande
 Remote mapping	Affectation des touches
 Remove add-on	Retirer l'extension
 Remove the picture	Retirer l'image
+Remove the PIN	Supprimer le PIN
 Remove this button	Retirer cette touche
 Replace every setting on this TV?	Remplacer tous les réglages de cette TV ?
 Reset pictures picked per title	Réinitialiser les images choisies par titre
@@ -1085,6 +1164,7 @@ Right, by Settings	À droite, près des réglages
 Room	Pièce
 Rows	Rangées
 Rows above the dock	Rangées au-dessus du dock
+Rows from:	Rangées de :
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	Rangées l'une au-dessus de l'autre, ou une seule rangée au milieu que ▲ / ▼ changent
 Rows per platform	Rangées par plateforme
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… , un lien HLS (.m3u8) ou vidéo
@@ -1125,6 +1205,7 @@ Select none	Tout désélectionner
 Selected icon plate	Plaque de l'icône sélectionnée
 Selection	Sélection
 Send a test event	Envoyer un événement de test
+Send crash reports by themselves	Envoyer les rapports de plantage automatiquement
 Send Nuvio playback	Envoyer la lecture Nuvio
 Sends title, type and id as JSON	Envoie le titre, le type et l'id en JSON
 Service apps	Applis de services
@@ -1171,8 +1252,10 @@ Shows the pop-up now with your camera	Affiche la fenêtre maintenant avec votre 
 Shuffle	Aléatoire
 Shuffle all catalogs	Mélanger tous les catalogues
 Shuffle button	Touche aléatoire
+Shuffle button repeats a song	Le bouton Aléatoire répète un titre
 Shuffle my pictures	Mélanger mes images
 Shuffle photos	Mélanger les photos
+Shuffle the carousel	Mélanger le carrousel
 Sign in first	Connectez-vous d'abord
 Sign in to Nuvio first (Accounts & profiles)	Connectez-vous d'abord à Nuvio (Comptes et profils)
 Sign in to Nuvio first (Connections)	Connectez-vous d'abord à Nuvio (Connexions)
@@ -1202,6 +1285,7 @@ Slides at the start	Diapositives au démarrage
 Slides change on their own	Les diapositives changent toutes seules
 Slides loaded before you get to them	Diapositives chargées avant d'y arriver
 Slow	Lent
+Small cards above the dock over your own background	Petites cartes au-dessus du dock sur votre propre arrière-plan
 Smaller makes the dock and its icons narrower	Plus petit rend le dock et ses icônes plus étroits
 Smaller posters leave more room at the sides	Des affiches plus petites laissent plus de place sur les côtés
 Smart home	Maison connectée
@@ -1212,6 +1296,7 @@ Software keeps the TV's own video playing while a camera shows (some TVs stopped
 Someone is at the door	Quelqu'un est à la porte
 Song and artist	Titre et artiste
 Sound	Son
+Sound follows the selection	Le son suit la sélection
 SoundCloud's songs under the titles, and Spotify's own search with the words in it	Les chansons de SoundCloud sous les titres, et la recherche propre de Spotify avec les mots saisis
 Sources without a direct address (marked P2P). Stremio plays them only where its streaming server runs; on most TVs they don't start	Sources sans adresse directe (marquées P2P). Stremio ne les lit que là où son serveur de streaming fonctionne ; sur la plupart des TV, elles ne démarrent pas
 Space	Espace
@@ -1229,7 +1314,6 @@ Stop every TV following this one	Arrêter toutes les TV qui suivent celle-ci
 Stop every TV following this one?	Arrêter toutes les TV qui suivent celle-ci ?
 Stop following	Ne plus suivre
 Stops the app on screen and comes back to Glassio. Needs TV access (ADB)	Arrête l'appli à l'écran et revient à Glassio. Nécessite l'accès TV (ADB)
-Stops when you leave	S'arrête quand vous partez
 Straight from the packs' own pages (GitHub, F-Droid)	Directement depuis les pages des packs (GitHub, F-Droid)
 Streaming services	Services de streaming
 Stremio account	Compte Stremio
@@ -1241,9 +1325,9 @@ Stremio takes one exact source from Glassio: your add-ons' sources are listed he
 Stremio's sources	Sources de Stremio
 Strength	Force
 Subject	Sujet
-Subreddit wallpapers: one or more, comma separated (EarthPorn, wallpapers, SkyPorn…)	Fonds d'écran subreddit : un ou plusieurs, séparés par des virgules (EarthPorn, wallpapers, SkyPorn…)
 Subtitles	Sous-titres
 Subtle	Discret
+Supporters	Soutiens
 Surprise me	Surprenez-moi
 Switch between title backdrops, your picture, your video and the screensaver	Alterner entre les fonds des titres, votre image, votre vidéo et l'économiseur d'écran
 Switch cameras every	Changer de caméra toutes les
@@ -1263,6 +1347,7 @@ Temperature + city	Température + ville
 Temperature + sky	Température + ciel
 Temperature, conditions, high / low, humidity and wind (the city: Clock & weather)	Température, conditions, max / min, humidité et vent (la ville : Horloge et météo)
 Text	Texte
+Thank you for keeping Glassio going.	Merci de faire vivre Glassio.
 Thank you! Scan the code on the left	Merci ! Scannez le code à gauche
 That isn't a link	Ce n'est pas un lien
 That one first, then the nearest below it	Celle-là d'abord, puis la plus proche en dessous
@@ -1276,19 +1361,18 @@ The Apple TV-style menu at the settings button	Le menu façon Apple TV au bouton
 The Apps folder	Le dossier Applis
 The bridge's button wasn't pressed: press it, then Connect again	Le bouton du pont n'a pas été pressé : appuyez dessus, puis reconnectez
 The button at the top that opens the menu	Le bouton en haut qui ouvre le menu
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Les caméras remplissent l'écran jusqu'à Retour ; les flèches en choisissent une, OK active son son (aussi : menu → Caméra → Plein écran, ou une touche de la télécommande)
 The chips under the title	Les pastilles sous le titre
 The clock and the settings button hide while you browse, and come back when you go up to them	L'horloge et le bouton des réglages se masquent pendant la navigation et reviennent quand vous montez vers eux
 The colour of the switches in Settings, and of a row while you change it	La couleur des interrupteurs dans les réglages, et d'une ligne pendant que vous la modifiez
 The dark shade along the left side (it keeps the clock and text readable on bright pictures)	L'ombrage sombre le long du côté gauche (il garde l'horloge et le texte lisibles sur les images claires)
 The dark shades over the title's picture: on the left behind the logo, text and buttons, and at the bottom above the dock. Off: the picture as it is (the writing gets a soft shadow of its own)	Les ombrages sombres sur l'image du titre : à gauche derrière le logo, le texte et les boutons, et en bas au-dessus du dock. Désactivé : l'image telle quelle (le texte reçoit sa propre ombre douce)
-The date above the time in white, whatever the clock's look	La date au-dessus de l'heure en blanc, quel que soit le style de l'horloge
 The dock and the dots step aside while a trailer fills the page, and come back when it stops or ends (never with the window)	Le dock et les points s'effacent quand une bande-annonce remplit la page, et reviennent à son arrêt ou sa fin (jamais avec la fenêtre)
 The dock's order, hidden apps, its size and place, and icons you made	L'ordre du dock, les applis masquées, sa taille et sa position, et les icônes que vous avez créées
 The dots bar (and the liquid glass drops)	La barre de points (et les gouttes de verre liquide)
 The folder with all your apps, in the dock. Hidden apps stay listed in Arrange apps	Le dossier avec toutes vos applis, dans le dock. Les applis masquées restent listées dans Organiser les applis
 The grey page, Glassio's soft coloured lights, or the carousel's picture blurred. The Music and Inputs icons' page is the same one	La page grise, les lumières colorées de Glassio ou l'image floutée du carrousel. C'est aussi la page des icônes Musique et Entrées
 The Hue bridge Glassio is paired with (each TV keeps its own lights and room)	Le pont Hue associé à Glassio (chaque TV garde ses propres lampes et sa pièce)
-the id under the app's name	l'identifiant sous le nom de l'appli
 The Jellyfin app isn't on this TV: install it (Google Play: Jellyfin for Android TV) and sign in there to the same server, so titles open in it.	L'appli Jellyfin n'est pas sur ce téléviseur : installez-la (Google Play : Jellyfin for Android TV) et connectez-vous-y au même serveur pour que les titres s'y ouvrent.
 The large glass clock in the middle of the screensaver (its look: Large clock, above)	La grande horloge en verre au milieu de l'économiseur d'écran (son style : Grande horloge, ci-dessus)
 The Library	La Bibliothèque
@@ -1303,7 +1387,7 @@ The main TV: the TVs that follow it take its setup	La TV principale : les TV qui
 The menu	Le menu
 The menu, the dock and the icons with square corners	Le menu, le dock et les icônes avec des coins carrés
 The music island at the top of the screensaver	L'îlot musique en haut de l'économiseur d'écran
-The newest backup in Download/Glassio on the TV. Glassio restarts after	La sauvegarde la plus récente de Download/Glassio sur la TV. Glassio redémarre ensuite
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	La sauvegarde la plus récente dans Download/Glassio sur la TV, sinon les réglages de Glassio depuis Google Play sur cette TV. Glassio redémarre ensuite
 The next video, picture or photo now	La vidéo, l'image ou la photo suivante maintenant
 The Nuvio apps and Stremio on this TV: they can open any title	Les applis Nuvio et Stremio de cette TV : elles peuvent ouvrir n'importe quel titre
 The official Nuvio app, Nuvio Arc and Re-Shaped don't write that log: connect Trakt (and turn on Trakt in that Nuvio app) and what you pause there shows up here through Trakt.	L'appli Nuvio officielle, Nuvio Arc et Re-Shaped n'écrivent pas ce journal : connectez Trakt (et activez Trakt dans cette appli Nuvio) et ce que vous mettez en pause y apparaît ici via Trakt.
@@ -1315,7 +1399,10 @@ The open apps, like holding Home	Les applis ouvertes, comme un appui long sur Ho
 The open apps, like the Apple TV app switcher	Les applis ouvertes, comme le sélecteur d'applis d'Apple TV
 The others open a title as usual	Les autres ouvrent un titre comme d'habitude
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	Le mode de performances et ce qu'il règle : qualité d'image, détail et réfraction du verre, animation des diapositives, galerie de fonds, caches et qualité de l'économiseur d'écran. Désactivé : cette TV garde les siens, pour qu'une TV plus modeste reste fluide
+The phone page's QR code: change settings from your phone	Le code QR de la page du téléphone : modifiez les réglages depuis votre téléphone
 The row at the top of the results. The others follow in their usual order	La rangée en haut des résultats. Les autres suivent dans leur ordre habituel
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Le même style, plus léger pour la mémoire et le processeur : moins d'images gardées prêtes, moins de travail en arrière-plan
+The same PIN again	Le même PIN à nouveau
 The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	L'économiseur démarre avec la vidéo qui passe ici, là où elle en était, et le fond reprend celle où il s'est arrêté. Plus léger sur une TV avec peu de mémoire
 The screensaver: what it shows and how	L'économiseur d'écran : ce qu'il affiche et comment
 The search opens empty each time. Off: what was typed last is still in the bar	La recherche s'ouvre vide à chaque fois. Désactivé : le dernier texte saisi reste dans la barre
@@ -1325,7 +1412,9 @@ The selected icon rises a little, glass and all	L'icône sélectionnée se soul�
 The selected poster in the Library	L'affiche sélectionnée dans la Bibliothèque
 The service then does nothing, also while it is on in the TV's settings	Le service ne fait alors rien, même s'il est activé dans les réglages de la TV
 The services whose app is on this TV, the ones you choose, or none	Les services dont l'appli est sur cette TV, ceux que vous choisissez, ou aucun
+The shuffle button of the player, the island and the menu has a second press: the song playing starts again each time it ends. Off → shuffle → this song again → off. An app that takes no repeat from outside is sent back to the song's start a second before its end	Le bouton Aléatoire du lecteur, de l'îlot et du menu a une seconde pression : le titre en cours recommence à chaque fois qu'il se termine. Désactivé → aléatoire → ce titre en boucle → désactivé. Une appli qui n'accepte aucune répétition de l'extérieur est ramenée au début du titre une seconde avant sa fin
 The small player in the menu is with the music	Le petit lecteur dans le menu se règle avec la musique
+The song's artwork	La pochette du titre
 The title's logo	Le logo du titre
 The title's logo (or its name)	Le logo du titre (ou son nom)
 The title's poster	L'affiche du titre
@@ -1333,6 +1422,7 @@ The title's rating, the number alone, faint, beside the year and Film / Series	L
 The titles and their progress from Nuvio only, even with Trakt, Simkl and Stremio syncing too (their progress for the same title could be older or off)	Les titres et leur progression de Nuvio seulement, même si Trakt, Simkl et Stremio se synchronisent aussi (leur progression pour le même titre peut être plus ancienne ou fausse)
 The TV is not on a network	La TV n'est pas connectée à un réseau
 The TV is not on a network, so the phone page can't start.	La TV n'est pas connectée à un réseau, donc la page du téléphone ne peut pas démarrer.
+The TV refused:	La TV a refusé :
 The TV screensaver now starts after	L'économiseur d'écran de la TV démarre maintenant après
 The TV's app	L'appli de la TV
 The TV's Bluetooth: remotes, headphones, speakers and controllers	Le Bluetooth de la TV : télécommandes, casques, enceintes et manettes
@@ -1341,6 +1431,7 @@ The TV's inputs over any app · press again to close	Les entrées de la TV par-d
 The TV's own idle time, in any app (ADB)	L'inactivité propre à la TV, dans n'importe quelle appli (ADB)
 The TV's screensaver app (	L'appli d'économiseur d'écran de la TV (
 The welcome screen: restore, catalogs, accounts and theme	L'écran de bienvenue : restauration, catalogues, comptes et thème
+The words also show over the screensaver's videos while a song plays (never over the posters or trailers). The island's lyrics button (▲ on the screensaver) turns Lyrics on and off	Les paroles s'affichent aussi sur les vidéos de l'économiseur d'écran pendant la lecture d'un titre (jamais sur les affiches ou les bandes-annonces). Le bouton de paroles de l'îlot (▲ sur l'économiseur d'écran) active et désactive les Paroles
 Their order in the dock, the hidden ones, and each app's options	Leur ordre dans le dock, les masquées, et les options de chaque appli
 Their own colour, at 20 %	Leur propre couleur, à 20 %
 Theme	Thème
@@ -1354,6 +1445,8 @@ This add-on has no catalogs for the carousel	Cette extension n'a aucun catalogue
 This build has no Trakt app id.	Cette version n'a pas d'identifiant d'appli Trakt.
 This closes by itself once you approve.	Cette fenêtre se ferme toute seule après validation.
 This is the main TV now. Add a TV shows the code for the other one	Ceci est maintenant la TV principale. Ajouter une TV affiche le code pour l'autre
+This PIN is the one in Nuvio: change it in the Nuvio app	Ce PIN est celui de Nuvio : modifiez-le dans l'appli Nuvio
+This profile has a PIN in Nuvio: Glassio asks for the same one, and Nuvio checks it. It is changed in the Nuvio app	Ce profil a un PIN dans Nuvio : Glassio demande le même, et Nuvio le vérifie. Il se modifie dans l'appli Nuvio
 This screen is not available on this device	Cet écran n'est pas disponible sur cet appareil
 This TV	Cette TV
 This TV has no Usage access screen: Recent apps still works without it	Cette TV n'a pas d'écran d'accès aux données d'utilisation : les applis récentes fonctionnent quand même sans
@@ -1385,11 +1478,14 @@ Trailers (the carousel's titles, one after another) · OK opens the title in Nuv
 Trakt account	Compte Trakt
 Transition speed	Vitesse de transition
 Try it	Essayer
+Turn back on what Glassio turned off	Réactiver ce que Glassio a désactivé
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	Désactiver les applis de la TV qui n'envoient que des rapports, affichent des publicités ou installent d'autres applis. Rien n'est supprimé : un interrupteur réactive chacune
 Turn on a collection first	Activez d'abord une collection
 Turn on Glassio under Notification access, then switch Music on again	Activez Glassio sous Accès aux notifications, puis réactivez Musique
 Turn on the service	Activer le service
 Turn on USB debugging	Activer le débogage USB
 Turn on USB debugging first (step 2)	Activez d'abord le débogage USB (étape 2)
+Turn them all off	Tout désactiver
 Turn them off	Les désactiver
 TV access (ADB)	Accès à la TV (ADB)
 TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, inputs and open apps use the TV's own debugging connection. Optional. Turn it on once:	Accès à la TV (ADB) : Reprendre depuis Nuvio Legacy, Glassio comme économiseur d'écran de la TV, les infos TV, les entrées et l'ouverture d'applis utilisent la connexion de débogage de la TV. Facultatif. À activer une seule fois :
@@ -1407,6 +1503,7 @@ Under the weather in the menu: IP, CPU, GPU, RAM, storage	Sous la météo dans l
 Under the weather: IP, CPU, GPU, RAM, storage (CPU and GPU need TV access (ADB))	Sous la météo : IP, CPU, GPU, RAM, stockage (CPU et GPU demandent l'accès à la TV (ADB))
 Unknown	Inconnu
 Unlimited	Illimité
+Unneeded apps	Applis inutiles
 Unsplash key	Clé Unsplash
 Until closed	Jusqu'à la fermeture
 Update	Mettre à jour
@@ -1448,12 +1545,13 @@ What plays	Ce qui est lu
 What the lights take their colours from	D'où les lampes tirent leurs couleurs
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	Ce que le menu affiche : l'horloge, la météo, la Bibliothèque, les thèmes, le profil, l'arrière-plan et plus
 What went wrong?	Qu'est-ce qui n'a pas marché ?
-What Wikimedia and Unsplash photos show	Ce que montrent les photos Wikimedia et Unsplash
+What Wikimedia, Unsplash and Pexels photos show	Ce qu'affichent les photos de Wikimedia, Unsplash et Pexels
 What you are watching on the server (titles it knows by IMDb number)	Ce que vous regardez sur le serveur (titres qu'il connaît par leur numéro IMDb)
 What you are watching on your Jellyfin server	Ce que vous regardez sur votre serveur Jellyfin
 What you paused in any app that uses Simkl	Ce que vous avez mis en pause dans toute appli qui utilise Simkl
 What you paused in Stremio	Ce que vous avez mis en pause dans Stremio
 What you watch in Nuvio Legacy, the official app and forks	Ce que vous regardez dans Nuvio Legacy, l'appli officielle et les forks
+What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	Ce que vous regardez en petites cartes au-dessus du dock, l'arrière-plan restant entier. Haut depuis le dock y mène
 What's new	Nouveautés
 When Music mode is off	Quand le mode musique est désactivé
 When the TV doesn't let you (restricted setting / greyed out). Needs TV access (ADB)	Quand la TV ne vous laisse pas faire (réglage restreint / grisé). Demande l'accès à la TV (ADB)
@@ -1466,19 +1564,19 @@ Where it came from	D'où ça vient
 Where it comes from	D'où ça vient
 Where the photo or video was taken and who took it	Où la photo ou la vidéo a été prise et par qui
 Where the video was filmed	Où la vidéo a été filmée
-Where titles you are watching appear	Où apparaissent les titres que vous regardez
+Where the words are looked for. All are asked at once and the best answer is kept: word by word before line by line, the song's own writing before Latin letters	Où chercher les paroles. Toutes sont interrogées en même temps et la meilleure réponse est conservée : mot par mot avant ligne par ligne, l'écriture d'origine du titre avant les lettres latines
 Which apps are locked, the code and its reminder	Quelles applis sont verrouillées, le code et son indice
 Which camera opens when you hold Home	Quelle caméra s'ouvre quand vous maintenez Home
 Which catalogs the carousel takes its titles from	Quels catalogues fournissent les titres du carrousel
 Which inputs show on the Inputs icon's page, and their order	Quelles entrées s'affichent sur la page de l'icône Entrées, et leur ordre
-Which ones, in this order (up to four). None chosen = the first four	Lesquelles, dans cet ordre (jusqu'à quatre). Aucune choisie = les quatre premières
+Which ones, in this order (up to nine). None chosen = all	Lesquelles, dans cet ordre (jusqu'à neuf). Aucune choisie = toutes
 Which picture each title uses	Quelle image utilise chaque titre
 While a song plays, the carousel's place becomes the player (artwork, song, buttons). ■ stops the music. With your own picture, photos, video or the screensaver's videos as the background, the island shows instead	Pendant la lecture d'un morceau, la place du carrousel devient le lecteur (pochette, titre, boutons). ■ arrête la musique. Avec votre propre image, des photos, une vidéo ou les vidéos de l'économiseur d'écran en arrière-plan, c'est l'îlot qui s'affiche
 While an app that has channels is selected in the dock (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…), its rows (Continue watching, New…) take the carousel's place. ▲ goes into them, ▼ back to the app	Quand une appli avec chaînes est sélectionnée dans le dock (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…), ses rangées (Reprendre, Nouveautés…) prennent la place du carrousel. ▲ y entre, ▼ revient à l'appli
 While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it.	Pendant la lecture : ◀ ▶ changent la vidéo, OK affiche ou masque ces infos, toute autre touche l'arrête.
 While music plays, a small island at the top of the screensaver (like the iPhone's). ▲ opens it with its buttons, ▼ closes it	Pendant la musique, un petit îlot en haut de l'économiseur d'écran (comme celui de l'iPhone). ▲ l'ouvre avec ses boutons, ▼ le ferme
+While nothing is typed in the search, this code is there too	Quand rien n'est saisi dans la recherche, ce code s'y trouve aussi
 White	Blanc
-White date	Date blanche
 White logo	Logo blanc
 White only (it follows the brightness)	Blanc seulement (suit la luminosité)
 White or black turn the other way round when selected	Le blanc ou le noir s'inversent à la sélection
@@ -1490,6 +1588,8 @@ With a streaming app selected in the dock, the carousel shows the catalogs linke
 With ADB	Avec ADB
 With Colour on focus	Avec Couleur à la sélection
 With fewer apps than a full row, the dock shrinks around them	Avec moins d'applis qu'une rangée pleine, le dock se resserre autour d'elles
+With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	Avec Nuvio connecté, le bouton affiche l'image de votre profil Nuvio jusqu'à ce que vous choisissiez un autre style
+With One player it starts here a little before the TV's own, Off or not	Avec One player, il démarre ici un peu avant celui de la TV, désactivé ou non
 With the account's email and password (for a server without a TV sign-in page)	Avec l'e-mail et le mot de passe du compte (pour un serveur sans page de connexion TV)
 With the theme	Avec le thème
 With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)	Avec le thème : le grain est fait exactement comme le dock de votre thème (son verre, sa teinte et sa couleur)
@@ -1499,12 +1599,15 @@ Write	Écrire
 Write a few more words, so the problem can be found	Écrivez quelques mots de plus, pour qu'on puisse trouver le problème
 Your add-ons	Vos extensions
 Your add-ons and the catalogs chosen from them	Vos extensions et les catalogues choisis parmi elles
+Your background	Votre arrière-plan
 Your cameras, the corner camera and multi-view, and the doorbell	Vos caméras, la caméra en coin et la multivue, et la sonnette
+your city	votre ville
 Your Jellyfin favourites as a row in the Library	Vos favoris Jellyfin en une rangée dans la Bibliothèque
 Your links	Vos liens
 Your links and the videos in the backgrounds folder	Vos liens et les vidéos du dossier des arrière-plans
 Your links and the videos in the backgrounds folder, with a picture of each. OK plays only that one	Vos liens et les vidéos du dossier des arrière-plans, avec une image de chacun. OK lit seulement celle-là
 Your links below and the videos in the backgrounds folder	Vos liens ci-dessous et les vidéos du dossier des arrière-plans
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Vos caméras multi-vues remplissent l'écran · OK active le son d'une caméra · Retour ferme
 Your own mix of the settings below	Votre propre combinaison des réglages ci-dessous
 Your own Nuvio backend, if you host one. Easier to type on the phone page	Votre propre serveur Nuvio, si vous en hébergez un. Plus simple à saisir sur la page du téléphone
 Your own words under the digits	Votre propre texte sous les chiffres
@@ -1580,7 +1683,6 @@ Focus plate	Plaque de sélection
 Glassio settings	Réglages de Glassio
 Hello, name	Bonjour, nom
 Locked only	Verrouillées seulement
-Multi-view needs the Home button service (Glassio settings → System)	La multivue demande le service du bouton Home (réglages de Glassio → Système)
 Next photo	Photo suivante
 Next picture	Image suivante
 Next video	Vidéo suivante
@@ -1590,10 +1692,14 @@ OK: multi-view	OK : multivue
 Pair a new device	Associer un nouvel appareil
 Play trailer	Lire la bande-annonce
 Posters	Affiches
+Scan with your phone (same Wi-Fi) and change any setting there	Scannez avec votre téléphone (même Wi-Fi) et modifiez n'importe quel réglage depuis celui-ci
+Screensaver's	De l'économiseur d'écran
 Starts after	Démarre après
 Starts by itself	Démarre tout seul
 The remote stays connected	La télécommande reste connectée
+Titles	Titres
 TV screensaver	Économiseur de la TV
+Whole screen	Plein écran
 screensaver did not start	L'économiseur d'écran n'a pas démarré
 **Sharp glass**: …	**Verre net** : …
 Go up to Update and press OK	Montez jusqu'à Mettre à jour et appuyez sur OK
@@ -1603,41 +1709,71 @@ Next trailer	Bande-annonce suivante
 No internet connection\nThe trailers come back when it's back	Pas de connexion Internet\nLes bandes-annonces reviennent avec la connexion
 No titles in the carousel yet	Aucun titre dans le carrousel pour l'instant
 No trailers found	Aucune bande-annonce trouvée
-Open in Nuvio	Ouvrir dans Nuvio
 Sound off	Son coupé
 Sound on	Son activé
 move app	déplacer l'appli
 11 sections in groups, every setting in one place, long lists on their own pages.	11 sections en groupes, chaque réglage à un seul endroit, les longues listes sur leurs propres pages.
+A paused song leaves the music island and stays gone (Island → A paused song goes).	Un titre en pause quitte l'îlot musical et n'y revient pas (Îlot → Un titre en pause disparaît).
+A PIN for a profile	Un PIN pour un profil
+A profile can ask for its four-digit PIN: when the TV starts, when it wakes after a while, and when you change to that profile.	Un profil peut demander son PIN à quatre chiffres : au démarrage de la TV, à son réveil après un moment, et quand vous passez à ce profil.
+A profile with a PIN in Nuvio uses that one, checked by Nuvio. Any other profile can get a PIN made here, kept on this TV only.	Un profil avec un PIN dans Nuvio utilise celui-ci, vérifié par Nuvio. Tout autre profil peut recevoir un PIN créé ici, conservé uniquement sur cette TV.
+A song's words beside the player, in time with the song: the line being sung is bright and lights word by word.	Les paroles d'un titre à côté du lecteur, en rythme : la ligne chantée est lumineuse et s'éclaire mot par mot.
+A tidier menu	Un menu plus ordonné
 A title on your server opens on its page in the Jellyfin app.	Un titre de votre serveur s'ouvre sur sa page dans l'appli Jellyfin.
 A TV inputs button: your inputs over any app.	Un bouton Entrées TV : vos entrées par-dessus n'importe quelle appli.
+A TV that can't play HEVC videos gets only the videos it can play. Home Assistant cameras fall back to their live picture, and Reolink cameras turn with the remote.	Une TV qui ne peut pas lire les vidéos HEVC ne reçoit que les vidéos qu'elle sait lire. Les caméras Home Assistant se rabattent sur leur image en direct, et les caméras Reolink tournent avec la télécommande.
 A ⭐ on GitHub and sharing Glassio with friends keeps it going.	Une ⭐ sur GitHub et partager Glassio avec vos amis le font vivre.
 Also in Settings → About → PlayStation gift card	Aussi dans Réglages → À propos → Carte cadeau PlayStation
+An app with its own Continue watching row (Netflix, Stremio…) shows it as cards too while it is selected.	Une appli avec sa propre rangée Reprendre (Netflix, Stremio…) l'affiche aussi sous forme de cartes quand elle est sélectionnée.
 And more	Et plus encore
+Ask for the PIN → Automatic: this TV goes in without it.	Demander le PIN → Automatique : cette TV l'ouvre sans le PIN.
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Quand vous restez un moment dans une autre appli, Glassio libère ses images et les rétablit à votre retour.
 Buttons that send no key code (some remotes' Netflix button) can be given a job too.	Les boutons qui n'envoient aucun code de touche (le bouton Netflix de certaines télécommandes) peuvent aussi recevoir une fonction.
 Catalogs for apps: with Netflix, Apple TV or Prime Video selected in the dock, the carousel shows that app's titles.	Catalogues pour les applis : avec Netflix, Apple TV ou Prime Video sélectionné dans le dock, le carrousel montre les titres de cette appli.
+Change the theme, language, screensaver and more from your phone.	Modifiez le thème, la langue, l'économiseur d'écran et plus encore depuis votre téléphone.
 Connect your Jellyfin server with a code (Quick Connect), nothing to type.	Connectez votre serveur Jellyfin avec un code (Quick Connect), rien à taper.
 Each button can do three things: a press, a double press and a hold.	Chaque bouton peut faire trois choses : un appui, un double appui et un appui long.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Chaque caméra est lue, même avec une vidéo derrière : la vidéo attend et rend son décodeur.
 Every screen of Glassio in your language, changed at once.	Tous les écrans de Glassio dans votre langue, immédiatement.
-Everything new since Glassio 4.0, page by page. Your setup stays as it is: each new thing is a choice.	Toutes les nouveautés depuis Glassio 4.0, page par page. Votre configuration reste telle quelle : chaque nouveauté est un choix.
+Everything new since Glassio 4.0, page by page, 4.8's first. Your setup stays as it is: each new thing is a choice.	Tout ce qui est nouveau depuis Glassio 4.0, page par page, la 4.8 en premier. Votre configuration reste telle quelle : chaque nouveauté est un choix.
 Find a film or a series and open it where it can be watched: your streaming apps, Nuvio or Stremio.	Trouvez un film ou une série et ouvrez-le là où il se regarde : vos applications de streaming, Nuvio ou Stremio.
+Glass over the video and the video quality are in the menu too.	Le verre sur la vidéo et la qualité vidéo sont aussi dans le menu.
 Glassio is free and open source. Scan the code to see every version, report a problem or ask for a feature.	Glassio est gratuit et open source. Scannez le code pour voir chaque version, signaler un problème ou demander une fonctionnalité.
 Glassio is free, with no ads, made in my spare time.	Glassio est gratuit, sans publicité, fait sur mon temps libre.
 Glassio on GitHub	Glassio sur GitHub
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Maintenez OK sur une caméra motorisée (PTZ) : déplacez-la et zoomez avec la télécommande.
 Hold OK on a video: keep it, or never show it again.	Maintenez OK sur une vidéo : gardez-la, ou ne la montrez plus jamais.
+Home over the TV's screensaver now takes you straight to Glassio.	Accueil par-dessus l'économiseur d'écran de la TV vous mène désormais directement à Glassio.
 If you enjoy it, a PlayStation gift card (PSN, USA) helps a lot. Maybe for GTA VI 😉	Si vous l'aimez, une carte cadeau PlayStation (PSN, États-Unis) aide beaucoup. Peut-être pour GTA VI 😉
 In the menu: Screensaver → Collections and One player.	Dans le menu : Économiseur d'écran → Collections et Un seul lecteur.
+It shows the shuffle you set in the music app itself.	Il affiche l'aléatoire défini dans l'appli de musique elle-même.
 Its icon is in the dock. Turn Search off in Settings if you don't want it.	Son icône est dans le dock. Désactivez la recherche dans les Réglages si vous n'en voulez pas.
 Its libraries in the carousel, what you are watching, your favourites in the Library, its titles first in the search.	Ses bibliothèques dans le carrousel, ce que vous regardez, vos favoris dans la Bibliothèque, ses titres en premier dans la recherche.
+Its QR code is in the menu and in Settings' search, ready to scan.	Son code QR est dans le menu et dans la recherche des Réglages, prêt à scanner.
+Lighter	Plus léger
+Menu → Manage from phone	Menu → Gérer depuis le téléphone
+Menu → Themes, Background, Screensaver · Settings → Music & app rows	Menu → Thèmes, Arrière-plan, Économiseur d'écran · Réglages → Musique et rangées d'applis
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	Le multi-vues ne dépasse jamais l'écran : quatre caméras deux par deux, aussi grandes que l'écran le permet.
+Music icon in the dock · Settings → Music & app rows	Icône Musique dans le dock · Réglages → Musique et rangées d'applis
 New job: close the app in front and come back to Glassio.	Nouvelle fonction : fermer l'appli à l'écran et revenir à Glassio.
 New Settings	Nouveaux réglages
 New: what this version added. Changed: every setting you changed, with Back to default.	Nouveau : ce que cette version a ajouté. Modifié : chaque réglage que vous avez changé, avec Valeur par défaut.
 Nine languages	Neuf langues
 OK  Done	OK  Terminé
 OK  Next  ▶	OK  Suivant  ▶
+OK on a music app's card plays in that app, without opening it.	OK sur la carte d'une appli de musique lit dans cette appli, sans l'ouvrir.
 One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.	Un Glassio par profil de votre compte Nuvio : son propre style, dock, catalogues, Bibliothèque et Reprendre.
+One player starts on the home screen just before the TV's own screensaver, which stays for other apps; the TV still sleeps on time.	One player démarre sur l'écran d'accueil juste avant l'économiseur d'écran de la TV, qui reste pour les autres applis ; la TV se met toujours en veille à l'heure.
 One player: the screensaver on the home screen itself. With the screensaver's videos as background it goes on with the same video, and you are back at once.	Un seul lecteur : l'économiseur d'écran sur l'écran d'accueil lui-même. Avec les vidéos de l'économiseur en arrière-plan, il continue la même vidéo, et vous revenez aussitôt.
+Over a video background Glassio keeps its full frame rate. Changing profile starts Glassio once.	Sur un arrière-plan vidéo, Glassio garde sa fréquence d'images complète. Changer de profil démarre Glassio une seule fois.
+Over the video screensaver too, while a song plays.	Aussi sur l'économiseur d'écran vidéo, pendant la lecture d'un titre.
+Over your own background, what you're watching as small glass cards right above the dock: the picture stays whole.	Sur votre propre arrière-plan, ce que vous regardez en petites cartes de verre juste au-dessus du dock : l'image reste entière.
+Page behind the player: your own video or picture can stay behind the music player.	Page derrière le lecteur : votre propre vidéo ou image peut rester derrière le lecteur de musique.
+Performance → Lite: the same look, lighter on memory and on the processor.	Performances → Lite : le même style, plus léger pour la mémoire et le processeur.
 Pexels videos for the words you choose, with your own free key.	Des vidéos Pexels pour les mots de votre choix, avec votre propre clé gratuite.
 Pexels videos, and YouTube videos and playlists among My videos, each one on or off.	Des vidéos Pexels, et des vidéos et playlists YouTube parmi Mes vidéos, chacune activée ou non.
+Photos as your background: Windows Spotlight, museum paintings and Pexels photos are new sources.	Photos comme arrière-plan : Windows Spotlight, peintures de musées et photos Pexels sont de nouvelles sources.
+Photos, the Apps folder, cameras	Photos, dossier Applis, caméras
 Play opens the streaming app: the title's own page in Netflix, Apple TV, Prime Video or Disney+.	Lecture ouvre l'appli de streaming : la page du titre dans Netflix, Apple TV, Prime Video ou Disney+.
 Press OK, type the code and press Send: it comes straight to me. Thank you!	Appuyez sur OK, saisissez le code et appuyez sur Envoyer : il m'arrive directement. Merci !
 Press ▶ to see what's new.	Appuyez sur ▶ pour voir les nouveautés.
@@ -1645,149 +1781,41 @@ Recommended for this TV: the right settings for a weaker TV in one press (Settin
 Report a problem from the TV or the phone, cleaned of anything private before it goes.	Signalez un problème depuis le téléviseur ou le téléphone, nettoyé de tout ce qui est privé avant l'envoi.
 Rows above the dock: an app's row sits right above the dock, so the clock stays in view.	Rangées au-dessus du dock : la rangée d'une appli se place juste au-dessus du dock, l'horloge reste visible.
 Rows per service in the Library (On Netflix, On Apple TV…), for your country.	Des rangées par service dans la Bibliothèque (Sur Netflix, Sur Apple TV…), pour votre pays.
+Screensaver and clock	Économiseur d'écran et horloge
 Send a gift card	Envoyer une carte cadeau
 Settings → About → Report a problem	Réglages → À propos → Signaler un problème
 Settings → About → What's new	Réglages → À propos → Nouveautés
 Settings → Accounts & profiles	Réglages → Comptes et profils
 Settings → Accounts & profiles → Connect Jellyfin	Réglages → Comptes et profils → Connecter Jellyfin
+Settings → Accounts & profiles → PIN	Réglages → Comptes et profils → PIN
 Settings → Background & screensaver	Réglages → Arrière-plan et économiseur d'écran
+Settings → Background & screensaver · Music & app rows → Island	Réglages → Arrière-plan et économiseur d'écran · Musique et rangées d'applis → Îlot
+Settings → Background & screensaver · Smart home	Réglages → Arrière-plan et économiseur d'écran · Maison connectée
+Settings → Background & screensaver → Continue Watching cards	Réglages → Arrière-plan et économiseur d'écran → Cartes Reprendre
 Settings → Catalogs & add-ons	Réglages → Catalogues et extensions
 Settings → Continue Watching & Library → Search	Réglages → Continue Watching & Library → Search
+Settings → Music & app rows → Lyrics	Réglages → Musique et rangées d'applis → Paroles
+Settings → Smart home → Multi-view	Réglages → Maison connectée → Multi-vues
 Settings → System → Language	Réglages → System → Language
+Settings → System → Performance	Réglages → Système → Performances
 Settings → System → Remote buttons	Réglages → Système → Touches de la télécommande
 Something wrong? Settings → About → Report a problem.	Un problème ? Réglages → À propos → Signaler un problème.
+The Apps folder shows three whole rows and grows as you go down, like the dock. It opens and closes faster.	Le dossier Applis affiche trois rangées entières et s'agrandit en descendant, comme le dock. Il s'ouvre et se ferme plus vite.
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	La page des caméras : vos caméras sur tout l'écran ; les flèches en choisissent une, OK active son son.
+The large clock's Still Glass style looks like the lock screen: tall digits of thick glass under the date.	Le style Still Glass de la grande horloge ressemble à l'écran de verrouillage : de grands chiffres en verre épais sous la date.
 The Library scrolls in one smooth movement, also with a button held down.	La Bibliothèque défile en un seul mouvement fluide, même avec un bouton maintenu.
+The lyrics button of the player and of the open island turns them on and off. Off until you turn it on: the song's name and artist go to the lyrics sources.	Le bouton de paroles du lecteur et de l'îlot ouvert les active et désactive. Désactivé tant que vous ne l'activez pas : le nom et l'artiste du titre sont envoyés aux sources de paroles.
+The music player	Le lecteur de musique
+The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	La page reste active avec un seul code pour cette TV : enregistrez-la sur l'écran d'accueil de votre téléphone et elle continue de fonctionner.
 The search finds any setting, also inside those pages.	La recherche trouve n'importe quel réglage, même à l'intérieur de ces pages.
+The shuffle button has a second press: the song playing starts again each time it ends. A third press turns both off.	Le bouton Aléatoire a une seconde pression : le titre en cours recommence à chaque fois qu'il se termine. Une troisième pression désactive les deux.
 The translations were made by machine: tell us where the wording is wrong.	Les traductions sont automatiques : dites-nous où la formulation est fausse.
-Welcome to Glassio 4.2	Bienvenue dans Glassio 4.2
+Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	Thèmes, Arrière-plan et Économiseur d'écran affichent leurs choix sur une seule rangée, chaque thème comme un petit échantillon de lui-même.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Applis inutiles : désactivez les applis de la TV qui n'envoient que des rapports, affichent des publicités ou installent d'autres applis (Réglages → Système).
+Up from the dock goes to them, OK opens the title. Off by default.	Haut depuis le dock y mène, OK ouvre le titre. Désactivé par défaut.
+Welcome to Glassio 4.8	Bienvenue dans Glassio 4.8
 Who is watching? at start or from the menu, with Nuvio's profile pictures and a greeting at the top of the menu.	Qui regarde ? au démarrage ou depuis le menu, avec les photos de profil de Nuvio et un message d'accueil en haut du menu.
+With Nuvio connected, the settings button becomes your Nuvio profile's picture.	Avec Nuvio connecté, le bouton des réglages devient l'image de votre profil Nuvio.
 Your streaming apps	Vos applis de streaming
 YouTube videos and songs under the titles; a song plays while you stay in Glassio.	Des vidéos YouTube et des morceaux sous les titres ; un morceau joue pendant que vous restez dans Glassio.
 🎁  Send a gift card	🎁  Envoyer une carte cadeau
-Nuvio's picture by itself	Image Nuvio automatiquement
-With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	Avec Nuvio connecté, le bouton affiche l'image de votre profil Nuvio jusqu'à ce que vous lui choisissiez un autre aspect
-Or scan with your phone (same Wi-Fi) and change any setting there	Ou scannez avec votre téléphone (même Wi-Fi) et modifiez n'importe quel réglage
-The phone page's QR code: change settings from your phone	Le code QR de la page téléphone : modifiez les réglages depuis votre téléphone
-QR code in Settings' search	Code QR dans la recherche des réglages
-While nothing is typed in the search, this code is there too	Tant que rien n'est tapé dans la recherche, ce code y est aussi
-After you leave this screen. Always: the same address and code whenever Glassio runs, so the page saved on your phone keeps working	Après avoir quitté cet écran. Toujours : même adresse et même code tant que Glassio tourne, la page enregistrée sur votre téléphone continue de fonctionner
-New code	Nouveau code
-Every QR code and page saved on a phone stops working; scan the new code	Chaque code QR et page enregistrée sur un téléphone cesse de fonctionner ; scannez le nouveau code
-After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	Après avoir quitté cet écran. L'adresse et le code restent les mêmes : la page enregistrée sur votre téléphone fonctionne tant que la page est active. Toujours : tant que Glassio tourne
-Welcome to Glassio 4.3	Bienvenue dans Glassio 4.3
-Its QR code is in the menu and in Settings' search, ready to scan.	Son code QR est dans le menu et dans la recherche des Réglages, prêt à scanner.
-The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	La page reste active avec un seul code pour ce téléviseur : enregistrez-la sur l'écran d'accueil de votre téléphone, elle continue de fonctionner.
-Change the theme, language, screensaver and more from your phone.	Changez le thème, la langue, l'économiseur d'écran et plus depuis votre téléphone.
-Menu → Manage from phone	Menu → Gérer depuis le téléphone
-With Nuvio connected, the settings button becomes your Nuvio profile's picture.	Avec Nuvio connecté, le bouton des réglages devient la photo de votre profil Nuvio.
-Two by two	Deux par deux
-Whole screen	Plein écran
-On the whole screen	En plein écran
-Cameras on the whole screen	Caméras en plein écran
-Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	Automatique : une rangée si les caméras tiennent à cette taille, sinon deux par deux. Elles ne dépassent jamais les bords de l'écran
-The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Les caméras remplissent l'écran jusqu'à Retour ; les flèches en choisissent une, OK active son son (aussi : menu → Caméra → Plein écran, ou un bouton de la télécommande)
-Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Vos caméras multivue en plein écran · OK active le son d'une caméra · Retour ferme
-Menu's Camera opens the whole screen	La caméra du menu ouvre le plein écran
-Menu → Camera goes straight to the cameras page instead of the live card	Menu → Caméra ouvre directement la page des caméras au lieu de la carte en direct
-Sound follows the selection	Le son suit la sélection
-On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	En plein écran, le son de la caméra choisie joue tout seul (caméras qui envoient du son)
-Lite	Léger
-The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Le même aspect, plus léger pour la mémoire et le processeur : moins d'images préparées, moins de travail en arrière-plan
-All of them are off	Toutes sont désactivées
-It is the TV's screensaver: choose another one first	C'est l'économiseur d'écran actuel du téléviseur : choisissez-en un autre d'abord
-Needs TV access (ADB): System → TV access (ADB).	Nécessite l'accès au téléviseur (ADB) : Système → Accès au téléviseur (ADB).
-None of them is on this TV.	Aucune n'est sur ce téléviseur.
-Nothing: apps that were off before stay as they are	Rien : les applis déjà désactivées restent ainsi
-Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Seules les applis dont le téléviseur n'a pas besoin sont listées : rapports, publicités et installateurs. Le démarrage, la télécommande, le son, la diffusion, le Play Store et les mises à jour ne sont jamais touchés. Rien n'est supprimé, et une réinitialisation du téléviseur rétablit tout.
-Reading the TV's apps…	Lecture des applis du téléviseur…
-Turn back on what Glassio turned off	Réactiver ce que Glassio a désactivé
-Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	Désactivez les applis du téléviseur qui ne font qu'envoyer des rapports, afficher des publicités ou installer d'autres applis. Rien n'est supprimé : un interrupteur réactive chacune
-Turn them all off	Toutes les désactiver
-Unneeded apps	Applis inutiles
-Scan with your phone (same Wi-Fi) and change any setting there	Ou scannez avec votre téléphone (même Wi-Fi) et changez n'importe quel réglage depuis là
-Google feedback	Commentaires Google
-Sends feedback and problem reports to Google	Envoie commentaires et rapports de problèmes à Google
-Bug report sender	Envoi de rapports de bogues
-Sends the TV's bug reports to Google	Envoie les rapports de bogues du téléviseur à Google
-Network diagnostics	Diagnostic réseau
-Google's connection checks and their reports	Les vérifications de connexion de Google et leurs rapports
-Ad services	Services publicitaires
-Android's ad measurement and ad topics	Mesure et thèmes publicitaires d'Android
-Ad personalisation	Personnalisation des publicités
-Works out personalised ads on the TV	Calcule des publicités personnalisées sur le téléviseur
-Federated learning	Apprentissage fédéré
-Trains Google's models with data from the TV	Entraîne les modèles de Google avec des données du téléviseur
-Google Play Games	Google Play Jeux
-The games app and its sign-in	L'appli de jeux et sa connexion
-Google TV purchases	Achats Google TV
-Films and series bought from Google: they can't be watched while it is off	Films et séries achetés chez Google : impossibles à regarder tant qu'elle est désactivée
-Maker's app installer	Installateur d'applis du fabricant
-Installs the maker's chosen apps after a setup or a reset	Installe les applis choisies par le fabricant après une configuration ou une réinitialisation
-Ambient mode	Mode Ambient
-Google's screensaver (kept while it is the TV's screensaver)	L'économiseur d'écran de Google (gardé tant qu'il est celui du téléviseur)
-The older Ambient screensaver (kept while it is the TV's screensaver)	L'ancien économiseur Ambient (gardé tant qu'il est celui du téléviseur)
-Xiaomi analytics	Statistiques Xiaomi
-Sends usage data to Xiaomi	Envoie des données d'utilisation à Xiaomi
-Recognises what is on screen, for ads	Reconnaît ce qui est à l'écran, pour la publicité
-TCL start-up ads	Publicités de démarrage TCL
-Ads shown when the TV starts	Publicités affichées au démarrage du téléviseur
-TCL app promotions	Promotions d'applis TCL
-Suggested apps and promotions	Applis suggérées et promotions
-Amazon device metrics	Mesures de l'appareil Amazon
-Sends usage data to Amazon	Envoie des données d'utilisation à Amazon
-Amazon app metrics	Mesures des applis Amazon
-Sends app usage data to Amazon	Envoie des données d'utilisation des applis à Amazon
-Amazon network metrics	Mesures réseau Amazon
-Sends Wi-Fi data to Amazon	Envoie des données Wi-Fi à Amazon
-Amazon logger	Journal Amazon
-Collects the device's logs for Amazon	Collecte les journaux de l'appareil pour Amazon
-Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Après un moment dans une autre appli, Glassio libère ses images et les reprend à votre retour.
-Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Chaque caméra s'affiche, même avec une vidéo derrière : la vidéo attend et rend son décodeur.
-Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	Toutes les nouveautés depuis Glassio 4.0, page par page, celles de 4.4 d'abord. Votre configuration reste la même : chaque nouveauté est un choix.
-Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Maintenez OK sur une caméra orientable (PTZ) : déplacez-la et zoomez avec la télécommande.
-Lighter	Plus léger
-Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	La multivue ne dépasse jamais l'écran : quatre caméras en deux par deux, aussi grandes que l'écran le permet.
-Performance → Lite: the same look, lighter on memory and on the processor.	Performances → Lite : le même aspect, plus léger pour la mémoire et le processeur.
-Settings → Smart home → Multi-view	Réglages → Maison connectée → Multivue
-Settings → System → Performance	Réglages → Système → Performances
-The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	La page des caméras : vos caméras sur tout l'écran ; les flèches en choisissent une, OK active son son.
-Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Applis inutiles : désactivez les applis du téléviseur qui ne font qu'envoyer des rapports, afficher des publicités ou installer d'autres applis (Réglages → Système).
-Welcome to Glassio 4.4	Bienvenue dans Glassio 4.4
-Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	Lesquelles, dans cet ordre (jusqu'à neuf). La multivue montre les quatre premières, le plein écran toutes. Aucune choisie = toutes
-Which ones, in this order (up to nine). None chosen = all	Lesquelles, dans cet ordre (jusqu'à neuf). Aucune choisie = toutes
-Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Automatique : une rangée quand les caméras tiennent à cette taille, sinon une grille (deux par deux, trois par trois au-delà de quatre). Elles ne dépassent jamais les bords de l'écran
-Grid	Grille
-From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Depuis Glassio (GitHub) s'il est sur ce téléviseur, sinon la sauvegarde la plus récente dans Download/Glassio. Glassio redémarre ensuite
-The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	La sauvegarde la plus récente dans Download/Glassio sur le téléviseur, sinon les réglages de Glassio de Google Play sur ce téléviseur. Glassio redémarre ensuite
-Choose a city	Choisissez une ville
-  · Page behind the player	  · Page derrière le lecteur
-Your background: your video or picture stays behind the player (with see-through glass the dock shows it too). The song's artwork: its picture fills the page	Votre fond : votre vidéo ou image reste derrière le lecteur (avec le verre transparent, le dock la montre aussi). La pochette : son image remplit la page
-Your background	Votre fond
-The song's artwork	La pochette du morceau
-Screensaver's	Celle de l'économiseur
-Titles	Titres
-Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	Automatique : votre fond avec le verre transparent sur une vidéo, sinon la pochette. Votre fond : votre vidéo ou image reste derrière le lecteur. La pochette : son image remplit la page
-Welcome to Glassio 4.5	Bienvenue dans Glassio 4.5
-Everything new since Glassio 4.0, page by page, 4.5's first. Your setup stays as it is: each new thing is a choice.	Toutes les nouveautés depuis Glassio 4.0, page par page, celles de 4.5 d'abord. Votre configuration reste telle quelle : chaque nouveauté est un choix.
-A tidier menu	Un menu plus ordonné
-Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	Thèmes, Arrière-plan et Économiseur d'écran montrent leurs choix sur une seule ligne, chaque thème en petit aperçu de lui-même.
-Glass over the video and the video quality are in the menu too.	Le verre sur la vidéo et la qualité vidéo sont aussi dans le menu.
-Page behind the player: your own video or picture can stay behind the music player.	Page derrière le lecteur : votre propre vidéo ou image peut rester derrière le lecteur de musique.
-Menu → Themes, Background, Screensaver · Settings → Music & app rows	Menu → Thèmes, Arrière-plan, Économiseur d'écran · Réglages → Musique et rangées d'apps
-Anywhere: the cameras in the middle · press again to close	Partout : les caméras au milieu · appuyez à nouveau pour fermer
-Anywhere: the camera in the corner · press again to close	Partout : la caméra dans le coin · appuyez à nouveau pour fermer
-Shuffle the carousel	Mélanger le carrousel
-Rows from…	Rangées de…
-Its own rows	Ses propres rangées
-It has none now	Il n'en a aucune pour l'instant
-Its catalogs show instead (OK → Show)	Ses catalogues s'affichent à la place (OK → Afficher)
-Continue Watching cards	Cartes Reprendre la lecture
-What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	Ce que vous regardez en petites cartes au-dessus du dock, le fond reste entier. Haut depuis le dock y va
-  · Cards	  · Cartes
-How many at most	Combien au maximum
-Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	Nécessite votre propre fond (pas les images des titres) et le dock en bas : ce que vous regardez s'affiche alors en petites cartes au-dessus du dock
-  · Apps' Continue watching	  · Reprendre des apps
-An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	Une app avec sa propre rangée Reprendre la lecture (Netflix, YouTube…) l'affiche aussi en cartes, à la place de ses rangées. Par app : Musique et rangées d'apps → Apps avec chaînes
-Small cards above the dock over your own background	Petites cartes au-dessus du dock sur votre propre fond
-Continue watching as cards: on	Reprendre en cartes : activé
-Continue watching as cards: off	Reprendre en cartes : désactivé

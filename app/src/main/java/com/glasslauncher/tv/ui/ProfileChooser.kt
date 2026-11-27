@@ -46,6 +46,7 @@ import com.glasslauncher.tv.data.Backup
 import com.glasslauncher.tv.data.Bg
 import com.glasslauncher.tv.data.Glog
 import com.glasslauncher.tv.data.I18n
+import com.glasslauncher.tv.data.ProfilePin
 import com.glasslauncher.tv.data.Profiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -70,8 +71,15 @@ object ProfilesUi {
     private var held = false
     /** Test: the list is kept as it is (pretend profiles), not read again from Nuvio. */
     @Volatile var keepList = false
+    /**
+     * The profile in use is behind its PIN (the TV started or woke, see [wake]): the chooser can't be closed with
+     * Back; a profile and its PIN, or a profile without one, is the only way on.
+     */
+    val gate = mutableStateOf(false)
 
-    fun show(app: GlassApp) {
+    fun show(app: GlassApp, gated: Boolean = false) {
+        gate.value = gated
+        ProfilePin.setGate(app, gated)
         val active = Profiles.active(app)
         val known = Profiles.known(app).ifEmpty { listOf(Profiles.Info(active, app.library.nuvio.profileName.ifBlank { if (active == 1) "Main profile" else "Profile $active" })) }
         list.value = known
@@ -95,14 +103,36 @@ object ProfilesUi {
     /** The TV started, or woke after a long sleep: ask, or go to the automatic profile (see Profiles.onWake). */
     fun wake(app: GlassApp) {
         val known = Profiles.known(app)
-        when (val w = Profiles.onWake(Profiles.startMode(app), Profiles.active(app), Profiles.autoId(app), known.map { it.id }, app.library.nuvio.connected)) {
-            0 -> {}
-            -1 -> show(app)
-            else -> go(app, known.first { it.id == w }, quiet = true)
+        val active = Profiles.active(app)
+        val w = Profiles.onWake(Profiles.startMode(app), active, Profiles.autoId(app), known.map { it.id }, app.library.nuvio.connected)
+        // Ask who is watching: with the profile in use behind its PIN, when it has one that is asked.
+        if (w == -1) { show(app, gated = ProfilePin.asks(app, active)); return }
+        // The profile the TV lands on (the automatic one, else the one in use): its PIN first, when it is asked.
+        val land = if (w > 0) w else active
+        if (ProfilePin.asks(app, land)) {
+            show(app, gated = true)
+            val i = list.value.indexOfFirst { it.id == land }
+            if (i >= 0) { row = i; sel.intValue = i; askPin(app, list.value[i]) }
+            return
         }
+        if (w > 0) go(app, known.first { it.id == w }, quiet = true)
+    }
+
+    /** The PIN was given (or the profile opened has none): the chooser may close again. */
+    private fun pass(app: GlassApp) { gate.value = false; ProfilePin.setGate(app, false) }
+
+    /** [p]'s PIN on the pad; right: on into it (or back to it, when it is the one in use). */
+    private fun askPin(app: GlassApp, p: Profiles.Info) {
+        note.value = ""
+        PinUi.show(PinUi.Ask(I18n.tr("Enter the PIN"), if (ProfilePin.source(app, p.id) == "nuvio") I18n.tr("This profile's PIN in Nuvio") else "", p,
+            check = { ProfilePin.check(app, p.id, it) }) {
+            pass(app)
+            if (p.id == Profiles.active(app)) open.value = false else go(app, p)
+        })
     }
 
     private fun go(app: GlassApp, p: Profiles.Info, quiet: Boolean = false) {
+        pass(app)
         if (!Profiles.choose(app, p.id)) { open.value = false; return }
         app.library.nuvio.setProfile(p.id, p.name)
         if (!quiet) busy.value = p.name
@@ -121,14 +151,15 @@ object ProfilesUi {
         when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> if (down && !onButton && row > 0) { row--; sel.intValue = row; note.value = "" }
             KeyEvent.KEYCODE_DPAD_RIGHT -> if (down && !onButton && row < n - 1) { row++; sel.intValue = row; note.value = "" }
-            KeyEvent.KEYCODE_DPAD_DOWN -> if (down && !onButton) sel.intValue = n
+            // (Behind the PIN: "At start" belongs to the TV's settings, like everything else under the chooser.)
+            KeyEvent.KEYCODE_DPAD_DOWN -> if (down && !onButton && !gate.value) sel.intValue = n
             KeyEvent.KEYCODE_DPAD_UP -> if (down && onButton) sel.intValue = row
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                 val p = list.value.getOrNull(row)
                 when {
                     down && e.repeatCount == 0 -> held = false
                     // Held on a profile: Glassio always starts as that one.
-                    down && !held && !onButton && p != null && (e.isLongPress || e.eventTime - e.downTime > 650) -> {
+                    down && !held && !onButton && !gate.value && p != null && (e.isLongPress || e.eventTime - e.downTime > 650) -> {
                         held = true
                         Profiles.setStartMode(app, "auto"); Profiles.setAutoId(app, p.id); rev.intValue++
                         note.value = I18n.tr("Glassio will start as") + " " + p.name
@@ -140,13 +171,15 @@ object ProfilesUi {
                             else Profiles.setStartMode(app, "ask")
                             rev.intValue++
                         }
-                        p == null -> open.value = false
-                        p.locked && p.id != Profiles.active(app) -> note.value = I18n.tr("This profile has a PIN in Nuvio: it can't be opened from here yet")
+                        p == null -> if (!gate.value) open.value = false
+                        // Its PIN first: another profile's always (unless this TV goes in without it), the one in
+                        // use only when the TV started or woke with it locked.
+                        ProfilePin.asks(app, p.id) && (p.id != Profiles.active(app) || gate.value) -> askPin(app, p)
                         else -> go(app, p)
                     }
                 }
             }
-            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> if (!down) open.value = false
+            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> if (!down) { if (gate.value) note.value = I18n.tr("Choose a profile and enter its PIN") else open.value = false }
         }
         return true
     }
@@ -218,7 +251,9 @@ fun ProfileChooserHost(app: GlassApp) {
                         Spacer(Modifier.height(14.dp))
                         Plain(p.name, color = Color.White.copy(alpha = if (on) 1f else 0.62f), fontSize = 18.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
                             maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                        Text(when { p.id == active -> I18n.tr("In use"); p.locked -> I18n.tr("PIN in Nuvio"); else -> " " },
+                        // (Read with the list: a PIN set or taken off shows the next time the chooser opens.)
+                        val pin = ProfilePin.asks(app, p.id)
+                        Text(when { p.id == active && pin && ProfilesUi.gate.value -> I18n.tr("In use") + " · PIN"; p.id == active -> I18n.tr("In use"); pin -> "PIN"; else -> " " },
                             color = Color.White.copy(alpha = 0.45f), fontSize = 12.sp, maxLines = 1)
                     }
                 }
@@ -236,7 +271,7 @@ fun ProfileChooserHost(app: GlassApp) {
                     color = if (onButton) Color(0xFF0B0B10) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
             }
             Spacer(Modifier.height(14.dp))
-            Text(ProfilesUi.note.value.ifBlank { I18n.tr("OK opens a profile · hold OK to always start as it") },
+            Text(ProfilesUi.note.value.ifBlank { if (ProfilesUi.gate.value) I18n.tr("Choose a profile and enter its PIN") else I18n.tr("OK opens a profile · hold OK to always start as it") },
                 color = Color.White.copy(alpha = 0.38f), fontSize = 11.sp, fontWeight = FontWeight.Light)
         }
     }

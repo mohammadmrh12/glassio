@@ -317,6 +317,8 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
             .setMediaSourceFactory(com.glasslauncher.tv.saver.VideoCache.factory(ctx, st.saverCache, st.saverCacheGb))
             .setLoadControl(load).build().apply {
                 volume = 0f
+                // (No frame rate told to the TV: it held all of Glassio at the video's 30 frames a second at rest.)
+                com.glasslauncher.tv.data.MediaLog.underGlassio(this)
                 setMediaItems(list.map { androidx.media3.common.MediaItem.fromUri(CustomBackground.uri(it)) }, start.coerceIn(0, (list.size - 1).coerceAtLeast(0)), 0L)
                 repeatMode = if (advance && list.size > 1) androidx.media3.common.Player.REPEAT_MODE_ALL else androidx.media3.common.Player.REPEAT_MODE_ONE
                 prepare()
@@ -354,7 +356,7 @@ fun VideoBackground(list: List<String>, start: Int, playing: Boolean, advance: B
                 list.firstOrNull { CustomBackground.uri(it) == u }?.let { Glog.i("Background video: $it"); onItem(it) }
             }
             override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
-                com.glasslauncher.tv.data.MediaLog.error("Background video", player, e)
+                com.glasslauncher.tv.data.MediaLog.error("Background video", player, e, hevcOf = st)
                 // That one doesn't play (gone from the feed, network): the next one, a few times.
                 if (++errors <= list.size.coerceAtMost(6) && list.size > 1) { player.seekToNextMediaItem(); player.prepare() }
             }

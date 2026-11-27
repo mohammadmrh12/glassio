@@ -66,14 +66,14 @@ object CamPlayer {
         // without a CSeq header, Media3's RtspClient threw on the player's thread and Glassio closed).
         val (looper, _) = safeLooper()
         b.setPlaybackLooper(looper)
-        return b.build().apply { volume = 0f; loopers[this] = looper }
+        return b.build().apply { volume = 0f; loopers[this] = looper; com.glasslauncher.tv.data.MediaLog.underGlassio(this) }
     }
 
     private val loopers = java.util.Collections.synchronizedMap(java.util.WeakHashMap<ExoPlayer, android.os.Looper>())
 
     /** Releases [p] and ends its playback thread. */
     fun release(p: ExoPlayer) {
-        stopPictures(p); playNo.remove(p)
+        stopPictures(p); playNo.remove(p); guards.remove(p)
         runCatching { p.release() }.onFailure { com.glasslauncher.tv.data.Glog.w("Camera player release", it) }
         loopers.remove(p)?.quitSafely()
     }
@@ -110,28 +110,69 @@ object CamPlayer {
      */
     fun play(ctx: Context, p: ExoPlayer, url: String, tex: android.view.TextureView? = null, onFail: () -> Unit = {}, onLive: () -> Unit = {}) {
         stopPictures(p)
+        guards.remove(p)?.let { p.removeListener(it) }
         // (Each call has its number: a Home Assistant answer that comes after the player moved on to another camera,
         // or was let go, is dropped.)
         val n = playNo.merge(p, 1, Int::plus) ?: 1
         if (!url.startsWith("ha://")) { tex?.let { p.setVideoTextureView(it) }; play(p, url); return }
+        haPlay(ctx, p, url.removePrefix("ha://"), tex, onFail, onLive, n, 0)
+    }
+
+    /**
+     * A Home Assistant camera ([selfHealing]): its stream, asked for again once if it fails or isn't playing within
+     * 15 s (HA's stream worker starting, a decoder that fails), then the camera's MJPEG picture or its snapshots,
+     * which HA gives for every camera; [onFail] only when none of them comes. (#40: some of a person's Reolink cameras
+     * said "Can't reach the camera", at random, while Home Assistant showed them live: the stream's first failure
+     * was the end of it.)
+     */
+    private fun haPlay(ctx: Context, p: ExoPlayer, entity: String, tex: android.view.TextureView?, onFail: () -> Unit, onLive: () -> Unit, n: Int, attempt: Int) {
         val st = (ctx.applicationContext as GlassApp).settings
         val base = haTestUrl ?: st.haUrl
         val token = haTestToken ?: st.haToken
-        val entity = url.removePrefix("ha://")
         val main = android.os.Handler(android.os.Looper.getMainLooper())
+        fun current() = playNo[p] == n && loopers.containsKey(p)
+        fun pictures() {
+            if (tex != null) { runCatching { p.stop(); p.clearVideoTextureView(tex) }; pictures[p] = HaPictures(base, token, entity, tex, onLive, onFail).also { it.start() } }
+            else { runCatching { p.stop() }; onFail() }
+        }
         Bg.io("glass-cam") {
             val live = runCatching { com.glasslauncher.tv.net.HaWatch.streamUrl(base, token, entity) }.getOrNull()
             main.post {
-                if (playNo[p] != n || !loopers.containsKey(p)) return@post
-                if (live != null) { tex?.let { p.setVideoTextureView(it) }; runCatching { play(p, live) } }
+                if (!current()) return@post
                 // No stream from Home Assistant (an MJPEG or snapshot-only camera, or its `stream` integration off,
                 // #28): the camera's live MJPEG picture, else its snapshot every second, drawn on the same view.
-                // Before, the player was only stopped and the camera stayed on "Connecting…" for ever.
-                else if (tex != null) { runCatching { p.stop(); p.clearVideoTextureView(tex) }; pictures[p] = HaPictures(base, token, entity, tex, onLive, onFail).also { it.start() } }
-                else runCatching { p.stop() }
+                if (live == null) { pictures(); return@post }
+                tex?.let { p.setVideoTextureView(it) }
+                var done = false
+                fun failed(why: String) {
+                    if (done || !current()) return
+                    done = true
+                    guards.remove(p)?.let { p.removeListener(it) }
+                    if (attempt == 0) {
+                        com.glasslauncher.tv.data.Glog.w("Home Assistant camera $entity: stream $why, asking for it again")
+                        main.postDelayed({ if (current()) haPlay(ctx, p, entity, tex, onFail, onLive, n, 1) }, 2000)
+                    } else {
+                        com.glasslauncher.tv.data.Glog.w("Home Assistant camera $entity: stream $why again, its pictures instead")
+                        pictures()
+                    }
+                }
+                val guard = object : androidx.media3.common.Player.Listener {
+                    override fun onPlaybackStateChanged(s: Int) {
+                        if (s == androidx.media3.common.Player.STATE_READY && !done) { done = true; guards.remove(p)?.let { p.removeListener(it) }; onLive() }
+                    }
+                    override fun onPlayerError(e: androidx.media3.common.PlaybackException) { failed(e.errorCodeName) }
+                }
+                guards[p] = guard; p.addListener(guard)
+                runCatching { play(p, live) }.onFailure { failed(it.javaClass.simpleName) }
+                main.postDelayed({ failed("not playing after 15 s") }, 15_000)
             }
         }
     }
+
+    /** Home Assistant cameras look after their own failures ([haPlay]): a window shows "Can't reach" only on onFail. */
+    fun selfHealing(url: String) = url.startsWith("ha://")
+
+    private val guards = java.util.concurrent.ConcurrentHashMap<ExoPlayer, androidx.media3.common.Player.Listener>()
 
     /** QA (dev key): a Home Assistant to use instead of the one set (a test server), for `cam_test ha://…`. */
     @Volatile var haTestUrl: String? = null

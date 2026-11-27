@@ -356,4 +356,95 @@ class PureLogicTest {
         // A line break is written as \n in the file and read back as one.
         assertEquals(mapOf("a\nb" to "c\nd"), I18n.parse(sequenceOf("a\\nb\tc\\nd")))
     }
+
+    /** A profile's PIN as it is kept (salted, hashed), and the wait after wrong tries. */
+    @Test fun profilePin() {
+        val P = com.glasslauncher.tv.data.ProfilePin
+        val salt = ByteArray(16) { (it * 7 + 3).toByte() }
+        val kept = P.kept("4821", salt)
+        assertTrue(P.matches(kept, "4821"))
+        assertTrue(!P.matches(kept, "4822"))
+        assertTrue(!P.matches(kept, ""))
+        // The digits themselves are nowhere in what is kept.
+        assertTrue(!kept.contains("4821"))
+        // Another salt: another value for the same PIN.
+        assertTrue(kept != P.kept("4821", ByteArray(16) { it.toByte() }))
+        // Broken or empty values never match.
+        assertTrue(!P.matches("", "4821")); assertTrue(!P.matches("zz:zz", "4821")); assertTrue(!P.matches(":", "4821"))
+        // Four wrong tries cost nothing; then 30 s, 1, 2 and 5 minutes.
+        assertEquals(listOf(0, 0, 30, 60, 120, 300, 300), listOf(1, 4, 5, 6, 7, 8, 20).map { P.waitAfter(it) })
+    }
+
+    /** Lyrics: reading LRC, where the song is among the lines, the words lit, and the names tried for a video's title. */
+    @Test fun lyrics() {
+        val L = com.glasslauncher.tv.data.Lyrics
+        val lines = L.parse("[00:33.03] first line\n[00:39.48]second\n[01:02.5]\n[ar: someone]\nno stamp\n[00:10.00][01:10.00] twice")
+        assertEquals(listOf(10_000L, 33_030L, 39_480L, 62_500L, 70_000L), lines.map { it.at })
+        assertEquals(listOf("twice", "first line", "second", "", "twice"), lines.map { it.text })
+        // Before the first line; inside one; a line lasts until the next starts, 9 s at most.
+        assertEquals(-1, L.at(lines, 5_000).first)
+        assertEquals(1, L.at(lines, 34_000).first)
+        assertEquals(1f, L.at(lines, 60_000).second)           // "second" ran out long before the pause at 62.5 s
+        assertEquals(4, L.at(lines, 500_000).first)
+        // Words light in turn by their length; all of them a little before the line ends.
+        val w = listOf("one", "elephant", "is")
+        assertEquals(0, L.wordsSung(w, 0f)); assertEquals(1, L.wordsSung(w, 0.1f)); assertEquals(3, L.wordsSung(w, 0.9f))
+        assertEquals(0, L.wordsSung(emptyList(), 0.5f))
+        // A video's title: as it is, without the brackets, then split at the dash both ways.
+        assertEquals(listOf("Ludovico Einaudi - Experience (Official Video)" to "Chan", "Ludovico Einaudi - Experience" to "Chan", "Experience" to "Ludovico Einaudi", "Ludovico Einaudi" to "Experience"),
+            L.candidates("Ludovico Einaudi - Experience (Official Video)", "Chan"))
+        assertEquals(listOf("Time" to "Hans Zimmer"), L.candidates("Time", "Hans Zimmer - Topic"))
+        // Plain words: spread over the song, in order.
+        val sp = L.spread("a\n\nb\nc", 100_000)
+        assertEquals(3, sp.size); assertTrue(sp[0].at < sp[1].at && sp[1].at < sp[2].at && sp[2].at < 100_000)
+    }
+
+    /** Lyrics from the other sources: word-by-word files, credits left out, which answer wins, which song is the same. */
+    @Test fun lyricsSources() {
+        val L = com.glasslauncher.tv.data.Lyrics
+        // NetEase's word file without the space between some words: taken from the same song's plain line near that time.
+        val glued = L.parseYrc("[32820,4800](32820,540,0)Maybe (33360,120,0)you (33900,330,0)me (34230,390,0)how(34620,120,0)to (34740,900,0)love(35640,30,0), (35670,1950,0)maybe\n[38430,2130](38430,240,0)I'm(38670,300,0)going (38970,180,0)through")
+        val fixed = L.respace(glued, L.parse("[00:32.82]Maybe you me how to love, maybe\n[00:50.00]I'm going through"))
+        assertEquals(listOf("Maybe you me how to love, maybe", "I'mgoing through"), fixed.map { it.text })
+        assertEquals(listOf("Maybe ", "you ", "me ", "how ", "to ", "love", ", ", "maybe"), fixed[0].words!!.map { it.text })
+        assertEquals(34620L, fixed[0].words!![4].at)
+        // (A space sent as a word of its own doesn't double the space.)
+        assertEquals(listOf("a ", "b"), L.respace(L.parseYrc("[1000,900](1000,300,0)a(1300,10,0) (1400,500,0)b\n[5000,900](5000,400,0)x (5400,500,0)y\n[9000,900](9000,400,0)x (9400,500,0)y"), L.parse("[00:01.00]a  b"))[0].words!!.map { it.text })
+        // (Kept as one text: the word lines, then the plain lines.)
+        assertEquals("how to", L.decode("Y netease\n[1000,900](1000,400,0)how(1400,500,0)to\n[2000,900](2000,400,0)a (2400,500,0)b\n[00:01.00]how to\n[00:02.00]a b", 0)!!.lines[0].text)
+        // NetEase: each word's own moment; its header lines are no lines; a pause where the singing stops for 4 s.
+        val yrc = "{\"t\":0,\"c\":[{\"tx\":\"x: \"},{\"tx\":\"y\"}]}\n[18940,3660](18940,270,0)We're (19210,180,0)no (19390,600,0)strangers\n[22810,1000](22810,330,0)You (23140,300,0)know\n[30000,900](30000,400,0)Never (30400,500,0)gonna"
+        val y = L.parseYrc(yrc)
+        assertEquals(listOf("We're no strangers", "You know", "", "Never gonna"), y.map { it.text })
+        assertEquals(listOf(18940L, 22810L, 23810L, 30000L), y.map { it.at })
+        assertEquals(listOf(18940L, 19210L, 19390L), y[0].words!!.map { it.at })
+        assertEquals("We're ", y[0].words!![0].text)
+        // KuGou: a word's moment counts from its line's start; and its file opens (four letters, then packed under a mask).
+        val krcText = "[id:1]\r\n[1000,2000]<0,500,0>Tamally <500,700,0>maak\r\n[3200,900]<0,400,0>We <400,500,0>law"
+        val k = L.parseKrc(krcText)
+        assertEquals(listOf("Tamally maak", "We law"), k.map { it.text }); assertEquals(listOf(1000L, 1500L), k[0].words!!.map { it.at })
+        val key = intArrayOf(64, 71, 97, 119, 94, 50, 116, 71, 81, 54, 49, 45, 206, 210, 110, 105)
+        val zipped = java.io.ByteArrayOutputStream().also { o -> java.util.zip.DeflaterOutputStream(o).use { it.write(krcText.toByteArray()) } }.toByteArray()
+        val file = "krc1".toByteArray() + ByteArray(zipped.size) { i -> (zipped[i].toInt() xor key[i % 16]).toByte() }
+        assertEquals(krcText, L.unKrc(file)); assertNull(L.unKrc(byteArrayOf(1, 2)))
+        // Credits and a "Name - Artist" first line are no words of the song; a dash later in the song stays.
+        val raw = L.parse("[00:00.00]Some Song - Some Singer\n[00:01.00] 作词 : Somebody\n[00:02.00]Lyrics by：Somebody\n[00:10.00]first words\n[00:14.00]and more - of them\n[00:18.00]制作人 someone\n[00:20.00]the last")
+        assertEquals(listOf("first words", "and more - of them", "the last"), L.clean(raw).map { it.text })
+        // Which answer wins: word by word from NetEase, then LRCLIB's lines; the song's own writing before Latin letters.
+        val ne = com.glasslauncher.tv.data.Lyrics.Found("netease", 'Y', "[1,2](1,2,0)hello (3,4,0)there"); val lr = com.glasslauncher.tv.data.Lyrics.Found("lrclib", 'S', "[00:01.00]hello there")
+        val ku = com.glasslauncher.tv.data.Lyrics.Found("kugou", 'K', "[1,2]<0,2,0>Tamally <2,2,0>maak"); val ar = com.glasslauncher.tv.data.Lyrics.Found("lrclib", 'S', "[00:45.60]تملي معاك")
+        val plain = com.glasslauncher.tv.data.Lyrics.Found("ovh", 'P', "hello there")
+        org.junit.Assert.assertSame(ne, L.pick(listOf(plain, lr, ne))); org.junit.Assert.assertSame(lr, L.pick(listOf(plain, lr, ku)))
+        org.junit.Assert.assertSame(ar, L.pick(listOf(ku, ar))); org.junit.Assert.assertSame(ar, L.pick(listOf(com.glasslauncher.tv.data.Lyrics.Found("netease", 'Y', "[1,2](1,2,0)Tamally (3,4,0)maak"), ar)))
+        org.junit.Assert.assertSame(plain, L.pick(listOf(plain))); assertNull(L.pick(emptyList()))
+        // The same song: the same name (or most of it), and the artist when both are known.
+        assertTrue(L.sameSong("Never Gonna Give You Up", "Rick Astley", "Never Gonna Give You Up (Remastered)", listOf("Rick Astley")))
+        assertTrue(L.sameSong("Hekm El Alb", "Wael Kfoury", "Hekm El Alb", emptyList()))
+        org.junit.Assert.assertFalse(L.sameSong("Time", "Hans Zimmer", "Summertime Sadness", listOf("Lana Del Rey")))
+        org.junit.Assert.assertFalse(L.sameSong("Bad Times", "Imael Angel", "Bad Times", listOf("Someone Else")))
+        // What is kept reads back; an older file (no source named) is LRCLIB's.
+        val kept = L.decode(ne.kept(), 0)!!
+        assertTrue(kept.byWord && kept.synced); assertEquals("netease", kept.source)
+        assertEquals("lrclib", L.decode("S\n[00:01.00]hello there", 0)!!.source); assertNull(L.decode("-", 0))
+    }
 }

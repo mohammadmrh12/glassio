@@ -55,6 +55,8 @@ private const val CLOCK_BASE = 0.355f
 /** [off]: the Large clock position setting (up is negative), as a part of the screen's height. */
 private fun clockTop(scale: Float, off: Float = 0f) = (CLOCK_BASE - 0.27f * scale + off).coerceIn(0.02f, 0.75f)
 private fun clockBottom(scale: Float, off: Float = 0f) = clockTop(scale, off) + 0.27f * scale
+/** Where the large clock ends, as a part of the screen's height (what is put under it starts below). */
+internal fun clockEnds(st: Settings) = clockBottom(st.bgClockSize, st.bgClockOffset)
 private fun clockSide(scale: Float) = (0.5f - 0.2f * scale).coerceAtLeast(0.05f)
 
 /**
@@ -311,6 +313,21 @@ fun BigClock(st: Settings, s: Float, inSaver: Boolean = false) {
 }
 
 /**
+ * The large clock's painted digits (their shape, rim, shade and the glass's height map), kept between visits to the
+ * page. They were painted again every time the clock was made: on the way back from the Library, from an app's rows or
+ * from the screensaver that was 40 ms (With the theme) to 70 ms (Still Glass) of one frame on the main thread, the
+ * heaviest frame of those returns over your own background. Only the last two (this minute's, and the one before or the
+ * screensaver's): a set is a few megabytes.
+ */
+internal object ClockArt {
+    private val made = object : LinkedHashMap<String, Art>(4, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Art>?) = size > 2
+    }
+    @Synchronized fun get(key: String, make: () -> Art): Art = made[key] ?: make().also { made[key] = it }
+    @Synchronized fun clear() = made.clear()
+}
+
+/**
  * The digits made the way the dock is drawn in each theme:
  *  - Frosted Glass: the blurred picture behind, darkened by the dock's own tint;
  *  - Clear: the blurred picture with the clear theme's light veil;
@@ -329,7 +346,9 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
     // The digits' shape and their rim are painted once (when the time changes), not on every frame. Each frame
     // then draws the picture through that shape in one pass (a shader, no extra layer, no blur pass): cheap enough
     // to follow every new copy of a video, in step with the dock's glass.
-    val art = remember(text, style, rim, apple) {
+    // (Kept between visits, see ClockArt: the clock is made again whenever the page comes back, and painting its digits
+    // took 40-70 ms of that frame.)
+    val art = remember(text, style, rim, apple) { ClockArt.get("$text|${style.hashCode()}|$rim|$apple|${density.density}|${density.fontScale}") {
         val layout = tm.measure(text, style)
         val w = layout.size.width.coerceAtLeast(1); val h = layout.size.height.coerceAtLeast(1)
         // (Thick glass: a wider, brighter rim.)
@@ -380,7 +399,7 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
             android.graphics.Canvas(hb).drawBitmap(soft, null, android.graphics.Rect(0, 0, w, h), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
         } else null
         Art(mask, rimImg, shadeImg, height)
-    }
+    } }
     val (mask, rimImg, shadeImg) = art
     // Refraction (Android 13+): the picture inside the digits bends along their edges like light through thick glass.
     val lens = remember(art.height) {
@@ -483,7 +502,7 @@ private fun ThemedNumerals(text: String, style: TextStyle, look: String, blurOn:
     }
 }
 
-private class Art(val mask: ImageBitmap, val rim: ImageBitmap?, val shade: ImageBitmap?, val height: android.graphics.Bitmap?) {
+internal class Art(val mask: ImageBitmap, val rim: ImageBitmap?, val shade: ImageBitmap?, val height: android.graphics.Bitmap?) {
     operator fun component1() = mask; operator fun component2() = rim; operator fun component3() = shade
 }
 

@@ -63,12 +63,12 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.7.1 (code 86, stable, 2026-11-26)**, public `b7c9f9e`, sha256 `dd022b36…3add5a0c`; 4.7.0 (code 85, `d4db232`); 4.6.1 (code 84, `7c4dd9f`); 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.7.2 (code 87, stable, 2026-11-26)**, public `69142ca`, sha256 `b7325ef2…2b449e69`; 4.7.1 (code 86, `b7c9f9e`); 4.7.0 (code 85, `d4db232`); 4.6.1 (code 84, `7c4dd9f`); 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
     4.2.0 (code 73, `86aad11`) before it.
-    `origin/beta` stays at `4e92df7` (4.1.1-beta1, code 72). 4.1.0 (code 71) before it.
+    `origin/beta` is `124bcb9` (4.7.3-beta1, code 88; was `4e92df7`, 4.1.1-beta1). 4.1.0 (code 71) before it.
     4.0.0 (code 69) before it. Work goes on on the local `beta` branch.
   - `versionCode` must always go up, for betas and stable releases alike.
 
@@ -107,6 +107,7 @@
 | `data/Report.kt`, `tools/report-worker/` | A problem report from the TV to GitHub Issues, and the relay that opens the issue (see **Problem reports**) |
 | `data/Search.kt`, `ui/SearchStage.kt` | Search: the titles, where each can be watched, Stremio's sources; the Search icon's page above the dock (see **Search**) |
 | `data/I18n.kt`, `ui/Texts.kt`, `assets/i18n/`, `tools/i18n/` | The languages: the table, the Text every screen uses, each language's words, and the scripts that collect and merge them (see **Languages**) |
+| `data/Lyrics.kt`, `ui/LyricsView.kt` | A song's words beside the player, in time with it (see **Lyrics**) |
 | `data/Bg.kt` | `Bg.io("name") { … }`: the one scope for background work that belongs to the app (servers, watchers, a request off the main thread). No hand-made `Thread`s: only the named single-thread executors with a low priority stay (`glass-prep`, `glass-blur`, `glass-trailers`, `glass-depth`, `glass-chan-blur`, Hue's pool) |
 | `DevHooks.kt` | adb test hooks (see below) |
 
@@ -262,8 +263,33 @@ One Glassio per profile of the Nuvio account. A profile's number is Nuvio's (`pr
     *Hello* / *hello* button only the name, under a *Your picture* button no picture. No known profile (not signed
     in to Nuvio): nothing.
   - Nuvio sends per profile: `profile_index`, `name`, `avatar_color_hex`, `avatar_id`, `avatar_url`, `pin_enabled`,
-    `uses_primary_addons`, `profile_background_*`. A profile with a PIN in Nuvio can't be opened from Glassio (there
-    is no way yet to check the PIN).
+    `uses_primary_addons`, `profile_background_*`. A profile with a PIN in Nuvio asks for it (see *A profile's PIN*).
+- **A profile's PIN** (`data/ProfilePin.kt`, `ui/PinPad.kt`; his ask 2026-11-27, local, not released). Four digits.
+  - *Whose:* a profile with a PIN in Nuvio (`pin_enabled`) uses that one, checked by Nuvio (`NuvioAccount.verifyPin`:
+    rpc `verify_profile_pin`, `p_profile_id` + `p_pin` → `[{unlocked, retry_after_seconds}]`, read in NuvioMedia/NuvioTV's
+    `ProfileSyncService.kt`; Nuvio also has `set_profile_pin` / `clear_profile_pin`, not used: nothing is written to
+    Nuvio). The PIN Nuvio last accepted is kept hashed (`seen<id>`) and opens the profile when Nuvio can't be reached;
+    never entered here before: "Nuvio can't be reached to check this PIN". A profile without one can get a PIN made
+    in Glassio (`own<id>`, this TV only).
+  - *When* (`ProfilePin.asks`, per profile and TV; Settings → Accounts & profiles → *Ask for the PIN*): **Every
+    time** (default: the TV starting, waking after 5+ min, changing to the profile) or **Automatic** (`auto<id>`: this
+    TV goes in without it). Changing that, changing or removing the PIN: the current PIN first.
+  - *The gate* (`ProfilesUi.gate`, set by `wake`): the profile the TV lands on asks → the chooser with the pad up;
+    Back doesn't close it, *At start* and hold-OK are off; a profile without a PIN still opens. Kept as `gate` in the
+    file, so a restart of Glassio asks again. Five wrong tries of a PIN kept here: 30 s, then 1, 2, 5 min.
+  - *The pad* (`PinUi`, `PinHost` in MainActivity over everything): takes the keys itself (arrows + OK on the pad,
+    the remote's number keys, DEL, Back cancels on release). One `Ask` at a time; `onOk` may open the next.
+  - Kept in `profile_pins` (PBKDF2, salted): not a `glass…` file, so never in a backup, sync or report (a restore on
+    another TV has no Glassio PIN). Reports say only `profilePins=p1 nuvio ask`. The setup's profile step asks too.
+  - QA (dev key): `--es pin_fake "2:1234"` (profile 2 as if Nuvio had that PIN; `2:off` Nuvio unreachable; `-` none;
+    in memory), `--es pin_own "1:1234"` (`1:-` removes), `--es pin_auto "1:true"`; `dump_focus` prints `gate=`,
+    `pinPad=<open>:<digits typed>:<key>`, `pins=`.
+  - Seen on the Streamer: gate at a pretend start (pad, Back ×2 stays), wrong PIN, the pad with arrows, restart with the
+    gate up (asks again), right PIN, Automatic (no gate), 5 wrong → 30 s, a pretend Nuvio PIN: unreachable note, wrong,
+    right → Glassio as profile 2 (back to 1 after); Settings: new PIN typed twice (a different repeat refused), Ask
+    toggled, Remove. His profile left without a PIN. **Not tested: Nuvio's real check** (no profile of his has a PIN
+    in Nuvio, and none was set: his account), the setup's step, a remote with number keys.
+  - The rows' words (and ~150 other strings added since 4.4) are not translated yet: English in the other languages.
 - **Setup:** after the Nuvio sign-in, when the account has more than one profile, a page asks who is watching
   (or "Ask every time"). It is applied at the end: Glassio opens as that profile with the look chosen in the setup.
 - **Name and picture:** Settings → Connections → *Name* is kept in Glassio (`glass_profiles`, `nameN`) and comes
@@ -621,6 +647,74 @@ Nine languages. English is the source and the key: a text is looked up by its En
 - The translations were made by machine in one pass (2026-11-21) and read by nobody who speaks the languages:
   wrong or clumsy wording is to be expected and fixed as people report it.
 
+## Lyrics (`data/Lyrics.kt`, `ui/LyricsView.kt`)
+
+A song's words in time with it (his asks 2026-11-27, from a recording of Apple Music's lyrics view; local, not
+released). `lyricsOn`, **off by default** (the song's name, artist and length go to outside services). Set by the
+player's lyrics button (a speech bubble, lit while on, between Stop and the apps list), the same button in the open
+island (▲ on the screensaver; `MusicUi.islandButtons` 7, 6 in the play build) and Settings → Music & app rows →
+*Lyrics*. Per profile. **Not in the play build** (`Store.PLAY`: no buttons, no rows, nothing asked).
+
+- **Where it shows:** beside the player (the Music icon's page / Music mode), and over the **video screensaver**
+  (`lyricsSaver`, on; `SaverLyrics` in both of the screensaver's forms: One player over the background's video and
+  its own screen; never the posters or trailers): on the right, under the large clock when it shows, only while the
+  song plays; the place info keeps out of that corner (`saverLyricsShown` → `avoid = "br"`).
+- **Sources** (`Lyrics.SOURCES`; `lyricsSourcesOff`, Settings → *Lyrics sources*, each a switch; all on), no keys:
+  - LRCLIB (`lrclib.net`, open): `api/get` with name + artist + length, then `api/search`. Lines with times.
+  - NetEase Cloud Music (`music.163.com/api/search/get`, then `api/song/lyric/v1`): `yrc` = **every word's own
+    moment** (well-known songs), `lrc` = lines. Arabic songs come in Arabic there.
+  - KuGou (`mobileservice.kugou.com/api/v3/search/song` → `lyrics.kugou.com/search?hash=` → `download?fmt=krc|lrc`):
+    `krc` is word by word (four letters, then zlib under a fixed 16-byte mask: `unKrc`). A search there by words alone
+    finds nothing: it needs the song's hash. Arabic songs come in Latin letters, with credit lines.
+  - lyrics.ovh: plain words, no times.
+  - All asked at once, each in its own `Bg.io`; the best answer wins (`rank`: NetEase word by word 60, LRCLIB lines
+    50, NetEase lines 40, KuGou 30 / 25, plain 15 / 10), but words in the song's own writing beat the same song in
+    Latin letters (`pick`, `otherWriting`). It stops waiting once nothing better can come (1-2.3 s seen; waiting for
+    all took 8 s). A source's song must be the same song (`sameSong`: name, artist, length within 3 s).
+  - Credits are left out (`clean`: "Lyrics by: …", the Chinese credit lines, Chinese lines in a song that isn't
+    Chinese, a "Name - Artist" line at the very start).
+  - A YouTube app gives a video's title: `candidates` tries it as it is, without what is in brackets, then split at
+    its dash both ways. Kept in `files/lyrics` ("<kind> <source>" then the text; 30 days; "none" a day; 300 songs;
+    the sources in use are part of the name) and the last 24 in memory. All four are in the privacy policy's list.
+- **The look** (`LyricsPane`): with words to show, the player slides to the left (artwork a little smaller) and the
+  words take the right half; none: the player stays in the middle and the app's line says *Looking for the lyrics…* /
+  *No lyrics for this song*. The line being sung is white and solid at a fifth of the way down and lights word by
+  word; the others are dim and out of focus, more so the further away; the list moves up line by line; the top and
+  bottom fade out. Three dots fill during the intro and in a pause of 3 s or more, never after the last words. Words
+  written right to left stand on the right (dots too).
+- Words with their own moments light exactly then (120 ms ahead); a line without them lights its words in turn by
+  their length (`Lyrics.wordsSung`, 300 ms ahead). Plain words are spread over the song: no lighting, no blur.
+- **Out of focus without a blur:** a blurred line is the same words drawn as only a soft white shadow of themselves
+  (clear writing, `Shadow` with a nearly opaque colour) over a dark one; a letter's shadow is kept ready like the
+  letter. Three fixed levels (`SOFT`), cross-faded: never animate a shadow's radius (every letter would be made anew
+  each frame). A `RenderEffect` blur a line was tried first: made again at every frame, 100-140 ms a frame on the
+  Streamer (GPU 20-64 ms). Android 12+, not on a `lean` TV.
+- Measured on the Streamer (Arabic song, 6 s): 12 frames a second; dimmed only p50 17 / p90 23 ms, none over 33;
+  out of focus p50 20 / p90 27-29, 3 over 33 (longest 40-49). Nothing runs once a frame: the place in the song is
+  looked at every 80 ms and the page is drawn again only when a word or a line changes.
+- NetEase's word-by-word file leaves out the space between some words ("howto", "I'mgoing" on screen): its plain
+  lines are kept after it in the same file and each word line takes its spaces from the line of the same letters
+  near its time (`Lyrics.respace`; the cache's names end in "|2" since). Seen: *Blinding Lights*.
+- The player's progress bar is as wide as its row of buttons (it ended short of the row once the lyrics button was
+  added: his photo; his "طوله شويه" was read as "make it longer").
+- **Android's regex refuses a bare `}` that Java's lets through** ("PatternSyntaxException near index 45": every
+  lookup failed on the TV while the unit tests passed): escape every closing brace and bracket in a `Regex`.
+- QA (dev key): `--ez fake_song true` takes `--es fake_artist`, `--ei fake_dur`, `--ei fake_pos` (seconds; quote the
+  whole `am start` when a name has a space; a real session playing wins over the pretend song); `--ei lyrics_blur 0`
+  (dimmed only; in memory). Log: `Lyrics: N lines from <source> (word by word)` / `none found` / `<source> didn't
+  answer`. **Any `am start` hook (also `dump_prefs`) ends the screensaver on the home screen**: while it is up,
+  check with screenshots only. A blind second OK after such a check opened Nuvio Legacy from the dock (nothing
+  played; he was told).
+- Seen on the Streamer: an English song playing in Electric Eel (words found from the video's title); pretend songs:
+  *Never Gonna Give You Up*, *Blinding Lights*, *Bohemian Rhapsody* (NetEase, word by word), *Tamally Maak*, *Hekm El
+  Alb*, *Ya Tabtab* (LRCLIB, Arabic), a song with no words (the note); the player's button off and on; over the
+  screensaver: the words on the right, the island opened with its seven buttons, its lyrics button off (words gone)
+  and on. **Not checked: by ear** (whether the lit word is the sung one), Spotify / SoundCloud as the playing app,
+  KuGou or lyrics.ovh winning (never the best answer in the songs tried), a source switched off, the screensaver with
+  the large clock on (his is off), its own screen (the TV's screensaver), the two new Settings rows on screen, plain
+  words, a pause's dots, Android below 12, the TCL. Its words are English only.
+  His `lyricsOn` was found **off** before the second round (he had it on in his photo) and was put back to off.
+
 ## Jellyfin (`data/Jellyfin.kt`, #27)
 
 A Jellyfin server as an account like Stremio / Simkl (the TV's, `glass_jellyfin`, not per profile; in backups as
@@ -743,7 +837,7 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
 
 | Command | What it does |
 |---|---|
-| `install` | Wakes the TV first, then installs. **Always install this way.** Installing while Glassio's screensaver runs kills the screensaver, and the TV then goes to sleep ("timeout"). |
+| `install` | Wakes the TV first, then installs, compiles, and opens Glassio **once** (about 18 s after the install; until then the TV shows whatever was behind Glassio). **Always install this way.** Installing while Glassio's screensaver runs kills the screensaver, and the TV then goes to sleep ("timeout"). It used to open Glassio right after the install and again after the compile (his "it loads, then loads again": two process starts and two activity creations in the system's event log, `logcat -b events`; now one). The app itself never reloads: its own compile, a minute after the start, changed nothing on screen. |
 | `nav` | Steps through home, dock, Library, menu and Settings. After each step: a screenshot, the selection (`dump_focus`) and the app in front, then a crash check at the end. |
 | `perf NAME KEYS…` / `idle NAME` | Frame times while the keys run: slow %, p50 / p90 / p99, GPU and UI time. |
 | `glide KEYS…` | Screen recording; reports when each movement starts and how long it takes to settle. |
@@ -1992,6 +2086,7 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   translated) and a *Supporters* section in both READMEs. "Made by Mohammad (mrh12)" moved there too, above it (the
   credits line stays at the end of About's rows). A name is added only with that person's yes; never the gift code or the form.
   Seen on the Streamer (English). Not seen: Arabic. Nothing posted on #25.
+  **Narmeen and Azad added (2026-11-26, his ask)**, names only (no GitHub account), after EB in About and both READMEs.
 - **Multi-view never past the screen, and a cameras page (#31's comment, #30; 2026-11-24, not released):** the row
   was sized for four cameras times *Size* (140 % by default), so four ran off both sides. Now `multiLayout`
   ("auto" default, "row", "grid"; Settings → Smart home → Multi-view → *Layout*): auto is one row when it fits at
@@ -2490,6 +2585,13 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   `Channels.SMARTTUBE` and `Search.YOUTUBE_APPS` (stable and beta packages). Seen: a video playing in it, back in
   Glassio it kept playing and the player page showed it ("Electric Eel"; GlassMedia music=true followed=true);
   stopped after.
+  **Its background playing stopping** (his report, looked into, nothing to change in Glassio): it is Electric Eel's own
+  *System → General → Background playback* (his: *Only audio (by pressing HOME)*). A real Home (through Glassio's
+  service): it played on behind Glassio for 8+ minutes and across video changes. Left any other way (Back, an app
+  opened, `am start`): it pauses itself ~7 s later. Once (14:44, after a long session in it) its screens were
+  destroyed with reason `low-mem` while the TV's memory was normal (no lmkd, no `am_mem_factor`): that is the app
+  freeing its own hidden screens when its Java heap passes 75 % of its 512 MB (it plays from a screen, not a
+  foreground service). SmartTube was uninstalled from the Streamer at 13:36 (not by me), so it couldn't be compared.
 - **#39 / #40 (Mubde, Fire TV AFTHA001, 4.7.0; local):** his "green screensaver" report was filed under #39 because it
   carried an old crash (2026-11-23) and the relay groups reports by crash. Reports now carry `last-crash.txt` only when
   it is newer than the installed version (`lastUpdateTime`). Seen: the Streamer's old crash left out of a preview. His
@@ -2521,6 +2623,164 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
   marks stay. Tour unchanged (`WhatsNew.ID` 72). Play: bundle 86 sent to Alpha. Code 87+ next. Replied: #51 (closed,
   completed), #40 (update, report right after the green screen, which cameras), #39 (why that report landed there). #52
   (SER) through him on Telegram; #46 nothing new.
+- **4.7.2 released (2026-11-26, his "ريليس سريع بدون بلي ستور"):** Electric Eel beside SmartTube only. Public `69142ca`
+  (tree of local `beta` at `9c6626a`), tag `v4.7.2`, *latest*, both APKs (sha256 `b7325ef2…`, downloaded and compared,
+  also `releases/latest`; the Streamer's file). **Not sent to Google Play** (his ask): Play's Alpha still has 86 (4.7.1)
+  in review. Code 88+ next.
+- **4.7.3-beta1 released as a beta (2026-11-26, his "سوي ريليس بيتا", everything together):** (1) HEVC that fails to
+  decode (`MediaLog.error(..., hevcOf)`, background and screensaver only) sets `hevcFailed` (the TV's, never synced, in
+  reports): `AerialSource.h264Only`, only H.264 files (Amazon's collection is HEVC only: 1080, 4K and a hidden 720 `HD`
+  copy, all probed with ffprobe), both lists made again; *HEVC videos* row (only once it happened). Streamer, the flag
+  set by hand: 108 → 25 videos (83 Amazon left out). (2) Home Assistant cameras (`CamPlayer.haPlay`): a stream that
+  fails or isn't playing in 15 s is asked for again, then MJPEG / snapshots; windows leave them to it
+  (`selfHealing`); the corner and menu cameras retry a link twice. (3) Reolink PTZ through HA (`Ptz`: the camera's
+  device entities by `/api/template`, buttons `*_ptz_left|right|up|down|stop|zoom_in|zoom_out`, one press per held
+  key, stop on release or 1.6 s after the last beat; presets from `select.*_ptz_preset`). Tested against a fake HA
+  on the Mac (aiohttp, `fakeha_srv.py` in the scratchpad): broken stream → MJPEG, a stream failing once → the retry,
+  right held → one `ptz_right` then `ptz_stop`, preset → `select_option`. His cameras restored from a full copy
+  (identical). Public `124bcb9` on `origin/beta` (forced), tag `v4.7.3-beta1`, prerelease with
+  `Glassio-4.7.3-beta1.apk` (sha256 `0ea986bc…`, the Streamer's file); *latest* stays 4.7.2. Not on Play. #40's
+  comment edited (cause, workaround he confirmed, the beta). Not seen: a real HEVC failure. **Mubde: PTZ works on his
+  real Reolink cameras** (18:35). Code 89+ next.
+- **#40, the dock in Dynamic Glass shows another part of the video on Mubde's Fire TV (Android 9), not reproduced:**
+  the Streamer with his exact settings (water styles, aerial background, memTier 0, glassRes 480, pageScale 0.667,
+  refraction 0, perfMode custom), the video playing (screenshots 1 s apart differ, the dock too): the dock lines up
+  with the video around it. `glassRes` only sizes the still pictures' glass copies; the video copies are 720x405.
+  His log has "Background video still: from its own picture" (a PixelCopy that worked). Suspected (not seen): the
+  copy flipped or shifted on that Android 9 TV. A photo asked for on #40. Streamer restored from a full copy.
+- **Photos: subreddits out, three sources in (2026-11-27, his ask; local, not released).** `Photos.SOURCES`: Bing,
+  **Windows Spotlight** (`fd.api.iris.microsoft.com/v4/api/selection?placement=88000820&bcnt=4&country=&locale=`, no
+  key, four 3840x2160 pictures a call with title and copyright; 8 countries x 2 calls gave 62 different ones),
+  Wikimedia, **Paintings** (`art`: the Cleveland Museum of Art's open-access API, CC0 paintings, `images.print` at
+  3400 px, landscape ones only: 322 of the first 1,000; kept 7 days), Unsplash, **Pexels** (`pexels`: photo search on
+  the Subject with the person's `pexelsKey`, the videos' key; *Pexels key* row under Photos), My pictures. The
+  subreddit source is gone (code, Settings rows, phone page row and `/api/reddit`); `photoSubreddit` / `redditAppId`
+  stay in Settings.kt unread; a saved `photoSource` "reddit" reads as Bing. NASA's picture of the day was tried and
+  left out (DEMO_KEY: 10 calls an hour, and it answered with stand-in pictures). Privacy policy's list updated.
+  Seen on the Streamer: Spotlight (62, a picture up) and Paintings (322, a painting up). **Not tried: Pexels photos**
+  (no key here). His bgMode (carousel) and photoSource (unsplash, mountains) put back.
+- **The Apps folder: whole rows, and faster (2026-11-27, his ask; local, not released).** `FolderOverlay` in `ui/Dock.kt`.
+  - *Cut icons:* the panel was 74 % of the screen whatever the rows' height (his 19 apps, 4 rows of 6: the fourth row
+    showed its top half; a step down cut the first). Now it takes the room the screen has (screen less 66 dp: four rows
+    fit whole on 1080p) and, with more rows than fit, is exactly as tall as the whole rows that fit and moves a row
+    at a time (`toRow`, `firstRow`; Compose's own bring-into-view is off there: `NoBringIntoView`). The space above
+    and below the rows inside the moving part is the rows' gap, so the row just out of sight ends at the edge.
+    QA (dev key): `--ei folder_fit N` (the folder takes only N rows to fit; 0: the screen's; in memory).
+  - *Speed* (`gfxinfo framestats`, hook to open, Back to close, three or four runs each, compiled build): the home page
+    left the composition under the folder and was built again on closing, and it faded for 180 ms under a folder that
+    covers the whole screen. Now it stays composed (not drawn) and its fade is a `snap()` both ways (`folderLeft`).
+    Close: 1.1-1.4 s of frames → 0.63 s; frames over 33 ms 18-21 → 1-3; longest 88-113 → 33-37 ms; main thread's
+    longest 65-79 → 14 ms. Open: 0.33 s both; frames over 33 ms 14-17 → 3-8; p50 37-52 → 25-33 ms; one frame of
+    ~70 ms (main thread ~55: every icon built in it) is still there. Tried and not kept: the rows one a frame (the
+    70 ms frame went, but the glass panel was drawn again with each row: 27 frames over 33 ms).
+  - Seen on the Streamer: 4 whole rows; with `folder_fit 2`: rows 1-2, 2-3, 3-4 and back, never a cut row. Not seen:
+    25+ real apps, carrying an app between rows while it moves by rows, the TCL.
+  - *Over a video background* (Videos; his ask to check it): the background's player left the composition under the
+    folder (`videoSrc != null && !folderOpen`): let go as it opened (one frame of 117-138 ms, main thread 66-69) and a
+    new player made as it closed, the video loading again. Now it stays, paused (`wanted` false under the folder, as
+    under Settings), and plays on 0.3 s after the folder closes (`folderHolds`: the video, its glass copies and the
+    glass redrawn all fell into the folder's fade). The folder's glass has `ignoreVideo` (its own blurred picture).
+    Open: longest frame 117-138 → 75-77 ms. Close: no reload (the video moving in screenshots 0.5 s after Back);
+    frames drawn in the fade's first 0.45 s: 14-15 → 26. After the fade: 0 frames over 33 ms. Idle home over a video:
+    10 ms a frame. His bgMode put back (carousel).
+- **Smoothness over a video background, measured and fixed (2026-11-27, his ask; local, not released).** Streamer, his
+  look (strip dock, Still Glass, see-through glass over the video, the large clock), *Videos* as the background, against
+  the same moves over Title backdrops. `gfxinfo framestats` per move; **count only inside the move** (from the first to
+  the last frame that follows the one before within a refresh): over a video the screen draws 15-21 frames a second at
+  rest (the video's copies for the clock's glass), which a plain count takes for a slow move.
+  - *As good as over pictures or better:* a dock step 60 frames a second, none missed, 15 ms a frame (27 over
+    pictures, where the GPU draws the page); the menu, the Library and Settings opening: 60, none missed.
+  - *The TV held Glassio at 30 frames a second.* A video player tells the TV its frame rate (Media3's default); the
+    Streamer answers with a frame-rate override for the whole app (`dumpsys SurfaceFlinger` → `FrameRateOverrides …
+    {10003, 30.00 Hz}`) whenever the screen is at rest. A short move after a rest (the menu closing, back from Settings
+    or the Library) then came every 33 ms. `MediaLog.underGlassio(player)` (`VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF`) on
+    **every** player: the background, the trailers, the cameras (`CamPlayer.build`), the screensaver. After: no
+    override at rest, those three moves every 17 ms. A new player must call it.
+  - *The large clock painted again at every return* (`ThemedNumerals`' `art`: the digits' shape, the rim and shade at
+    twice the size, the height map): 71 ms of one frame in Still Glass, 40 in With the theme (draw 85 → 14 ms with the
+    clock off). Kept now in `ClockArt` (the last two sets; let go with the page pictures). Library → home, worst
+    frame: 142-185 → 81-92 ms (draw 85 → 18-20); an app's rows → a plain icon: 108 (main 90) → 32 (main 16).
+  - Still there: Library → home has one frame of ~85 ms (composition ~55); moving onto the Search icon from an app's
+    rows one of ~100 ms (main 55-83), about the same over pictures (92). The next video and the screensaver's fades run
+    at the copies' pace. Not measured: frosted glass styles over the video, the regular dock, the TCL.
+- **Changing profile started Glassio twice; the veil after the Apps folder (2026-11-27, his reports; local).**
+  - *Seen with the focus watch left on across the restart* (`--ez focus_watch true` is kept in the `qa` file now and
+    starts in `MainActivity.onCreate`, 10 times a second; `false` turns it off): after `Backup.restart` Android brought
+    the screen back by itself 0.5 s after the process ended (selection on the first app at ~1.9 s), and the alarm of
+    the old restart (late on the TV: ~5.5 s) started it again on a cleared task: the home screen built twice, the
+    selection lost, then on Play or back on the first app; 3-9 frames over 100 ms, the longest 160-540.
+  - Now `Backup.restart` asks for the fresh start (`NEW_TASK | CLEAR_TASK`) before ending the process; the alarm stays
+    as a net (2.5 s, without CLEAR_TASK; 0.7 s when the start was refused) and `Backup.restarted` cancels it in the
+    new `onCreate`. Ten changes of profile (video and pictures backgrounds): one start each, the screen at 1.3-1.5 s,
+    the first app selected at 1.8-2.0 s and staying; 2-3 frames over 100 ms (first build of the home screen), no alarm
+    left pending. Every restart goes through it (profiles, setup, restore, the phone page's restore: not tried there).
+  - *The veil after the folder:* it was held 500 ms after the folder closed, for the dock that opens again when the
+    Apps tile is in its lower row; from his strip dock nothing opens, so the page stayed dimmed for half a second and
+    then cleared in 100 ms. Held only when the dock was open as the folder opened (`folderFromOpenDock`); otherwise it
+    goes with the folder's fade. Frames after Back: one run of ~0.4 s, no second burst later (it ended at 633 ms
+    before). Not seen: the regular dock with the Apps tile in its second row.
+  - **His profile 1 has a Glassio PIN of his own now** (set by him, 2026-11-27; not known to me): QA goes round it with
+    `--ei profile N`; never remove it.
+- **Folder in three rows, pages while walking the dock, writing on pictures (2026-11-27, his asks; local).**
+  - *Apps folder like the dock:* three rows (`FOLDER_ROWS`); past the third the panel grows to the rows the screen
+    holds (four on 1080p; its height animates, 220 ms), past those the rows move one at a time; back in the first
+    three with nothing moved it folds again (`grown`, `inView`). Seen: 3 rows, the 4th on Down, 3 again on Up.
+  - *Pages flashing while walking along the dock* (seen with the focus watch, which now prints `HomePage.flags`:
+    stage, songPage, rowsNow, appsOn, carApp…): an icon's page waited a fixed 0.42 s, made for a step every 0.3-0.4 s;
+    at his ~0.5 s a step each page came just before he moved on (Stremio's rows for 0.2 s on the PS5 input after it),
+    and the page of the icon left stayed until the next one came (the song's player over Stremio's and the input's
+    icons). Now: the wait is the last gap + 120 ms (0.42-0.7 s, `passWait`; a walk = steps under 0.75 s apart, real
+    steps only: the effect also runs again on the same icon, `dockStepPkg`), and while walking the page left goes at
+    once. After a rest one press still goes page to page (player → rows 0.3 s later). Walks both ways at 0.2, 0.35 and
+    0.55 s a key: no page on a passed icon; the page comes 0.4-0.7 s after stopping. A burst of on-TV screenshots
+    (`screencap` to /data/local/tmp in a loop, ~3 a second; `screenrecord` drops most frames there) showed the same.
+  - *Writing on a picture* (`InkShadow`, `inkShadow(ink)`, `readableInk(colour)` in `ui/Texts.kt`): the island's title
+    bold, its artist at 88 % and medium, always with the shadow (it had one only without glass or over a see-through
+    video); the headings over an app's rows solid white and bold with the shadow, the counter at 72 %, the selected
+    card's title at 86 %, the app's own colour lightened when dark (Stremio's blue). Seen over fire and over fog.
+    The Continue Watching cards and the search page got it after (his yes): names bold, the faint line at 84-88 %,
+    the search's headings and hint with `InkShadow` (it had a weaker shadow of its own). Seen on the Streamer.
+    Not changed: the Library's writing.
+- **Lyrics** (2026-11-27): see **Lyrics**.
+- **The player's buttons and the shuffle button (2026-11-27, his asks; local).** All seen on the Streamer.
+  - *Left from shuffle went to the dock* (focus watch: shuffle → Nuvio Legacy in the dock, the next Left on round the
+    dock): the row's first button had no `left` (its last had `right = Cancel`). Now `left = FocusRequester.Cancel` on
+    the player's first button and on the idle player's Play. The other pages above the dock stop at their ends themselves.
+  - *The shuffle button never showed the app's own shuffle* (Spotify had shuffle on, Glassio's button was off): shuffle
+    and repeat are only readable through the support library once the session has handed over its "extra binder",
+    asked for when a `MediaControllerCompat` is made and answered a moment later; one was made anew for every reading,
+    so the mode always read -1. Now one is kept per followed session (`NowPlaying.compatCtl`, with a callback for
+    changes; `askModes`, `modesAre`). Setting it always worked (it goes as a custom action).
+  - *"This song again"* (`shuffleRepeat`, on; Settings → Music & app rows → *Shuffle button repeats a song*): the
+    button's presses go off → shuffle → this song again → off (`NowPlaying.cycle`; player, open island, menu's player;
+    a loop with a 1 as its mark), leaving out a step the app can't do (its `PlaybackState.actions`: shuffle `1<<21`
+    / `1<<19`, repeat `1<<18`, seek `1<<8`). An app with a repeat mode is set to "repeat one" (its earlier mode back
+    after); one without, or that doesn't keep it, is sent back to the song's start by Glassio a second before its end
+    (`ownRepeat`, `repeatPlan`; the last second isn't heard). Shuffle is only lit for an app that says it takes it.
+  - Seen: Spotify (shuffle read on; press → shuffle off + repeat one in Spotify, the song started again at its end;
+    read back after a restart of Glassio; press → both off, the next song came; press → shuffle on, as he had it);
+    SoundCloud (no shuffle, no repeat mode: the button is the loop; on → jumped to 9 s before the end → back at 0, same
+    song). QA (dev key): `--ei song_end N` (the song jumps to N s before its end), `dump_media` prints the modes.
+    Not seen: the island's and the menu's button (same call), Electric Eel, a song without a length.
+  - *OK on a music app's card started another app, or nothing* ("OK plays where Spotify left off"; `MusicUi.startIn`).
+    Seen in the system's log: for the app that played last here it sent the TV's own Play key
+    (`dispatchMediaKeyEvent`), which the TV hands to the session it used last: OK on Spotify's card started SoundCloud
+    (and Spotify's app opened 4.5 s later); with no such session ("Media button session is null") nothing happened.
+    Now Play goes to the chosen app only: its own session (`NowPlaying.playIn`, again every 0.8 s until
+    `playingIn`); without a session the TV's key only when the TV says it is this app's
+    (`mediaKeyEventSessionPackageName`, Android 13+: it answers on the Streamer), else the key to the app's own
+    receiver; no session after 4.5 s, or no playing after 9: the app is opened and still asked for 15 s in all.
+    Log: `Music: Play asked of <app>'s session` / `has no session, Play key …` / `plays (0.8 s)` / `opened`.
+    Seen: Spotify's card with SoundCloud the TV's last session → Spotify played in 0.8 s, Glassio in front, SoundCloud
+    untouched; SoundCloud's card with no session → its receiver, played in 0.8 s. Not seen: an app whose process isn't
+    running, the TV's key path, an app that never plays (opened after 9 s), Android below 13.
+    The player's ≡ list (*Music apps*) opens the app, it doesn't play in it: as before.
+  - *A look through that day's code after* (his "quick check"), fixed: with *Shuffle button repeats a song* off the
+    button still showed and turned off a repeat set in the app (now shuffle only); a session that ended with none
+    after it kept its reader and the lit button (`dropModes`); Glassio's own repeating could send the song back twice
+    when its state was published again for another reason (now once per report of the app, `soughtAt`); a shuffle an
+    app says it takes and doesn't keep stayed lit (asked again 1.5 s later); a radio (no length) offered the repeat;
+    a space sent as its own "word" doubled in the lyrics. Seen after: SoundCloud sent back to its start twice in a row.
 - The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and

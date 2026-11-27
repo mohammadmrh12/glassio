@@ -135,7 +135,7 @@ fun trimPageCaches() { BakeCache.clear() }
  * music page's backgrounds, the pinned ones). What is on screen stays (the page holds it); the rest is made again
  * from the pictures on disk as it is needed. Before, three caches were emptied and ~325 MB stayed held under a film.
  */
-fun trimAllPages() { BakeCache.clear(); ChannelPages.trim(); StagePages.trim(); GlassCache.trimAll() }
+fun trimAllPages() { BakeCache.clear(); ChannelPages.trim(); StagePages.trim(); GlassCache.trimAll(); ClockArt.clear() }
 
 internal object BakeCache {
     /** How many prepared backdrops to keep (by memory tier: 2 / 3 / 4). */

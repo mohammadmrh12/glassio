@@ -110,6 +110,7 @@ private val NEW_IN = mapOf(
         "Hold OK asks", "Hidden videos"),
     "4.5.0" to listOf("  · Page behind the player"),
     "4.7.0" to listOf("Continue Watching cards", "  · Apps' Continue watching", "  · A paused song goes"),
+    "4.8.0" to listOf("  · PIN", "  · Ask for the PIN", "Lyrics", "  · On the video screensaver", "  · Lyrics sources", "Shuffle button repeats a song"),
     "4.4.0" to listOf("  · Layout", "  · Menu's Camera opens the whole screen", "  · Sound follows the selection", "  · On the whole screen", "Unneeded apps"),
     "4.3.0" to listOf("  · Nuvio's picture by itself", "QR code in Settings' search", "New code"),
     "4.1.0" to listOf("Search", "Search icon in the dock", "OK on a title", "Streaming services", "Service apps", "Nuvio and Stremio",
@@ -430,6 +431,42 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             com.glasslauncher.tv.data.PlatformLinks.forget(ctx); app.catalogs.clearEnrichment()
         })
 
+    // The PIN of the profile in use: Nuvio's when the profile has one there, else one made here (see data/ProfilePin.kt).
+    fun profilePinRows(name: String): List<SRow> {
+        val P = com.glasslauncher.tv.data.Profiles
+        val Pin = com.glasslauncher.tv.data.ProfilePin
+        val me = P.active(ctx)
+        val who = P.known(ctx).firstOrNull { it.id == me } ?: com.glasslauncher.tv.data.Profiles.Info(me, name)
+        val src = Pin.source(ctx, me)
+        // The PIN as it is now, before it is changed, taken off or no longer asked for.
+        fun current(then: () -> Unit) = PinUi.show(PinUi.Ask("Enter the PIN", if (src == "nuvio") "This profile's PIN in Nuvio" else "", who, check = { Pin.check(ctx, me, it) }) { then() })
+        fun newPin() = PinUi.show(PinUi.Ask("New PIN", "Four digits", who) { first ->
+            PinUi.show(PinUi.Ask("The same PIN again", "", who, check = { if (it == first) com.glasslauncher.tv.data.ProfilePin.Result.Ok else com.glasslauncher.tv.data.ProfilePin.Result.Wrong }) {
+                Pin.setOwn(ctx, me, first); tvRev.intValue++
+                toast(ctx, "PIN set for this profile")
+            })
+        })
+        val rows = ArrayList<SRow>()
+        rows += Act("  · PIN", when (src) {
+            "nuvio" -> "This profile has a PIN in Nuvio: Glassio asks for the same one, and Nuvio checks it. It is changed in the Nuvio app"
+            "glassio" -> "Four digits before this profile opens. Kept on this TV only"
+            else -> "Four digits before this profile opens. A profile with a PIN in Nuvio uses that one by itself"
+        }, when (src) { "nuvio" -> "Nuvio's"; "glassio" -> "On"; else -> "Off" }) {
+            when (src) {
+                "nuvio" -> toast(ctx, "This PIN is the one in Nuvio: change it in the Nuvio app")
+                "glassio" -> dialog = MenuDialog("PIN", listOf(
+                    "Change the PIN" to { current { newPin() } },
+                    "Remove the PIN" to { current { Pin.clearOwn(ctx, me); tvRev.intValue++; toast(ctx, "PIN removed") } }))
+                else -> newPin()
+            }
+        }
+        if (src.isNotEmpty()) rows += Act("  · Ask for the PIN", "Every time: when the TV starts or wakes, and when you change to this profile. Automatic: this TV opens it without the PIN",
+            if (Pin.auto(ctx, me)) "Automatic" else "Every time") {
+            current { Pin.setAuto(ctx, me, !Pin.auto(ctx, me)); tvRev.intValue++ }
+        }
+        return rows
+    }
+
     fun nuvioProfileRows(): List<SRow> {
         val nv = app.library.nuvio
         if (!nv.connected) return emptyList()
@@ -454,7 +491,7 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
             },
             Act("  · Picture", "Shown for this profile and as the settings button (one picture for both). From your phone (QR code) or a link",
                 if (app.icons.has(com.glasslauncher.tv.data.SETTINGS_BUTTON_ICON)) "Change" else "Add") { pictureDialog() },
-        )
+        ) + profilePinRows(nameOf(P.active(ctx)))
     }
 
     fun nuvioAccountRow(): SRow =
@@ -1319,25 +1356,21 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
 
                 if (st.bgMode == "photos") {
                     add(Note("Photos"))
-                    add(Adjust("Photos from", "Bing and Wikimedia need no account; Unsplash needs a free key", {
+                    add(Adjust("Photos from", "Bing, Windows Spotlight, Wikimedia and the paintings need no account; Unsplash and Pexels each need a free key", {
                         com.glasslauncher.tv.data.Photos.SOURCES.firstOrNull { it.first == st.photoSource }?.second ?: st.photoSource
                     }, { st.photoSource = cycle(com.glasslauncher.tv.data.Photos.SOURCES.map { it.first }, st.photoSource, it); st.bgMode = "photos" }))
-                    add(Adjust("  · Subject", "What Wikimedia and Unsplash photos show", { st.photoTopic.replaceFirstChar { c -> c.uppercase() } },
+                    add(Adjust("  · Subject", "What Wikimedia, Unsplash and Pexels photos show", { st.photoTopic.replaceFirstChar { c -> c.uppercase() } },
                         { st.photoTopic = cycle(com.glasslauncher.tv.data.Photos.TOPICS, st.photoTopic, it) }))
                     if (st.photoSource == "unsplash")
                         add(Act("  · Unsplash key", "Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)",
                             if (st.unsplashKey.isBlank()) "Not set" else "Saved") {
                             dialog = TextEntry("Unsplash Access Key", st.unsplashKey, "Access Key") { v -> st.unsplashKey = v }
                         })
-                    if (st.photoSource == "reddit") {
-                        add(Act("  · Subreddits", "Subreddit wallpapers: one or more, comma separated (EarthPorn, wallpapers, SkyPorn…)", st.photoSubreddit.ifBlank { "Not set" }) {
-                            dialog = TextEntry("Subreddits", st.photoSubreddit, "EarthPorn, wallpapers") { v -> st.photoSubreddit = v; st.photoSource = "reddit"; st.bgMode = "photos" }
+                    if (st.photoSource == "pexels")
+                        add(Act("  · Pexels key", "Free: pexels.com/api → Your API key. The same key brings Pexels' videos to the screensaver. Easier to paste from your phone (Manage from phone)",
+                            if (st.pexelsKey.isBlank()) "Not set" else "Saved") {
+                            dialog = TextEntry("Pexels key", st.pexelsKey, "API key") { v -> st.pexelsKey = v }
                         })
-                        add(Act("  · Reddit app id", "Reddit lets apps in only with an id: reddit.com/prefs/apps → create app → \"installed app\" (any name, redirect http://localhost) → the id under its name",
-                            if (st.redditAppId.isBlank()) "Not set" else "Saved") {
-                            dialog = TextEntry("Reddit app id", st.redditAppId, "the id under the app's name") { v -> st.redditAppId = v }
-                        })
-                    }
                     add(changeEvery())
                     add(Toggle("  · Shuffle photos", "A random order (else the source's own order)", { st.photoShuffle }, { st.photoShuffle = it }))
                     add(Adjust("  · Photos kept on the TV", "Shown again without downloading; the oldest go first", {
@@ -1547,6 +1580,9 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         }))
                     add(Adjust("Quality", "Videos without it play the nearest one", { AerialSource.QUALITIES.firstOrNull { it.first == st.saverQuality }?.second ?: st.saverQuality },
                         { st.saverQuality = cycle(AerialSource.QUALITIES.map { it.first }, st.saverQuality, it); st.ownPerf("saverQuality") }))
+                    // (Only once an HEVC video failed here: H.264 only since, #53.)
+                    if (st.hevcFailed) add(Toggle("HEVC videos", "Off by itself: one failed to play on this TV (a green or black picture). Only H.264 videos play, without Amazon's",
+                        { !st.hevcFailed }, { st.hevcFailed = !it }))
                     add(Toggle("Shuffle", "Off: in the collections' order", { st.saverShuffle }, { st.saverShuffle = it }))
                     add(Act("Play one video only", if (st.saverPick.isBlank()) "All of them" else "One video", if (st.saverPick.isBlank()) "" else "Change") {
                         io {
@@ -1645,6 +1681,28 @@ fun SettingsScreen(app: GlassApp, askedCat: Int, onClose: () -> Unit) {
                         } else app.apps.reload()
                     }))
                 if (st.musicOn) {
+                    add(Toggle("Shuffle button repeats a song", "The shuffle button of the player, the island and the menu has a second press: the song playing starts again each time it ends. Off → shuffle → this song again → off. An app that takes no repeat from outside is sent back to the song's start a second before its end",
+                        { st.shuffleRepeat }, { st.shuffleRepeat = it }))
+                    // (github build: the words come from an open database Google Play may not accept as a source.)
+                    if (!com.glasslauncher.tv.data.Store.PLAY) add(Toggle("Lyrics", "A song's words beside the player, in time with it, lighting as they are sung. Found by the song's name and artist (only those are sent, to the sources below). The player's and the island's lyrics buttons do the same",
+                        { st.lyricsOn }, { st.lyricsOn = it }))
+                    if (!com.glasslauncher.tv.data.Store.PLAY && st.lyricsOn) {
+                        add(Toggle("  · On the video screensaver", "The words also show over the screensaver's videos while a song plays (never over the posters or trailers). The island's lyrics button (▲ on the screensaver) turns Lyrics on and off",
+                            { st.lyricsSaver }, { st.lyricsSaver = it }))
+                        val all = com.glasslauncher.tv.data.Lyrics.SOURCES
+                        val on = com.glasslauncher.tv.data.Lyrics.sourcesOn(st)
+                        add(pageRow("  · Lyrics sources", "Where the words are looked for. All are asked at once and the best answer is kept: word by word before line by line, the song's own writing before Latin letters",
+                            more("${on.size} / ${all.size}"), sp = SubPage("Lyrics sources") {
+                                buildList {
+                                    add(Note("Only the song's name, artist and length are sent, and only to the sources that are on."))
+                                    for ((key, name, what) in all) add(Toggle(name, what, { key in com.glasslauncher.tv.data.Lyrics.sourcesOn(st) }, { want ->
+                                        val off = st.lyricsSourcesOff.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+                                        if (want) off -= key else off += key
+                                        st.lyricsSourcesOff = all.map { it.first }.filter { it in off }.joinToString(",")
+                                    }))
+                                }
+                            }))
+                    }
                     add(Toggle("Music mode", "While a song plays, the carousel's place becomes the player (artwork, song, buttons). ■ stops the music. With your own picture, photos, video or the screensaver's videos as the background, the island shows instead",
                         { st.musicMode }, { st.musicMode = it }))
                     add(Adjust("  · Player size", "", { pct(st.musicStageScale) }, { st.musicStageScale = ((st.musicStageScale * 10).roundToInt() + it) / 10f }))
@@ -3419,7 +3477,7 @@ private fun AboutPane(app: GlassApp, s: Float, onApp: (com.glasslauncher.tv.data
  * Settings → About → Supporters (under the GitHub code): the name each supporter chose and their GitHub account ("" for
  * none), oldest first. Add one only with that person's yes.
  */
-private val SUPPORTERS = listOf("EB" to "EbM-Tech")
+private val SUPPORTERS = listOf("EB" to "EbM-Tech", "Narmeen" to "", "Azad" to "")
 
 /** A video link's file name, readable ("Lofoten_4K.mp4" → "Lofoten 4K"). */
 internal fun videoName(u: String): String = com.glasslauncher.tv.saver.AerialSource.ytTitles[u]

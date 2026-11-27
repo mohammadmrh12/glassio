@@ -168,6 +168,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     var libFromDock by remember { mutableStateOf(false) }
     /** When the dock's selection last moved (see the Search icon's wait while it is only passed over). */
     val dockMovedAt = remember { longArrayOf(0L) }
+    /** The dock icon the last step landed on (see the dock-selection effect). */
+    val dockStepPkg = remember { arrayOfNulls<String>(1) }
     val rowsNoteFor = remember { arrayOf("") }
     var libWarm by remember { mutableStateOf(false) }
     // Up from the Library: the home screen is drawn once under it first (its first frame is the slow one),
@@ -736,8 +738,21 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         // doubled what the TV GPU drew per frame and the dock opened at about 30 fps.
         // It stays on while the Apps folder is open and as it closes: it went off under the folder, so going in and
         // coming out showed the sharp title picture for a moment before it blurred again.
+        // (Held for half a second after it closes only when the dock was open as the folder was opened, the Apps tile in
+        // its lower row: the dock opens again on the way back and keeps the page dimmed. From a dock that isn't open (the
+        // strip, the first row) nothing dims the page after the folder: held there too, the page showed dimmed and
+        // blurred for half a second after the folder had gone, then cleared in a blink (his report). There it goes with
+        // the folder's own fade.)
         var folderLeft by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-        LaunchedEffect(folderOpen) { if (!folderOpen && folderLeft != 0L) { delay(500); folderLeft = 0L } }
+        val folderFromOpenDock = remember { booleanArrayOf(false) }
+        val folderClosedAt = remember { longArrayOf(0L) }
+        if (folderOpen && folderLeft == 0L) folderFromOpenDock[0] = expanded
+        LaunchedEffect(folderOpen) {
+            if (!folderOpen && folderLeft != 0L) {
+                if (folderFromOpenDock[0]) delay(500) else folderClosedAt[0] = android.os.SystemClock.uptimeMillis()
+                folderLeft = 0L
+            }
+        }
         if (folderOpen) folderLeft = 1L
         // (Multi-view cameras over the home screen: the page behind them blurs too.)
         // (Multi-view over a video background: the blurred copy covers the video, which the screen's blur can't reach.)
@@ -750,7 +765,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
         val veilIn = dockVeils || folderOpen || folderLeft != 0L || (com.glasslauncher.tv.MultiCamOverlay.open.value && (VideoFrames.showing.value || android.os.Build.VERSION.SDK_INT < 31))
         // Comes in just after the dock has grown (both at once made the opening stutter on the TV); straight away
         // when it's already up (the folder).
-        val veil = animateFloatAsState(if (veilIn) 1f else 0f, if (veilIn) tween(150, delayMillis = 110) else tween(100), label = "veil")
+        val veil = animateFloatAsState(if (veilIn) 1f else 0f, if (veilIn) tween(150, delayMillis = 110)
+            // (After the folder: out with the folder's own fade, 220 ms starting 60 ms in.)
+            else if (android.os.SystemClock.uptimeMillis() - folderClosedAt[0] < 400) tween(220, delayMillis = 40) else tween(100), label = "veil")
         val blur = veil
         var dockHasFocus by remember { mutableStateOf(false) }
         // A trailer playing in the carousel: the dock steps aside (back when it stops or ends, or when you go to it).
@@ -884,7 +901,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             }
             // Screensaver as background: one of its aerial videos (your links and / or Apple's feed).
             val aerialKey = settings.saverSources.joinToString() + settings.saverQuality + settings.saverPick + settings.saverMine + settings.bgAerialQuality +
-                settings.bgVideos + settings.aerialUrls.joinToString() + settings.saverYtOff.joinToString() + settings.saverHidden.joinToString()
+                settings.bgVideos + settings.aerialUrls.joinToString() + settings.saverYtOff.joinToString() + settings.saverHidden.joinToString() + settings.hevcFailed
             var lastAerialKey by remember { mutableStateOf(aerialKey) }
             LaunchedEffect(settings.bgMode, aerialKey) {
                 // The screensaver's video choice changed: pick again from the new list.
@@ -911,7 +928,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             val videoSrc = when (settings.bgMode) { "video" -> settings.bgVideo.ifBlank { null }; "aerial" -> CustomBackground.aerial.value; else -> null }
             // No video any more (another background chosen mid-fade): nothing stays dark.
             LaunchedEffect(videoSrc == null) { if (videoSrc == null) VideoFrames.dim.floatValue = 0f }
-            if (videoSrc != null && !folderOpen) {
+            // (Under the Apps folder the video waits, paused, like under Settings and the Library. It left the composition
+            // there: its player was let go as the folder opened (a frame of 120-140 ms) and a new one was made as it
+            // closed, the video loading again for a second or more with 15-18 heavy frames.)
+            if (videoSrc != null) {
+                // (It plays on once the folder has faded away, 0.3 s after it closes: the video, its copies for the glass
+                // and the glass drawn again all started in the frames of the folder's fade.)
+                var folderHolds by remember { mutableStateOf(folderOpen) }
+                LaunchedEffect(folderOpen) { if (folderOpen) folderHolds = true else { delay(300); folderHolds = false } }
                 val life = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
                 // Back from the system screensaver / another app: a fresh player and surface (the old surface
                 // came back black).
@@ -945,7 +969,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // (In front or not is read inside it, for the same reason as WhenResumed.)
                     VideoBackgroundInFront(list, start = list.indexOf(videoSrc).coerceAtLeast(0),
                         // (The screensaver on the home screen with its own player: this one waits, paused.)
-                        wanted = screen == Screen.Home && DebugHide.intValue and 4096 == 0 &&
+                        wanted = screen == Screen.Home && !folderOpen && !folderHolds && DebugHide.intValue and 4096 == 0 &&
                             !(com.glasslauncher.tv.saver.HomeSaver.state.value != 0 && !com.glasslauncher.tv.saver.HomeSaver.onBackground),
                         advance = if (aerialMode) settings.bgShuffle else settings.bgVideoShuffle,
                         onItem = { if (aerialMode) CustomBackground.aerial.value = it })
@@ -999,7 +1023,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // Fully covered by settings or the folder: stop drawing it at all.
             // (The screensaver on the home screen: everything on the page fades away, slowly; back at once.)
             val saverUp = com.glasslauncher.tv.saver.HomeSaver.state.value == 1
-            val homeAlphaState = animateFloatAsState(if ((screen == Screen.Home || (screen == Screen.Library && libFromDock)) && !folderOpen && !saverUp) 1f else 0f, tween(if (saverUp) 700 else 180), label = "homeAlpha")
+            // (The Apps folder: at once, both ways. It covers the whole screen with its own picture, so the page fading
+            // out under it was drawn for nothing, a second full-screen layer for 180 ms while the folder came up; and on
+            // the way back the page is there whole under the folder as it fades.)
+            val homeAlphaState = animateFloatAsState(if ((screen == Screen.Home || (screen == Screen.Library && libFromDock)) && !folderOpen && !saverUp) 1f else 0f,
+                if (saverUp) tween(700) else if (folderOpen || folderLeft != 0L) androidx.compose.animation.core.snap() else tween(180), label = "homeAlpha")
             // (The glass on the page reads the picture by its place in the page, not on screen: nothing to tell it
             // while the page slides or is away, see GlassPage.)
             val libFull by remember { androidx.compose.runtime.derivedStateOf { libScroll.value >= 0.999f } }
@@ -1014,7 +1042,9 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             // there stuttered. The remote can't go into it while it's hidden: the group lets no focus in from outside
             // (Right in Settings once went to the hidden dock instead of the options).
             val homeTakesFocus = screen == Screen.Home && pickerFor == null && !folderOpen && !(menuOpen && menuHasFocus) && pop == null
-            if ((screen == Screen.Home && !folderOpen) || homePrep || libFromDock || libScroll.value > 0.001f || homeVisible || screen == Screen.Settings) Box(
+            // (Under the Apps folder too: it left the composition there, and closing the folder built the whole home
+            // screen again: one frame of 90-110 ms and a second of heavy ones.)
+            if (screen == Screen.Home || homePrep || libFromDock || libScroll.value > 0.001f || homeVisible || screen == Screen.Settings) Box(
                 Modifier.fillMaxSize().graphicsLayer { alpha = if (homeVisible || homePrep || (screen == Screen.Home && !folderOpen)) homeAlphaState.value else 0f; translationY = -libScroll.value * size.height }
                     .onGloballyPositioned { GlassPage.coords = it }
                     .focusProperties {
@@ -1100,14 +1130,34 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                         // TV's GPU (17 ms between other icons). Arrived within half a second of the move before, it waits
                         // 0.42 s (a person's steps along the dock come every 0.3-0.4 s); one press onto it, after a rest,
                         // still opens it at once.)
+                        // (The wait follows the pace of the steps: a fixed 0.42 s was made for a step every 0.3-0.4 s. At his pace,
+                        // one every ~0.5 s, each icon's page came up just before he moved on: an app's rows for a tenth of a
+                        // second on the icon after it, seen with the focus watch. Now it is the last gap and a little more,
+                        // 0.42 to 0.7 s, so a page only comes once the selection has stayed longer than a step takes.)
+                        // (Only a real step counts: this also runs again on the same icon, when a song starts, the rows are read
+                        // again or a menu closes, and that made the next press look like one in a walk.)
                         val nowMs = android.os.SystemClock.uptimeMillis()
-                        val passing = nowMs - dockMovedAt[0] < 500L
-                        dockMovedAt[0] = nowMs
+                        val stepped = dockStepPkg[0] != dockPkg
+                        val gapMs = if (stepped) nowMs - dockMovedAt[0] else Long.MAX_VALUE / 2
+                        val passing = gapMs < 750L
+                        val passWait = (gapMs + 120L).coerceIn(420L, 700L)
+                        if (stepped) { dockMovedAt[0] = nowMs; dockStepPkg[0] = dockPkg }
                         SearchUi.passing.value = searchIcon && passing
+                        // (Passing on from an icon whose page is up: that page goes now, not when the next one comes. It
+                        // stayed for as long as the next icon waited, and across the ones after it while he walked on: the
+                        // song's player over Stremio's icon and the input's, his report. After a rest, one press still
+                        // goes from page to page without the carousel in between.)
+                        if (passing) {
+                            if (!musicIcon) MusicUi.appsOn.value = false
+                            if (MusicUi.dockApp.value != dockPkg.takeIf { musicApp }) MusicUi.dockApp.value = null
+                            if (!inputsIcon) InputsUi.on.value = false
+                            if (ChannelsUi.stagePkg.value != null && ChannelsUi.stagePkg.value != dockPkg) ChannelsUi.stagePkg.value = null
+                            if (dockPkg != MusicUi.DOCK_PKG) MusicUi.forced.value = false
+                        }
                         // (The same for every icon with a page of its own: on his dock the Search icon sits between the Music icon and
                         // SmartTube's rows, and walking past the three brought up three pages in turn.)
                         val ownPage = musicIcon || musicApp || rows || inputsIcon || cats || AC.pkg.value != null
-                        delay(if (searchIcon) (if (passing) 420 else 50) else if (fromSearch) 30 else if (ownPage) (if (passing) 420 else 240) else 90)
+                        delay(if (searchIcon) (if (passing) passWait else 50) else if (fromSearch) 30 else if (ownPage) (if (passing) passWait else 240) else 90)
                         // (Another app's titles come in like the next slide. With nothing selected in the dock the list
                         // stays: Up to the carousel is how one of its titles is opened.)
                         if (AC.pkg.value != dockPkg.takeIf { cats }) { SlideDir.dir = 1; app.navAt = System.currentTimeMillis() }
@@ -1389,7 +1439,8 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             LaunchedEffect(Unit) {
                 if (settings.setupDone && settings.tourSeen < WhatsNew.ID) { delay(1500); WhatsNew.show() }
             }
-            WhatsNewHost(app, s)
+            // (It ends above a dock at the bottom, like the menu.)
+            WhatsNewHost(app, s, bottom = if (settings.bgMode != "carousel" && settings.dockPos != "bottom") 0f else metrics.collapsedH + metrics.bottomMargin + 8 * s)
             // The tour's last page: "Send a gift card" opens the support window straight away.
             LaunchedEffect(WhatsNew.support.value) {
                 if (WhatsNew.support.value) {

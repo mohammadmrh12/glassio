@@ -43,6 +43,8 @@ internal class HomePage(
     companion object {
         /** The page as last worked out (tests: dump_focus prints it). */
         @Volatile var now = PageKind.Carousel
+        /** QA (the focus watch): the flags behind [now], as last worked out. */
+        @Volatile var flags = ""
     }
 }
 
@@ -97,5 +99,7 @@ internal fun homePage(settings: Settings, musicWas: BooleanArray): HomePage {
         else -> PageKind.Carousel
     }
     HomePage.now = kind
+    HomePage.flags = "stage=$stageWanted songPage=$songPage heroOwn=$heroOwn rowsNow=$rowsNow musicWas=${musicWas[0]} idle=$idleNow other=$otherPageNow " +
+        "appsOn=${MusicUi.appsOn.value} forced=${MusicUi.forced.value} dockApp=${MusicUi.dockApp.value != null} carApp=${MusicUi.carouselApp.value} song=${songShown != null}"
     return HomePage(kind, songNow, songShown, idleNow, rowsNow, dockMid, stageWanted, heroOwn, otherPageNow, ownBg, songPage, musicToRows, greyPage)
 }

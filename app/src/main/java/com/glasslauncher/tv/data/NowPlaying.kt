@@ -33,11 +33,34 @@ object NowPlaying {
     val alt = MutableStateFlow<Track?>(null)
     /** Shuffle in the playing app: one state for every player (menu, music mode, island). */
     val shuffled = androidx.compose.runtime.mutableStateOf(false)
-    /** What the app last said, and what was set here (kept while the app doesn't report it: many never do). */
+    /** The song playing starts again when it ends (the shuffle button's second press), in the same way one state for every player. */
+    val repeating = androidx.compose.runtime.mutableStateOf(false)
+    /** The playing app takes shuffle from outside, and the song can be played again (by the app, or by Glassio going back to its start). */
+    val canShuffle = androidx.compose.runtime.mutableStateOf(true)
+    val canRepeat = androidx.compose.runtime.mutableStateOf(true)
+    /** What the app last said, and what was set here (kept until the app says something else). */
     private var reported: Boolean? = null
     private var userShuffle: Boolean? = null
+    private var reportedRepeat: Boolean? = null
+    private var userRepeat: Boolean? = null
+    /** Glassio itself starts the song again just before it ends (the app has no "repeat one" to set from outside, or didn't take it). */
+    @Volatile private var ownRepeat = false
+    /** The app's own repeat mode before "this song again" was set in it (put back when it is turned off). */
+    @Volatile private var repeatBefore = 0
     @Volatile private var shuffleAskedAt = 0L
     @Volatile private var shuffleAsking = false
+    /**
+     * The followed session through the support library, kept for as long as it is followed: shuffle and repeat are
+     * only readable there, and only once the session has handed over its "extra binder", which it is asked for when
+     * this is made and answers a moment later. (Made anew for every reading, as it was, the answer was never there
+     * yet: shuffle always read as "unknown", and the button never showed a shuffle turned on in the app itself.)
+     */
+    @Volatile private var compatCtl: android.support.v4.media.session.MediaControllerCompat? = null
+    private val compatCb = object : android.support.v4.media.session.MediaControllerCompat.Callback() {
+        override fun onSessionReady() { askModes() }
+        override fun onShuffleModeChanged(shuffleMode: Int) { modesAre(shuffleMode, -1) }
+        override fun onRepeatModeChanged(repeatMode: Int) { modesAre(-1, repeatMode) }
+    }
     @Volatile private var controller: MediaController? = null
     @Volatile private var started = false
 
@@ -89,7 +112,7 @@ object NowPlaying {
     private val callback = object : MediaController.Callback() {
         override fun onPlaybackStateChanged(state: PlaybackState?) { publish() }
         override fun onMetadataChanged(metadata: MediaMetadata?) { publish() }
-        override fun onSessionDestroyed() { controller = null; pick(lastCtx ?: return) }
+        override fun onSessionDestroyed() { controller = null; dropModes(); pick(lastCtx ?: return) }
     }
     @Volatile private var lastCtx: Context? = null
     private var msm: MediaSessionManager? = null
@@ -172,8 +195,11 @@ object NowPlaying {
         if (best?.sessionToken != controller?.sessionToken) {
             runCatching { controller?.unregisterCallback(callback) }
             controller = best
-            reported = null; userShuffle = null
             best?.registerCallback(callback, android.os.Handler(android.os.Looper.getMainLooper()))
+            dropModes()
+            compatCtl = best?.let { b ->
+                runCatching { compat(ctx, b).also { it.registerCallback(compatCb, mainHandler) } }.onFailure { Glog.w("Shuffle state of ${b.packageName}", it) }.getOrNull()
+            }
         }
         alt.value = if (best != null && best.packageName in SOMETIMES_MUSIC)
             list.filter { it.packageName !in SOMETIMES_MUSIC && it.sessionToken != best.sessionToken }.firstNotNullOfOrNull { trackOf(it) }
@@ -182,25 +208,16 @@ object NowPlaying {
     }
 
     private fun publish() {
-        // The app's shuffle state is asked for off the main thread, at most once a second. It is a call into the
-        // music app (a new MediaControllerCompat each time): made here, on the main thread, at every update of the
-        // song's state, it held the home screen for as long as that app took to answer (frames of 200-300 ms on the
-        // way back from the screensaver with a song playing; ~120 ms of every 4 s otherwise).
-        lastCtx?.let { ctx ->
-            val now = android.os.SystemClock.uptimeMillis()
-            if (now - shuffleAskedAt > 1000 && !shuffleAsking) {
-                shuffleAskedAt = now; shuffleAsking = true
-                Bg.io("glass-shuffle") {
-                    val r = shuffleOn(ctx)
-                    mainHandler.post {
-                        shuffleAsking = false
-                        if (reported != null && r != reported) userShuffle = null
-                        reported = r
-                        val v = userShuffle ?: r
-                        if (shuffled.value != v) shuffled.value = v
-                    }
-                }
-            }
+        // The app's shuffle and repeat are asked for off the main thread, at most once a second (a call into the
+        // music app: made on the main thread at every update of the song's state, it held the home screen for as
+        // long as that app took to answer, frames of 200-300 ms on the way back from the screensaver with a song).
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - shuffleAskedAt > 1000) { shuffleAskedAt = now; askModes() }
+        controller?.let { c ->
+            // (Glassio's own repeating needs a jump in the song and the song's length: not a radio.)
+            val cs = can(c, SHUFFLE_BITS); val cr = can(c, REPEAT_BIT) || (can(c, SEEK_BIT) && (c.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L) > 0L)
+            if (canShuffle.value != cs) canShuffle.value = cs
+            if (canRepeat.value != cr) canRepeat.value = cr
         }
         artWaiting = false
         val t = controller?.let { trackOf(it) }
@@ -219,13 +236,19 @@ object NowPlaying {
         val want = pendingPlaying
         track.value = if (t != null && want != null && android.os.SystemClock.uptimeMillis() < pendingUntil && t.playing != want) t.copy(playing = want)
             else { if (t?.playing == want) pendingPlaying = null; t }
+        repeatPlan()
     }
     /** For testing: every media session and the fields of its song (log "GlassMedia"). */
     fun dumpSessions(ctx: Context) {
+        android.util.Log.i("GlassMedia", "media key app=" + runCatching { if (android.os.Build.VERSION.SDK_INT >= 33) ctx.getSystemService(MediaSessionManager::class.java)?.mediaKeyEventSessionPackageName else "n/a" }.fold({ it.toString() }, { it.javaClass.simpleName + " " + it.message }))
         runCatching { msm?.getActiveSessions(listener(ctx)) }.getOrNull().orEmpty().forEach { c ->
             val md = c.metadata
             val keys = md?.keySet().orEmpty().joinToString(", ") { k -> k.removePrefix("android.media.metadata.") + "=" + (runCatching { md?.getString(k) }.getOrNull()?.take(40) ?: "…") }
-            android.util.Log.i("GlassMedia", "${c.packageName} state=${c.playbackState?.state} music=${isMusic(c)} followed=${c.sessionToken == controller?.sessionToken} | $keys")
+            val compat = compatCtl?.takeIf { c.sessionToken == controller?.sessionToken }
+            android.util.Log.i("GlassMedia", "${c.packageName} state=${c.playbackState?.state} music=${isMusic(c)} followed=${c.sessionToken == controller?.sessionToken} " +
+                "pos=${c.playbackState?.position} dur=${md?.getLong(MediaMetadata.METADATA_KEY_DURATION)} actions=${c.playbackState?.actions} canShuffle=${can(c, SHUFFLE_BITS)} canRepeat=${can(c, REPEAT_BIT)} canSeek=${can(c, SEEK_BIT)} " +
+                "ready=${runCatching { compat?.isSessionReady }.getOrNull()} shuffleMode=${runCatching { compat?.shuffleMode }.getOrNull()} repeatMode=${runCatching { compat?.repeatMode }.getOrNull()} " +
+                "glassio: shuffled=${shuffled.value} repeating=${repeating.value} ownRepeat=$ownRepeat | $keys")
         }
     }
     /** A YouTube video's title, channel and picture, by its id (asked once, in the background). */
@@ -374,6 +397,18 @@ object NowPlaying {
     fun sessionOf(ctx: Context, pkg: String): MediaController? = runCatching {
         ctx.getSystemService(MediaSessionManager::class.java)?.getActiveSessions(listener(ctx))?.firstOrNull { it.packageName == pkg }
     }.getOrNull()
+    /** Play in [pkg]'s own session, whichever session is followed (false: it has none). */
+    fun playIn(ctx: Context, pkg: String): Boolean {
+        val c = sessionOf(ctx, pkg) ?: return false
+        Bg.io("glass-play") { runCatching { c.transportControls.play() }.onFailure { Glog.w("Play in $pkg", it) } }
+        return true
+    }
+    /** [pkg]'s own session says it plays. */
+    fun playingIn(ctx: Context, pkg: String): Boolean = sessionOf(ctx, pkg)?.playbackState?.state.let { it == PlaybackState.STATE_PLAYING || it == PlaybackState.STATE_BUFFERING }
+    /** The app the TV's own Play key would go to now (Android 13+, where the TV tells Glassio), else null. */
+    fun mediaKeyApp(ctx: Context): String? =
+        if (android.os.Build.VERSION.SDK_INT < 33) null
+        else runCatching { ctx.getSystemService(MediaSessionManager::class.java)?.mediaKeyEventSessionPackageName }.getOrNull()?.takeIf { it.isNotEmpty() }
     /** What the app itself reports now (not what Glassio shows ahead of it). */
     fun reallyPlaying(): Boolean = controller?.playbackState?.state == PlaybackState.STATE_PLAYING
     fun next() { controller?.transportControls?.skipToNext() }
@@ -398,20 +433,153 @@ object NowPlaying {
     private val lastPlayed = java.util.concurrent.ConcurrentHashMap<String, Long>()
     /** Stopped from Glassio: this session shows nothing until it plays again. */
     @Volatile private var stoppedToken: android.media.session.MediaSession.Token? = null
-    /** Shuffle on / off in the playing app (most music apps take it through their media session). */
+    // What a session says it takes from outside (PlaybackStateCompat's action bits: the platform's PlaybackState has no names for these).
+    private const val SHUFFLE_BITS = (1L shl 21) or (1L shl 19)
+    private const val REPEAT_BIT = 1L shl 18
+    private const val SEEK_BIT = 1L shl 8
+    private fun can(c: MediaController, bits: Long) = ((c.playbackState?.actions ?: 0L) and bits) != 0L
+    private fun compat(ctx: Context, c: MediaController) =
+        android.support.v4.media.session.MediaControllerCompat(ctx, android.support.v4.media.session.MediaSessionCompat.Token.fromToken(c.sessionToken))
+
+    /**
+     * Shuffle on / off in the playing app. Lit here only for an app that says it takes shuffle from outside (Spotify
+     * does; SoundCloud doesn't): for the others it is still sent, and the button follows what the app reports, so it
+     * never shows a shuffle that isn't there.
+     */
     fun shuffle(ctx: Context, on: Boolean) {
-        userShuffle = on; shuffled.value = on
-        val c = controller ?: return
-        runCatching {
-            val compat = android.support.v4.media.session.MediaControllerCompat(ctx, android.support.v4.media.session.MediaSessionCompat.Token.fromToken(c.sessionToken))
-            compat.transportControls.setShuffleMode(if (on) android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_ALL else android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_NONE)
-        }.onFailure { Glog.w("Shuffle", it) }
+        val c = controller
+        if (c == null || can(c, SHUFFLE_BITS)) { userShuffle = on; shuffled.value = on }
+        c ?: return
+        Glog.i("Shuffle ${if (on) "on" else "off"} in ${c.packageName}" + if (can(c, SHUFFLE_BITS)) "" else " (it doesn't say it takes it)")
+        Bg.io("glass-shuffle-set") {
+            runCatching {
+                val m = compatCtl ?: compat(ctx, c)
+                m.transportControls.setShuffleMode(if (on) android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_ALL else android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_NONE)
+                // What the app says a moment later counts (one that says it takes shuffle and stays as it was).
+                kotlinx.coroutines.delay(1500)
+                val now = m.shuffleMode
+                if (now >= 0) mainHandler.post { if (userShuffle == on && controller?.sessionToken == c.sessionToken) { userShuffle = null; modesAre(now, -1) } }
+            }.onFailure { Glog.w("Shuffle", it) }
+        }
     }
-    fun shuffleOn(ctx: Context): Boolean = runCatching {
-        val c = controller ?: return false
-        android.support.v4.media.session.MediaControllerCompat(ctx, android.support.v4.media.session.MediaSessionCompat.Token.fromToken(c.sessionToken)).shuffleMode ==
-            android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_ALL
-    }.getOrDefault(false)
+    /** The session followed is another one, or gone: nothing of its shuffle and repeat stays (the button, Glassio's own repeating, the app's earlier mode). */
+    private fun dropModes() {
+        runCatching { compatCtl?.unregisterCallback(compatCb) }
+        compatCtl = null
+        reported = null; userShuffle = null; reportedRepeat = null; userRepeat = null; ownRepeat = false; repeatBefore = 0; soughtAt = -1L
+        mainHandler.removeCallbacks(repeatTick)
+        if (shuffled.value) shuffled.value = false
+        if (repeating.value) repeating.value = false
+    }
+    /** Asks the app for its shuffle and repeat modes (off the main thread), once it can tell. */
+    private fun askModes() {
+        val m = compatCtl ?: return
+        if (shuffleAsking) return
+        shuffleAsking = true
+        Bg.io("glass-shuffle") {
+            val ready = runCatching { m.isSessionReady }.getOrDefault(false)
+            val sh = if (ready) runCatching { m.shuffleMode }.getOrDefault(-1) else -1
+            val rp = if (ready) runCatching { m.repeatMode }.getOrDefault(-1) else -1
+            mainHandler.post { shuffleAsking = false; if (m === compatCtl) modesAre(sh, rp) }
+        }
+    }
+    /**
+     * What the app says its shuffle and repeat modes are (-1: it doesn't say). On the main thread. What was set here
+     * shows until the app says something else than it said before (changed in the app itself: the app's word counts).
+     */
+    private fun modesAre(sh: Int, rp: Int) {
+        if (sh >= 0) {
+            val r = sh == android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_ALL || sh == android.support.v4.media.session.PlaybackStateCompat.SHUFFLE_MODE_GROUP
+            if (reported != null && r != reported) userShuffle = null
+            reported = r
+        }
+        (userShuffle ?: reported ?: false).let { if (shuffled.value != it) shuffled.value = it }
+        if (rp >= 0) {
+            val r = rp == android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ONE
+            // (Glassio's own repeating ends with it too.)
+            if (reportedRepeat != null && r != reportedRepeat) { userRepeat = null; ownRepeat = false; repeatPlan() }
+            reportedRepeat = r
+        }
+        (userRepeat ?: reportedRepeat ?: false).let { if (repeating.value != it) repeating.value = it }
+    }
+
+    /**
+     * "This song again" on / off. An app that takes a repeat mode from outside is asked for "repeat one" (and gets
+     * its earlier mode back when this is turned off); one that doesn't, or doesn't keep it, has its song started
+     * again by Glassio a second before it ends ([repeatPlan]), which needs the app to take a jump in the song.
+     */
+    fun repeatOne(ctx: Context, on: Boolean) {
+        userRepeat = on; repeating.value = on
+        val c = controller ?: return
+        val byApp = can(c, REPEAT_BIT)
+        ownRepeat = on && !byApp
+        Glog.i("This song again ${if (on) "on" else "off"} in ${c.packageName}" + if (byApp) " (the app's repeat)" else " (by Glassio)")
+        repeatPlan()
+        if (byApp) Bg.io("glass-repeat-set") {
+            runCatching {
+                val m = compatCtl ?: compat(ctx, c)
+                if (on) {
+                    repeatBefore = m.repeatMode.takeIf { it == android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ALL || it == android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_GROUP }
+                        ?: android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_NONE
+                    m.transportControls.setRepeatMode(android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ONE)
+                    // Not kept by the app (it says it takes it, and stays as it was): Glassio does it.
+                    kotlinx.coroutines.delay(1500)
+                    if (m.repeatMode.let { it >= 0 && it != android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ONE }) mainHandler.post {
+                        if (userRepeat == true && controller?.sessionToken == c.sessionToken) { ownRepeat = true; Glog.i("${c.packageName} didn't keep its repeat: Glassio starts the song again"); repeatPlan() }
+                    }
+                } else m.transportControls.setRepeatMode(repeatBefore)
+            }.onFailure { Glog.w("Repeat", it) }
+        }
+    }
+
+    /**
+     * The shuffle button's press. With [withRepeat] (Settings → Music & app rows → *Shuffle button repeats a song*):
+     * off → shuffle → this song again → off, leaving out a step the playing app can't do. Without: shuffle on / off.
+     */
+    fun cycle(ctx: Context, withRepeat: Boolean) {
+        when {
+            !withRepeat -> shuffle(ctx, !shuffled.value)
+            repeating.value -> repeatOne(ctx, false)
+            !canRepeat.value -> shuffle(ctx, !shuffled.value)
+            shuffled.value -> { shuffle(ctx, false); repeatOne(ctx, true) }
+            canShuffle.value -> shuffle(ctx, true)
+            else -> repeatOne(ctx, true)
+        }
+    }
+
+    /** QA (dev key, `--ei song_end N`): the song playing jumps to [seconds] before its end. */
+    fun qaNearEnd(seconds: Int) {
+        val c = controller ?: return
+        val d = track.value?.duration?.takeIf { it > 0 } ?: return
+        Bg.io("glass-qa-seek") { runCatching { c.transportControls.seekTo((d - seconds * 1000L).coerceAtLeast(0)) } }
+    }
+
+    // ---- Glassio's own "this song again": back to the song's start a second before it ends
+    private const val REPEAT_LEAD = 1000L
+    /**
+     * The report of the app (its time stamp) on which the song was sent back to its start: never twice on one report.
+     * (The song's state is also published again for other reasons, a picture that arrived for one: the place in the
+     * song is then still the old one, near the end.)
+     */
+    @Volatile private var soughtAt = -1L
+    private val repeatTick = Runnable { repeatCheck() }
+    private fun repeatPlan() {
+        mainHandler.removeCallbacks(repeatTick)
+        if (!ownRepeat) return
+        val t = track.value ?: return
+        if (!t.playing || t.duration <= 0 || t.at == soughtAt) return
+        mainHandler.postDelayed(repeatTick, (((t.duration - t.positionNow()) / t.speed).toLong() - REPEAT_LEAD).coerceAtLeast(0))
+    }
+    private fun repeatCheck() {
+        if (!ownRepeat) return
+        val c = controller ?: return
+        val t = track.value ?: return
+        if (!t.playing || t.duration <= 0 || t.at == soughtAt) return
+        if (t.duration - t.positionNow() > REPEAT_LEAD + 300) { repeatPlan(); return }
+        soughtAt = t.at
+        Glog.i("This song again: ${c.packageName} back to its start")
+        Bg.io("glass-repeat") { runCatching { c.transportControls.seekTo(0) }.onFailure { Glog.w("Repeat", it) } }
+    }
     /** Apps that play video as well as music (YouTube): their playing counts as music only once it goes on. */
     fun sometimesMusic(pkg: String) = pkg in SOMETIMES_MUSIC
     fun appLabel(pkg: String): String = MUSIC_APPS[pkg] ?: YOUTUBE_CLIENTS[pkg] ?: if (pkg in SOMETIMES_MUSIC) "YouTube" else

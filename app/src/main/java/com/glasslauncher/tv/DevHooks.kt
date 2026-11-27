@@ -49,14 +49,23 @@ object DevHooks {
         val r = object : Runnable { override fun run() {
             val f = com.glasslauncher.tv.ui.DockFocus
             val line = "screen=${a.screenName} menu=$menuOpen saver=${com.glasslauncher.tv.saver.HomeSaver.state.value} hero=${f.hero} top=${f.top} dock=${f.dock} idx=${f.idx} " +
-                "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} " +
+                "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} ${com.glasslauncher.tv.ui.HomePage.flags} " +
                 "musicStage=${com.glasslauncher.tv.ui.MusicUi.stageFocused} musicApps=${com.glasslauncher.tv.ui.MusicUi.appsFocused} inputs=${com.glasslauncher.tv.ui.InputsUi.focused} " +
                 "search=${com.glasslauncher.tv.ui.SearchUi.focused} rows=${com.glasslauncher.tv.ui.ChannelsUi.focused} cams=${MultiCamOverlay.open.value} " +
                 "chooser=${com.glasslauncher.tv.ui.ProfilesUi.open.value} state=${a.lifecycle.currentState}"
             if (line != last) { last = line; android.util.Log.i("GlassFocusW", line) }
-            h.postDelayed(this, 250)
+            h.postDelayed(this, 100)
         } }
         watching = r; h.post(r)
+    }
+
+    /**
+     * QA: the focus watch goes on from the very start of Glassio when it was left on (kept in the `qa` file, not a
+     * setting): where the selection goes in the first seconds after a restart (a profile change) can't be asked for
+     * from outside without disturbing it.
+     */
+    fun atStart(a: MainActivity) {
+        if (a.getSharedPreferences("qa", android.content.Context.MODE_PRIVATE).getBoolean("focusWatch", false)) focusWatch(a, true)
     }
 
     fun handle(app: GlassApp, a: MainActivity, i: Intent?) {
@@ -212,15 +221,19 @@ object DevHooks {
             val r = com.glasslauncher.tv.ui.Trailers.prepare(app, p.getOrElse(2) { "series" }, p.getOrElse(3) { "" }, p.getOrElse(0) { "" }, p.getOrElse(1) { "" })
             com.glasslauncher.tv.data.Glog.i("Trailer find '${p[0]}': " + (r?.let { "${it.first} ${it.second?.height}p" } ?: "none (the picture stays)"))
         } }
+        if (i.hasExtra("lyrics_blur")) com.glasslauncher.tv.ui.LyricsQa.blur.intValue = i.getIntExtra("lyrics_blur", 2)
         if (i.hasExtra("fake_song")) {
             if (i.getBooleanExtra("fake_song", false)) {
                 val b = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)
                 android.graphics.Canvas(b).drawPaint(android.graphics.Paint().apply { shader = android.graphics.LinearGradient(0f, 0f, 300f, 300f, 0xFF7B61FF.toInt(), 0xFFFF6FA8.toInt(), android.graphics.Shader.TileMode.CLAMP) })
-                com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", i.getStringExtra("fake_title") ?: "Test song", "Test artist", "Album",
+                com.glasslauncher.tv.data.NowPlaying.track.value = com.glasslauncher.tv.data.NowPlaying.Track("com.spotify.tv.android", i.getStringExtra("fake_title") ?: "Test song", i.getStringExtra("fake_artist") ?: "Test artist", "Album",
                     if (i.getBooleanExtra("fake_noart", false)) com.glasslauncher.tv.data.PlaceholderArt.of("Test song") else b,
-                    200_000, 60_000, android.os.SystemClock.elapsedRealtime(), 1f, !i.getBooleanExtra("fake_paused", false))
+                    // (--ei fake_dur / fake_pos, in seconds: a real song's length and where it is, for its lyrics.)
+                    i.getIntExtra("fake_dur", 200) * 1000L, i.getIntExtra("fake_pos", 60) * 1000L, android.os.SystemClock.elapsedRealtime(), 1f, !i.getBooleanExtra("fake_paused", false))
             } else com.glasslauncher.tv.data.NowPlaying.track.value = null
         }
+        // QA: the song playing jumps to N seconds before its end (to see what happens at a song's end without waiting for it).
+        if (i.hasExtra("song_end")) com.glasslauncher.tv.data.NowPlaying.qaNearEnd(i.getIntExtra("song_end", 10))
         if (i.getBooleanExtra("dump_media", false)) com.glasslauncher.tv.data.NowPlaying.dump()
         if (i.getBooleanExtra("dump_media", false)) com.glasslauncher.tv.data.NowPlaying.dumpSessions(app)
         if (i.getBooleanExtra("dump_channels", false)) Bg.io("glass-dev") { com.glasslauncher.tv.data.Channels.dump(app) }
@@ -334,11 +347,15 @@ object DevHooks {
                 "musicStage=${com.glasslauncher.tv.ui.MusicUi.stageFocused} musicApps=${com.glasslauncher.tv.ui.MusicUi.appsFocused} " +
                 "inputs=${com.glasslauncher.tv.ui.InputsUi.focused} search=${com.glasslauncher.tv.ui.SearchUi.focused} rows=${com.glasslauncher.tv.ui.ChannelsUi.focused} " +
                 "profile=${com.glasslauncher.tv.data.Profiles.active(app)} home=${com.glasslauncher.tv.data.Profiles.home(app)} " +
-                "chooser=${com.glasslauncher.tv.ui.ProfilesUi.open.value} chooserSel=${com.glasslauncher.tv.ui.ProfilesUi.sel.intValue} appCat=${com.glasslauncher.tv.data.AppCatalogs.pkg.value ?: "-"} slide=${com.glasslauncher.tv.data.AppCatalogs.slide.replace(' ', '_')} " +
+                "chooser=${com.glasslauncher.tv.ui.ProfilesUi.open.value} chooserSel=${com.glasslauncher.tv.ui.ProfilesUi.sel.intValue} gate=${com.glasslauncher.tv.ui.ProfilesUi.gate.value} pinPad=${com.glasslauncher.tv.ui.PinUi.ask.value != null}:${com.glasslauncher.tv.ui.PinUi.typed.value.length}:${com.glasslauncher.tv.ui.PinUi.sel.intValue} pins=${com.glasslauncher.tv.data.ProfilePin.status(app)} appCat=${com.glasslauncher.tv.data.AppCatalogs.pkg.value ?: "-"} slide=${com.glasslauncher.tv.data.AppCatalogs.slide.replace(' ', '_')} " +
                 "dockPkg=${com.glasslauncher.tv.ui.ChannelsUi.dockPkg.value} page=${com.glasslauncher.tv.ui.HomePage.now} glassPass=${com.glasslauncher.tv.ui.VideoGlass.clear.value && com.glasslauncher.tv.ui.VideoFrames.showing.value} videoShowing=${com.glasslauncher.tv.ui.VideoFrames.showing.value} cams=${MultiCamOverlay.open.value} " +
                 "writes=${app.settings.recentWrites.joinToString(",")}")
         }
-        if (i.hasExtra("focus_watch")) focusWatch(a, i.getBooleanExtra("focus_watch", false))
+        if (i.hasExtra("focus_watch")) {
+            val on = i.getBooleanExtra("focus_watch", false)
+            a.getSharedPreferences("qa", android.content.Context.MODE_PRIVATE).edit().putBoolean("focusWatch", on).apply()
+            focusWatch(a, on)
+        }
         // QA: a crash on the main thread, to try the report offered after a crash.
         if (i.getBooleanExtra("crash_clear", false)) { java.io.File(app.filesDir, "last-crash.txt").delete(); com.glasslauncher.tv.data.Glog.i("QA: last crash cleared") }
         if (i.getBooleanExtra("crash_test", false)) android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ throw RuntimeException("QA: a crash to try the crash report") }, 500)
@@ -389,6 +406,14 @@ object DevHooks {
         }
         // Nuvio's pictures instead of the ones chosen in Glassio, until Glassio restarts (nothing is changed or removed).
         if (i.hasExtra("nuvio_faces")) { com.glasslauncher.tv.data.NuvioAvatars.testOnly = i.getBooleanExtra("nuvio_faces", false); com.glasslauncher.tv.data.NuvioAvatars.rev.intValue++ }
+        // Profile PINs: --es pin_fake "2:1234" (profile 2 taken to have that PIN in Nuvio, answered here; "2:off": Nuvio
+        // unreachable; "-": none), --es pin_own "2:1234" (a Glassio PIN for it; "2:-" removes it), --es pin_auto "2:true".
+        i.getStringExtra("pin_fake")?.let { spec ->
+            com.glasslauncher.tv.data.ProfilePin.fake = if (spec == "-") emptyMap() else spec.split(',').mapNotNull { e -> e.substringBefore(':').toIntOrNull()?.let { it to e.substringAfter(':') } }.toMap()
+        }
+        i.getStringExtra("pin_own")?.let { e -> e.substringBefore(':').toIntOrNull()?.let { id -> val v = e.substringAfter(':'); if (v == "-") com.glasslauncher.tv.data.ProfilePin.clearOwn(app, id) else com.glasslauncher.tv.data.ProfilePin.setOwn(app, id, v) } }
+        i.getStringExtra("pin_auto")?.let { e -> e.substringBefore(':').toIntOrNull()?.let { id -> com.glasslauncher.tv.data.ProfilePin.setAuto(app, id, e.substringAfter(':') == "true") } }
+        if (i.hasExtra("folder_fit")) com.glasslauncher.tv.ui.FolderQa.fit.intValue = i.getIntExtra("folder_fit", 0)
         if (i.getBooleanExtra("profile_ask", false)) com.glasslauncher.tv.ui.ProfilesUi.show(app)
         if (i.getBooleanExtra("profile_wake", false)) com.glasslauncher.tv.ui.ProfilesUi.wake(app)
         i.getIntExtra("profile_forget", 0).takeIf { it > 0 }?.let { com.glasslauncher.tv.data.Glog.i("Profile $it forgotten: " + com.glasslauncher.tv.data.Profiles.forget(app, it)) }

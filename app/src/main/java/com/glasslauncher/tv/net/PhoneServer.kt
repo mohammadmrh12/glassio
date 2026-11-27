@@ -258,12 +258,6 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             app.settings.tmdbToken = t; app.catalogs.clearEnrichment()
             if (t.isBlank()) "TMDB token removed" else "TMDB token saved and working"
         }
-        "/api/reddit" -> {
-            j.optString("subs").takeIf { it.isNotBlank() }?.let { app.settings.photoSubreddit = it }
-            j.optString("id").takeIf { it.isNotBlank() }?.let { app.settings.redditAppId = it }
-            app.settings.photoSource = "reddit"; app.settings.bgMode = "photos"
-            "Saved: the background now shows r/" + app.settings.photoSubreddit.replace(",", ", r/")
-        }
         "/api/unsplash" -> {
             app.settings.unsplashKey = j.optString("key")
             if (app.settings.unsplashKey.isNotBlank()) { app.settings.photoSource = "unsplash"; app.settings.bgMode = "photos" }
@@ -497,7 +491,7 @@ class PhoneServer(private val app: GlassApp, private val token: String) {
             .put("simklClient", app.cw.simkl.clientId.isNotBlank()).put("city", st.weatherPlace)
             .put("profile", JSONObject().put("name", com.glasslauncher.tv.data.Profiles.nameOverride(app, com.glasslauncher.tv.data.Profiles.active(app))))
             // (Keys are write-only: only whether one is set.)
-            .put("photos", JSONObject().put("source", st.photoSource).put("unsplash", st.unsplashKey.isNotBlank()).put("reddit", st.redditAppId.isNotBlank()).put("subs", st.photoSubreddit)
+            .put("photos", JSONObject().put("source", st.photoSource).put("unsplash", st.unsplashKey.isNotBlank())
                 .put("sources", JSONArray().apply { com.glasslauncher.tv.data.Photos.SOURCES.forEach { put(JSONObject().put("id", it.first).put("name", it.second)) } }))
             .put("home", JSONObject().put("url", st.haUrl).put("title", st.doorbellTitle).put("message", st.doorbellMessage).put("hue", st.hueIp))
             .put("backup", JSONObject().put("moves", com.glasslauncher.tv.data.Backup.MOVES).put("stays", com.glasslauncher.tv.data.Backup.STAYS))

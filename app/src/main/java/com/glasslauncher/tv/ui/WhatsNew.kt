@@ -41,7 +41,7 @@ import com.glasslauncher.tv.GlassApp
  */
 object WhatsNew {
     /** Bumped when the tour has new pages: everyone who updates sees it once. */
-    const val ID = 72
+    const val ID = 73
 
     /** [support]: the page ends with "Send a gift card" and "Done" instead of "Next". */
     class Page(val title: String, val points: List<String>, val where: String, val qr: String? = null, val support: Boolean = false)
@@ -63,11 +63,33 @@ object WhatsNew {
 
     // A welcome first, then everything new since 4.0.0, newest last, then GitHub and support.
     val PAGES = listOfNotNull(
-        Page("Welcome to Glassio 4.7", listOf(
-            "Everything new since Glassio 4.0, page by page, 4.7's first. Your setup stays as it is: each new thing is a choice.",
+        Page("Welcome to Glassio 4.8", listOf(
+            "Everything new since Glassio 4.0, page by page, 4.8's first. Your setup stays as it is: each new thing is a choice.",
             "Something wrong? Settings → About → Report a problem.",
             "Press ▶ to see what's new.",
         ), "Settings → About → What's new"),
+        // (New in 4.8.)
+        Page("A PIN for a profile", listOf(
+            "A profile can ask for its four-digit PIN: when the TV starts, when it wakes after a while, and when you change to that profile.",
+            "A profile with a PIN in Nuvio uses that one, checked by Nuvio. Any other profile can get a PIN made here, kept on this TV only.",
+            "Ask for the PIN → Automatic: this TV goes in without it.",
+        ), "Settings → Accounts & profiles → PIN"),
+        if (com.glasslauncher.tv.data.Store.PLAY) null else Page("Lyrics", listOf(
+            "A song's words beside the player, in time with the song: the line being sung is bright and lights word by word.",
+            "Over the video screensaver too, while a song plays.",
+            "The lyrics button of the player and of the open island turns them on and off. Off until you turn it on: the song's name and artist go to the lyrics sources.",
+        ), "Settings → Music & app rows → Lyrics"),
+        Page("The music player", listOf(
+            "The shuffle button has a second press: the song playing starts again each time it ends. A third press turns both off.",
+            "It shows the shuffle you set in the music app itself.",
+            "OK on a music app's card plays in that app, without opening it.",
+        ), "Music icon in the dock · Settings → Music & app rows"),
+        Page("Photos, the Apps folder, cameras", listOf(
+            "Photos as your background: Windows Spotlight, museum paintings and Pexels photos are new sources.",
+            "The Apps folder shows three whole rows and grows as you go down, like the dock. It opens and closes faster.",
+            "Over a video background Glassio keeps its full frame rate. Changing profile starts Glassio once.",
+            "A TV that can't play HEVC videos gets only the videos it can play. Home Assistant cameras fall back to their live picture, and Reolink cameras turn with the remote.",
+        ), "Settings → Background & screensaver · Smart home"),
         // (New in 4.7.)
         Page("Continue Watching cards", listOf(
             "Over your own background, what you're watching as small glass cards right above the dock: the picture stays whole.",
@@ -194,7 +216,7 @@ object WhatsNew {
 }
 
 @Composable
-fun WhatsNewHost(app: GlassApp, s: Float) {
+fun WhatsNewHost(app: GlassApp, s: Float, bottom: Float = 0f) {
     if (!WhatsNew.open.value) return
     val st = app.settings
     // Its own look whatever the theme (his ask): frosted glass on Glassio's lights, white writing.
@@ -211,7 +233,10 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
     }
     val envRef = androidx.compose.runtime.rememberUpdatedState(env)
     androidx.compose.runtime.CompositionLocalProvider(LocalGlassEnv provides env, LocalGlassEnvRef provides envRef) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    // In the middle of the screen, moved up only as far as it must to end above the dock ([bottom], the room the dock
+    // takes, in dp): a page with more lines grew from the middle both ways and came down over the dock's icons.
+    val room = with(androidx.compose.ui.platform.LocalDensity.current) { bottom.dp.roundToPx() }
+    androidx.compose.ui.layout.Layout(modifier = Modifier.fillMaxSize(), content = {
         // Frosted glass over its own lights, the same with every theme (it reads nothing of the page behind).
         GlassPanel(Modifier.width((560 * s).dp), radius = (26 * s).dp, style = "liquid", darken = 0.08f) {
             Column(Modifier.fillMaxWidth().padding(horizontal = (30 * s).dp, vertical = (26 * s).dp)) {
@@ -269,6 +294,10 @@ fun WhatsNewHost(app: GlassApp, s: Float) {
                 }
             }
         }
+    }) { ms, c ->
+        val p = ms.first().measure(c.copy(minWidth = 0, minHeight = 0))
+        val y = minOf((c.maxHeight - p.height) / 2, c.maxHeight - room - p.height).coerceAtLeast(0)
+        layout(c.maxWidth, c.maxHeight) { p.place((c.maxWidth - p.width) / 2, y) }
     }
     }
     }

@@ -13,20 +13,24 @@ Camera	Камера
 Can't reach the camera	Нет связи с камерой
 Connecting…	Подключение…
 Name|url	Название|url
-Next	Далее
+Continue watching	Продолжить просмотр
+(TV access)	(доступ к ТВ)
+1 row	1 ряд
 and enter	и введите
-and how a camera or the doorbell can show over another app.	и как камера или дверной звонок могут показываться поверх другого приложения.
 Automatic ·	Автоматически ·
 Button	Кнопка
 Cancel	Отмена
 Close	Закрыть
 Couldn't send it. Check the internet and try again	Не удалось отправить. Проверьте интернет и повторите
 Gift card code	Код подарочной карты
-Glassio uses Android's Accessibility API for one thing: to notice the buttons of your remote, and when the TV's own home screen comes up.	Glassio использует специальные возможности Android только для одного: чтобы замечать кнопки пульта и появление главного экрана самого ТВ.
+Glassio comes back when you leave an app it opened, it waits while the TV asks you to allow USB debugging, and a camera or the doorbell can show over another app.	Glassio возвращается, когда вы выходите из открытого им приложения, ждёт, пока ТВ запрашивает разрешение на отладку по USB, а камера или дверной звонок могут отображаться поверх другого приложения.
+Glassio uses Android's Accessibility API for two things: to notice the buttons of your remote, and to know which app is in front (its name only).	Glassio использует API специальных возможностей Android для двух целей: определять нажатия кнопок пульта и узнавать, какое приложение открыто (только его название).
 Glassio's accessibility service	Служба специальных возможностей Glassio
 In the carousel's place	На месте карусели
+It has none now	Сейчас их нет
 It only works after you turn it on yourself in the TV's Accessibility settings, and you can turn it off there at any time.	Она работает, только если вы сами включили её в настройках специальных возможностей ТВ, и её можно отключить там в любой момент.
 Its catalogs	Его каталоги
+Its own rows	Собственные ряды
 Its rows	Его ряды
 No catalogs yet: add an add-on in Settings → Catalogs	Каталогов пока нет: добавьте дополнение в Настройки → Каталоги
 Not now	Не сейчас
@@ -49,13 +53,11 @@ Sending…	Отправка…
 Sent. Thank you so much for your support!	Отправлено. Большое спасибо за поддержку!
 Support Glassio	Поддержать Glassio
 Support me	Поддержать меня
-Supporters	Поддержавшие
-Thank you for keeping Glassio going.	Спасибо, что поддерживаете Glassio.
 Thank you!	Спасибо!
-That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	Так кнопка Home открывает Glassio вместо главного экрана ТВ, а удержание Home и выбранные вами кнопки пульта делают то, что вы задали,
+That is how the Home button opens Glassio instead of the TV's own home screen, the remote buttons you choose do what you set, Recent apps lists the apps you used,	Так кнопка «Домой» открывает Glassio вместо главного экрана ТВ, выбранные кнопки пульта выполняют заданные действия, а список недавних приложений показывает использованные приложения,
 That isn't a PSN code: 12 letters and digits	Это не код PSN: нужно 12 букв и цифр
 The arrows and OK move around Glassio: pick another button	Стрелки и OK управляют Glassio: выберите другую кнопку
-The service does not read what is on the screen, does not read what you type, and collects or shares nothing.	Служба не читает содержимое экрана и то, что вы вводите, и ничего не собирает и не передаёт.
+The service does not read what is on the screen, does not read what you type, and collects or shares nothing: what it notices stays on this TV.	Служба не читает содержимое экрана и вводимый вами текст, ничего не собирает и не передаёт: то, что она замечает, остаётся на этом ТВ.
 This button sends nothing Glassio can tell apart: pick another button	Эта кнопка не передаёт ничего, что Glassio может различить: выберите другую
 This is everything that will be sent. It becomes a public issue on GitHub: addresses, keys, emails and names were removed	Это всё, что будет отправлено. Оно станет публичной заявкой на GitHub: адреса, ключи, почта и имена удалены
 Type the code first	Сначала введите код
@@ -72,12 +74,9 @@ Glass like glass	Стекло как стекло
 None (clear)	Нет (прозрачное)
 Petrol	Бензиновый
 Glassio is the TV screensaver	Glassio — заставка ТВ
-Add to Library	В Библиотеку
 Change artwork	Сменить постер
 Continue	Продолжить
 Hide this title	Скрыть этот фильм
-Like	Нравится
-Liked	Понравилось
 Loading…	Загрузка…
 Movie	Фильм
 Music apps	Музыкальные приложения
@@ -86,7 +85,6 @@ No music app on this TV	На этом ТВ нет музыкальных при�
 Open Catalogs	Открыть каталоги
 Open Settings → Catalogs & add-ons to connect Nuvio and fill the carousel.	Откройте Настройки → Каталоги и дополнения, чтобы подключить Nuvio и наполнить карусель.
 Play	Смотреть
-Remove from Library	Убрать из Библиотеки
 Series	Сериал
 Stop trailer	Остановить трейлер
 Trailer	Трейлер
@@ -102,12 +100,14 @@ Apps folder hidden. Show it again: Settings → Dock & icons	Папка прил
 Catalogs	Каталоги
 Catalogs & add-ons	Каталоги и дополнения
 Change icon	Сменить значок
+Glassio closed by itself. Send this report?	Glassio закрылся сам. Отправить этот отчёт?
 Hide	Скрыть
 Hide from the dock	Скрыть из дока
 Hide its rows	Скрыть его ряды
 Lock	Заблокировать
 Move	Переместить
 Open	Открыть
+Rows from…	Ряды из…
 Show in dock	Показать в доке
 Show its rows	Показать его ряды
 Unlock	Разблокировать
@@ -153,29 +153,48 @@ Save to the Library	Сохранить в Библиотеку
 Saved	Сохранено
 Simkl · Plan to watch	Simkl · Буду смотреть
 Trakt watchlist	Список Trakt
+doesn't play	не воспроизводит
+has no session	нет сеанса
+Looking for the lyrics…	Ищем текст песни…
+No lyrics for this song	Нет текста для этой песни
 No music app on this TV (Spotify, YouTube Music, Apple Music…)	На этом ТВ нет музыкальных приложений (Spotify, YouTube Music, Apple Music…)
 Nothing is playing. Pick a music app to start something.	Ничего не играет. Выберите музыкальное приложение, чтобы начать.
 Nothing playing	Ничего не играет
+the letters dance while the name moves	буквы дрожат, пока название движется
+This song again	Эта песня снова
+to its own receiver	на собственный приёмник
 1280 enhanced	1280 улучшенное
 High	Высокое
+Checking…	Проверка…
+Nuvio can't be reached to check this PIN	Не удаётся связаться с Nuvio для проверки этого PIN
+The remote's number keys work too · Back cancels	Цифровые кнопки пульта тоже работают · «Назад» отменяет
+Too many wrong tries. Try again in	Слишком много неверных попыток. Повторите через
+Wrong PIN	Неверный PIN
 Ask	Спрашивать
 At start	При запуске
 Automatic	Автоматически
+Choose a profile and enter its PIN	Выберите профиль и введите его PIN
+Enter the PIN	Введите PIN
 Glassio will start as	Glassio запустится как
 In use	Используется
 Main profile	Основной профиль
 OK opens a profile · hold OK to always start as it	OK открывает профиль · удерживайте OK, чтобы всегда запускаться с ним
 Opening Glassio as	Открываем Glassio как
 Opening …	Открываем …
-PIN in Nuvio	PIN в Nuvio
-This profile has a PIN in Nuvio: it can't be opened from here yet	У этого профиля есть PIN в Nuvio: отсюда его пока нельзя открыть
+This profile's PIN in Nuvio	PIN этого профиля в Nuvio
 Credit	Автор
 Date	Дата
 Place	Место
 Storage	Память
 Time	Время
 Weather	Погода
+Add to Library	В Библиотеку
 Allow USB debugging for Glassio to use the TV screensaver	Разрешите отладку по USB, чтобы Glassio мог стать заставкой ТВ
+Like	Нравится
+Liked	Понравилось
+Next	Далее
+Open in Nuvio	Открыть в Nuvio
+Remove from Library	Убрать из Библиотеки
 Asking the add-ons…	Опрашиваем дополнения…
 Film	Фильм
 Films and series	Фильмы и сериалы
@@ -197,6 +216,7 @@ back to default	вернуть по умолчанию
 display over other apps	отображение поверх других приложений
 Hello, …	Здравствуйте, …
 Name|rtsp://…	Название|rtsp://…
+New York	Нью-Йорк
 Plan to watch	Буду смотреть
 Videos · My videos	Видео · Мои видео
 (first its app id, from the phone)	(сначала его id приложения, с телефона)
@@ -228,6 +248,7 @@ A live camera in the corner, over any app	Живая камера в углу п
 A music app selected in the dock with nothing playing: its icon and Play. Off: its rows, or the carousel (its player still comes while its song is on)	Музыкальное приложение выбрано в доке, но ничего не играет: его значок и «Смотреть». Выкл.: его ряды или карусель (плеер всё равно появится, пока играет песня)
 A Music icon (move, hide and change it like an app): opens the player	Значок «Музыка» (его можно двигать, скрывать и менять, как приложение): открывает плеер
 A new one when each ends, fading through black like the screensaver	Новое после окончания каждого, с плавным затемнением, как у заставки
+A paused song goes	Песня на паузе убирается
 A picture or a video of your own as the background, from a link or the folder	Своя картинка или видео в качестве фона: по ссылке или из папки
 A pill appears next to the clock when a new version is out.	Рядом с часами появляется значок, когда выходит новая версия.
 A random mix from all your catalogs (different titles each time), fetched again on its own	Случайная подборка из всех ваших каталогов (каждый раз разные фильмы), обновляется сама
@@ -238,6 +259,7 @@ A short tour of what's new and where to change it	Краткий обзор но
 A soft ding-dong when it shows	Тихий звонок при появлении
 A song name too long for the island scrolls by (off: shortened with …)	Слишком длинное название песни прокручивается в островке (выкл.: сокращается до …)
 A song plays under the search	Песня играет под поиском
+A song's words beside the player, in time with it, lighting as they are sung. Found by the song's name and artist (only those are sent, to the sources below). The player's and the island's lyrics buttons do the same	Текст песни рядом с плеером, в такт музыке, подсвечивается по мере пения. Ищется по названию и исполнителю (отправляются только они, источникам ниже). Кнопки текста в плеере и на островке делают то же самое
 A tall poster or a wide card with the title's backdrop. The name, the year and the rating are inside the picture, like a Continue Watching card of the Library	Вертикальный постер или широкая карточка с фоном тайтла. Название, год и рейтинг — внутри картинки, как на карточке «Продолжить просмотр» в Библиотеке
 A tint through all the glass (dock, icons, menus, panels), still see-through, like a tinted window	Оттенок для всего стекла (док, значки, меню, панели), остаётся прозрачным, как тонированное окно
 A title here opens in its own app: Nuvio Legacy, Nuvio or Stremio (Trakt and Simkl titles: Open titles in)	Фильм отсюда открывается в своём приложении: Nuvio Legacy, Nuvio или Stremio (фильмы Trakt и Simkl: «Открывать фильмы в»)
@@ -268,16 +290,19 @@ Add-ons asked	Опрошено дополнений
 Add-ons asked for sources	Дополнения опрошены об источниках
 Add-ons from my Nuvio account	Дополнения из моего аккаунта Nuvio
 Add-ons, tokens, icons, cameras, videos and backups from your phone's browser	Дополнения, токены, значки, камеры, видео и резервные копии из браузера телефона
+After 1 min	Через 1 мин
 After each new photo or video	После каждого нового фото или видео
 After each new trailer	После каждого нового трейлера
 After each new video	После каждого нового видео
+After Glassio closes by itself, its report goes without asking. Off: the next start asks, and you see the report first	После внезапного закрытия Glassio отчёт отправляется без вопросов. Выкл.: при следующем запуске будет вопрос, и вы сначала увидите отчёт
 After this long on a title its trailer starts; when it ends (or ◀ ▶) the next title comes	Через это время на фильме запускается его трейлер; когда он кончается (или ◀ ▶), идёт следующий фильм
 After you finish an episode, the next one waits here (from the Nuvio account and what Glassio saw)	Когда вы досмотрите серию, следующая ждёт здесь (из аккаунта Nuvio и по данным Glassio)
-After you leave this screen. The code changes each time it starts again	После выхода с этого экрана. Код меняется при каждом новом запуске
+After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	После выхода с этого экрана. Адрес и код остаются прежними, поэтому страница, сохранённая на телефоне, работает, пока страница включена. Всегда: пока работает Glassio
 Agree and open the TV's Accessibility settings	Согласиться и открыть настройки специальных возможностей ТВ
 All	Все
 All of Glassio's writing a step bolder	Весь текст Glassio на ступень жирнее
 All of them	Все
+All of them are off	Все они выключены
 All the lights	Все лампы
 All the lights take the colour of the app selected in the dock (its glow's colour)	Все лампы берут цвет приложения, выбранного в доке (цвет его свечения)
 All the lights take the colour of the card you're on in an app's rows (as bright as the Library's posters)	Все лампы берут цвет карточки в рядах приложения (такие же яркие, как постеры Библиотеки)
@@ -300,12 +325,16 @@ Also in the menu (hold OK)	Также в меню (удерживайте OK)
 Also, if your TVs are in the same home (off unless you turn them on)	Также, если ваши ТВ дома в одной сети (выкл., пока не включите)
 Always	Всегда
 AMOLED black	Чёрный AMOLED
+An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	Приложение со своим рядом «Продолжить просмотр» (Netflix, YouTube…) тоже показывает его карточками вместо своих рядов. Для каждого приложения: Музыка и ряды приложений → Приложения с каналами
 An icon in the dock: select it and the search bar comes up in the carousel's place; OK types. Glassio plays nothing itself: a title opens in an app	Значок в доке: выберите его, и строка поиска появится на месте карусели; OK — ввод. Glassio сам ничего не воспроизводит: фильм открывается в приложении
 Android settings	Настройки Android
 Any title your server has opens on its page in the Jellyfin app (off: only titles from the server itself)	Любое название с вашего сервера открывается на своей странице в приложении Jellyfin (выкл.: только названия с самого сервера)
 Anything you like (even the code itself)	Что угодно (даже сам код)
 Anywhere: the camera in the corner (again closes it)	Везде: камера в углу (повторное нажатие закрывает)
+Anywhere: the camera in the corner · press again to close	Везде: камера в углу · нажмите ещё раз, чтобы закрыть
 Anywhere: the cameras in the middle (again closes them)	Везде: камеры посередине (повторное нажатие закрывает)
+Anywhere: the cameras in the middle · press again to close	Везде: камеры посередине · нажмите ещё раз, чтобы закрыть
+API key	Ключ API
 API Key, not the token	Ключ API, не токен
 App	Приложение
 App lock	Блокировка приложений
@@ -321,6 +350,7 @@ Apps folder	Папка приложений
 Apps in a row	Приложений в ряду
 Apps with channels	Приложения с каналами
 Apps without a TV launcher entry	Приложения без значка на ТВ
+Apps' Continue watching	«Продолжить просмотр» приложений
 Aqara (through HomeKit), Frigate, Ring, Tapo… any camera Home Assistant shows. Uses the Home Assistant link and token (Doorbell → Home Assistant link)	Aqara (через HomeKit), Frigate, Ring, Tapo… любая камера, которую показывает Home Assistant. Использует ссылку и токен Home Assistant (Дверной звонок → Ссылка Home Assistant)
 Around the settings button (it fills in white when selected)	Вокруг кнопки настроек (при выборе заливается белым)
 Arrange apps	Расположить приложения
@@ -329,7 +359,9 @@ As before Hue Sync	Как до Hue Sync
 As Glassio shows this profile. Empty: the name it has in Nuvio	Как Glassio показывает этот профиль. Пусто: имя из Nuvio
 As in Nuvio	Как в Nuvio
 As they were before Hue Sync (they follow the screen again on the home screen)	Как до Hue Sync (на главном экране они снова следуют за экраном)
+Ask for the PIN	Запрашивать PIN
 Ask who is watching	Спрашивать, кто смотрит
+At once	Сразу
 At the start	В начале
 At the top, with where each title came from	Сверху, с указанием источника каждого фильма
 Auto	Авто
@@ -339,7 +371,9 @@ Auto ·	Авто ·
 Auto-hide	Автоскрытие
 Auto-hide the top bar	Автоскрытие верхней панели
 Auto-play	Автовоспроизведение
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Автоматически: один ряд, если камеры помещаются в этом размере, иначе сетка (2 на 2, 3 на 3 при числе камер больше четырёх). Они никогда не выходят за края экрана
 Automatic: what you change on the main TV shows here a moment later. Manual: only when you press Sync now	Автоматически: то, что вы меняете на главном ТВ, появляется здесь через мгновение. Вручную: только по нажатию «Синхронизировать»
+Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	Автоматически: ваш фон при прозрачном стекле поверх видео, иначе обложка песни. Ваш фон: ваше видео или картинка остаётся за плеером. Обложка песни: её изображение заполняет страницу
 Back as they were	Вернуть как было
 Back from Nuvio, the carousel shows that title first	При возврате из Nuvio карусель сначала показывает этот фильм
 Back on the home screen starts it	Back на главном экране запускает его
@@ -353,7 +387,6 @@ Backdrop gallery	Галерея фонов
 Background	Фон
 Background & glass	Фон и стекло
 Background & screensaver	Фон и заставка
-Baghdad	Багдад
 Balanced	Баланс
 Bar	Панель
 Bars colour	Цвет полос
@@ -370,7 +403,7 @@ Beta: new things first, they may still have bugs	Бета: новинки ран
 Between Play and Next: saves the title to your Library	Между «Смотреть» и «Далее»: сохраняет фильм в вашу Библиотеку
 Between posters and between rows	Между постерами и между рядами
 Bigger files are left out	Файлы больше этого размера пропускаются
-Bing and Wikimedia need no account; Unsplash needs a free key	Bing и Wikimedia не требуют аккаунта; Unsplash нужен бесплатный ключ
+Bing, Windows Spotlight, Wikimedia and the paintings need no account; Unsplash and Pexels each need a free key	Bing, Windows Spotlight, Wikimedia и картины не требуют аккаунта; для Unsplash и Pexels нужен бесплатный ключ
 Black AMOLED	Чёрный AMOLED
 Black on white	Чёрное на белом
 Blink it	Мигнуть
@@ -398,6 +431,7 @@ Cameras	Камеры
 Cameras found	Найдено камер
 Cameras from Home Assistant	Камеры из Home Assistant
 Cameras on the screensaver: ▼ brings them up from the bottom	Камеры на заставке: ▼ выводит их снизу
+Cameras on the whole screen	Камеры на весь экран
 Cancelled	Отменено
 Card	Карточка
 Card size	Размер карточек
@@ -417,6 +451,7 @@ Change one icon: on the home screen hold OK on the app → Change icon. Pick fro
 Change speed	Скорость смены
 Change the code	Сменить код
 Change the order of its rows	Изменить порядок его рядов
+Change the PIN	Изменить PIN
 Change who is watching (shown when your Nuvio account has more than one profile)	Сменить, кто смотрит (показывается, если в аккаунте Nuvio больше одного профиля)
 Changed	Изменено
 Changed settings	Изменённые настройки
@@ -425,11 +460,11 @@ Channels	Каналы
 Channels on	Каналы включены
 Check	Проверить
 Check for updates	Проверить обновления
-Checking…	Проверка…
 Chime	Звонок
 Choose Always allow on the TV, then press OK here again	Выберите «Всегда разрешать» на ТВ, затем снова нажмите OK здесь
 Choose another button	Выберите другую кнопку
 Choose default home app	Выбрать главное приложение по умолчанию
+choose one	выберите один
 Choose the video first: My pictures & videos → Video from the folder or a link	Сначала выберите видео: Мои картинки и видео → Видео из папки или по ссылке
 Chosen	Выбрано
 Cinematic (fill)	Кино (заполнить)
@@ -465,6 +500,9 @@ Connected	Подключено
 Connected to the Hue bridge: now choose the lights	Подключено к мосту Hue: теперь выберите лампы
 Connections	Подключения
 Continue Watching & Library	Продолжить просмотр и Библиотека
+Continue watching as cards: off	«Продолжить просмотр» карточками: выкл.
+Continue watching as cards: on	«Продолжить просмотр» карточками: вкл.
+Continue Watching cards	Карточки «Продолжить просмотр»
 Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use it. Three steps, once	Его используют: Продолжить просмотр из Nuvio Legacy, Glassio как заставка ТВ, сведения о ТВ, открытие приложений, запуск вместе с ТВ и тихие обновления. Три шага, один раз
 Continue Watching in app carousels	Продолжить просмотр в каруселях приложений
 Continue Watching in the Library	Продолжить просмотр в Библиотеке
@@ -518,7 +556,7 @@ Dynamic Glass	Динамическое стекло
 e.g. year we met	напр. год знакомства
 Each app has its own number for a title. Wikidata has some; JustWatch knows many more and what can be watched now, through its site's own search (not an official service)	У каждого приложения свой номер фильма. Часть есть в Wikidata; JustWatch знает намного больше и то, что можно смотреть сейчас, через поиск на своём сайте (не официальный сервис)
 Each app's rows, the music player and the island	Ряды приложений, музыкальный плеер и островок
-Each app's rows: off, hidden one by one, or in another order	Ряды приложений: выключить, скрыть по одному или изменить порядок
+Each app's rows: off, hidden one by one, in another order, or another app's	Ряды каждого приложения: выключены, скрыты по одному, в другом порядке или из другого приложения
 Each film and series library as a catalog, newest first (Catalogs & add-ons → Catalogs in the carousel)	Каждая библиотека фильмов и сериалов как каталог, сначала новые (Каталоги и дополнения → Каталоги в карусели)
 Each input as an icon: move, hide and change its icon like an app	Каждый вход как значок: двигайте, скрывайте и меняйте значок, как у приложения
 Each light a different colour of the picture, or all of them its main colour	Каждая лампа — свой цвет картинки или все — её основной цвет
@@ -526,17 +564,20 @@ Each light · the part of the screen it follows	Каждая лампа · ча�
 Each music app selected in the dock: its player or its rows, and the player with nothing playing	Каждое музыкальное приложение, выбранное в доке: его плеер или ряды, и плеер, когда ничего не играет
 Each profile of your Nuvio account has its own Glassio: its look, dock, catalogs, Library and Continue Watching. Glassio starts again when you change it	У каждого профиля аккаунта Nuvio свой Glassio: внешний вид, док, каталоги, Библиотека и Продолжить просмотр. При смене Glassio запускается заново
 Each title's own picture, or yours: a picture, photos or videos	Картинка каждого названия или ваша: картинка, фото или видео
-EarthPorn, wallpapers	EarthPorn, обои
+Empty: automatic (	Пусто: автоматически (
 Empty: the name in Nuvio	Пусто: имя из Nuvio
 Entertainment	Развлечения
 Every	Каждые
 Every app · press again to close it	Любое приложение · нажмите ещё раз, чтобы закрыть
 Every hidden title is back	Все скрытые фильмы возвращены
 Every Hue light	Все лампы Hue
+Every QR code and page saved on a phone stops working; scan the new code	Все QR-коды и страницы, сохранённые на телефоне, перестанут работать; отсканируйте новый код
 Every row is hidden	Все ряды скрыты
 Every setting is as it comes	Все настройки как по умолчанию
 Every setting, catalog, Library and Continue Watching (no sign-ins), saved to Download/Glassio on the TV (also from the phone page)	Все настройки, каталоги, Библиотека и Продолжить просмотр (без входов в аккаунты), сохраняются в Download/Glassio на ТВ (также со страницы на телефоне)
 Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private	Все настройки, каталоги, Библиотека, Продолжить просмотр, аккаунты и токены, сохраняются в Download/Glassio на ТВ (также со страницы на телефоне). Храните в тайне
+Every time	Каждый раз
+Every time: when the TV starts or wakes, and when you change to this profile. Automatic: this TV opens it without the PIN	Каждый раз: при запуске или пробуждении ТВ и при переходе на этот профиль. Автоматически: этот ТВ открывает его без PIN
 Every title in progress, or one of them	Все фильмы в процессе или один из них
 Every title is back to the Artwork setting	Все фильмы возвращены к настройке «Постеры»
 Every video (Apple, Amazon or your link) is saved as it plays and starts at once next time	Каждое видео (Apple, Amazon или ваша ссылка) сохраняется во время показа и в следующий раз запускается сразу
@@ -574,15 +615,21 @@ Follow which TV?	За каким ТВ следовать?
 Following this TV	Следует за этим ТВ
 Follows	Следует за
 Follows another TV	Следует за другим ТВ
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Шрифты: Inter (SIL OFL) · Погода: Open-Meteo · Этот продукт использует API TMDB, но не одобрен и не сертифицирован TMDB.
 Forget	Забыть
 Forget the bridge	Забыть мост
 Forget them	Забыть их
+Four digits	Четыре цифры
+Four digits before this profile opens. A profile with a PIN in Nuvio uses that one by itself	Четыре цифры перед открытием этого профиля. Профиль с PIN в Nuvio автоматически использует его
+Four digits before this profile opens. Kept on this TV only	Четыре цифры перед открытием этого профиля. Хранится только на этом ТВ
 Frame	Рамка
 Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	Бесплатно на pexels.com/api: войдите там и скопируйте ключ. Хранится только на этом ТВ
 Free videos from pexels.com for the words below	Бесплатные видео с pexels.com по словам ниже
 Free videos from pexels.com for the words below. Needs your own Pexels key	Бесплатные видео с pexels.com по словам ниже. Нужен ваш ключ Pexels
+Free: pexels.com/api → Your API key. The same key brings Pexels' videos to the screensaver. Easier to paste from your phone (Manage from phone)	Бесплатно: pexels.com/api → Your API key. Тот же ключ добавляет видео Pexels в заставку. Проще вставить с телефона (Управление с телефона)
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	Бесплатно: unsplash.com/developers → New application → Access Key. Проще вставить с телефона (Управление с телефона)
 From a computer or phone with ADB, connected to this Fire TV, type once:	С компьютера или телефона с ADB, подключённого к этому Fire TV, введите один раз:
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Из Glassio (GitHub), если он есть на этом ТВ, иначе из новейшей резервной копии в Download/Glassio. После этого Glassio перезапускается
 From Home Assistant	Из Home Assistant
 From Home Assistant: the one its automation sends; or one of your cameras here	Из Home Assistant: та, что присылает его автоматизация; или одна из ваших камер здесь
 From the artwork	Из постера
@@ -629,12 +676,14 @@ Google Play is not available on this device	Google Play недоступен н�
 Green	Зелёный
 Greeting	Приветствие
 Grey	Серый
+Grid	Сетка
 Guest room	Гостевая
 Hardware	Оборудование
 HDR and Dolby Vision	HDR и Dolby Vision
 Hello	Здравствуйте
 hello (handwriting)	привет (рукописный)
 Hello and the profile's name at the top of the menu, with its picture (the name alone under a Hello button, no picture under a picture button)	Приветствие и имя профиля вверху меню, с его картинкой (только имя под кнопкой-приветствием, без картинки под кнопкой-картинкой)
+HEVC videos	Видео HEVC
 Hidden	Скрыто
 Hidden titles	Скрытые фильмы
 Hidden titles · pick one to show it again	Скрытые фильмы · выберите, чтобы показать снова
@@ -677,6 +726,7 @@ How colourful the lights are	Насыщенность цвета ламп
 How deep the glass colour is	Насыщенность цвета стекла
 How far and how strong it is	Насколько далеко и сильно
 How it works: Nuvio Legacy writes what you play to the TV's log (title, episode, how far). Glassio reads that log through the TV's own debugging connection (ADB), so this needs ADB once: System → TV access (ADB). Nothing leaves the TV.	Как это работает: Nuvio Legacy записывает то, что вы смотрите, в журнал ТВ (название, серия, место). Glassio читает этот журнал через собственное отладочное соединение ТВ (ADB), поэтому ADB нужен один раз: Система → Доступ к ТВ (ADB). Ничего не покидает ТВ.
+How long the island stays once nothing plays (it comes back when a song plays, or with ▲)	Как долго островок остаётся, когда ничего не играет (он возвращается при воспроизведении песни или по ▲)
 How long the lights take to follow a video (a new title's colours come at once)	За какое время лампы следуют за видео (цвета нового фильма применяются сразу)
 How loud the trailers play (the TV's own volume stays as it is)	Громкость трейлеров (громкость самого ТВ не меняется)
 How many cards fit across a row at first (posters are narrower: more of them show)	Сколько карточек помещается в ряду (постеры уже: их видно больше)
@@ -710,6 +760,7 @@ In a Jellyfin app signed in to this server: your profile → Quick Connect, then
 In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	В другом приложении или в заставке видео фона освобождается через несколько секунд и загружается снова при возврате: меньше памяти на слабом ТВ
 In its own colour	Своим цветом
 In the carousel	В карусели
+In the carousel. The Library's row: Continue Watching in the Library, below	В карусели. Ряд Библиотеки: «Продолжить просмотр» в Библиотеке, ниже
 In the last colours	В последних цветах
 In the Library	В Библиотеке
 In the Library: OK opens the title like the carousel. Hold OK (or Menu) to remove it.	В Библиотеке: OK открывает фильм, как в карусели. Удерживайте OK (или Menu), чтобы удалить.
@@ -737,9 +788,13 @@ IP address	IP-адрес
 Island	Островок
 It goes away on its own after this (Back or holding Home again closes it sooner)	Исчезает само через это время (Back или повторное удержание Home закроет раньше)
 It is off: without it no service is found for a title	Выключено: без этого сервис для фильма не находится
+It is the TV's screensaver now	Теперь это заставка ТВ
+It is the TV's screensaver: choose another one first	Это заставка ТВ: сначала выберите другую
 It stays below the screen until you go down to it (the dots go down too)	Остаётся под экраном, пока вы не спуститесь к нему (точки тоже опускаются)
 Its anon (public) key	Его анонимный (публичный) ключ
+Its catalogs show instead (OK → Show)	Вместо этого показаны его каталоги (OK → Показать)
 Its libraries in the carousel, what you are watching, your favourites, the search, Play	Его библиотеки в карусели, то, что вы смотрите, ваше избранное, поиск, «Смотреть»
+its own	собственный
 Its page in Stremio	Его страница в Stremio
 Its place in the area	Его место в зоне
 Its player with nothing playing	Его плеер, когда ничего не играет
@@ -794,6 +849,7 @@ Liquid glass dots	Точки из жидкого стекла
 Lists in the Library	Списки в Библиотеке
 Lists the sources	Показывает источники
 Lists where to watch	Показывает, где смотреть
+Lite	Лёгкий
 Live view in the menu, like Apple TV (◀ ▶ switches camera)	Живой просмотр в меню, как в Apple TV (◀ ▶ переключают камеру)
 Living room	Гостиная
 Lock & release	Блокировка и снятие
@@ -810,8 +866,9 @@ Looking for Glassio on your network…	Ищем Glassio в вашей сети�
 Looks at the latest release on GitHub	Проверяет последний релиз на GitHub
 Looks for the Hue bridge on this network	Ищет мост Hue в этой сети
 Lower	Ниже
-Made by Mohammad (mrh12)	Создал Mohammad (mrh12)
-Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Шрифты: Inter (SIL OFL) · Погода: Open-Meteo · Этот продукт использует API TMDB, но не одобрен и не сертифицирован TMDB.
+Lyrics	Тексты песен
+Lyrics sources	Источники текстов
+Made by Mohammad (mrh12)	Автор: Mohammad (mrh12)
 Main (TMDB)	Основной (TMDB)
 Main TV	Главный ТВ
 Main TV (the others follow it)	Главный ТВ (остальные следуют за ним)
@@ -825,6 +882,8 @@ Maximum (original)	Максимум (оригинал)
 Menu & themes	Меню и темы
 Menu items	Пункты меню
 Menu order	Порядок меню
+Menu → Camera goes straight to the cameras page instead of the live card	Меню → Камера сразу открывает страницу камер вместо карточки с трансляцией
+Menu's Camera opens the whole screen	Камера в меню открывается на весь экран
 Message	Сообщение
 Middle	Посередине
 Mixed with catalogs	Вперемешку с каталогами
@@ -857,18 +916,21 @@ Needs "Notification access" for Glassio in the TV's settings: press to open it	�
 Needs a TMDB token. English is used when a title has no text in this language	Нужен токен TMDB. Если у фильма нет текста на этом языке, используется английский
 Needs Glassio's accessibility service	Нужна служба специальных возможностей Glassio
 Needs the Home Assistant link and token (Doorbell → Home Assistant link)	Нужны ссылка и токен Home Assistant (Дверной звонок → Ссылка Home Assistant)
-Needs the Home button service: System → Turn it on	Нужна служба кнопки Home: Система → Включить
 Needs the TMDB token (Accounts & profiles) · a row per streaming service	Нужен токен TMDB (Аккаунты и профили) · по ряду на каждый стриминговый сервис
+Needs TV access (ADB): System → TV access (ADB).	Нужен доступ к ТВ (ADB): Система → Доступ к ТВ (ADB).
 Needs TV access (ADB, System) to read the music apps: press to try again	Для чтения музыкальных приложений нужен доступ к ТВ (ADB, Система): нажмите, чтобы повторить
 Needs TV access (ADB, System), or the TV's own question: press to try again	Нужен доступ к ТВ (ADB, Система) или ответ на запрос ТВ: нажмите, чтобы повторить
+Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	Нужен собственный фон (не обложки фильмов) и док внизу: тогда то, что вы смотрите, показывается маленькими карточками над доком
 Neither Spotify nor SoundCloud is on this TV	На этом ТВ нет ни Spotify, ни SoundCloud
 Netflix (one by one)	Netflix (по одному)
 Netflix, Apple TV, Prime Video, Disney+: the ones on this TV that have the title in your country (JustWatch)	Netflix, Apple TV, Prime Video, Disney+: те из установленных на этом ТВ, где есть этот фильм в вашей стране (JustWatch)
 Never	Никогда
 Never synced: Nuvio, Stremio, Trakt and Simkl sign-ins. Each of them hands one TV a sign-in that the next use replaces: shared, the two TVs would sign each other out. Sign in on each TV once.	Не синхронизируются: входы в Nuvio, Stremio, Trakt и Simkl. Каждый даёт одному ТВ вход, который следующее использование заменяет: при общем входе два ТВ выбивали бы друг друга. Войдите на каждом ТВ один раз.
 New	Новое
+New code	Новый код
 New mix	Новая подборка
 New mix every	Новая подборка каждые
+New PIN	Новый PIN
 New settings	Новые настройки
 New titles first	Сначала новинки
 Next to Play (Apple TV buttons). Hold OK on Play has Trailer too	Рядом со «Смотреть» (кнопки как в Apple TV). Удержание OK на «Смотреть» тоже даёт «Трейлер»
@@ -887,6 +949,7 @@ No hidden titles	Скрытых фильмов нет
 No limit	Без ограничений
 No main TV found. On the other TV: Settings → System → Sync between TVs → This TV → Main TV (both on the same network)	Главный ТВ не найден. На другом ТВ: Настройки → Система → Синхронизация между ТВ → Этот ТВ → Главный ТВ (оба в одной сети)
 No results	Нет результатов
+No rows of its own · OK → Rows from	Нет своих рядов · OK → Ряды из
 No sensors found	Датчики не найдены
 No streaming app on this TV yet	На этом ТВ пока нет стриминговых приложений
 No streaming service's app on this TV yet	На этом ТВ пока нет приложений стриминговых сервисов
@@ -900,6 +963,7 @@ none installed	ничего не установлено
 None linked	Ничего не привязано
 None linked yet	Пока ничего не привязано
 None of them is on this TV	Ни одного из них нет на этом ТВ
+None of them is on this TV.	Ни одного из них нет на этом ТВ.
 none yet	пока нет
 None yet: add one from your phone, a link or Nuvio	Пока нет: добавьте с телефона, по ссылке или из Nuvio
 Not allowed yet: press OK, then Always allow on the TV	Пока не разрешено: нажмите OK, затем «Всегда разрешать» на ТВ
@@ -910,6 +974,7 @@ Not set (the Hue app shows it: Settings → Bridges)	Не задано (его �
 Not synced with another TV	Не синхронизируется с другим ТВ
 Not working	Не работает
 Nothing playing: the app's player	Ничего не играет: плеер приложения
+Nothing: apps that were off before stay as they are	Ничего: приложения, которые были выключены раньше, остаются как есть
 Nuvio account	Аккаунт Nuvio
 Nuvio account connected	Аккаунт Nuvio подключён
 Nuvio and Stremio	Nuvio и Stremio
@@ -924,9 +989,13 @@ Nuvio plays at once	Nuvio сразу воспроизводит
 Nuvio server	Сервер Nuvio
 Nuvio server address (empty: the official one)	Адрес сервера Nuvio (пусто: официальный)
 Nuvio server set: sign in again	Сервер Nuvio задан: войдите снова
+Nuvio's	Из Nuvio
+Nuvio's picture by itself	Изображение Nuvio автоматически
 Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio, Trakt, Simkl или Stremio, с точкой его цвета
 Off	Выкл.
 Off (OK opens Settings)	Выкл. (OK открывает Настройки)
+Off by itself: one failed to play on this TV (a green or black picture). Only H.264 videos play, without Amazon's	Выключено автоматически: одно видео не воспроизвелось на этом ТВ (зелёная или чёрная картинка). Воспроизводятся только видео H.264, без видео Amazon
+Off while the type is the TV's screensaver app (another process). On: the type becomes Videos, shown on the home screen itself	Выкл., пока тип — приложение заставки ТВ (другой процесс). Вкл.: тип становится «Видео», показ идёт прямо на главном экране
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	Выкл.: окно может показать любое устройство дома. Вкл.: Home Assistant добавляет заголовок X-Glassio-Token (или ?token= в ссылке)
 Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	Выкл.: удержание OK, как обычно, закрепляет видео. Вкл.: небольшое меню — оставить его или больше не показывать
 Off: in the collections' order	Выкл.: в порядке коллекций
@@ -946,6 +1015,9 @@ On the Inputs icon's page (hold OK on it there to change its icon)	На стра
 On the screensaver	На заставке
 On the Search icon ▼ doesn't open the Library, and ▲ from the search bar doesn't go to the menu	На значке поиска ▼ не открывает Библиотеку, а ▲ из строки поиска не ведёт в меню
 On the TV	На ТВ
+On the video screensaver	На видеозаставке
+On the whole screen	На весь экран
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	На весь экран звук выбранной камеры включается сам (для камер, передающих звук)
 On: accounts and keys (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, the lock code) go into the backup too, to move them to another TV: keep the file private. Off: they stay on each TV	Вкл.: аккаунты и ключи (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, код блокировки) тоже попадают в копию, чтобы перенести их на другой ТВ: храните файл в тайне. Выкл.: они остаются на каждом ТВ
 On: following your music apps	Вкл.: следует за вашими музыкальными приложениями
 On: it starts in every app when the TV is idle, not only on the home screen	Вкл.: запускается в любом приложении, когда ТВ простаивает, а не только на главном экране
@@ -966,10 +1038,12 @@ One title: on the carousel hold OK (or press Menu) to switch to its next picture
 One video	Одно видео
 One way only: what you change here in a synced part is replaced by the main TV's next change. Apps not installed on this TV are left out of its dock.	Только в одну сторону: то, что вы здесь меняете в синхронизируемой части, заменится следующим изменением главного ТВ. Приложения, не установленные на этом ТВ, в его доке не показываются.
 Online	В сети
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	В списке только приложения, не нужные ТВ: отчёты, реклама и установщики. Запуск, пульт, звук, трансляция, Play Store и обновления не затрагиваются. Ничего не удаляется, а сброс ТВ возвращает всё обратно.
 Only locked videos	Только закреплённые видео
 Only on my services	Только в моих сервисах
 Only on the carousel	Только в карусели
 Only on the carousel: slides change only while the carousel itself is selected (lighter on a weak TV)	Только в карусели: слайды меняются, только пока выбрана сама карусель (легче для слабого ТВ)
+Only the song's name, artist and length are sent, and only to the sources that are on.	Отправляются только название, исполнитель и длительность песни, и только включённым источникам.
 Only titles that a service's app on this TV has. Titles that are on none of them are left out, also when Nuvio or Stremio could open them	Только то, что есть в приложении сервиса на этом ТВ. Названия, которых нет ни в одном, пропускаются, даже если их мог бы открыть Nuvio или Stremio
 Only when selected	Только при выборе
 Open app	Открыть приложение
@@ -984,6 +1058,7 @@ Opens the first place	Открывает первое место
 Opens when you go up to it	Открывается, когда вы поднимаетесь к нему
 Opens with OK	Открывается по OK
 Optional: also lists apps opened before Glassio started	По желанию: также показывает приложения, открытые до запуска Glassio
+Or scan with your phone (same Wi-Fi) and change any setting there	Или отсканируйте телефоном (та же сеть Wi-Fi) и измените любую настройку там
 Order	Порядок
 Order of the list	Порядок списка
 Original	Оригинал
@@ -993,6 +1068,7 @@ Other apps (YouTube, Netflix, Apple TV…) keep their Continue Watching private 
 Other TVs & backups	Другие ТВ и копии
 Over the background	Поверх фона
 Page background	Фон страницы
+Page behind the player	Страница за плеером
 Page behind the search	Страница за поиском
 Password	Пароль
 Password (empty if it has none)	Пароль (оставьте пустым, если его нет)
@@ -1021,6 +1097,8 @@ Picture set	Картинка задана
 Pictures	Картинки
 Pictures in the folder	Картинки в папке
 Pictures per title	Картинок на фильм
+PIN removed	PIN удалён
+PIN set for this profile	PIN для этого профиля задан
 Place & size	Место и размер
 Place and credit	Место и автор
 placed around the TV	расставлены вокруг ТВ
@@ -1072,6 +1150,7 @@ projectivy icon pack	набор значков projectivy
 Purple	Фиолетовый
 Put the lights back now	Вернуть лампы сейчас
 QR code	QR-код
+QR code in Settings' search	QR-код в поиске по настройкам
 Quality	Качество
 Quick	Быстро
 RAM, CPU, GPU, storage, IP (the ones on in Look & menu → TV info)	RAM, CPU, GPU, память, IP (включённые в Вид и меню → Сведения о ТВ)
@@ -1080,14 +1159,13 @@ Rating	Рейтинг
 Rating, year, platform	Рейтинг, год, сервис
 Rating, year, where it streams and genres, as on the carousel	Рейтинг, год, где идёт и жанры, как в карусели
 Reading the bridge…	Читаем данные моста…
+Reading the TV's apps…	Чтение приложений ТВ…
 Reading what you watch in Nuvio Legacy	Читаем, что вы смотрите в Nuvio Legacy
 Ready-made words, or write your own below	Готовые слова или напишите свои ниже
 Recent apps	Недавние приложения
 Recent apps use TV access (ADB)	Недавние приложения используют доступ к ТВ (ADB)
 Recommended for this make	Рекомендуется для этой марки
 Recommended for this TV	Рекомендуется для этого ТВ
-Reddit app id	ID приложения Reddit
-Reddit lets apps in only with an id: reddit.com/prefs/apps → create app → "installed app" (any name, redirect http://localhost) → the id under its name	Reddit пускает приложения только с id: reddit.com/prefs/apps → create app → «installed app» (любое имя, redirect http://localhost) → id под его названием
 Refresh catalogs	Обновить каталоги
 Reload carousel now	Перезагрузить карусель сейчас
 Reload to apply	Перезагрузите, чтобы применить
@@ -1096,6 +1174,7 @@ Remote buttons	Кнопки пульта
 Remote mapping	Назначение кнопок
 Remove add-on	Удалить дополнение
 Remove the picture	Убрать картинку
+Remove the PIN	Удалить PIN
 Remove this button	Убрать эту кнопку
 Replace every setting on this TV?	Заменить все настройки на этом ТВ?
 Reset pictures picked per title	Сбросить картинки, выбранные для фильмов
@@ -1108,6 +1187,7 @@ Right, by Settings	Справа, у настроек
 Room	Комната
 Rows	Ряды
 Rows above the dock	Ряды над доком
+Rows from:	Ряды из:
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	Ряды друг над другом или один ряд посередине, который переключают ▲ / ▼
 Rows per platform	Рядов на сервис
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… , HLS (.m3u8) или ссылка на видео
@@ -1148,6 +1228,7 @@ Select none	Снять выбор
 Selected icon plate	Подложка выбранного значка
 Selection	Выбор
 Send a test event	Отправить тестовое событие
+Send crash reports by themselves	Отправлять отчёты о сбоях автоматически
 Send Nuvio playback	Отправлять воспроизведение Nuvio
 Sends title, type and id as JSON	Отправляет название, тип и id в виде JSON
 Service apps	Приложения сервисов
@@ -1195,8 +1276,10 @@ Shows the pop-up now with your camera	Сейчас показывает окно
 Shuffle	Вперемешку
 Shuffle all catalogs	Перемешать все каталоги
 Shuffle button	Кнопка перемешивания
+Shuffle button repeats a song	Кнопка перемешивания повторяет песню
 Shuffle my pictures	Перемешать мои картинки
 Shuffle photos	Перемешать фото
+Shuffle the carousel	Перемешать карусель
 Sign in first	Сначала войдите
 Sign in to Nuvio first (Accounts & profiles)	Сначала войдите в Nuvio (Аккаунты и профили)
 Sign in to Nuvio first (Connections)	Сначала войдите в Nuvio (Подключения)
@@ -1225,6 +1308,7 @@ Slides at the start	Слайды при запуске
 Slides change on their own	Слайды меняются сами
 Slides loaded before you get to them	Слайды загружаются заранее
 Slow	Медленно
+Small cards above the dock over your own background	Маленькие карточки над доком поверх собственного фона
 Smaller makes the dock and its icons narrower	Меньше — уже док и его значки
 Smaller posters leave more room at the sides	Меньшие постеры оставляют больше места по бокам
 Smart home	Умный дом
@@ -1235,6 +1319,7 @@ Software keeps the TV's own video playing while a camera shows (some TVs stopped
 Someone is at the door	Кто-то у двери
 Song and artist	Песня и исполнитель
 Sound	Звук
+Sound follows the selection	Звук следует за выбором
 SoundCloud's songs under the titles, and Spotify's own search with the words in it	Песни SoundCloud под названиями и собственный поиск Spotify по введённым словам
 Sources	Источники
 Sources without a direct address (marked P2P). Stremio plays them only where its streaming server runs; on most TVs they don't start	Источники без прямого адреса (помечены P2P). Stremio воспроизводит их только там, где работает его сервер потоковой передачи; на большинстве ТВ они не запускаются
@@ -1256,7 +1341,6 @@ Stop every TV following this one	Остановить все ТВ, следую�
 Stop every TV following this one?	Остановить все ТВ, следующие за этим?
 Stop following	Перестать следовать
 Stops the app on screen and comes back to Glassio. Needs TV access (ADB)	Останавливает приложение на экране и возвращает в Glassio. Нужен доступ к ТВ (ADB)
-Stops when you leave	Останавливается при выходе
 Straight from the packs' own pages (GitHub, F-Droid)	Прямо со страниц самих наборов (GitHub, F-Droid)
 Streaming services	Стриминговые сервисы
 Stremio account	Аккаунт Stremio
@@ -1269,10 +1353,9 @@ Stremio's sources	Источники Stremio
 Strength	Сила
 Style	Стиль
 Subject	Тема
-Subreddit wallpapers: one or more, comma separated (EarthPorn, wallpapers, SkyPorn…)	Обои из сабреддитов: один или несколько через запятую (EarthPorn, wallpapers, SkyPorn…)
-Subreddits	Сабреддиты
 Subtitles	Субтитры
 Subtle	Едва заметно
+Supporters	Поддержавшие
 Surprise me	Удиви меня
 Switch between title backdrops, your picture, your video and the screensaver	Переключение между фонами фильмов, вашей картинкой, вашим видео и заставкой
 Switch cameras every	Менять камеры каждые
@@ -1293,6 +1376,7 @@ Temperature + city	Температура + город
 Temperature + sky	Температура + небо
 Temperature, conditions, high / low, humidity and wind (the city: Clock & weather)	Температура, условия, максимум / минимум, влажность и ветер (город: Часы и погода)
 Text	Текст
+Thank you for keeping Glassio going.	Спасибо, что поддерживаете Glassio.
 Thank you! Scan the code on the left	Спасибо! Отсканируйте код слева
 That isn't a link	Это не ссылка
 That one first, then the nearest below it	Сначала он, затем ближайший ниже
@@ -1306,19 +1390,18 @@ The Apple TV-style menu at the settings button	Меню в стиле Apple TV �
 The Apps folder	Папка приложений
 The bridge's button wasn't pressed: press it, then Connect again	Кнопка моста не была нажата: нажмите её и снова «Подключить»
 The button at the top that opens the menu	Кнопка вверху, открывающая меню
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Камеры на весь экран до нажатия «Назад»; стрелки выбирают камеру, OK включает её звук (также: меню → Камера → Весь экран или кнопка пульта)
 The chips under the title	Метки под названием
 The clock and the settings button hide while you browse, and come back when you go up to them	Часы и кнопка настроек скрываются при просмотре и возвращаются, когда вы поднимаетесь к ним
 The colour of the switches in Settings, and of a row while you change it	Цвет переключателей в Настройках и строки, пока вы её меняете
 The dark shade along the left side (it keeps the clock and text readable on bright pictures)	Тёмное затенение вдоль левого края (часы и текст остаются читаемыми на ярких картинках)
 The dark shades over the title's picture: on the left behind the logo, text and buttons, and at the bottom above the dock. Off: the picture as it is (the writing gets a soft shadow of its own)	Тёмные затенения поверх картинки фильма: слева за логотипом, текстом и кнопками и внизу над доком. Выкл.: картинка как есть (у текста появляется своя мягкая тень)
-The date above the time in white, whatever the clock's look	Дата над временем белым цветом при любом виде часов
 The dock and the dots step aside while a trailer fills the page, and come back when it stops or ends (never with the window)	Док и точки уходят, пока трейлер занимает страницу, и возвращаются, когда он остановлен или закончился (не с окном)
 The dock's order, hidden apps, its size and place, and icons you made	Порядок дока, скрытые приложения, его размер и положение и созданные вами значки
 The dots bar (and the liquid glass drops)	Полоса точек (и капли жидкого стекла)
 The folder with all your apps, in the dock. Hidden apps stay listed in Arrange apps	Папка со всеми вашими приложениями в доке. Скрытые приложения остаются в списке «Расположить приложения»
 The grey page, Glassio's soft coloured lights, or the carousel's picture blurred. The Music and Inputs icons' page is the same one	Серая страница, мягкие цветные огни Glassio или размытая картинка карусели. Та же страница у значков «Музыка» и «Входы»
 The Hue bridge Glassio is paired with (each TV keeps its own lights and room)	Мост Hue, с которым связан Glassio (у каждого ТВ свои лампы и комната)
-the id under the app's name	id под названием приложения
 The Jellyfin app isn't on this TV: install it (Google Play: Jellyfin for Android TV) and sign in there to the same server, so titles open in it.	Приложения Jellyfin нет на этом телевизоре: установите его (Google Play: Jellyfin for Android TV) и войдите в нём на тот же сервер, чтобы названия открывались в нём.
 The large glass clock in the middle of the screensaver (its look: Large clock, above)	Большие стеклянные часы посередине заставки (их вид: Большие часы, выше)
 The Library	Библиотека
@@ -1333,7 +1416,7 @@ The main TV: the TVs that follow it take its setup	Главный ТВ: след
 The menu	Меню
 The menu, the dock and the icons with square corners	Меню, док и значки с квадратными углами
 The music island at the top of the screensaver	Островок музыки вверху заставки
-The newest backup in Download/Glassio on the TV. Glassio restarts after	Новейшая копия в Download/Glassio на ТВ. После этого Glassio перезапускается
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	Новейшая резервная копия в Download/Glassio на ТВ, иначе настройки Glassio из Google Play на этом ТВ. После этого Glassio перезапускается
 The next video, picture or photo now	Следующее видео, картинка или фото сейчас
 The Nuvio apps and Stremio on this TV: they can open any title	Приложения Nuvio и Stremio на этом ТВ: они могут открыть любой фильм
 The official Nuvio app, Nuvio Arc and Re-Shaped don't write that log: connect Trakt (and turn on Trakt in that Nuvio app) and what you pause there shows up here through Trakt.	Официальное приложение Nuvio, Nuvio Arc и Re-Shaped не ведут этот журнал: подключите Trakt (и включите Trakt в этом приложении Nuvio), и то, что вы ставите там на паузу, появится здесь через Trakt.
@@ -1345,7 +1428,10 @@ The open apps, like holding Home	Открытые приложения, как �
 The open apps, like the Apple TV app switcher	Открытые приложения, как переключатель приложений Apple TV
 The others open a title as usual	Остальные открывают фильм как обычно
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	Режим производительности и то, что он задаёт: качество картинки, детали и преломление стекла, анимация слайдов, галерея фонов, кэши и качество заставки. Выкл.: этот ТВ сохраняет свои, так что слабый ТВ остаётся плавным
+The phone page's QR code: change settings from your phone	QR-код страницы для телефона: меняйте настройки с телефона
 The row at the top of the results. The others follow in their usual order	Ряд вверху результатов. Остальные идут в обычном порядке
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Тот же внешний вид, но меньше нагрузка на память и процессор: меньше готовых картинок, меньше фоновой работы
+The same PIN again	Повторите PIN
 The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	Заставка начинается с видео, которое идёт здесь, с того же места, а фон продолжает тем, на котором она закончилась. Легче для ТВ с малой памятью
 The screensaver: what it shows and how	Заставка: что она показывает и как
 The search opens empty each time. Off: what was typed last is still in the bar	Поиск каждый раз открывается пустым. Выкл.: последний запрос остаётся в строке
@@ -1355,7 +1441,9 @@ The selected icon rises a little, glass and all	Выбранный значок 
 The selected poster in the Library	Выбранный постер в Библиотеке
 The service then does nothing, also while it is on in the TV's settings	Тогда служба ничего не делает, даже когда она включена в настройках ТВ
 The services whose app is on this TV, the ones you choose, or none	Сервисы, чьё приложение есть на этом ТВ, выбранные вами или никакие
+The shuffle button of the player, the island and the menu has a second press: the song playing starts again each time it ends. Off → shuffle → this song again → off. An app that takes no repeat from outside is sent back to the song's start a second before its end	У кнопки перемешивания в плеере, на островке и в меню есть второе нажатие: играющая песня начинается заново каждый раз, когда заканчивается. Выкл. → перемешивание → эта песня снова → выкл. Приложению, не принимающему повтор извне, команда возвращает песню к началу за секунду до конца
 The small player in the menu is with the music	Маленький плеер в меню находится в настройках музыки
+The song's artwork	Обложка песни
 The title's logo	Логотип фильма
 The title's logo (or its name)	Логотип фильма (или его название)
 The title's poster	Постер фильма
@@ -1363,6 +1451,7 @@ The title's rating, the number alone, faint, beside the year and Film / Series	�
 The titles and their progress from Nuvio only, even with Trakt, Simkl and Stremio syncing too (their progress for the same title could be older or off)	Фильмы и их прогресс только из Nuvio, даже если синхронизируются Trakt, Simkl и Stremio (их прогресс по тому же фильму может быть старее или неточным)
 The TV is not on a network	ТВ не подключён к сети
 The TV is not on a network, so the phone page can't start.	ТВ не подключён к сети, поэтому страница для телефона не запустится.
+The TV refused:	ТВ отклонил:
 The TV screensaver now starts after	Заставка ТВ теперь запускается через
 The TV's app	Приложение ТВ
 The TV's Bluetooth: remotes, headphones, speakers and controllers	Bluetooth ТВ: пульты, наушники, колонки и контроллеры
@@ -1371,6 +1460,7 @@ The TV's inputs over any app · press again to close	Входы телевизо
 The TV's own idle time, in any app (ADB)	Собственное время простоя ТВ в любом приложении (ADB)
 The TV's screensaver app (	Приложение заставки ТВ (
 The welcome screen: restore, catalogs, accounts and theme	Экран приветствия: восстановление, каталоги, аккаунты и тема
+The words also show over the screensaver's videos while a song plays (never over the posters or trailers). The island's lyrics button (▲ on the screensaver) turns Lyrics on and off	Текст также показывается поверх видео заставки, пока играет песня (но не поверх постеров и трейлеров). Кнопка текста на островке (▲ на заставке) включает и выключает тексты песен
 Their order in the dock, the hidden ones, and each app's options	Их порядок в доке, скрытые и параметры каждого приложения
 Their own colour, at 20 %	Свой цвет, 20 %
 Theme	Тема
@@ -1384,6 +1474,8 @@ This add-on has no catalogs for the carousel	У этого дополнения 
 This build has no Trakt app id.	В этой сборке нет id приложения Trakt.
 This closes by itself once you approve.	Окно закроется само после подтверждения.
 This is the main TV now. Add a TV shows the code for the other one	Теперь это главный ТВ. «Добавить ТВ» покажет код для другого
+This PIN is the one in Nuvio: change it in the Nuvio app	Это PIN из Nuvio: измените его в приложении Nuvio
+This profile has a PIN in Nuvio: Glassio asks for the same one, and Nuvio checks it. It is changed in the Nuvio app	У этого профиля есть PIN в Nuvio: Glassio запрашивает тот же, а проверяет его Nuvio. Он меняется в приложении Nuvio
 This screen is not available on this device	Этот экран недоступен на этом устройстве
 This TV	Этот ТВ
 This TV has no Usage access screen: Recent apps still works without it	На этом ТВ нет экрана «Доступ к данным об использовании»: недавние приложения работают и без него
@@ -1416,11 +1508,14 @@ Trailers (the carousel's titles, one after another) · OK opens the title in Nuv
 Trakt account	Аккаунт Trakt
 Transition speed	Скорость переходов
 Try it	Попробовать
+Turn back on what Glassio turned off	Включить обратно то, что выключил Glassio
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	Отключите приложения ТВ, которые только отправляют отчёты, показывают рекламу или устанавливают другие приложения. Ничего не удаляется: переключатель включает каждое обратно
 Turn on a collection first	Сначала включите коллекцию
 Turn on Glassio under Notification access, then switch Music on again	Включите Glassio в «Доступе к уведомлениям», затем снова включите Музыку
 Turn on the service	Включить службу
 Turn on USB debugging	Включить отладку по USB
 Turn on USB debugging first (step 2)	Сначала включите отладку по USB (шаг 2)
+Turn them all off	Выключить все
 Turn them off	Выключить их
 TV	ТВ
 TV access (ADB)	Доступ к ТВ (ADB)
@@ -1440,6 +1535,7 @@ Under the weather in the menu: IP, CPU, GPU, RAM, storage	Под погодой 
 Under the weather: IP, CPU, GPU, RAM, storage (CPU and GPU need TV access (ADB))	Под погодой: IP, CPU, GPU, RAM, память (для CPU и GPU нужен доступ к ТВ (ADB))
 Unknown	Неизвестно
 Unlimited	Без ограничений
+Unneeded apps	Ненужные приложения
 Unsplash key	Ключ Unsplash
 Until closed	Пока не закроют
 Update	Обновить
@@ -1482,12 +1578,13 @@ What plays	Что воспроизводится
 What the lights take their colours from	Откуда лампы берут цвета
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	Что показывает меню: часы, погоду, Библиотеку, темы, профиль, фон и другое
 What went wrong?	Что пошло не так?
-What Wikimedia and Unsplash photos show	Что показывают фото Wikimedia и Unsplash
+What Wikimedia, Unsplash and Pexels photos show	Что показывают фото Wikimedia, Unsplash и Pexels
 What you are watching on the server (titles it knows by IMDb number)	Что вы смотрите на сервере (названия, известные ему по номеру IMDb)
 What you are watching on your Jellyfin server	Что вы смотрите на своём сервере Jellyfin
 What you paused in any app that uses Simkl	Что вы поставили на паузу в любом приложении с Simkl
 What you paused in Stremio	Что вы поставили на паузу в Stremio
 What you watch in Nuvio Legacy, the official app and forks	Что вы смотрите в Nuvio Legacy, официальном приложении и форках
+What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	То, что вы смотрите, в виде маленьких карточек над доком, фон остаётся целым. Вверх из дока переходит к ним
 What's new	Что нового
 When Music mode is off	Когда режим музыки выключен
 When the TV doesn't let you (restricted setting / greyed out). Needs TV access (ADB)	Когда ТВ не разрешает (ограниченная настройка / неактивна). Нужен доступ к ТВ (ADB)
@@ -1500,19 +1597,19 @@ Where it came from	Откуда это
 Where it comes from	Откуда это берётся
 Where the photo or video was taken and who took it	Где снято фото или видео и кто автор
 Where the video was filmed	Где снято видео
-Where titles you are watching appear	Где появляются фильмы, которые вы смотрите
+Where the words are looked for. All are asked at once and the best answer is kept: word by word before line by line, the song's own writing before Latin letters	Где искать текст. Запрашиваются все сразу, и выбирается лучший ответ: пословный раньше построчного, оригинальное написание песни раньше латиницы
 Which apps are locked, the code and its reminder	Какие приложения заблокированы, код и подсказка к нему
 Which camera opens when you hold Home	Какая камера открывается при удержании Home
 Which catalogs the carousel takes its titles from	Из каких каталогов карусель берёт фильмы
 Which inputs show on the Inputs icon's page, and their order	Какие входы показываются на странице значка входов и их порядок
-Which ones, in this order (up to four). None chosen = the first four	Какие и в каком порядке (до четырёх). Ничего не выбрано = первые четыре
+Which ones, in this order (up to nine). None chosen = all	Какие именно, в этом порядке (до девяти). Ничего не выбрано = все
 Which picture each title uses	Какую картинку использует каждый фильм
 While a song plays, the carousel's place becomes the player (artwork, song, buttons). ■ stops the music. With your own picture, photos, video or the screensaver's videos as the background, the island shows instead	Пока играет песня, на месте карусели появляется плеер (обложка, песня, кнопки). ■ останавливает музыку. Если фон — ваша картинка, фото, видео или видео заставки, вместо этого показывается островок
 While an app that has channels is selected in the dock (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…), its rows (Continue watching, New…) take the carousel's place. ▲ goes into them, ▼ back to the app	Пока в доке выбрано приложение с каналами (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…), его ряды (Продолжить просмотр, Новое…) занимают место карусели. ▲ входит в них, ▼ возвращает к приложению
 While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it.	Во время показа: ◀ ▶ меняют видео, OK показывает или скрывает эту информацию, любая другая кнопка завершает.
 While music plays, a small island at the top of the screensaver (like the iPhone's). ▲ opens it with its buttons, ▼ closes it	Пока играет музыка, вверху заставки небольшой островок (как на iPhone). ▲ открывает его с кнопками, ▼ закрывает
+While nothing is typed in the search, this code is there too	Пока в поиск ничего не введено, этот код тоже показывается там
 White	Белый
-White date	Белая дата
 White logo	Белый логотип
 White only (it follows the brightness)	Только белый (следует яркости)
 White or black turn the other way round when selected	Белый или чёрный при выборе меняются местами
@@ -1524,6 +1621,8 @@ With a streaming app selected in the dock, the carousel shows the catalogs linke
 With ADB	Через ADB
 With Colour on focus	С цветом при выборе
 With fewer apps than a full row, the dock shrinks around them	Если приложений меньше, чем на полный ряд, док сжимается вокруг них
+With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	Если подключён Nuvio, кнопка показывает изображение вашего профиля Nuvio, пока вы не выберете для неё другой вид
+With One player it starts here a little before the TV's own, Off or not	С единым плеером он запускается здесь чуть раньше заставки ТВ, независимо от значения «Выкл.»
 With the account's email and password (for a server without a TV sign-in page)	По почте и паролю аккаунта (для сервера без страницы входа на ТВ)
 With the theme	Как тема
 With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)	Как тема: цифры оформляются точно как док вашей темы (его стекло, оттенок и цвет)
@@ -1533,12 +1632,15 @@ Write	Написать
 Write a few more words, so the problem can be found	Напишите ещё несколько слов, чтобы можно было найти проблему
 Your add-ons	Ваши дополнения
 Your add-ons and the catalogs chosen from them	Ваши дополнения и выбранные из них каталоги
+Your background	Ваш фон
 Your cameras, the corner camera and multi-view, and the doorbell	Ваши камеры, камера в углу, мультипросмотр и дверной звонок
+your city	ваш город
 Your Jellyfin favourites as a row in the Library	Ваше избранное Jellyfin строкой в Библиотеке
 Your links	Ваши ссылки
 Your links and the videos in the backgrounds folder	Ваши ссылки и видео из папки фонов
 Your links and the videos in the backgrounds folder, with a picture of each. OK plays only that one	Ваши ссылки и видео из папки фонов, с картинкой каждого. OK воспроизводит только это
 Your links below and the videos in the backgrounds folder	Ваши ссылки ниже и видео из папки фонов
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Камеры мультипросмотра на весь экран · OK включает звук камеры · «Назад» закрывает
 Your own mix of the settings below	Ваш собственный набор настроек ниже
 Your own Nuvio backend, if you host one. Easier to type on the phone page	Ваш собственный бэкенд Nuvio, если он у вас есть. Проще ввести на странице на телефоне
 Your own words under the digits	Ваши слова под цифрами
@@ -1615,7 +1717,6 @@ Focus plate	Подложка выбора
 Glassio settings	Настройки Glassio
 Hello, name	Здравствуйте, name
 Locked only	Только закреплённые
-Multi-view needs the Home button service (Glassio settings → System)	Для мультипросмотра нужна служба кнопки Home (настройки Glassio → Система)
 Next photo	Следующее фото
 Next picture	Следующая картинка
 Next video	Следующее видео
@@ -1625,10 +1726,14 @@ OK: multi-view	OK: мультипросмотр
 Pair a new device	Подключить новое устройство
 Play trailer	Смотреть трейлер
 Posters	Постеры
+Scan with your phone (same Wi-Fi) and change any setting there	Отсканируйте телефоном (та же сеть Wi-Fi) и измените любую настройку там
+Screensaver's	Заставки
 Starts after	Запускается через
 Starts by itself	Запускается сам
 The remote stays connected	Пульт остаётся подключённым
+Titles	Названия
 TV screensaver	Заставка телевизора
+Whole screen	Весь экран
 screensaver did not start	заставка не запустилась
 **Sharp glass**: …	**Чёткое стекло**: …
 Go up to Update and press OK	Поднимитесь к «Обновить» и нажмите OK
@@ -1638,42 +1743,72 @@ Next trailer	Следующий трейлер
 No internet connection\nThe trailers come back when it's back	Нет подключения к интернету\nТрейлеры вернутся, когда он появится
 No titles in the carousel yet	В карусели пока нет фильмов
 No trailers found	Трейлеры не найдены
-Open in Nuvio	Открыть в Nuvio
 Sound off	Звук выкл.
 Sound on	Звук вкл.
 Teaser	Тизер
 move app	переместить приложение
 11 sections in groups, every setting in one place, long lists on their own pages.	11 разделов в группах, каждая настройка в одном месте, длинные списки на отдельных страницах.
+A paused song leaves the music island and stays gone (Island → A paused song goes).	Песня на паузе исчезает с музыкального островка и не возвращается (Островок → Песня на паузе убирается).
+A PIN for a profile	PIN для профиля
+A profile can ask for its four-digit PIN: when the TV starts, when it wakes after a while, and when you change to that profile.	Профиль может запрашивать четырёхзначный PIN: при запуске ТВ, при пробуждении через некоторое время и при переходе на этот профиль.
+A profile with a PIN in Nuvio uses that one, checked by Nuvio. Any other profile can get a PIN made here, kept on this TV only.	Профиль с PIN в Nuvio использует его, проверку выполняет Nuvio. Для любого другого профиля можно задать PIN здесь, он хранится только на этом ТВ.
+A song's words beside the player, in time with the song: the line being sung is bright and lights word by word.	Текст песни рядом с плеером, в такт музыке: поющаяся строка яркая и подсвечивается слово за словом.
+A tidier menu	Более аккуратное меню
 A title on your server opens on its page in the Jellyfin app.	Название с вашего сервера открывается на своей странице в приложении Jellyfin.
 A TV inputs button: your inputs over any app.	Кнопка входов ТВ: ваши входы поверх любого приложения.
+A TV that can't play HEVC videos gets only the videos it can play. Home Assistant cameras fall back to their live picture, and Reolink cameras turn with the remote.	ТВ, не воспроизводящий видео HEVC, получает только те видео, которые может проиграть. Камеры Home Assistant переключаются на живое изображение, а камеры Reolink поворачиваются с пульта.
 A ⭐ on GitHub and sharing Glassio with friends keeps it going.	⭐ на GitHub и рассказ о Glassio друзьям помогают проекту жить.
 Also in Settings → About → PlayStation gift card	Также в Настройки → О системе → Подарочная карта PlayStation
+An app with its own Continue watching row (Netflix, Stremio…) shows it as cards too while it is selected.	Приложение со своим рядом «Продолжить просмотр» (Netflix, Stremio…) тоже показывает его карточками, пока оно выбрано.
 And more	И не только
+Ask for the PIN → Automatic: this TV goes in without it.	Запрашивать PIN → Автоматически: этот ТВ входит без него.
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Если вы долго в другом приложении, Glassio освобождает свои картинки и возвращает их, когда вы вернётесь.
 Buttons that send no key code (some remotes' Netflix button) can be given a job too.	Кнопкам, которые не отправляют код клавиши (кнопка Netflix на некоторых пультах), тоже можно назначить действие.
 Catalogs for apps: with Netflix, Apple TV or Prime Video selected in the dock, the carousel shows that app's titles.	Каталоги для приложений: когда в доке выбрано Netflix, Apple TV или Prime Video, карусель показывает названия этого приложения.
+Change the theme, language, screensaver and more from your phone.	Меняйте тему, язык, заставку и многое другое с телефона.
 Connect your Jellyfin server with a code (Quick Connect), nothing to type.	Подключите сервер Jellyfin по коду (Quick Connect), ничего не вводя.
 Each button can do three things: a press, a double press and a hold.	Каждая кнопка может делать три вещи: нажатие, двойное нажатие и удержание.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Каждая камера воспроизводится, в том числе поверх видео: видео ждёт и возвращает свой декодер.
 Every screen of Glassio in your language, changed at once.	Все экраны Glassio на вашем языке, сразу.
-Everything new since Glassio 4.0, page by page. Your setup stays as it is: each new thing is a choice.	Всё новое с Glassio 4.0, страница за страницей. Ваши настройки остаются прежними: каждая новинка — на ваш выбор.
+Everything new since Glassio 4.0, page by page, 4.8's first. Your setup stays as it is: each new thing is a choice.	Всё новое со времён Glassio 4.0, страница за страницей, сначала 4.8. Ваши настройки остаются прежними: каждая новая функция — на ваш выбор.
 Find a film or a series and open it where it can be watched: your streaming apps, Nuvio or Stremio.	Найдите фильм или сериал и откройте там, где его можно смотреть: в ваших приложениях, Nuvio или Stremio.
+Glass over the video and the video quality are in the menu too.	Стекло поверх видео и качество видео тоже есть в меню.
 Glassio is free and open source. Scan the code to see every version, report a problem or ask for a feature.	Glassio бесплатный и с открытым кодом. Отсканируйте код, чтобы увидеть все версии, сообщить о проблеме или предложить функцию.
 Glassio is free, with no ads, made in my spare time.	Glassio бесплатный, без рекламы, сделан в свободное время.
 Glassio on GitHub	Glassio на GitHub
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Удерживайте OK на поворотной камере (PTZ): управляйте поворотом и масштабом с пульта.
 Hold OK on a video: keep it, or never show it again.	Удерживайте OK на видео: оставить его или больше никогда не показывать.
+Home over the TV's screensaver now takes you straight to Glassio.	Кнопка «Домой» поверх заставки ТВ теперь сразу открывает Glassio.
 If you enjoy it, a PlayStation gift card (PSN, USA) helps a lot. Maybe for GTA VI 😉	Если вам нравится, подарочная карта PlayStation (PSN, США) очень поможет. Может, на GTA VI 😉
 In the menu: Screensaver → Collections and One player.	В меню: Заставка → Коллекции и Один плеер.
+It shows the shuffle you set in the music app itself.	Показывает перемешивание, заданное в самом музыкальном приложении.
 Its icon is in the dock. Turn Search off in Settings if you don't want it.	Его значок есть в доке. Отключите поиск в настройках, если он не нужен.
 Its libraries in the carousel, what you are watching, your favourites in the Library, its titles first in the search.	Его библиотеки в карусели, то, что вы смотрите, ваше избранное в Библиотеке, его названия первыми в поиске.
+Its QR code is in the menu and in Settings' search, ready to scan.	Его QR-код есть в меню и в поиске по настройкам, готовый к сканированию.
+Lighter	Легче
+Menu → Manage from phone	Меню → Управление с телефона
+Menu → Themes, Background, Screensaver · Settings → Music & app rows	Меню → Темы, Фон, Заставка · Настройки → Музыка и ряды приложений
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	Мультипросмотр больше не выходит за экран: четыре камеры 2 на 2, насколько велик позволяет экран.
+Music icon in the dock · Settings → Music & app rows	Значок музыки в доке · Настройки → Музыка и ряды приложений
 New job: close the app in front and come back to Glassio.	Новое действие: закрыть приложение на экране и вернуться в Glassio.
 New Settings	Новые настройки
 New: what this version added. Changed: every setting you changed, with Back to default.	Новое: что добавила эта версия. Изменено: каждая изменённая вами настройка, с кнопкой «Вернуть по умолчанию».
 Nine languages	Девять языков
 OK  Done	OK  Готово
 OK  Next  ▶	OK  Далее  ▶
+OK on a music app's card plays in that app, without opening it.	OK на карточке музыкального приложения запускает воспроизведение в нём, не открывая его.
 One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.	Один Glassio на каждый профиль аккаунта Nuvio: свой вид, док, каталоги, Библиотека и Продолжить просмотр.
+One player starts on the home screen just before the TV's own screensaver, which stays for other apps; the TV still sleeps on time.	Единый плеер запускается на главном экране незадолго до заставки ТВ, которая остаётся для других приложений; ТВ по-прежнему засыпает вовремя.
 One player: the screensaver on the home screen itself. With the screensaver's videos as background it goes on with the same video, and you are back at once.	Один плеер: заставка прямо на главном экране. С видео заставки в качестве фона она продолжает то же видео, и вы сразу возвращаетесь.
+Over a video background Glassio keeps its full frame rate. Changing profile starts Glassio once.	Поверх видеофона Glassio сохраняет полную частоту кадров. Смена профиля запускает Glassio один раз.
+Over the video screensaver too, while a song plays.	Также поверх видеозаставки, пока играет песня.
+Over your own background, what you're watching as small glass cards right above the dock: the picture stays whole.	Поверх собственного фона то, что вы смотрите, в виде маленьких стеклянных карточек прямо над доком: картинка остаётся целой.
+Page behind the player: your own video or picture can stay behind the music player.	Страница за плеером: ваше видео или картинка может оставаться за музыкальным плеером.
+Performance → Lite: the same look, lighter on memory and on the processor.	Производительность → Лёгкий: тот же вид, меньше нагрузка на память и процессор.
 Pexels videos for the words you choose, with your own free key.	Видео Pexels по выбранным вами словам, с вашим собственным бесплатным ключом.
 Pexels videos, and YouTube videos and playlists among My videos, each one on or off.	Видео Pexels, а также видео и плейлисты YouTube в «Моих видео», каждое можно включить или выключить.
+Photos as your background: Windows Spotlight, museum paintings and Pexels photos are new sources.	Фото в качестве фона: Windows Spotlight, картины из музеев и фото Pexels — новые источники.
+Photos, the Apps folder, cameras	Фото, папка приложений, камеры
 Play opens the streaming app: the title's own page in Netflix, Apple TV, Prime Video or Disney+.	«Смотреть» открывает стриминговое приложение: собственную страницу названия в Netflix, Apple TV, Prime Video или Disney+.
 Press OK, type the code and press Send: it comes straight to me. Thank you!	Нажмите OK, введите код и нажмите «Отправить»: он придёт прямо мне. Спасибо!
 Press ▶ to see what's new.	Нажмите ▶, чтобы увидеть, что нового.
@@ -1681,149 +1816,41 @@ Recommended for this TV: the right settings for a weaker TV in one press (Settin
 Report a problem from the TV or the phone, cleaned of anything private before it goes.	Сообщите о проблеме с телевизора или телефона: всё личное удаляется перед отправкой.
 Rows above the dock: an app's row sits right above the dock, so the clock stays in view.	Ряды над доком: ряд приложения стоит прямо над доком, и часы остаются на виду.
 Rows per service in the Library (On Netflix, On Apple TV…), for your country.	Ряды по сервисам в Библиотеке (В Netflix, В Apple TV…), для вашей страны.
+Screensaver and clock	Заставка и часы
 Send a gift card	Отправить подарочную карту
 Settings → About → Report a problem	Настройки → О системе → Сообщить о проблеме
 Settings → About → What's new	Настройки → О системе → Что нового
 Settings → Accounts & profiles	Настройки → Аккаунты и профили
 Settings → Accounts & profiles → Connect Jellyfin	Настройки → Аккаунты и профили → Подключить Jellyfin
+Settings → Accounts & profiles → PIN	Настройки → Аккаунты и профили → PIN
 Settings → Background & screensaver	Настройки → Фон и заставка
+Settings → Background & screensaver · Music & app rows → Island	Настройки → Фон и заставка · Музыка и ряды приложений → Островок
+Settings → Background & screensaver · Smart home	Настройки → Фон и заставка · Умный дом
+Settings → Background & screensaver → Continue Watching cards	Настройки → Фон и заставка → Карточки «Продолжить просмотр»
 Settings → Catalogs & add-ons	Настройки → Каталоги и дополнения
 Settings → Continue Watching & Library → Search	Настройки → Continue Watching & Library → Search
+Settings → Music & app rows → Lyrics	Настройки → Музыка и ряды приложений → Тексты песен
+Settings → Smart home → Multi-view	Настройки → Умный дом → Мультипросмотр
 Settings → System → Language	Настройки → System → Language
+Settings → System → Performance	Настройки → Система → Производительность
 Settings → System → Remote buttons	Настройки → Система → Кнопки пульта
 Something wrong? Settings → About → Report a problem.	Что-то не так? Настройки → О системе → Сообщить о проблеме.
+The Apps folder shows three whole rows and grows as you go down, like the dock. It opens and closes faster.	Папка приложений показывает три целых ряда и растёт по мере движения вниз, как док. Она открывается и закрывается быстрее.
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Страница камер: ваши камеры на весь экран; стрелки выбирают камеру, OK включает её звук.
+The large clock's Still Glass style looks like the lock screen: tall digits of thick glass under the date.	Стиль «Still Glass» для больших часов похож на экран блокировки: высокие цифры из толстого стекла под датой.
 The Library scrolls in one smooth movement, also with a button held down.	Библиотека прокручивается одним плавным движением, даже при удержании кнопки.
+The lyrics button of the player and of the open island turns them on and off. Off until you turn it on: the song's name and artist go to the lyrics sources.	Кнопка текста в плеере и на открытом островке включает и выключает их. Выключено, пока вы не включите: название и исполнитель песни отправляются источникам текстов.
+The music player	Музыкальный плеер
+The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	Страница остаётся включённой с одним кодом для этого ТВ: сохраните её на главный экран телефона, и она продолжит работать.
 The search finds any setting, also inside those pages.	Поиск находит любую настройку, даже внутри этих страниц.
+The shuffle button has a second press: the song playing starts again each time it ends. A third press turns both off.	У кнопки перемешивания есть второе нажатие: играющая песня начинается заново каждый раз, когда заканчивается. Третье нажатие выключает оба режима.
 The translations were made by machine: tell us where the wording is wrong.	Переводы машинные: сообщите, где формулировка неверна.
-Welcome to Glassio 4.2	Добро пожаловать в Glassio 4.2
+Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	Темы, Фон и Заставка показывают варианты в один ряд, каждая тема — в виде маленького образца.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Ненужные приложения: отключите приложения ТВ, которые только отправляют отчёты, показывают рекламу или устанавливают другие приложения (Настройки → Система).
+Up from the dock goes to them, OK opens the title. Off by default.	Вверх из дока переходит к ним, OK открывает фильм или сериал. По умолчанию выключено.
+Welcome to Glassio 4.8	Добро пожаловать в Glassio 4.8
 Who is watching? at start or from the menu, with Nuvio's profile pictures and a greeting at the top of the menu.	«Кто смотрит?» при запуске или из меню, с фото профилей Nuvio и приветствием вверху меню.
+With Nuvio connected, the settings button becomes your Nuvio profile's picture.	Если подключён Nuvio, кнопка настроек становится изображением вашего профиля Nuvio.
 Your streaming apps	Ваши стриминговые приложения
 YouTube videos and songs under the titles; a song plays while you stay in Glassio.	Видео YouTube и песни под фильмами; песня играет, а вы остаётесь в Glassio.
 🎁  Send a gift card	🎁  Отправить подарочную карту
-Nuvio's picture by itself	Изображение Nuvio автоматически
-With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	Когда Nuvio подключён, кнопка показывает изображение вашего профиля Nuvio, пока вы не выберете для неё другой вид
-Or scan with your phone (same Wi-Fi) and change any setting there	Или отсканируйте телефоном (та же Wi-Fi) и меняйте любые настройки там
-The phone page's QR code: change settings from your phone	QR-код страницы для телефона: меняйте настройки с телефона
-QR code in Settings' search	QR-код в поиске настроек
-While nothing is typed in the search, this code is there too	Пока в поиске ничего не введено, этот код есть и там
-After you leave this screen. Always: the same address and code whenever Glassio runs, so the page saved on your phone keeps working	После выхода с этого экрана. Всегда: тот же адрес и код, пока Glassio работает, чтобы сохранённая на телефоне страница продолжала работать
-New code	Новый код
-Every QR code and page saved on a phone stops working; scan the new code	Все QR-коды и страницы, сохранённые на телефоне, перестанут работать; отсканируйте новый код
-After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	После выхода с этого экрана. Адрес и код не меняются, поэтому сохранённая на телефоне страница работает, пока страница включена. Всегда: пока работает Glassio
-Welcome to Glassio 4.3	Добро пожаловать в Glassio 4.3
-Its QR code is in the menu and in Settings' search, ready to scan.	Её QR-код есть в меню и в поиске настроек, готов к сканированию.
-The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	Страница остаётся включённой с одним кодом для этого телевизора: сохраните её на главный экран телефона, и она будет работать.
-Change the theme, language, screensaver and more from your phone.	Меняйте тему, язык, заставку и другое с телефона.
-Menu → Manage from phone	Меню → Управление с телефона
-With Nuvio connected, the settings button becomes your Nuvio profile's picture.	При подключённом Nuvio кнопка настроек становится фото вашего профиля Nuvio.
-Two by two	Два на два
-Whole screen	Весь экран
-On the whole screen	На весь экран
-Cameras on the whole screen	Камеры на весь экран
-Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	Автоматически: один ряд, если камеры помещаются при этом размере, иначе два на два. Они никогда не выходят за края экрана
-The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Камеры заполняют экран до нажатия «Назад»; стрелки выбирают камеру, OK включает её звук (также: меню → Камера → Весь экран или кнопка пульта)
-Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Камеры мультиэкрана на весь экран · OK включает звук камеры · «Назад» закрывает
-Menu's Camera opens the whole screen	Камера в меню открывает весь экран
-Menu → Camera goes straight to the cameras page instead of the live card	Меню → Камера сразу открывает страницу камер вместо живой карточки
-Sound follows the selection	Звук следует за выбором
-On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	На весь экран звук выбранной камеры включается сам (для камер со звуком)
-Lite	Лёгкий
-The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Тот же вид, легче для памяти и процессора: меньше заранее готовых картинок, меньше фоновой работы
-All of them are off	Все выключены
-It is the TV's screensaver: choose another one first	Это сейчас заставка телевизора: сначала выберите другую
-Needs TV access (ADB): System → TV access (ADB).	Нужен доступ к телевизору (ADB): Система → Доступ к телевизору (ADB).
-None of them is on this TV.	Ни одного из них нет на этом телевизоре.
-Nothing: apps that were off before stay as they are	Ничего: приложения, выключенные раньше, остаются как есть
-Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Показаны только приложения, которые телевизору не нужны: отчёты, реклама и установщики. Запуск, пульт, звук, трансляция, Play Маркет и обновления никогда не затрагиваются. Ничего не удаляется, а сброс телевизора возвращает всё.
-Reading the TV's apps…	Чтение приложений телевизора…
-Turn back on what Glassio turned off	Включить обратно то, что выключил Glassio
-Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	Выключите приложения телевизора, которые только отправляют отчёты, показывают рекламу или устанавливают другие приложения. Ничего не удаляется: переключатель включает каждое обратно
-Turn them all off	Выключить все
-Unneeded apps	Ненужные приложения
-Scan with your phone (same Wi-Fi) and change any setting there	Или отсканируйте телефоном (та же Wi-Fi) и меняйте любые настройки там
-Google feedback	Отзывы Google
-Sends feedback and problem reports to Google	Отправляет отзывы и отчёты о проблемах в Google
-Bug report sender	Отправка отчётов об ошибках
-Sends the TV's bug reports to Google	Отправляет отчёты об ошибках телевизора в Google
-Network diagnostics	Диагностика сети
-Google's connection checks and their reports	Проверки подключения Google и их отчёты
-Ad services	Рекламные сервисы
-Android's ad measurement and ad topics	Измерение рекламы и рекламные темы Android
-Ad personalisation	Персонализация рекламы
-Works out personalised ads on the TV	Подбирает персональную рекламу на телевизоре
-Federated learning	Федеративное обучение
-Trains Google's models with data from the TV	Обучает модели Google на данных телевизора
-Google Play Games	Google Play Игры
-The games app and its sign-in	Приложение игр и вход в него
-Google TV purchases	Покупки Google TV
-Films and series bought from Google: they can't be watched while it is off	Фильмы и сериалы, купленные в Google: пока выключено, их не посмотреть
-Maker's app installer	Установщик приложений производителя
-Installs the maker's chosen apps after a setup or a reset	Устанавливает выбранные производителем приложения после настройки или сброса
-Ambient mode	Режим Ambient
-Google's screensaver (kept while it is the TV's screensaver)	Заставка Google (остаётся, пока это заставка телевизора)
-The older Ambient screensaver (kept while it is the TV's screensaver)	Старая заставка Ambient (остаётся, пока это заставка телевизора)
-Xiaomi analytics	Аналитика Xiaomi
-Sends usage data to Xiaomi	Отправляет данные об использовании в Xiaomi
-Recognises what is on screen, for ads	Распознаёт то, что на экране, для рекламы
-TCL start-up ads	Реклама при запуске TCL
-Ads shown when the TV starts	Реклама при включении телевизора
-TCL app promotions	Продвижение приложений TCL
-Suggested apps and promotions	Рекомендуемые приложения и акции
-Amazon device metrics	Метрики устройства Amazon
-Sends usage data to Amazon	Отправляет данные об использовании в Amazon
-Amazon app metrics	Метрики приложений Amazon
-Sends app usage data to Amazon	Отправляет данные об использовании приложений в Amazon
-Amazon network metrics	Сетевые метрики Amazon
-Sends Wi-Fi data to Amazon	Отправляет данные Wi-Fi в Amazon
-Amazon logger	Журнал Amazon
-Collects the device's logs for Amazon	Собирает журналы устройства для Amazon
-Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Если вы какое-то время в другом приложении, Glassio освобождает свои изображения и возвращает их, когда вы вернётесь.
-Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Каждая камера показывает, даже с видео позади: видео ждёт и отдаёт свой декодер.
-Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	Всё новое с Glassio 4.0, страница за страницей, сначала 4.4. Ваша настройка остаётся прежней: всё новое — по выбору.
-Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Удерживайте OK на поворотной камере (PTZ): двигайте её и приближайте пультом.
-Lighter	Легче
-Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	Мультивид никогда не выходит за экран: четыре камеры два на два, настолько крупно, насколько позволяет экран.
-Performance → Lite: the same look, lighter on memory and on the processor.	Производительность → Lite: тот же вид, легче для памяти и процессора.
-Settings → Smart home → Multi-view	Настройки → Умный дом → Мультивид
-Settings → System → Performance	Настройки → Система → Производительность
-The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Страница камер: ваши камеры на весь экран; стрелки выбирают одну, OK включает её звук.
-Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Ненужные приложения: выключите приложения телевизора, которые только отправляют отчёты, показывают рекламу или устанавливают другие приложения (Настройки → Система).
-Welcome to Glassio 4.4	Добро пожаловать в Glassio 4.4
-Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	Какие, в этом порядке (до девяти). Мультивид показывает первые четыре, весь экран — все. Ничего не выбрано = все
-Which ones, in this order (up to nine). None chosen = all	Какие, в этом порядке (до девяти). Ничего не выбрано = все
-Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Автоматически: один ряд, если камеры помещаются в этом размере, иначе сетка (два на два, три на три, если больше четырёх). Они никогда не выходят за края экрана
-Grid	Сетка
-From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Из Glassio (GitHub), если он есть на этом телевизоре, иначе самая новая копия в Download/Glassio. Затем Glassio перезапустится
-The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	Самая новая копия в Download/Glassio на телевизоре, иначе настройки Glassio из Google Play на этом телевизоре. Затем Glassio перезапустится
-Choose a city	Выберите город
-  · Page behind the player	  · Страница за плеером
-Your background: your video or picture stays behind the player (with see-through glass the dock shows it too). The song's artwork: its picture fills the page	Ваш фон: ваше видео или картинка остаётся за плеером (с прозрачным стеклом её видно и в доке). Обложка песни: её картинка заполняет страницу
-Your background	Ваш фон
-The song's artwork	Обложка песни
-Screensaver's	Как у заставки
-Titles	Названия
-Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	Автоматически: ваш фон с прозрачным стеклом поверх видео, иначе обложка. Ваш фон: ваше видео или картинка остаётся за плеером. Обложка песни: её картинка заполняет страницу
-Welcome to Glassio 4.5	Добро пожаловать в Glassio 4.5
-Everything new since Glassio 4.0, page by page, 4.5's first. Your setup stays as it is: each new thing is a choice.	Всё новое с Glassio 4.0, страница за страницей, сначала новое в 4.5. Ваши настройки остаются как есть: каждое новшество — это выбор.
-A tidier menu	Более аккуратное меню
-Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	Темы, Фон и Заставка показывают варианты в один ряд, каждая тема — маленький образец самой себя.
-Glass over the video and the video quality are in the menu too.	Стекло поверх видео и качество видео теперь тоже в меню.
-Page behind the player: your own video or picture can stay behind the music player.	Страница за плеером: ваше видео или изображение может оставаться за музыкальным плеером.
-Menu → Themes, Background, Screensaver · Settings → Music & app rows	Меню → Темы, Фон, Заставка · Настройки → Музыка и ряды приложений
-Anywhere: the cameras in the middle · press again to close	Везде: камеры в центре экрана · нажмите ещё раз, чтобы закрыть
-Anywhere: the camera in the corner · press again to close	Везде: камера в углу · нажмите ещё раз, чтобы закрыть
-Shuffle the carousel	Перемешать карусель
-Rows from…	Ряды из…
-Its own rows	Свои ряды
-It has none now	Сейчас их нет
-Its catalogs show instead (OK → Show)	Вместо них показываются его каталоги (OK → Показать)
-Continue Watching cards	Карточки «Продолжить просмотр»
-What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	То, что вы смотрите, — маленькими карточками над доком, фон остаётся целым. Вверх из дока переходит к ним
-  · Cards	  · Карточки
-How many at most	Сколько максимум
-Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	Нужен свой фон (не картинки тайтлов) и док внизу: тогда то, что вы смотрите, показывается маленькими карточками над доком
-  · Apps' Continue watching	  · «Продолжить просмотр» приложений
-An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	Приложение со своим рядом «Продолжить просмотр» (Netflix, YouTube…) тоже показывает его карточками вместо рядов. Для каждого приложения: Музыка и ряды приложений → Приложения с каналами
-Small cards above the dock over your own background	Маленькие карточки над доком на вашем фоне
-Continue watching as cards: on	Продолжить просмотр карточками: вкл.
-Continue watching as cards: off	Продолжить просмотр карточками: выкл.

@@ -292,6 +292,7 @@ private fun NativeTrailer(app: GlassApp, s: Float, req: Trailers.Req, streams: c
         // Starts as soon as a little is in: a trailer is short, and waiting for a big buffer was the delay.
         val load = androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(3_000, 30_000, 600, 1_500).build()
         androidx.media3.exoplayer.ExoPlayer.Builder(ctx).setLoadControl(load).build().apply {
+            com.glasslauncher.tv.data.MediaLog.underGlassio(this)
             setMediaSource(src)
             addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
                 override fun onLoadError(t: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, l: androidx.media3.exoplayer.source.LoadEventInfo,

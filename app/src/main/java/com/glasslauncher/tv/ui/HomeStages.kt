@@ -124,7 +124,7 @@ internal fun MusicAppsStage(app: GlassApp, s: Float, metrics: DockMetrics, radiu
         } else {
             // (The selection goes to the player once its song is on: it fell out of these tiles when they went, and
             // landed on the home screen.)
-            MusicUi.startIn(ctx, pkg, st.musicLastPkg); MusicUi.focusRev.intValue++
+            MusicUi.startIn(ctx, pkg); MusicUi.focusRev.intValue++
         }
     }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {

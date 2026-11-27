@@ -756,7 +756,7 @@ class Settings(private val ctx: Context) {
     /** Screensaver as background: "1080" (light behind the glass) or "saver" (the screensaver's quality and its saved videos). */
     var bgAerialQuality: String get() = s("bgAerialQuality", "1080"); set(v) = putS("bgAerialQuality", v)
     /** Background "Photos": where they come from (mine = the backgrounds folder, bing, wallhaven, unsplash). */
-    var photoSource: String get() = s("photoSource", "bing").let { if (it == "wallhaven") "commons" else it }; set(v) = putS("photoSource", v)
+    var photoSource: String get() = s("photoSource", "bing").let { if (it == "wallhaven") "commons" else if (it == "reddit") "bing" else it }; set(v) = putS("photoSource", v)
     /** What the photos show (Wallhaven and Unsplash search for it). */
     var photoTopic: String get() = s("photoTopic", "architecture"); set(v) = putS("photoTopic", v)
     /** A new photo every this many seconds (0 = keep the one on screen). */
@@ -961,8 +961,28 @@ class Settings(private val ctx: Context) {
     /** Seconds a paused song stays in the island before it goes (0 at once, -1 never; #49). */
     /** After a crash, its report goes without asking (off: the next start asks, with the report to read first). */
     var crashAutoSend: Boolean get() = b("crashAutoSend", false); set(v) = putB("crashAutoSend", v)
+    /**
+     * An HEVC video failed to decode on this TV (#40, #53: a Fire TV's green screensaver): from then on the background
+     * and the screensaver play only H.264 files here (Amazon's collection, HEVC only, is left out). The TV's own; set
+     * back from Settings → Background & screensaver (*HEVC videos*).
+     */
+    var hevcFailed: Boolean get() = b("hevcFailed", false); set(v) = putB("hevcFailed", v)
     var islandPausedSec: Int get() = i("islandPausedSec", 20); set(v) = putI("islandPausedSec", v)
-    /** Photos from subreddits: their names (comma separated), and the Reddit app id that lets Glassio in. */
+    /**
+     * The shuffle button (player, island, menu) has a second press: the song playing starts again when it ends
+     * (off → shuffle → this song again → off). Off: the button only turns shuffle on and off, as before.
+     */
+    var shuffleRepeat: Boolean get() = b("shuffleRepeat", true); set(v) = putB("shuffleRepeat", v)
+    /**
+     * A song's words beside the player, in time with it (see data/Lyrics.kt). Off until asked for: the song's name
+     * and artist go to LRCLIB to find them. The player's lyrics button and Settings → Music & app rows set it.
+     */
+    var lyricsOn: Boolean get() = b("lyricsOn", false); set(v) = putB("lyricsOn", v)
+    /** With Lyrics on: the words also show over the video screensaver while a song plays (not the posters or trailers). */
+    var lyricsSaver: Boolean get() = b("lyricsSaver", true); set(v) = putB("lyricsSaver", v)
+    /** The lyrics sources switched off (keys of Lyrics.SOURCES, with commas; empty = all are asked). */
+    var lyricsSourcesOff: String get() = s("lyricsSourcesOff", ""); set(v) = putS("lyricsSourcesOff", v)
+    /** (Subreddit wallpapers, removed in 4.7.3: the two keys stay so a backup still restores; nothing reads them. A saved source "reddit" reads as Bing.) */
     var photoSubreddit: String get() = s("photoSubreddit", "EarthPorn"); set(v) = putS("photoSubreddit", v.trim())
     var redditAppId: String get() = s("redditAppId", ""); set(v) = putS("redditAppId", v.trim())
     /** With your own background: no shade along the left side (the carousel keeps it, its text needs it). */

@@ -469,7 +469,8 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
                 .onPreviewKeyEvent { ev -> if (ev.key == Key.Back && !editing) { if (ev.type == KeyEventType.KeyUp) onDown(); true } else false }) {
                 // Over a bright background (a white sky behind the page) the bar, its words and the headings were white on
                 // white (his photo): a dark see-through fill instead of a white one, and a short shadow under the letters.
-                val lift = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), offset = androidx.compose.ui.geometry.Offset(0f, 1.5f * s), blurRadius = 4f * s)
+                // (The one shadow of writing on a picture, see InkShadow: the island, the rows' headings and these.)
+                val lift = InkShadow
                 // The bar: selected like any button; OK types in it.
                 var barFocus by remember { mutableStateOf(false) }
                 val lit = barFocus || editing
@@ -516,10 +517,10 @@ internal fun SearchStage(app: GlassApp, s: Float, bottom: Float, leave: () -> Un
                 }
                 Spacer(Modifier.height((8 * s).dp))
                 if (rowKeys.isEmpty() || note.isNotBlank()) Text(note.ifBlank { if (query.isBlank()) "OK types  ·  hold the microphone key to speak" else "" },
-                    color = Color.White.copy(alpha = 0.75f), fontSize = (10 * s).sp, style = TextStyle(shadow = lift))
+                    color = Color.White.copy(alpha = 0.88f), fontSize = (10 * s).sp, fontWeight = FontWeight.Medium, style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = lift))
                 val side = (46 * s).dp
-                @Composable fun heading(t: String) = Text(t, color = Color.White.copy(alpha = 0.92f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold,
-                    style = TextStyle(shadow = lift), modifier = Modifier.fillMaxWidth().padding(start = side, top = (4 * s).dp))
+                @Composable fun heading(t: String) = Text(t, color = Color.White, fontSize = (10.5f * s).sp, fontWeight = FontWeight.Bold,
+                    style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = lift), modifier = Modifier.fillMaxWidth().padding(start = side, top = (4 * s).dp))
                 Column(Modifier.fillMaxWidth().weight(1f).graphicsLayer { alpha = fade.value; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }.verticalScroll(scroll)) {
                     if (showRecent) {
                         heading("Searched before")
@@ -667,9 +668,9 @@ private fun SlidingName(name: String, s: Float, selected: Boolean, k: () -> Floa
     if (!long || done) {
         // (Measured here too while selected: whether it is too long is known from this very text.)
         Box(Modifier.unzoomed(k).fillMaxWidth().onSizeChanged { boxW = it.width }) {
-            if (selected && !done) androidx.compose.material3.Text(name, fontSize = (9.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+            if (selected && !done) androidx.compose.material3.Text(name, fontSize = (9.5f * s).sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
                 modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true).onSizeChanged { textW = it.width }.graphicsLayer { alpha = 0f })
-            Plain(name, color = Color.White, fontSize = (9.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+            Plain(name, color = Color.White, fontSize = (9.5f * s).sp, fontWeight = FontWeight.Bold, style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = InkShadow), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
         }
         return
     }
@@ -689,7 +690,7 @@ private fun SlidingName(name: String, s: Float, selected: Boolean, k: () -> Floa
         }
         delay(1200); done = true
     }
-    @Composable fun words() = androidx.compose.material3.Text(name, color = Color.White, fontSize = (9.5f * s).sp, fontWeight = FontWeight.SemiBold,
+    @Composable fun words() = androidx.compose.material3.Text(name, color = Color.White, fontSize = (9.5f * s).sp, fontWeight = FontWeight.Bold, style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = InkShadow),
         maxLines = 1, softWrap = false)
     Box(Modifier.unzoomed(k).fillMaxWidth().onSizeChanged { boxW = it.width }.clipToBounds()) {
         Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).graphicsLayer { translationX = -x.intValue.toFloat() }) {
@@ -742,7 +743,8 @@ private fun SearchCard(picture: String, name: String, sub: String, s: Float, wid
             .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.62f), Color.Black.copy(alpha = 0.88f))))
             .padding(start = (7 * s).dp, end = (7 * s).dp, top = (18 * s).dp, bottom = (6 * s).dp)) {
             SlidingName(name, s, f) { k }
-            if (sub.isNotBlank()) Plain(sub, color = Color.White.copy(alpha = 0.55f), fontSize = (7.5f * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (sub.isNotBlank()) Plain(sub, color = Color.White.copy(alpha = 0.84f), fontSize = (7.5f * s).sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = androidx.compose.material3.LocalTextStyle.current.copy(shadow = InkShadow))
             if (progress != null) Box(Modifier.padding(top = (4 * s).dp).fillMaxWidth().height((2.5f * s).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f))) {
                 Box(Modifier.fillMaxWidth(progress.coerceIn(0.03f, 1f)).height((2.5f * s).dp).background(Color.White))
             }

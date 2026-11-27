@@ -175,12 +175,31 @@ object Backup {
         }.onFailure { Glog.w("Settings from Glassio ($pkg)", it) }.getOrNull()?.also { Glog.i("Backup: the settings of Glassio ($pkg) on this TV") }
     }
 
-    /** Restarts Glassio so every part reads the restored settings. */
+    /**
+     * Restarts Glassio so every part reads the restored settings (or the other profile's): **one** fresh start.
+     *
+     * It was "an alarm in 0.7 s, then end the process". On the TV that gave two starts: Android brought the screen
+     * back by itself half a second after the process ended, and the alarm (which the TV delivers late, ~5 s) then
+     * started it again on a cleared task: the whole home screen built twice, the selection on the first app, then
+     * lost and given to Play or back to the first app (his report after changing profile), and frames of 160-540 ms.
+     * Now the fresh start is asked for before the process ends, so the TV starts that one. The alarm stays as a
+     * safety net for a TV that doesn't (a start from the background refused): without "clear the task", so on a
+     * Glassio already up it only arrives as a new intent, and the new Glassio cancels it as it starts ([restarted]).
+     */
     fun restart(ctx: Context) {
-        val i = (ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: Intent(ctx, com.glasslauncher.tv.MainActivity::class.java))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        val pi = PendingIntent.getActivity(ctx, 77, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT)
-        ctx.getSystemService(AlarmManager::class.java)?.set(AlarmManager.RTC, System.currentTimeMillis() + 700, pi)
+        fun intent(fresh: Boolean) = (ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: Intent(ctx, com.glasslauncher.tv.MainActivity::class.java))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or (if (fresh) Intent.FLAG_ACTIVITY_CLEAR_TASK else 0))
+        val asked = runCatching { ctx.startActivity(intent(true)) }.onFailure { Glog.w("Restart: the fresh start", it) }.isSuccess
+        val pi = PendingIntent.getActivity(ctx, 77, intent(false), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT)
+        ctx.getSystemService(AlarmManager::class.java)?.set(AlarmManager.RTC, System.currentTimeMillis() + (if (asked) 2500 else 700), pi)
         android.os.Process.killProcess(android.os.Process.myPid())
+    }
+
+    /** Glassio is up again: the safety net of [restart] is no longer needed (it would bring Glassio over an app opened meanwhile). */
+    fun restarted(ctx: Context) {
+        runCatching {
+            val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: Intent(ctx, com.glasslauncher.tv.MainActivity::class.java)
+            PendingIntent.getActivity(ctx, 77, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE)?.let { ctx.getSystemService(AlarmManager::class.java)?.cancel(it); it.cancel() }
+        }
     }
 }

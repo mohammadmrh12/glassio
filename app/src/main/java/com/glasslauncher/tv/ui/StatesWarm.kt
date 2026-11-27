@@ -12,6 +12,8 @@ package com.glasslauncher.tv.ui
  */
 internal fun warmStates() {
     val all: List<Any> = listOf(
+        // (Lyrics: not in the play build, so nothing of it is kept there.)
+        PinUi, FolderQa, if (com.glasslauncher.tv.data.Store.PLAY) Unit else LyricsQa, if (com.glasslauncher.tv.data.Store.PLAY) Unit else com.glasslauncher.tv.data.Lyrics,
         com.glasslauncher.tv.data.AppCatalogs, com.glasslauncher.tv.data.Channels, com.glasslauncher.tv.data.I18n,
         com.glasslauncher.tv.data.NetState, com.glasslauncher.tv.data.NowPlaying, com.glasslauncher.tv.data.NuvioAvatars,
         com.glasslauncher.tv.data.PeerSync, com.glasslauncher.tv.data.Photos,

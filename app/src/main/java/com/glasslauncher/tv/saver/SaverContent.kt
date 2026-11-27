@@ -199,7 +199,8 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
     // Where the first video starts (Same video: where the background was in it).
     // (Remembered: a plain variable is a new one at every recomposition, and the player read 0.)
     val sameFromBox = remember { longArrayOf(0L) }
-    val items by produceState<List<Pair<String, String>>?>(if (slideshow) emptyList() else null) {
+    // (Made again when HEVC is found not to play here: the rest of the list was HEVC too, #53.)
+    val items by produceState<List<Pair<String, String>>?>(if (slideshow) emptyList() else null, st.hevcFailed) {
         if (!slideshow) value = withContext(Dispatchers.IO) { AerialSource.playlistItems(app) }.let { l ->
             // *Same video*: with the aerial background, the screensaver starts with the video the background was
             // showing, where it was, instead of loading a second one (on a TV with little memory that was felt, #22).
@@ -247,7 +248,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             val resumedAt = remember { longArrayOf(0L) }
             val saverErrors = remember { IntArray(1) }
             val players = remember { Array(1) { k -> ExoPlayer.Builder(ctx).setMediaSourceFactory(factory).setLoadControl(load).build().apply {
-                volume = 0f
+                volume = 0f; com.glasslauncher.tv.data.MediaLog.underGlassio(this)
                 addListener(object : Player.Listener {
                     override fun onRenderedFirstFrame() {
                         rendered[k] = true; saverErrors[0] = 0
@@ -257,7 +258,7 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
                     // (A video that fails was left on screen as it was (a Fire TV's green picture, #40) and nothing was
                     // written: now it's in the log and the next one comes, as the background does; six in a row at most.)
                     override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
-                        com.glasslauncher.tv.data.MediaLog.error("Screensaver", this@apply, e)
+                        com.glasslauncher.tv.data.MediaLog.error("Screensaver", this@apply, e, hevcOf = st)
                         if (++saverErrors[0] <= 6) SaverControl.step = 1
                     }
                 })
@@ -512,7 +513,9 @@ internal fun SaverContent(app: GlassApp, forceSlideshow: Boolean = false) {
             Slideshow(app)
         }
         if (list != null) SaverInfo(app, if (slideshow || list.isEmpty() || failed) "" else title, change + TrailerSaver.rev.intValue,
-            avoid = if (trailers) "bl" else null)
+            avoid = if (trailers) "bl" else if (!slideshow && com.glasslauncher.tv.ui.saverLyricsShown(app)) "br" else null)
+        // The song's words, over videos only (never the posters or a trailer).
+        if (!slideshow) com.glasslauncher.tv.ui.SaverLyrics(app)
         LockBadge()
         // Music playing: the island at the top.
         if (st.musicOn && st.musicIsland) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {

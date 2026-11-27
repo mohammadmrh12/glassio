@@ -655,15 +655,19 @@ def main():
         apk = files[0] if files else os.path.join(ROOT, "app/build/outputs/apk/github/release/app-github-release.apk")
         wake()
         print(adb("install", "-r", apk).strip())
-        am("")
         # A fresh install runs in the interpreter (page changes then have frames of 100-240 ms): the profile shipped
         # in the APK is applied and the code compiled, as Glassio does itself a minute after its start.
+        # Glassio is opened once, after the compile. (It was opened right after the install, then stopped and opened
+        # again once compiled: on the TV the home screen loaded twice, 20 s apart. Seen in the system's event log:
+        # two process starts and two activity creations for one install.) The profile's broadcast starts the process
+        # with no screen; it is stopped before the one start so the compiled code is the code that runs.
         if "--no-compile" not in a:
-            time.sleep(6)
+            time.sleep(1)
             sh(f"am broadcast -a androidx.profileinstaller.action.INSTALL_PROFILE -n {PKG}/androidx.profileinstaller.ProfileInstallReceiver")
             time.sleep(2)
             print("compile:", sh(f"cmd package compile -m speed-profile -f {PKG}").strip())
-            sh(f"am force-stop {PKG}"); am("")
+            sh(f"am force-stop {PKG}")
+        am("")
     elif c == "keys": keys(a)
     elif c == "shot": print(shot(a[0] if a else "shot"))
     elif c == "perf": perf(a[0], a[1:])

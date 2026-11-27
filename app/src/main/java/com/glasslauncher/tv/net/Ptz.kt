@@ -14,8 +14,9 @@ import java.util.concurrent.TimeUnit
 /**
  * Moving a camera (pan, tilt, zoom and its presets) from the cameras page (#30, #31): hold OK on a camera.
  *
- * - A camera from Home Assistant (`ha://camera.x`): Home Assistant's own `onvif.ptz` service (the camera must come from
- *   its ONVIF integration).
+ * - A camera from Home Assistant (`ha://camera.x`): its Reolink integration's PTZ buttons when the camera's device has
+ *   them (*PTZ left / right / up / down / stop*, zoom in / out when turned on there, the *PTZ preset* select; #40), else
+ *   Home Assistant's own `onvif.ptz` service (the camera must come from its ONVIF integration).
  * - Any other camera: ONVIF straight to the camera, at its address on port 80 (or the one set with `onvif=<port>` in
  *   the link's query), with the user and password of its RTSP link (WS-Security digest, the camera's clock taken
  *   into account). Its PTZ and media services come from GetCapabilities, the profile from GetProfiles.
@@ -23,25 +24,80 @@ import java.util.concurrent.TimeUnit
  * Every call of one camera runs in order on its own thread (a Stop never overtakes its Move); none on the main thread.
  */
 class Ptz private constructor(private val ctx: Context, private val cam: Cam) {
-    private val run = Executors.newSingleThreadExecutor { r -> Thread(r, "glass-ptz").apply { isDaemon = true } }
+    private val run = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "glass-ptz").apply { isDaemon = true } }
     private var onvif: Onvif? = null
+    /** Home Assistant's Reolink buttons of this camera: "left", "right", "up", "down", "stop", "zoom_in", "zoom_out" → entity. */
+    private var reolink: Map<String, String> = emptyMap()
+    /** Its *PTZ preset* select (Reolink), whose options are the presets. */
+    private var presetSelect: String? = null
+    /** The Reolink button moving the camera now, and when a move was last asked for (the held key's beat). */
+    @Volatile private var moving: String? = null
+    @Volatile private var movedAt = 0L
     private var presets: List<Pair<String, String>> = emptyList()
     /** The presets' names (empty: none, or not known). */
     val presetNames get() = presets.map { it.second }
 
     /** A direction (−1, 0, 1 each) held down: moves for a second (sent again while held) or until [stop]. */
     fun move(pan: Int, tilt: Int, zoom: Int) = run.execute {
-        runCatching { if (cam.url.startsWith("ha://")) ha(pan, tilt, zoom, null) else onvif?.move(pan * 0.5f, tilt * 0.5f, zoom * 0.5f) }
-            .onFailure { Glog.w("PTZ ${cam.name}: move", it) }
+        runCatching { when {
+            reolink.isNotEmpty() -> reolinkMove(pan, tilt, zoom)
+            cam.url.startsWith("ha://") -> ha(pan, tilt, zoom, null)
+            else -> onvif?.move(pan * 0.5f, tilt * 0.5f, zoom * 0.5f)
+        } }.onFailure { Glog.w("PTZ ${cam.name}: move", it) }
     }
     fun stop() = run.execute {
-        runCatching { if (cam.url.startsWith("ha://")) ha(0, 0, 0, null, stop = true) else onvif?.stop() }.onFailure { Glog.w("PTZ ${cam.name}: stop", it) }
+        runCatching { when {
+            reolink.isNotEmpty() -> reolinkStop()
+            cam.url.startsWith("ha://") -> ha(0, 0, 0, null, stop = true)
+            else -> onvif?.stop()
+        } }.onFailure { Glog.w("PTZ ${cam.name}: stop", it) }
     }
     fun preset(i: Int) = run.execute {
         val p = presets.getOrNull(i) ?: return@execute
-        runCatching { if (cam.url.startsWith("ha://")) ha(0, 0, 0, p.first) else onvif?.preset(p.first) }.onFailure { Glog.w("PTZ ${cam.name}: preset", it) }
+        runCatching { when {
+            presetSelect != null -> haCall("select", "select_option", JSONObject().put("entity_id", presetSelect).put("option", p.first))
+            cam.url.startsWith("ha://") -> ha(0, 0, 0, p.first)
+            else -> onvif?.preset(p.first)
+        } }.onFailure { Glog.w("PTZ ${cam.name}: preset", it) }
     }
-    fun close() { run.execute { runCatching { if (!cam.url.startsWith("ha://")) onvif?.stop() } }; run.shutdown() }
+    fun close() {
+        run.execute { runCatching { if (reolink.isNotEmpty()) reolinkStop() else if (!cam.url.startsWith("ha://")) onvif?.stop() } }
+        run.shutdown()
+    }
+
+    /**
+     * Reolink (through Home Assistant): a direction's button moves the camera until *PTZ stop*, so it is pressed once
+     * for a held key, and stopped on release; a release that never arrives (the service gets no key repeats, only the
+     * held key's beat every 0.7 s) stops it 1.6 s after the last beat.
+     */
+    private fun reolinkMove(pan: Int, tilt: Int, zoom: Int) {
+        val key = when {
+            zoom > 0 -> "zoom_in"; zoom < 0 -> "zoom_out"
+            pan < 0 -> "left"; pan > 0 -> "right"; tilt > 0 -> "up"; tilt < 0 -> "down"
+            else -> return
+        }
+        val button = reolink[key] ?: run { Glog.i("PTZ ${cam.name}: no \"$key\" button (Home Assistant → the camera's device: turn it on there)"); return }
+        movedAt = android.os.SystemClock.uptimeMillis()
+        if (moving != button) { haCall("button", "press", JSONObject().put("entity_id", button)); moving = button }
+        val at = movedAt
+        (run as java.util.concurrent.ScheduledExecutorService).schedule({
+            if (moving != null && movedAt == at) runCatching { reolinkStop() }.onFailure { Glog.w("PTZ ${cam.name}: stop", it) }
+        }, 1600, TimeUnit.MILLISECONDS)
+    }
+    private fun reolinkStop() {
+        if (moving == null) return
+        moving = null
+        reolink["stop"]?.let { haCall("button", "press", JSONObject().put("entity_id", it)) }
+    }
+
+    private fun haCall(domain: String, service: String, body: JSONObject) {
+        val st = (ctx.applicationContext as GlassApp).settings
+        val base = (com.glasslauncher.tv.CamPlayer.haTestUrl ?: st.haUrl).trimEnd('/')
+        val token = com.glasslauncher.tv.CamPlayer.haTestToken ?: st.haToken
+        http.newCall(Request.Builder().url("$base/api/services/$domain/$service").header("Authorization", "Bearer $token")
+            .post(body.toString().toRequestBody("application/json".toMediaType())).build()).execute()
+            .use { if (!it.isSuccessful) error("Home Assistant answered ${it.code}") }
+    }
 
     /** Home Assistant: onvif.ptz (ContinuousMove for a held key, Stop, GotoPreset). */
     private fun ha(pan: Int, tilt: Int, zoom: Int, preset: String?, stop: Boolean = false) {
@@ -78,9 +134,34 @@ class Ptz private constructor(private val ctx: Context, private val cam: Cam) {
                 val st = (ctx.applicationContext as GlassApp).settings
                 val base = (com.glasslauncher.tv.CamPlayer.haTestUrl ?: st.haUrl).trimEnd('/')
                 val token = com.glasslauncher.tv.CamPlayer.haTestToken ?: st.haToken
-                val out = http.newCall(Request.Builder().url("$base/api/services").header("Authorization", "Bearer $token").build()).execute()
-                    .use { if (!it.isSuccessful) error("Home Assistant answered ${it.code}"); it.body?.string().orEmpty() }
-                if (!out.contains("\"onvif\"")) error("No PTZ: Home Assistant has no ONVIF cameras")
+                val entity = cam.url.removePrefix("ha://")
+                // The camera's own device: Reolink's PTZ buttons and preset select are on it (entity ids end in
+                // _ptz_left …, as Home Assistant names them in English).
+                val tpl = JSONObject().put("template", "{{ device_entities(device_id('$entity')) | list | tojson }}")
+                val ents = runCatching {
+                    http.newCall(Request.Builder().url("$base/api/template").header("Authorization", "Bearer $token")
+                        .post(tpl.toString().toRequestBody("application/json".toMediaType())).build()).execute()
+                        .use { if (!it.isSuccessful) error("template ${it.code}"); org.json.JSONArray(it.body?.string().orEmpty()) }
+                        .let { a -> (0 until a.length()).map { a.getString(it) } }
+                }.onFailure { Glog.w("PTZ ${cam.name}: the camera's device", it) }.getOrDefault(emptyList())
+                val buttons = listOf("left", "right", "up", "down", "stop", "zoom_in", "zoom_out")
+                    .mapNotNull { k -> ents.firstOrNull { it.startsWith("button.") && it.endsWith("_ptz_$k") }?.let { k to it } }.toMap()
+                if ("stop" in buttons && buttons.keys.any { it in setOf("left", "right", "up", "down") }) {
+                    p.reolink = buttons
+                    p.presetSelect = ents.firstOrNull { it.startsWith("select.") && it.endsWith("_ptz_preset") }
+                    p.presetSelect?.let { sel ->
+                        p.presets = runCatching {
+                            http.newCall(Request.Builder().url("$base/api/states/$sel").header("Authorization", "Bearer $token").build()).execute()
+                                .use { r -> JSONObject(r.body?.string().orEmpty()).optJSONObject("attributes")?.optJSONArray("options") }
+                                ?.let { a -> (0 until a.length()).map { a.getString(it) to a.getString(it) } }.orEmpty()
+                        }.getOrDefault(emptyList())
+                    }
+                    Glog.i("PTZ ${cam.name}: Reolink through Home Assistant (${buttons.keys.joinToString()}; ${p.presets.size} presets)")
+                } else {
+                    val out = http.newCall(Request.Builder().url("$base/api/services").header("Authorization", "Bearer $token").build()).execute()
+                        .use { if (!it.isSuccessful) error("Home Assistant answered ${it.code}"); it.body?.string().orEmpty() }
+                    if (!out.contains("\"onvif\"")) error("No PTZ: no Reolink PTZ buttons on this camera and no ONVIF cameras in Home Assistant")
+                }
             } else {
                 val o = Onvif.of(cam.url) ?: error("No PTZ: not a camera link with an address")
                 o.connect()

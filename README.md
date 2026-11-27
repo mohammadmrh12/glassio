@@ -30,7 +30,7 @@ Tested on the Google TV Streamer (4K).
 
 ## Features
 
-Latest: **4.7.2** — Electric Eel works like SmartTube (music, background playing, rows, search); on 4.7.1 — crash reports offered after a crash, more in problem reports, a failing screensaver video skipped, YouTube in any app that opens its links, fixes; on 4.7.0 — Continue Watching cards over your background, One player together with the TV's screensaver, the TV sleeps on time, Home over the TV's screensaver, a lock-screen style clock, fixes; on 4.6.1 — Nuvio from Google Play recognised, rows no longer vanish after start, a remote-button probe, fixes; on 4.6.0 — TizenTube shows SmartTube's rows, any app can show another app's rows, fixes; on 4.5.1 — Settings keep the selection, multi-view, corner camera and shuffle on a double press or a hold; on 4.5.0 — a tidier menu (themes, backgrounds and screensavers across one row, glass and video quality in the menu), your own background behind the music player, a smoother large clock and island, fixes; on 4.4.2 — up to nine cameras, cameras without the Home button service, backups between the GitHub and Play versions; on 4.4.0 — the cameras page with sound and PTZ, multi-view two by two, every camera playing over a video, *Lite* mode, *Unneeded apps*, Manage from phone from the menu and as a phone app (always on, one code, an address by name), Jellyfin, the screensaver on the home screen (One player), YouTube playlists and Pexels as videos,
+Latest: **4.8.0** — a PIN for a profile, lyrics in time with the song, a shuffle button that also repeats a song, new photo sources (Windows Spotlight, paintings, Pexels), an Apps folder in whole rows, smoother over a video background, HEVC videos left out on TVs that can't play them, fixes; on 4.7.2 — Electric Eel works like SmartTube (music, background playing, rows, search); on 4.7.1 — crash reports offered after a crash, more in problem reports, a failing screensaver video skipped, YouTube in any app that opens its links, fixes; on 4.7.0 — Continue Watching cards over your background, One player together with the TV's screensaver, the TV sleeps on time, Home over the TV's screensaver, a lock-screen style clock, fixes; on 4.6.1 — Nuvio from Google Play recognised, rows no longer vanish after start, a remote-button probe, fixes; on 4.6.0 — TizenTube shows SmartTube's rows, any app can show another app's rows, fixes; on 4.5.1 — Settings keep the selection, multi-view, corner camera and shuffle on a double press or a hold; on 4.5.0 — a tidier menu (themes, backgrounds and screensavers across one row, glass and video quality in the menu), your own background behind the music player, a smoother large clock and island, fixes; on 4.4.2 — up to nine cameras, cameras without the Home button service, backups between the GitHub and Play versions; on 4.4.0 — the cameras page with sound and PTZ, multi-view two by two, every camera playing over a video, *Lite* mode, *Unneeded apps*, Manage from phone from the menu and as a phone app (always on, one code, an address by name), Jellyfin, the screensaver on the home screen (One player), YouTube playlists and Pexels as videos,
 remote buttons with a press, double press and hold, a TV inputs button, see-through glass over a video, *Recommended
 for this TV*. What changed in every version: [CHANGELOG](CHANGELOG.md).
 
@@ -40,7 +40,8 @@ for this TV*. What changed in every version: [CHANGELOG](CHANGELOG.md).
 - **Liquid glass** — real refraction, six themes, a glass colour (black or petrol), bold text, round or sharp corners.
 - **Dock & icons** — tvOS-style focus, glow and bounce, icon packs and the Apple TV icon library, an Apps folder, app lock.
 - **Channels** — select YouTube, Shahid, Netflix… in the dock and its rows take the carousel's place.
-- **Music** — Now Playing from any music app: a full-screen music mode, a dynamic island and the Music icon.
+- **Music** — Now Playing from any music app: a full-screen music mode, a dynamic island and the Music icon; lyrics in
+  time with the song (off by default, GitHub version); shuffle, and the same song again.
 - **Library & accounts** — Continue Watching and lists from Nuvio (any profile), Stremio, Trakt, Simkl and Jellyfin, kept in step.
 - **Screensaver** — 4K / HDR / Dolby Vision aerials, your videos, YouTube playlists, Pexels, trailers or posters, with
   the clock and info in Apple or Netflix style; it can play on the home screen itself (One player).
@@ -335,7 +336,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for testing from a computer and the setti
 
 ## Supporters
 
-Thank you to the people who keep Glassio going: **EB** ([EbM-Tech](https://github.com/EbM-Tech)).
+Thank you to the people who keep Glassio going: **EB** ([EbM-Tech](https://github.com/EbM-Tech)), **Narmeen** and **Azad**.
 They are also listed in Glassio itself, under Settings → About.
 
 ## Credits & license

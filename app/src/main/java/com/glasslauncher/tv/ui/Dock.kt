@@ -775,6 +775,7 @@ private fun FolderTile(
 }
 
 /** Every app, hidden ones included, in a glass folder like tvOS. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun FolderOverlay(
     app: GlassApp, s: Float, metrics: DockMetrics, radius: Int, screenH: Float,
@@ -812,7 +813,8 @@ internal fun FolderOverlay(
     LaunchedEffect(Unit) { shown = true }
 
     val outer = LocalGlassEnv.current
-    val env = outer.copy(bmp = outer.heavy ?: outer.bmp, sharp = outer.heavy ?: outer.sharp, wobble = 0f, prevBmp = null, prevSharp = null, mix = null, veil = null, sharpIsPage = false)
+    // (Its own picture, never the video's copies: the background video now waits under the folder instead of going.)
+    val env = outer.copy(bmp = outer.heavy ?: outer.bmp, sharp = outer.heavy ?: outer.sharp, wobble = 0f, prevBmp = null, prevSharp = null, mix = null, veil = null, sharpIsPage = false, ignoreVideo = true)
     val envRef = androidx.compose.runtime.rememberUpdatedState(env)
     CompositionLocalProvider(LocalGlassEnv provides env, LocalGlassEnvRef provides envRef) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -821,18 +823,69 @@ internal fun FolderOverlay(
         if (bg != null) Image(bg, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
             colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.45f), BlendMode.SrcAtop))
         else Box(Modifier.fillMaxSize().background(Color(0xFF101014)))
+        // Whole rows only (his ask): with more apps than fit, the folder is as tall as the rows that fit whole and moves
+        // a row at a time, so no icon is ever cut at its top or bottom edge. (It was 74 % of the screen whatever the
+        // rows' height: the fourth row showed its top half, and after a step down the first row its bottom half.)
+        val folderRows = list.chunked(DOCK_COLUMNS)
+        val rowsCount = folderRows.size
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val scroll = rememberScrollState()
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        var rowPx by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        // (Inside the moving part the space above and below the rows is the gap between two rows: the row just out of
+        // sight ends exactly at the edge. The rest of the panel's edge space is outside it.)
+        val gap = (14 * s).dp; val outer = (6 * s).dp
+        val gapPx = with(density) { gap.roundToPx() }
+        // The room for the panel: the screen less the title and a margin above and below.
+        val roomPx = with(density) { (screenH.dp - (66 * s).dp).roundToPx() }
+        val fit = if (rowPx > 0) ((roomPx - 2 * with(density) { outer.roundToPx() } - gapPx) / (rowPx + gapPx)).coerceAtLeast(1).let { n -> FolderQa.fit.intValue.takeIf { it > 0 }?.coerceAtMost(n) ?: n } else 0
+        // Like the dock (his ask): three rows at first; going down past the third the panel grows to as many rows as the
+        // screen holds (four on 1080p), and past those the rows move, one at a time. Back on the first three rows with
+        // nothing moved, it folds to three again.
+        val base = FOLDER_ROWS.coerceAtMost(fit.coerceAtLeast(1))
+        val folds = fit > 0 && rowsCount > base
+        var grown by remember { mutableStateOf(false) }
+        // (The rows in view now: all of them when they fit in three; else three, or the screen's when grown.)
+        val inView = if (!folds) rowsCount else if (grown) fit.coerceAtMost(rowsCount) else base
+        // (Tried and not kept: the rows built one a frame. The one frame of ~70 ms at the opening went, but the glass
+        // panel was drawn again with every row: 27 frames over 33 ms instead of 3.)
+        var firstRow by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        fun toRow(r: Int) {
+            if (!folds) { grown = false; if (firstRow != 0) { firstRow = 0; scope.launch { scroll.scrollTo(0) } }; return }
+            val big = r >= base || firstRow > 0
+            val w = if (big) fit.coerceAtMost(rowsCount) else base
+            val k = when { r < firstRow -> r; r > firstRow + w - 1 -> r - w + 1; else -> firstRow }.coerceIn(0, rowsCount - w)
+            // (Back at the top with the selection in the first three rows: three rows again.)
+            grown = big && !(k == 0 && r < base)
+            if (k == firstRow && scroll.value == k * (rowPx + gapPx)) return
+            firstRow = k
+            scope.launch { scroll.animateScrollTo(k * (rowPx + gapPx), tween(200)) }
+        }
+        // (The list changed (an app carried to another row, hidden, removed): the row with the selection stays in view.)
+        LaunchedEffect(list, moving, fit) { moving?.let { p -> list.indexOfFirst { it.pkg == p }.takeIf { it >= 0 }?.let { toRow(it / DOCK_COLUMNS) } } ?: toRow(firstRow) }
         AnimatedVisibility(shown, enter = fadeIn(tween(160))) {
             Column(Modifier.fillMaxWidth(0.9f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Apps", color = Color.White, fontSize = (26 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(bottom = (12 * s).dp))
-                GlassPanel(Modifier.fillMaxWidth().heightIn(max = (screenH * 0.74f).dp), radius = (radius * 1.6f * s).dp, style = app.settings.dockStyle, refract = false, cache = true) {
+                Text("Apps", color = Color.White, fontSize = (26 * s).sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(bottom = (10 * s).dp))
+                // (Its height follows the rows in view, growing and folding like the dock; set at once the first time, as
+                // the rows' height becomes known, so the folder doesn't open tall and shrink.)
+                val wantH = if (folds) with(density) { (2 * outer.roundToPx() + 2 * gapPx + inView * rowPx + (inView - 1) * gapPx).toDp() } else null
+                val settled = remember { booleanArrayOf(false) }
+                val panelH = if (wantH != null) androidx.compose.animation.core.animateDpAsState(wantH,
+                    if (settled[0]) tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing) else androidx.compose.animation.core.snap(), label = "folderH").value.also { settled[0] = true } else null
+                GlassPanel(Modifier.fillMaxWidth().then(if (panelH != null) Modifier.height(panelH) else if (rowPx == 0 && rowsCount > FOLDER_ROWS)
+                    // (Before the rows' height is known: no taller than three rows could be, guessed low; one frame.)
+                    Modifier.heightIn(max = with(density) { roomPx.toDp() } * 0.72f) else Modifier.heightIn(max = with(density) { roomPx.toDp() })),
+                    radius = (radius * 1.6f * s).dp, style = app.settings.dockStyle, refract = false, cache = true) {
+                    // (The folder moves its rows itself, a whole row at a time: Compose's own "bring into view" stopped
+                    // wherever the selected icon was just inside.)
+                    CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides NoBringIntoView) {
                     Column(
-                        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding((20 * s).dp),
-                        verticalArrangement = Arrangement.spacedBy((14 * s).dp),
+                        Modifier.fillMaxWidth().padding(vertical = outer).verticalScroll(scroll).padding(horizontal = (20 * s).dp, vertical = gap),
+                        verticalArrangement = Arrangement.spacedBy(gap),
                     ) {
-                        val folderRows = list.chunked(DOCK_COLUMNS)
-                        val rowsCount = folderRows.size
                         folderRows.forEachIndexed { r, row ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.gap.dp)) {
+                            Row(Modifier.fillMaxWidth().then(if (r == 0) Modifier.onSizeChanged { if (it.height != rowPx) rowPx = it.height } else Modifier),
+                                horizontalArrangement = Arrangement.spacedBy(metrics.gap.dp)) {
                                 row.forEachIndexed { c, e ->
                                     key(e.pkg) {
                                         val fr = focusOf.requester(e.pkg)
@@ -840,7 +893,7 @@ internal fun FolderOverlay(
                                         DockTile(
                                             entry = e, app = app, s = s, radius = radius, moving = moving == e.pkg,
                                             modifier = Modifier.weight(1f).focusProperties { canFocus = !blocked }.focusRequester(fr).then(if (r == 0 && c == 0) Modifier.focusRequester(first) else Modifier),
-                                            onFocus = {}, onMoveKey = onMoveKey,
+                                            onFocus = { f -> if (f) toRow(r) }, onMoveKey = onMoveKey,
                                             onClick = { com.glasslauncher.tv.ui.AppLock.open(app, ctx, e) },
                                             onLong = { onMenu(e) },
                                             alwaysLabel = true, flat = true,
@@ -852,9 +905,22 @@ internal fun FolderOverlay(
                             }
                         }
                     }
+                    }
                 }
             }
         }
     }
 }
+}
+
+/** The rows the Apps folder shows before it grows (see FolderOverlay). */
+private const val FOLDER_ROWS = 3
+
+/** QA (dev key, `--ei folder_fit N`): the Apps folder takes only N rows to fit (0: as many as the screen holds), to see it move by rows without 25 apps. */
+internal object FolderQa { val fit = androidx.compose.runtime.mutableIntStateOf(0) }
+
+/** No scrolling of its own when the selection moves (the Apps folder moves by whole rows itself). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private object NoBringIntoView : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
 }

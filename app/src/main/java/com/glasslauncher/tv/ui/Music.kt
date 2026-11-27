@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -236,39 +237,48 @@ object MusicUi {
     /** Its player with nothing playing is on screen (the page under it is the grey one). */
     val idleOn = mutableStateOf(false)
     /**
-     * Starts [pkg] playing from where it was, without opening it: the app that played last through the TV's own Play
-     * (the system brings it back, paused at first: Play once more when its player is there), another one through
-     * its own Play. Opened if it doesn't answer.
+     * Starts [pkg] playing from where it was, without opening it. Play goes to that app and no other: to its own media
+     * session when it has one (asked again until it plays: just woken, Spotify turns Play down for a few seconds);
+     * without one, the TV's Play key when the TV says the key is this app's (it may then start in the background), else
+     * the key to the app's own receiver. No session after 4.5 s, or one that still doesn't play after 9: the app is
+     * opened, and Play is still asked of it for a moment, so it plays there.
+     * (It sent the TV's Play key whenever [pkg] was the app that played last here: the TV hands that key to the app
+     * whose session it used last, so OK on Spotify's card started SoundCloud, seen in the system's log.)
      */
     // (Its own scope: the idle player or the music apps it was pressed on go away as soon as the app answers, and
     // with them a scope of theirs, which stopped the Play retries.)
     private val startScope = kotlinx.coroutines.MainScope()
-    fun startIn(ctx: android.content.Context, pkg: String, lastPkg: String) {
-        val scope = startScope
+    private var startJob: kotlinx.coroutines.Job? = null
+    fun startIn(ctx: android.content.Context, pkg: String) {
         val app = ctx.applicationContext
-        val am = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-        for (a in listOf(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.ACTION_UP)) runCatching {
-            val ev = android.view.KeyEvent(a, android.view.KeyEvent.KEYCODE_MEDIA_PLAY)
-            if (pkg == lastPkg) am.dispatchMediaKeyEvent(ev)
-            else app.sendBroadcast(android.content.Intent(android.content.Intent.ACTION_MEDIA_BUTTON).setPackage(pkg).putExtra(android.content.Intent.EXTRA_KEY_EVENT, ev))
-        }
-        scope.launch {
-            val t0 = android.os.SystemClock.uptimeMillis()
-            while (android.os.SystemClock.uptimeMillis() - t0 < 4_500) {
-                delay(250)
-                val t = NowPlaying.track.value
-                if (t?.pkg == pkg) {
-                    // Back, but paused: just woken, it turns Play down for a few seconds (Spotify), so Play again
-                    // until it plays (a plain Play, never a toggle that could pause it).
-                    repeat(14) {
-                        if (NowPlaying.reallyPlaying()) return@launch
-                        NowPlaying.play()
-                        delay(800)
-                    }
-                    return@launch
+        val name = NowPlaying.appLabel(pkg)
+        startJob?.cancel()
+        startJob = startScope.launch {
+            if (NowPlaying.playIn(app, pkg)) com.glasslauncher.tv.data.Glog.i("Music: Play asked of $name's session")
+            else {
+                val keyApp = NowPlaying.mediaKeyApp(app)
+                com.glasslauncher.tv.data.Glog.i("Music: $name has no session, Play key " + if (keyApp == pkg) "through the TV (it is $name's)" else "to its own receiver")
+                val am = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                for (a in listOf(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.ACTION_UP)) runCatching {
+                    val ev = android.view.KeyEvent(a, android.view.KeyEvent.KEYCODE_MEDIA_PLAY)
+                    if (keyApp == pkg) am.dispatchMediaKeyEvent(ev)
+                    else app.sendBroadcast(android.content.Intent(android.content.Intent.ACTION_MEDIA_BUTTON).setPackage(pkg).putExtra(android.content.Intent.EXTRA_KEY_EVENT, ev))
                 }
             }
-            openMusicApp(app, pkg)
+            val t0 = android.os.SystemClock.uptimeMillis()
+            var opened = false
+            while (true) {
+                delay(800)
+                val waited = android.os.SystemClock.uptimeMillis() - t0
+                if (NowPlaying.playingIn(app, pkg)) { com.glasslauncher.tv.data.Glog.i("Music: $name plays (${waited / 100 / 10f} s)"); return@launch }
+                val has = NowPlaying.playIn(app, pkg)
+                if (!opened && waited > (if (has) 9_000 else 4_500)) {
+                    opened = true
+                    com.glasslauncher.tv.data.Glog.i("Music: $name " + (if (has) "doesn't play" else "has no session") + " after ${waited / 1000} s: opened")
+                    openMusicApp(app, pkg)
+                }
+                if (waited > 15_000) { com.glasslauncher.tv.data.Glog.i("Music: $name never played"); return@launch }
+            }
         }
     }
     /** Whether the music page takes the home screen now. */
@@ -302,18 +312,24 @@ object MusicUi {
      * A key while the island is open (the screensaver passes them here): ◀ ▶ choose a button, OK presses it,
      * ▼ or Back close it. True when used.
      */
+    /** The open island's buttons: shuffle, previous, play, next, stop, lyrics (not in the play build), the app. */
+    val islandButtons get() = if (com.glasslauncher.tv.data.Store.PLAY) 6 else 7
     fun islandKey(ctx: android.content.Context, code: Int): Boolean {
+        // (Without the lyrics button the app's button takes its place.)
+        val lyrics = if (islandButtons == 7) 5 else -1
         when (code) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> islandSel.intValue = (islandSel.intValue - 1).coerceAtLeast(0)
-            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> islandSel.intValue = (islandSel.intValue + 1).coerceAtMost(5)
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> islandSel.intValue = (islandSel.intValue + 1).coerceAtMost(islandButtons - 1)
             android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> when (islandSel.intValue) {
-                0 -> NowPlaying.shuffle(ctx, !shuffled.value)
+                0 -> NowPlaying.cycle(ctx, (ctx.applicationContext as? GlassApp)?.settings?.shuffleRepeat != false)
                 1 -> NowPlaying.previous()
                 2 -> NowPlaying.playPause()
                 3 -> NowPlaying.next()
                 4 -> { islandOpen.value = false; NowPlaying.stop() }
+                // Lyrics on / off: the words beside the player, and over the video screensaver.
+                lyrics -> (ctx.applicationContext as? GlassApp)?.settings?.let { it.lyricsOn = !it.lyricsOn }
                 // The list: the playing app itself (its queue and playlists).
-                5 -> NowPlaying.track.value?.pkg?.let { islandOpen.value = false; openMusicApp(ctx, it) }
+                else -> NowPlaying.track.value?.pkg?.let { islandOpen.value = false; openMusicApp(ctx, it) }
             }
             android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_BACK -> islandOpen.value = false
             android.view.KeyEvent.KEYCODE_DPAD_UP -> {}
@@ -487,8 +503,9 @@ fun MusicIsland(app: GlassApp, s: Float) {
               // (See-through glass over a video: the same soft shadow, so the writing reads over a bright video.)
               // A short shadow just under the letters (it was a wide blur behind the whole line, which made the
               // writing look soft: his ask).
-              shadow = if (bare || (VideoGlass.clear.value && VideoFrames.showing.value)) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.65f),
-                  offset = androidx.compose.ui.geometry.Offset(0f, 2f), blurRadius = 3f) else null)) {
+              // (Always now, on any glass and any background (his ask): on clear glass over a bright picture the
+              // writing was as thin as without glass. Dark writing, the island in Black on white, has none.)
+              shadow = inkShadow(ink))) {
             if (!isOpen) Row(Modifier.padding(start = (8 * k).dp, end = (14 * k).dp, top = ((if (attached) 10 else 7) * k).dp, bottom = (7 * k).dp).widthIn(max = (360 * k).dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 if (st.islandArt) {
@@ -508,9 +525,9 @@ fun MusicIsland(app: GlassApp, s: Float) {
                             // in one line made the island as wide as it could get.)
                             IslandName(tr.title, ink, k, (160 * k).dp)
                         }
-                        else Plain(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        else Plain(tr.title, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = if (st.islandMarquee) Modifier.widthIn(max = (160 * k).dp) else Modifier)
-                        if (tr.artist.isNotBlank()) Plain(tr.artist, color = ink.copy(alpha = 0.6f), fontSize = (9.5f * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        if (tr.artist.isNotBlank()) Plain(tr.artist, color = ink.copy(alpha = 0.88f), fontSize = (9.5f * k).sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = if (st.islandMarquee) Modifier.widthIn(max = (160 * k).dp) else Modifier)
                     }
                     if (st.islandProgress) {
@@ -532,7 +549,7 @@ fun MusicIsland(app: GlassApp, s: Float) {
                     Spacer(Modifier.width((12 * k).dp))
                     Column(Modifier.width((262 * k).dp)) {
                         Plain(tr.title, color = ink, fontSize = (13 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (tr.artist.isNotBlank()) Plain(tr.artist, color = ink.copy(alpha = 0.65f), fontSize = (11 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (tr.artist.isNotBlank()) Plain(tr.artist, color = ink.copy(alpha = 0.88f), fontSize = (11 * k).sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.width((10 * k).dp))
                     MusicBars(tr.playing, color, Modifier.size((22 * k).dp, (18 * k).dp))
@@ -545,25 +562,29 @@ fun MusicIsland(app: GlassApp, s: Float) {
                 Spacer(Modifier.height((10 * k).dp))
                 val sel = MusicUi.islandSel.intValue
                 Row(Modifier.width((358 * k).dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    for (b in 0..5) {
+                    val buttons = MusicUi.islandButtons
+                    val lyricsOn = st.lyricsOn
+                    for (b in 0 until buttons) {
                         val on = sel == b
                         val size = (if (b == 2) 36 else 30) * k
                         val sc by animateFloatAsState(if (on) 1.12f else 1f, androidx.compose.animation.core.spring(0.7f, 700f), label = "ib$b")
                         Box(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(size.dp).clip(CircleShape)
                             .background(if (on) ink else ink.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
                             val fg = if (on) inkOn else ink
-                            val shuffleOn = MusicUi.shuffled.value
+                            val shuffleOn = modeLit(st.shuffleRepeat)
+                            val again = modeRepeats(st.shuffleRepeat)
                             Canvas(Modifier.size((size * 0.42f).dp)) {
                                 when (b) {
-                                    0 -> shuffleGlyph(if (shuffleOn) fg else fg.copy(alpha = 0.4f))
+                                    0 -> modeGlyph(if (shuffleOn) fg else fg.copy(alpha = 0.4f), again)
                                     1 -> skipGlyph(fg, false)
                                     2 -> playGlyph(fg, tr.playing)
                                     3 -> skipGlyph(fg, true)
                                     4 -> stopGlyph(fg)
+                                    5 -> if (buttons == 7) lyricsGlyph(if (lyricsOn) fg else fg.copy(alpha = 0.4f)) else listGlyph(fg)
                                     else -> listGlyph(fg)
                                 }
                             }
-                            if (b == 0 && shuffleOn) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = (size * 0.1f).dp).size((size * 0.09f).dp).clip(CircleShape).background(fg))
+                            if ((b == 0 && shuffleOn) || (b == 5 && buttons == 7 && lyricsOn)) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = (size * 0.1f).dp).size((size * 0.09f).dp).clip(CircleShape).background(fg))
                         }
                     }
                 }
@@ -621,6 +642,32 @@ private fun DrawScope.shuffleGlyph(c: Color) {
     drawPath(Path().apply { moveTo(0f, w * 0.75f); cubicTo(w * 0.45f, w * 0.75f, w * 0.45f, w * 0.25f, w * 0.85f, w * 0.25f) }, c, style = st)
     drawPath(Path().apply { moveTo(w * 0.72f, w * 0.12f); lineTo(w * 0.95f, w * 0.25f); lineTo(w * 0.72f, w * 0.38f) }, c, style = st)
     drawPath(Path().apply { moveTo(w * 0.72f, w * 0.62f); lineTo(w * 0.95f, w * 0.75f); lineTo(w * 0.72f, w * 0.88f) }, c, style = st)
+}
+/** "This song again": a loop of two arrows with a 1 in it. */
+private fun DrawScope.repeatOneGlyph(c: Color) {
+    val w = size.width
+    val st = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.1f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+    drawPath(Path().apply { moveTo(w * 0.05f, w * 0.5f); lineTo(w * 0.05f, w * 0.44f); quadraticTo(w * 0.05f, w * 0.22f, w * 0.27f, w * 0.22f); lineTo(w * 0.86f, w * 0.22f) }, c, style = st)
+    drawPath(Path().apply { moveTo(w * 0.7f, w * 0.06f); lineTo(w * 0.88f, w * 0.22f); lineTo(w * 0.7f, w * 0.38f) }, c, style = st)
+    drawPath(Path().apply { moveTo(w * 0.95f, w * 0.5f); lineTo(w * 0.95f, w * 0.56f); quadraticTo(w * 0.95f, w * 0.78f, w * 0.73f, w * 0.78f); lineTo(w * 0.14f, w * 0.78f) }, c, style = st)
+    drawPath(Path().apply { moveTo(w * 0.3f, w * 0.62f); lineTo(w * 0.12f, w * 0.78f); lineTo(w * 0.3f, w * 0.94f) }, c, style = st)
+    drawPath(Path().apply { moveTo(w * 0.44f, w * 0.44f); lineTo(w * 0.52f, w * 0.38f); lineTo(w * 0.52f, w * 0.62f) }, c, style = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.085f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+}
+// The shuffle button in its three places (the player, the open island, the menu's player): lit while shuffle or
+// "this song again" is on, and which of the two marks it shows (the loop also while off, for an app that takes
+// no shuffle but whose song can be played again).
+// (With *Shuffle button repeats a song* off it is the shuffle button only, whatever the app's repeat is.)
+private fun modeLit(withRepeat: Boolean) = NowPlaying.shuffled.value || (withRepeat && NowPlaying.repeating.value)
+private fun modeRepeats(withRepeat: Boolean) = withRepeat && (NowPlaying.repeating.value || (!NowPlaying.shuffled.value && !NowPlaying.canShuffle.value && NowPlaying.canRepeat.value))
+private fun DrawScope.modeGlyph(c: Color, again: Boolean) = if (again) repeatOneGlyph(c) else shuffleGlyph(c)
+/** Lyrics: a speech bubble with two lines of words in it. */
+private fun DrawScope.lyricsGlyph(c: Color) {
+    val w = size.width; val t = w * 0.09f
+    drawRoundRect(c, Offset(w * 0.06f, w * 0.12f), Size(w * 0.88f, w * 0.62f), CornerRadius(w * 0.2f), style = androidx.compose.ui.graphics.drawscope.Stroke(t))
+    drawLine(c, Offset(w * 0.28f, w * 0.74f), Offset(w * 0.2f, w * 0.94f), t, androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(c, Offset(w * 0.2f, w * 0.94f), Offset(w * 0.46f, w * 0.74f), t, androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(c, Offset(w * 0.27f, w * 0.34f), Offset(w * 0.73f, w * 0.34f), t, androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(c, Offset(w * 0.27f, w * 0.53f), Offset(w * 0.58f, w * 0.53f), t, androidx.compose.ui.graphics.StrokeCap.Round)
 }
 private fun DrawScope.listGlyph(c: Color) {
     val w = size.width
@@ -691,10 +738,19 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
         }
         // More dimmed while paused (the glass over it dims the same way: its veil).
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = MusicUi.pauseDim.value * VEIL_DIM }.background(Color.Black))
-        Column(Modifier.align(Alignment.Center).offset(y = (-34 * s).dp).onFocusChanged { MusicUi.stageFocused = it.hasFocus },
+        // Lyrics (see data/Lyrics.kt): asked for when the song changes, only with Lyrics on. With words to show the
+        // player moves to the left and they take the right half; without, the player stays in the middle.
+        val lyricsOn = st.lyricsOn && !com.glasslauncher.tv.data.Store.PLAY
+        LaunchedEffect(lyricsOn, tr.title, tr.artist, tr.duration > 0, st.lyricsSourcesOff) { if (lyricsOn) com.glasslauncher.tv.data.Lyrics.want(ctx, tr.title, tr.artist, tr.duration) }
+        val lyrics = if (lyricsOn) com.glasslauncher.tv.data.Lyrics.shown.value?.takeIf { it.first == com.glasslauncher.tv.data.Lyrics.keyOf(tr.title, tr.artist) } else null
+        val words = lyrics?.second?.takeIf { it.lines.isNotEmpty() }
+        val aside by androidx.compose.animation.core.animateFloatAsState(if (words != null) 1f else 0f, tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "lyricsAside")
+        if (words != null) LyricsPane(tr, words, k, soft = !st.lean, modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.5f)
+            .padding(end = (54 * s).dp, top = (30 * s).dp, bottom = (140 * s).dp).graphicsLayer { alpha = aside })
+        Column(Modifier.align(androidx.compose.ui.BiasAlignment(-0.56f * aside, 0f)).offset(y = (-34 * s).dp).onFocusChanged { MusicUi.stageFocused = it.hasFocus },
             horizontalAlignment = Alignment.CenterHorizontally) {
             // A soft shadow under the artwork, as if it floats over the page.
-            Box(Modifier.size((190 * k).dp).shadow((22 * k).dp, RoundedCornerShape((14 * k).dp), ambientColor = Color.Black, spotColor = Color.Black)
+            Box(Modifier.size(((190 - 26 * aside) * k).dp).shadow((22 * k).dp, RoundedCornerShape((14 * k).dp), ambientColor = Color.Black, spotColor = Color.Black)
                 .clip(RoundedCornerShape((14 * k).dp)).background(Color.White.copy(alpha = 0.08f))) {
                 androidx.compose.animation.Crossfade(artImg, animationSpec = tween(700), label = "art") { img ->
                     if (img != null) Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -703,25 +759,32 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
           androidx.compose.animation.Crossfade(tr.title to tr.artist, animationSpec = tween(600), label = "song") { (title, artist) ->
            // One fixed width for both names while they cross-fade (each was laid out from the left: the new name
            // jumped to the left of the old one, then back to the middle).
-           Column(Modifier.width((560 * k).dp), horizontalAlignment = Alignment.CenterHorizontally) {
+           // (Narrower beside the words, so the two never meet.)
+           Column(Modifier.width(((560 - 190 * aside) * k).dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height((16 * k).dp))
             Plain(title, color = Color.White, fontSize = (19 * k).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = (520 * k).dp))
+                modifier = Modifier.widthIn(max = ((520 - 180 * aside) * k).dp))
             if (artist.isNotBlank()) Plain(artist, color = Color.White.copy(alpha = 0.7f), fontSize = (13 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
            }
           }
             Spacer(Modifier.height((12 * k).dp))
             val p = progressOf(tr)
-            Box(Modifier.width((300 * k).dp).height((3 * k).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f))) {
+            // As wide as the row of buttons under it (one big, the rest small, 14 between them): with the lyrics
+            // button the row grew and the bar ended short of it on both sides (his photo).
+            val smalls = if (com.glasslauncher.tv.data.Store.PLAY) 5 else 6
+            Box(Modifier.width(((40 + smalls * 32 + smalls * 14) * k).dp).height((3 * k).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f))) {
                 Box(Modifier.fillMaxWidth(p).height((3 * k).dp).background(Color.White))
             }
             Spacer(Modifier.height((16 * k).dp))
             val look = st.musicButtons
             val light = st.dockStyle == "bow" && look == "theme"
             val big = (40 * k).dp; val small = (32 * k).dp
-            val shuffled = NowPlaying.shuffled.value
+            val again = modeRepeats(st.shuffleRepeat)
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
-                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, active = shuffled, onOff = true, onClick = { NowPlaying.shuffle(ctx, !shuffled) }) { shuffleGlyph(it) }
+                // (The first button: Left stays on it. With nothing to its left the selection went down to the dock's
+                // first app, and the next Left went on round the dock.)
+                MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile); left = FocusRequester.Cancel }, active = modeLit(st.shuffleRepeat), onOff = true,
+                    onClick = { NowPlaying.cycle(ctx, st.shuffleRepeat) }) { modeGlyph(it, again) }
                 MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = { NowPlaying.previous() }) { skipGlyph(it, false) }
                 MusicButton(big, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile) }, onClick = { NowPlaying.playPause() }) { playGlyph(it, tr.playing) }
                 MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, onClick = { NowPlaying.next() }) { skipGlyph(it, true) }
@@ -733,11 +796,16 @@ fun MusicStage(app: GlassApp, s: Float, heroFocus: FocusRequester, firstTile: Fo
                     val back = MusicUi.downTo(firstTile)
                     scope.launch { delay(120); runCatching { back.requestFocus() } }
                 }) { stopGlyph(it) }
+                // Lyrics on / off (lit while on), like the lyrics button of Apple Music.
+                if (!com.glasslauncher.tv.data.Store.PLAY) MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile) }, active = st.lyricsOn, onOff = true,
+                    onClick = { st.lyricsOn = !st.lyricsOn }) { lyricsGlyph(it) }
                 // (The last button: Right stays on it, it went on to the menu.)
                 MusicButton(small, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile); right = FocusRequester.Cancel }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
-            Text(NowPlaying.appLabel(tr.pkg), color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)
+            // (With Lyrics on and no words to show: why, in the app's line.)
+            Text(NowPlaying.appLabel(tr.pkg) + when { !lyricsOn || words != null -> ""; lyrics == null || lyrics.second == null -> "  ·  " + com.glasslauncher.tv.data.I18n.tr("Looking for the lyrics…"); else -> "  ·  " + com.glasslauncher.tv.data.I18n.tr("No lyrics for this song") },
+                color = Color.White.copy(alpha = 0.45f), fontSize = (9 * k).sp)
         }
     }
 }
@@ -784,8 +852,8 @@ private fun MusicIdle(app: GlassApp, s: Float, pkg: String, heroFocus: FocusRequ
             val look = st.musicButtons
             val light = st.dockStyle == "bow" && look == "theme"
             Row(horizontalArrangement = Arrangement.spacedBy((14 * k).dp), verticalAlignment = Alignment.CenterVertically) {
-                MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile) },
-                    onClick = { MusicUi.startIn(ctx, pkg, st.musicLastPkg); MusicUi.focusRev.intValue++ }) { playGlyph(it, false) }
+                MusicButton((40 * k).dp, look, light, Modifier.focusRequester(heroFocus).focusProperties { down = MusicUi.downTo(firstTile); left = FocusRequester.Cancel },
+                    onClick = { MusicUi.startIn(ctx, pkg); MusicUi.focusRev.intValue++ }) { playGlyph(it, false) }
                 MusicButton((32 * k).dp, look, light, Modifier.focusProperties { down = MusicUi.downTo(firstTile); right = FocusRequester.Cancel }, onClick = onApps) { listGlyph(it) }
             }
             Spacer(Modifier.height((8 * k).dp))
@@ -840,11 +908,11 @@ fun MusicMenuPage(app: GlassApp, s: Float, light: Boolean, first: FocusRequester
             Box(Modifier.fillMaxWidth(p).height((3 * s).dp).background(ink))
         }
         Spacer(Modifier.height((10 * s).dp))
-        val shuffled = NowPlaying.shuffled.value
+        val again = modeRepeats(app.settings.shuffleRepeat)
         val look = app.settings.musicButtons
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             val left = Modifier.onKeyEvent { ev -> if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft) { onBack(); true } else false }
-            MusicButton((26 * s).dp, look, light, left, active = shuffled, onOff = true, onClick = { NowPlaying.shuffle(ctx, !shuffled) }) { shuffleGlyph(it) }
+            MusicButton((26 * s).dp, look, light, left, active = modeLit(app.settings.shuffleRepeat), onOff = true, onClick = { NowPlaying.cycle(ctx, app.settings.shuffleRepeat) }) { modeGlyph(it, again) }
             MusicButton((26 * s).dp, look, light, onClick = { NowPlaying.previous() }) { skipGlyph(it, false) }
             MusicButton((34 * s).dp, look, light, Modifier.focusRequester(first), onClick = { NowPlaying.playPause() }) { playGlyph(it, tr.playing) }
             MusicButton((26 * s).dp, look, light, onClick = { NowPlaying.next() }) { skipGlyph(it, true) }
@@ -889,7 +957,7 @@ private fun IslandName(name: String, ink: Color, k: Float, maxW: androidx.compos
         }
     }
     // (Material's Text with softWrap off: the name, a song's own words, is never translated.)
-    @Composable fun words(m: Modifier = Modifier) = androidx.compose.material3.Text(name, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.SemiBold,
+    @Composable fun words(m: Modifier = Modifier) = androidx.compose.material3.Text(name, color = ink, fontSize = (11 * k).sp, fontWeight = FontWeight.Bold,
         maxLines = 1, softWrap = false, modifier = m)
     Box(Modifier.widthIn(max = maxW).onSizeChanged { boxW = it.width }.clipToBounds()) {
         Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).graphicsLayer { translationX = -x.intValue.toFloat() }) {

@@ -13,20 +13,24 @@ Camera	Kamera
 Can't reach the camera	Kameraya ulaşılamıyor
 Connecting…	Bağlanıyor…
 Name|url	Ad|url
-Next	Sonraki
+Continue watching	İzlemeye devam
+(TV access)	(TV erişimi)
+1 row	1 satır
 and enter	ve gir
-and how a camera or the doorbell can show over another app.	ve bir kameranın ya da kapı zilinin başka uygulamanın üstünde nasıl görüneceğini.
 Automatic ·	Otomatik ·
 Button	Düğme
 Cancel	İptal
 Close	Kapat
 Couldn't send it. Check the internet and try again	Gönderilemedi. İnterneti kontrol edip tekrar dene
 Gift card code	Hediye kartı kodu
-Glassio uses Android's Accessibility API for one thing: to notice the buttons of your remote, and when the TV's own home screen comes up.	Glassio, Android'in Erişilebilirlik API'sini tek bir iş için kullanır: kumandanın tuşlarını ve TV'nin kendi ana ekranının açıldığını fark etmek.
+Glassio comes back when you leave an app it opened, it waits while the TV asks you to allow USB debugging, and a camera or the doorbell can show over another app.	Glassio, açtığı bir uygulamadan çıktığınızda geri gelir, TV USB hata ayıklamaya izin vermenizi isterken bekler ve bir kamera ya da kapı zili başka bir uygulamanın üzerinde görünebilir.
+Glassio uses Android's Accessibility API for two things: to notice the buttons of your remote, and to know which app is in front (its name only).	Glassio, Android'in Erişilebilirlik API'sini iki iş için kullanır: kumandanızın tuşlarını fark etmek ve hangi uygulamanın önde olduğunu bilmek (yalnızca adı).
 Glassio's accessibility service	Glassio erişilebilirlik hizmeti
 In the carousel's place	Karusel yerine
+It has none now	Şu an hiç yok
 It only works after you turn it on yourself in the TV's Accessibility settings, and you can turn it off there at any time.	Yalnızca TV'nin Erişilebilirlik ayarlarında sen açtıktan sonra çalışır ve istediğin zaman oradan kapatabilirsin.
 Its catalogs	Kataloğları
+Its own rows	Kendi satırları
 Its rows	Satırları
 No catalogs yet: add an add-on in Settings → Catalogs	Henüz katalog yok: Ayarlar → Kataloglar'dan bir eklenti ekle
 Not now	Şimdi değil
@@ -49,13 +53,11 @@ Sending…	Gönderiliyor…
 Sent. Thank you so much for your support!	Gönderildi. Desteğin için çok teşekkürler!
 Support Glassio	Glassio'yu destekle
 Support me	Beni destekle
-Supporters	Destekçiler
-Thank you for keeping Glassio going.	Glassio'yu ayakta tuttuğunuz için teşekkürler.
 Thank you!	Teşekkürler!
-That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	Home tuşu böyle TV'nin kendi ana ekranı yerine Glassio'yu açar, Home'a basılı tutma ve seçtiğin kumanda tuşları böyle ayarladığını yapar,
+That is how the Home button opens Glassio instead of the TV's own home screen, the remote buttons you choose do what you set, Recent apps lists the apps you used,	Home tuşunun TV'nin kendi ana ekranı yerine Glassio'yu açması, seçtiğiniz kumanda tuşlarının ayarladığınızı yapması ve Son uygulamaların kullandığınız uygulamaları listelemesi böyle olur,
 That isn't a PSN code: 12 letters and digits	Bu bir PSN kodu değil: 12 harf ve rakam
 The arrows and OK move around Glassio: pick another button	Oklar ve OK Glassio'da gezinmek içindir: başka bir tuş seç
-The service does not read what is on the screen, does not read what you type, and collects or shares nothing.	Hizmet ekrandakileri okumaz, yazdıklarını okumaz ve hiçbir şey toplamaz ya da paylaşmaz.
+The service does not read what is on the screen, does not read what you type, and collects or shares nothing: what it notices stays on this TV.	Hizmet ekrandakileri okumaz, yazdığınızı okumaz ve hiçbir şey toplamaz veya paylaşmaz: fark ettikleri bu TV'de kalır.
 This button sends nothing Glassio can tell apart: pick another button	Bu düğme Glassio'nun ayırt edebileceği bir şey göndermiyor: başka bir düğme seçin
 This is everything that will be sent. It becomes a public issue on GitHub: addresses, keys, emails and names were removed	Gönderilecek her şey bu. GitHub'da herkese açık bir konu olur: adresler, anahtarlar, e-postalar ve adlar çıkarıldı
 Type the code first	Önce kodu yaz
@@ -71,12 +73,9 @@ Glass blur	Cam bulanıklığı
 Glass like glass	Cam gibi cam
 None (clear)	Yok (şeffaf)
 Glassio is the TV screensaver	Glassio TV'nin ekran koruyucusu
-Add to Library	Kitaplık'a ekle
 Change artwork	Görseli değiştir
 Continue	Devam et
 Hide this title	Bu yapımı gizle
-Like	Beğen
-Liked	Beğenildi
 Loading…	Yükleniyor…
 Movie	Film
 Music apps	Müzik uygulamaları
@@ -85,7 +84,6 @@ No music app on this TV	Bu TV'de müzik uygulaması yok
 Open Catalogs	Katalogları aç
 Open Settings → Catalogs & add-ons to connect Nuvio and fill the carousel.	Nuvio'yu bağlamak ve karuseli doldurmak için Ayarlar → Katalog ve eklentiler'i aç.
 Play	Oynat
-Remove from Library	Kitaplık'tan kaldır
 Series	Dizi
 Stop trailer	Fragmanı durdur
 Trailer	Fragman
@@ -100,12 +98,14 @@ Apps folder hidden. Show it again: Settings → Dock & icons	Uygulamalar klasör
 Catalogs	Kataloglar
 Catalogs & add-ons	Katalog ve eklentiler
 Change icon	Simgeyi değiştir
+Glassio closed by itself. Send this report?	Glassio kendiliğinden kapandı. Bu rapor gönderilsin mi?
 Hide	Gizle
 Hide from the dock	Dock'tan gizle
 Hide its rows	Satırlarını gizle
 Lock	Kilitle
 Move	Taşı
 Open	Aç
+Rows from…	Satırların kaynağı…
 Show in dock	Dock'ta göster
 Show its rows	Satırlarını göster
 Unlock	Kilidi aç
@@ -151,29 +151,48 @@ Save to the Library	Kitaplık'a kaydet
 Saved	Kaydedildi
 Simkl · Plan to watch	Simkl · İzlenecekler
 Trakt watchlist	Trakt izleme listesi
+doesn't play	oynatmıyor
+has no session	oturumu yok
+Looking for the lyrics…	Şarkı sözleri aranıyor…
+No lyrics for this song	Bu şarkının sözü yok
 No music app on this TV (Spotify, YouTube Music, Apple Music…)	Bu TV'de müzik uygulaması yok (Spotify, YouTube Music, Apple Music…)
 Nothing is playing. Pick a music app to start something.	Hiçbir şey çalmıyor. Bir şey başlatmak için müzik uygulaması seç.
 Nothing playing	Çalan bir şey yok
+the letters dance while the name moves	ad kayarken harfler titriyor
+This song again	Bu şarkı tekrar
+to its own receiver	kendi alıcısına
 1280 enhanced	1280 geliştirilmiş
 High	Yüksek
+Checking…	Denetleniyor…
+Nuvio can't be reached to check this PIN	Bu PIN'i denetlemek için Nuvio'ya ulaşılamıyor
+The remote's number keys work too · Back cancels	Kumandanın rakam tuşları da çalışır · Geri iptal eder
+Too many wrong tries. Try again in	Çok fazla yanlış deneme. Şu süre sonra tekrar deneyin:
+Wrong PIN	Yanlış PIN
 Ask	Sor
 At start	Açılışta
 Automatic	Otomatik
+Choose a profile and enter its PIN	Bir profil seçin ve PIN'ini girin
+Enter the PIN	PIN'i girin
 Glassio will start as	Glassio şu profille açılacak:
 In use	Kullanımda
 Main profile	Ana profil
 OK opens a profile · hold OK to always start as it	OK profili açar · hep onunla açmak için OK'a basılı tut
 Opening Glassio as	Glassio şu profille açılıyor:
 Opening …	Açılıyor …
-PIN in Nuvio	Nuvio'da PIN
-This profile has a PIN in Nuvio: it can't be opened from here yet	Bu profilin Nuvio'da PIN'i var: buradan henüz açılamıyor
+This profile's PIN in Nuvio	Bu profilin Nuvio'daki PIN'i
 Credit	Katkı
 Date	Tarih
 Place	Yer
 Storage	Depolama
 Time	Saat
 Weather	Hava durumu
+Add to Library	Kitaplık'a ekle
 Allow USB debugging for Glassio to use the TV screensaver	Glassio'nun TV ekran koruyucusunu kullanması için USB hata ayıklamaya izin ver
+Like	Beğen
+Liked	Beğenildi
+Next	Sonraki
+Open in Nuvio	Nuvio'da aç
+Remove from Library	Kitaplık'tan kaldır
 Asking the add-ons…	Eklentilere soruluyor…
 Films and series	Filmler ve diziler
 Its own search	Kendi araması
@@ -191,11 +210,13 @@ Source	Kaynak
 The search didn't answer	Arama yanıt vermedi
 address pin	adres pin
 any setting	herhangi bir ayar
+app=other app	uygulama=diğer uygulama
 back to default	varsayılana dön
 display over other apps	diğer uygulamaların üzerinde göster
 Hello, …	Merhaba, …
 Name|rtsp://…	Ad|rtsp://…
 Plan to watch	İzlenecekler
+raw button id=package	ham düğme kimliği=paket
 Videos · My videos	Videolar · Videolarım
 (first its app id, from the phone)	(önce uygulama kimliği, telefondan)
 + button	+ düğmesi
@@ -226,6 +247,7 @@ A live camera in the corner, over any app	Köşede, her uygulamanın üstünde c
 A music app selected in the dock with nothing playing: its icon and Play. Off: its rows, or the carousel (its player still comes while its song is on)	Dock'ta seçili, hiçbir şey çalmayan bir müzik uygulaması: simgesi ve Oynat. Kapalıyken: satırları ya da karusel (şarkısı çalarken oynatıcısı yine gelir)
 A Music icon (move, hide and change it like an app): opens the player	Bir Müzik simgesi (uygulama gibi taşı, gizle, değiştir): oynatıcıyı açar
 A new one when each ends, fading through black like the screensaver	Her biri bitince yenisi, ekran koruyucu gibi siyaha geçerek
+A paused song goes	Duraklatılmış şarkı kalkar
 A picture or a video of your own as the background, from a link or the folder	Arka plan olarak kendi resmin ya da videon, bağlantıdan veya klasörden
 A pill appears next to the clock when a new version is out.	Yeni sürüm çıkınca saatin yanında bir hap görünür.
 A random mix from all your catalogs (different titles each time), fetched again on its own	Tüm kataloglarından rastgele bir karışım (her seferinde farklı yapımlar), kendiliğinden yeniden alınır
@@ -236,6 +258,7 @@ A short tour of what's new and where to change it	Yenilikler ve nereden değişt
 A soft ding-dong when it shows	Göründüğünde yumuşak bir ding-dong
 A song name too long for the island scrolls by (off: shortened with …)	Ada'ya sığmayan uzun şarkı adı kayar (kapalıyken … ile kısaltılır)
 A song plays under the search	Şarkı aramanın altında çalar
+A song's words beside the player, in time with it, lighting as they are sung. Found by the song's name and artist (only those are sent, to the sources below). The player's and the island's lyrics buttons do the same	Şarkının sözleri oynatıcının yanında, şarkıyla eş zamanlı ve söylendikçe parlayarak görünür. Şarkının adı ve sanatçısıyla bulunur (yalnızca bunlar aşağıdaki kaynaklara gönderilir). Oynatıcının ve adanın söz düğmeleri aynı işi yapar
 A tall poster or a wide card with the title's backdrop. The name, the year and the rating are inside the picture, like a Continue Watching card of the Library	Dikey bir poster ya da başlığın arka plan görseliyle geniş bir kart. Ad, yıl ve puan görselin içindedir; Kitaplıktaki İzlemeye devam kartı gibi
 A tint through all the glass (dock, icons, menus, panels), still see-through, like a tinted window	Tüm camlara (dock, simgeler, menüler, paneller) renk tonu; yine şeffaf, renkli cam gibi
 A title here opens in its own app: Nuvio Legacy, Nuvio or Stremio (Trakt and Simkl titles: Open titles in)	Buradaki yapım kendi uygulamasında açılır: Nuvio Legacy, Nuvio ya da Stremio (Trakt ve Simkl yapımları: Yapımları şurada aç)
@@ -266,16 +289,19 @@ Add-ons asked	Sorulan eklentiler
 Add-ons asked for sources	Kaynak için sorulan eklentiler
 Add-ons from my Nuvio account	Nuvio hesabımdaki eklentiler
 Add-ons, tokens, icons, cameras, videos and backups from your phone's browser	Eklentiler, belirteçler, simgeler, kameralar, videolar ve yedekler telefonunun tarayıcısından
+After 1 min	1 dk sonra
 After each new photo or video	Her yeni fotoğraf ya da videodan sonra
 After each new trailer	Her yeni fragmandan sonra
 After each new video	Her yeni videodan sonra
+After Glassio closes by itself, its report goes without asking. Off: the next start asks, and you see the report first	Glassio kendiliğinden kapandıktan sonra raporu sormadan gönderilir. Kapalı: sonraki açılışta sorulur ve raporu önce siz görürsünüz
 After this long on a title its trailer starts; when it ends (or ◀ ▶) the next title comes	Bir yapımda bu kadar kalınca fragmanı başlar; bitince (ya da ◀ ▶) sıradaki yapım gelir
 After you finish an episode, the next one waits here (from the Nuvio account and what Glassio saw)	Bir bölümü bitirince sıradaki burada bekler (Nuvio hesabından ve Glassio'nun gördüklerinden)
-After you leave this screen. The code changes each time it starts again	Bu ekrandan çıktıktan sonra. Kod her yeniden başladığında değişir
+After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	Bu ekrandan çıktıktan sonra. Adres ve kod aynı kalır, böylece telefonunuza kaydedilen sayfa, sayfa açık olduğu sürece çalışır. Her zaman: Glassio çalıştığı sürece
 Agree and open the TV's Accessibility settings	Kabul et ve TV'nin Erişilebilirlik ayarlarını aç
 All	Tümü
 All of Glassio's writing a step bolder	Glassio'daki tüm yazılar bir kademe daha kalın
 All of them	Hepsi
+All of them are off	Hepsi kapalı
 All the lights	Tüm ışıklar
 All the lights take the colour of the app selected in the dock (its glow's colour)	Tüm ışıklar dock'ta seçili uygulamanın rengini alır (parlamasının rengi)
 All the lights take the colour of the card you're on in an app's rows (as bright as the Library's posters)	Tüm ışıklar, bir uygulamanın satırlarında üzerinde durduğun kartın rengini alır (Kitaplık afişleri kadar parlak)
@@ -298,12 +324,16 @@ Also in the menu (hold OK)	Menüde de (OK'a basılı tut)
 Also, if your TVs are in the same home (off unless you turn them on)	Ayrıca TV'lerin aynı evdeyse (sen açmadıkça kapalı)
 Always	Her zaman
 AMOLED black	AMOLED siyah
+An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	Kendi İzlemeye devam satırı olan bir uygulama (Netflix, YouTube…) satırları yerine onu da kartlar olarak gösterir. Uygulama başına: Müzik ve uygulama satırları → Kanalları olan uygulamalar
 An icon in the dock: select it and the search bar comes up in the carousel's place; OK types. Glassio plays nothing itself: a title opens in an app	Dock'ta bir simge: seç, arama çubuğu karusel yerine gelir; OK ile yazılır. Glassio kendisi bir şey oynatmaz: yapım bir uygulamada açılır
 Android settings	Android ayarları
 Any title your server has opens on its page in the Jellyfin app (off: only titles from the server itself)	Sunucunuzda olan her başlık, Jellyfin uygulamasında kendi sayfasında açılır (kapalı: yalnızca sunucunun kendi başlıkları)
 Anything you like (even the code itself)	İstediğin herhangi bir şey (kodun kendisi bile)
 Anywhere: the camera in the corner (again closes it)	Her yerde: köşedeki kamera (tekrar basınca kapanır)
+Anywhere: the camera in the corner · press again to close	Her yerde: köşedeki kamera · kapatmak için tekrar basın
 Anywhere: the cameras in the middle (again closes them)	Her yerde: ortadaki kameralar (tekrar basınca kapanır)
+Anywhere: the cameras in the middle · press again to close	Her yerde: ortadaki kameralar · kapatmak için tekrar basın
+API key	API anahtarı
 API Key, not the token	API anahtarı, belirteç değil
 App	Uygulama
 App lock	Uygulama kilidi
@@ -319,6 +349,7 @@ Apps folder	Uygulamalar klasörü
 Apps in a row	Satırdaki uygulamalar
 Apps with channels	Kanalları olan uygulamalar
 Apps without a TV launcher entry	TV başlatıcı girişi olmayan uygulamalar
+Apps' Continue watching	Uygulamaların İzlemeye devam'ı
 Aqara (through HomeKit), Frigate, Ring, Tapo… any camera Home Assistant shows. Uses the Home Assistant link and token (Doorbell → Home Assistant link)	Aqara (HomeKit üzerinden), Frigate, Ring, Tapo… Home Assistant'ın gösterdiği her kamera. Home Assistant bağlantısını ve belirtecini kullanır (Kapı zili → Home Assistant bağlantısı)
 Around the settings button (it fills in white when selected)	Ayarlar düğmesinin çevresinde (seçilince beyaz dolar)
 Arrange apps	Uygulamaları düzenle
@@ -327,7 +358,9 @@ As before Hue Sync	Hue Sync öncesi gibi
 As Glassio shows this profile. Empty: the name it has in Nuvio	Glassio'nun bu profili göstereceği ad. Boşsa: Nuvio'daki adı
 As in Nuvio	Nuvio'daki gibi
 As they were before Hue Sync (they follow the screen again on the home screen)	Hue Sync öncesi gibi (ana ekranda yine ekranı izlerler)
+Ask for the PIN	PIN iste
 Ask who is watching	Kimin izlediğini sor
+At once	Hemen
 At the start	Başta
 At the top, with where each title came from	En üstte, her yapımın nereden geldiğiyle
 Auto	Oto
@@ -337,7 +370,9 @@ Auto ·	Oto ·
 Auto-hide	Otomatik gizle
 Auto-hide the top bar	Üst çubuğu otomatik gizle
 Auto-play	Otomatik oynat
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Otomatik: kameralar bu boyutta sığarsa tek satır, yoksa ızgara (ikiye iki, dörtten sonra üçe üç). Ekranın kenarlarını asla aşmazlar
 Automatic: what you change on the main TV shows here a moment later. Manual: only when you press Sync now	Otomatik: ana TV'de yaptığın değişiklik burada biraz sonra görünür. Elle: yalnızca Şimdi eşitle'ye basınca
+Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	Otomatik: video üzerinde şeffaf camla kendi arka planınız, aksi halde şarkının kapak resmi. Arka planınız: videonuz veya resminiz oynatıcının arkasında kalır. Şarkının kapak resmi: resmi sayfayı doldurur
 Back as they were	Eski haline döndü
 Back from Nuvio, the carousel shows that title first	Nuvio'dan dönünce karusel önce o yapımı gösterir
 Back on the home screen starts it	Ana ekranda Back bunu başlatır
@@ -351,7 +386,6 @@ Backdrop gallery	Arka görsel galerisi
 Background	Arka plan
 Background & glass	Arka plan ve cam
 Background & screensaver	Arka plan ve ekran koruyucu
-Baghdad	Bağdat
 Balanced	Dengeli
 Bar	Çubuk
 Bars colour	Çubuk rengi
@@ -367,7 +401,7 @@ Beta: new things first, they may still have bugs	Beta: yenilikler önce gelir, h
 Between Play and Next: saves the title to your Library	Oynat ile Sonraki arasında: yapımı Kitaplık'ına kaydeder
 Between posters and between rows	Afişler arasında ve satırlar arasında
 Bigger files are left out	Daha büyük dosyalar dışarıda bırakılır
-Bing and Wikimedia need no account; Unsplash needs a free key	Bing ve Wikimedia hesap istemez; Unsplash ücretsiz bir anahtar ister
+Bing, Windows Spotlight, Wikimedia and the paintings need no account; Unsplash and Pexels each need a free key	Bing, Windows Spotlight, Wikimedia ve tablolar için hesap gerekmez; Unsplash ve Pexels için ayrı ayrı ücretsiz bir anahtar gerekir
 Black AMOLED	Siyah AMOLED
 Black on white	Beyaz üstüne siyah
 Blink it	Yanıp söndür
@@ -395,6 +429,7 @@ Cameras	Kameralar
 Cameras found	Bulunan kameralar
 Cameras from Home Assistant	Home Assistant kameraları
 Cameras on the screensaver: ▼ brings them up from the bottom	Ekran koruyucuda kameralar: ▼ onları alttan getirir
+Cameras on the whole screen	Tam ekranda kameralar
 Cancelled	İptal edildi
 Card	Kart
 Card size	Kart boyutu
@@ -414,6 +449,7 @@ Change one icon: on the home screen hold OK on the app → Change icon. Pick fro
 Change speed	Değişim hızı
 Change the code	Kodu değiştir
 Change the order of its rows	Satırlarının sırasını değiştir
+Change the PIN	PIN'i değiştir
 Change who is watching (shown when your Nuvio account has more than one profile)	Kimin izlediğini değiştir (Nuvio hesabında birden fazla profil varsa görünür)
 Changed	Değişenler
 Changed settings	Değişen ayarlar
@@ -422,11 +458,11 @@ Channels	Kanallar
 Channels on	Kanallar açık
 Check	Kontrol et
 Check for updates	Güncellemeleri denetle
-Checking…	Denetleniyor…
 Chime	Zil sesi
 Choose Always allow on the TV, then press OK here again	TV'de Her zaman izin ver'i seç, sonra burada tekrar OK'a bas
 Choose another button	Başka bir tuş seç
 Choose default home app	Varsayılan ana uygulamayı seç
+choose one	birini seçin
 Choose the video first: My pictures & videos → Video from the folder or a link	Önce videoyu seçin: Resimlerim ve videolarım → Klasörden ya da bağlantıdan video
 Chosen	Seçilen
 Cinematic (fill)	Sinematik (doldur)
@@ -462,6 +498,9 @@ Connected	Bağlandı
 Connected to the Hue bridge: now choose the lights	Hue köprüsüne bağlandı: şimdi ışıkları seç
 Connections	Bağlantılar
 Continue Watching & Library	İzlemeye devam ve Kitaplık
+Continue watching as cards: off	Kart olarak İzlemeye devam: kapalı
+Continue watching as cards: on	Kart olarak İzlemeye devam: açık
+Continue Watching cards	İzlemeye devam kartları
 Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use it. Three steps, once	Nuvio Legacy'den İzlemeye devam, Glassio'nun TV ekran koruyucusu olması, TV bilgisi, uygulama açma, TV ile başlama ve sessiz güncellemeler bunu kullanır. Üç adım, bir kez
 Continue Watching in app carousels	Uygulama karusellerinde İzlemeye devam
 Continue Watching in the Library	Kitaplık'ta İzlemeye devam
@@ -515,7 +554,7 @@ Dynamic Glass	Dinamik cam
 e.g. year we met	örn. tanıştığımız yıl
 Each app has its own number for a title. Wikidata has some; JustWatch knows many more and what can be watched now, through its site's own search (not an official service)	Her uygulamanın bir yapım için kendi numarası vardır. Wikidata'da bazıları var; JustWatch çok daha fazlasını ve şu an nelerin izlenebildiğini sitesinin kendi aramasıyla bilir (resmi bir servis değil)
 Each app's rows, the music player and the island	Her uygulamanın satırları, müzik oynatıcı ve ada
-Each app's rows: off, hidden one by one, or in another order	Her uygulamanın satırları: kapalı, tek tek gizli ya da başka sırada
+Each app's rows: off, hidden one by one, in another order, or another app's	Her uygulamanın satırları: kapalı, tek tek gizli, başka sırada ya da başka bir uygulamanın
 Each film and series library as a catalog, newest first (Catalogs & add-ons → Catalogs in the carousel)	Her film ve dizi kitaplığı bir katalog olarak, en yeniler önce (Katalog ve eklentiler → Karuseldeki kataloglar)
 Each input as an icon: move, hide and change its icon like an app	Her giriş bir simge olarak: uygulama gibi taşı, gizle, simgesini değiştir
 Each light a different colour of the picture, or all of them its main colour	Her ışık resmin farklı bir rengi ya da hepsi ana rengi
@@ -523,17 +562,20 @@ Each light · the part of the screen it follows	Her ışık · izlediği ekran b
 Each music app selected in the dock: its player or its rows, and the player with nothing playing	Dock'ta seçili her müzik uygulaması: oynatıcısı ya da satırları ve hiçbir şey çalmazken oynatıcı
 Each profile of your Nuvio account has its own Glassio: its look, dock, catalogs, Library and Continue Watching. Glassio starts again when you change it	Nuvio hesabındaki her profilin kendi Glassio'su var: görünümü, dock'u, katalogları, Kitaplık'ı ve İzlemeye devam'ı. Değiştirince Glassio yeniden başlar
 Each title's own picture, or yours: a picture, photos or videos	Her içeriğin kendi resmi ya da sizinkiler: bir resim, fotoğraflar ya da videolar
-EarthPorn, wallpapers	EarthPorn, duvar kağıtları
+Empty: automatic (	Boş: otomatik (
 Empty: the name in Nuvio	Boşsa: Nuvio'daki ad
 Entertainment	Eğlence
 Every	Her
 Every app · press again to close it	Her uygulama · kapatmak için tekrar bas
 Every hidden title is back	Gizlenen tüm yapımlar geri geldi
 Every Hue light	Tüm Hue ışıkları
+Every QR code and page saved on a phone stops working; scan the new code	Bir telefonda kayıtlı her QR kod ve sayfa çalışmayı bırakır; yeni kodu tarayın
 Every row is hidden	Tüm satırlar gizli
 Every setting is as it comes	Tüm ayarlar varsayılan halinde
 Every setting, catalog, Library and Continue Watching (no sign-ins), saved to Download/Glassio on the TV (also from the phone page)	Tüm ayarlar, kataloglar, Kitaplık ve İzlemeye devam (girişler hariç), TV'de Download/Glassio'ya kaydedilir (telefon sayfasından da)
 Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private	Tüm ayarlar, kataloglar, Kitaplık, İzlemeye devam, hesap ve belirteçler, TV'de Download/Glassio'ya kaydedilir (telefon sayfasından da). Gizli tut
+Every time	Her seferinde
+Every time: when the TV starts or wakes, and when you change to this profile. Automatic: this TV opens it without the PIN	Her seferinde: TV açıldığında veya uyandığında ve bu profile geçtiğinizde. Otomatik: bu TV profili PIN olmadan açar
 Every title in progress, or one of them	Devam eden tüm yapımlar ya da yalnızca biri
 Every title is back to the Artwork setting	Tüm yapımlar Görsel ayarına döndü
 Every video (Apple, Amazon or your link) is saved as it plays and starts at once next time	Her video (Apple, Amazon ya da senin bağlantın) oynarken kaydedilir ve bir dahaki sefere hemen başlar
@@ -570,15 +612,21 @@ Follow which TV?	Hangi TV izlensin?
 Following this TV	Bu TV izleniyor
 Follows	İzler
 Follows another TV	Başka bir TV'yi izler
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Yazı tipleri: Inter (SIL OFL) · Hava durumu: Open-Meteo · Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamış veya sertifikalandırılmamıştır.
 Forget	Unut
 Forget the bridge	Köprüyü unut
 Forget them	Onları unut
+Four digits	Dört haneli
+Four digits before this profile opens. A profile with a PIN in Nuvio uses that one by itself	Bu profil açılmadan önce dört hane. Nuvio'da PIN'i olan bir profil kendiliğinden onu kullanır
+Four digits before this profile opens. Kept on this TV only	Bu profil açılmadan önce dört hane. Yalnızca bu TV'de tutulur
 Frame	Çerçeve
 Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	pexels.com/api'de ücretsiz: orada oturum açın, sonra anahtarınızı kopyalayın. Yalnızca bu TV'de tutulur
 Free videos from pexels.com for the words below	Aşağıdaki kelimeler için pexels.com'dan ücretsiz videolar
 Free videos from pexels.com for the words below. Needs your own Pexels key	Aşağıdaki kelimeler için pexels.com'dan ücretsiz videolar. Kendi Pexels anahtarınız gerekir
+Free: pexels.com/api → Your API key. The same key brings Pexels' videos to the screensaver. Easier to paste from your phone (Manage from phone)	Ücretsiz: pexels.com/api → API anahtarınız. Aynı anahtar Pexels videolarını ekran koruyucuya getirir. Telefondan yapıştırmak daha kolay (Telefondan yönet)
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	Ücretsiz: unsplash.com/developers → New application → Access Key. Telefondan yapıştırmak daha kolay (Telefondan yönet)
 From a computer or phone with ADB, connected to this Fire TV, type once:	Bu Fire TV'ye bağlı, ADB'li bir bilgisayar ya da telefondan bir kez şunu yaz:
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Bu TV'de varsa Glassio'dan (GitHub), yoksa Download/Glassio içindeki en yeni yedekten. Ardından Glassio yeniden başlar
 From Home Assistant	Home Assistant'tan
 From Home Assistant: the one its automation sends; or one of your cameras here	Home Assistant'tan: otomasyonunun gönderdiği ya da buradaki kameralarından biri
 From the artwork	Görselden
@@ -624,12 +672,14 @@ Google Play is not available on this device	Google Play bu cihazda yok
 Green	Yeşil
 Greeting	Karşılama
 Grey	Gri
+Grid	Izgara
 Guest room	Misafir odası
 Hardware	Donanım
 HDR and Dolby Vision	HDR ve Dolby Vision
 Hello	Merhaba
 hello (handwriting)	merhaba (el yazısı)
 Hello and the profile's name at the top of the menu, with its picture (the name alone under a Hello button, no picture under a picture button)	Menünün üstünde Merhaba ve profil adı, resmiyle birlikte (Merhaba düğmesinin altında yalnızca ad, resim düğmesinin altında resimsiz)
+HEVC videos	HEVC videoları
 Hidden	Gizli
 Hidden titles	Gizli yapımlar
 Hidden titles · pick one to show it again	Gizli yapımlar · tekrar göstermek için birini seç
@@ -671,6 +721,7 @@ How colourful the lights are	Işıkların renk canlılığı
 How deep the glass colour is	Cam renginin koyuluğu
 How far and how strong it is	Ne kadar uzağa ve ne kadar güçlü
 How it works: Nuvio Legacy writes what you play to the TV's log (title, episode, how far). Glassio reads that log through the TV's own debugging connection (ADB), so this needs ADB once: System → TV access (ADB). Nothing leaves the TV.	Nasıl çalışır: Nuvio Legacy oynattığını TV'nin günlüğüne yazar (yapım, bölüm, nereye kadar). Glassio bu günlüğü TV'nin kendi hata ayıklama bağlantısıyla (ADB) okur, bu yüzden bir kez ADB gerekir: Sistem → TV erişimi (ADB). TV'den hiçbir şey çıkmaz.
+How long the island stays once nothing plays (it comes back when a song plays, or with ▲)	Hiçbir şey çalmadığında adanın ne kadar kalacağı (şarkı çalınca veya ▲ ile geri gelir)
 How long the lights take to follow a video (a new title's colours come at once)	Işıkların bir videoyu izleme gecikmesi (yeni yapımın renkleri hemen gelir)
 How loud the trailers play (the TV's own volume stays as it is)	Fragmanların ses seviyesi (TV'nin kendi sesi olduğu gibi kalır)
 How many cards fit across a row at first (posters are narrower: more of them show)	Başta bir satıra kaç kart sığar (afişler daha dar: daha fazlası görünür)
@@ -704,6 +755,7 @@ In a Jellyfin app signed in to this server: your profile → Quick Connect, then
 In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	Başka bir uygulamada ya da ekran koruyucudayken arka plan videosu birkaç saniye sonra bırakılır, dönüşte yeniden alınır: küçük TV'de daha az bellek
 In its own colour	Kendi renginde
 In the carousel	Karuselde
+In the carousel. The Library's row: Continue Watching in the Library, below	Karuselde. Kitaplık'taki satır: aşağıda, Kitaplık'taki İzlemeye devam
 In the last colours	Son renklerde
 In the Library	Kitaplık'ta
 In the Library: OK opens the title like the carousel. Hold OK (or Menu) to remove it.	Kitaplık'ta: OK yapımı karusel gibi açar. Kaldırmak için OK'a (ya da Menu'ye) basılı tut.
@@ -731,9 +783,13 @@ IP address	IP adresi
 Island	Ada
 It goes away on its own after this (Back or holding Home again closes it sooner)	Bu süreden sonra kendiliğinden kaybolur (Back ya da Home'a tekrar basılı tutmak daha erken kapatır)
 It is off: without it no service is found for a title	Kapalı: onsuz bir yapım için servis bulunamaz
+It is the TV's screensaver now	Artık TV'nin ekran koruyucusu
+It is the TV's screensaver: choose another one first	TV'nin ekran koruyucusu: önce başka birini seçin
 It stays below the screen until you go down to it (the dots go down too)	Sen aşağı inene kadar ekranın altında kalır (noktalar da iner)
 Its anon (public) key	Anon (herkese açık) anahtarı
+Its catalogs show instead (OK → Show)	Bunun yerine katalogları gösterilir (OK → Göster)
 Its libraries in the carousel, what you are watching, your favourites, the search, Play	Karuselde kitaplıkları, izledikleriniz, favorileriniz, arama, Oynat
+its own	kendi
 Its page in Stremio	Stremio'daki sayfası
 Its place in the area	Alandaki yeri
 Its player with nothing playing	Hiçbir şey çalmazken oynatıcısı
@@ -803,8 +859,9 @@ Looking for Glassio on your network…	Ağında Glassio aranıyor…
 Looks at the latest release on GitHub	GitHub'daki son sürüme bakar
 Looks for the Hue bridge on this network	Bu ağda Hue köprüsünü arar
 Lower	Daha düşük
-Made by Mohammad (mrh12)	Yapımcı: Mohammad (mrh12)
-Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	Yazı tipleri: Inter (SIL OFL) · Hava durumu: Open-Meteo · Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamış ya da sertifikalandırılmamıştır.
+Lyrics	Şarkı sözleri
+Lyrics sources	Söz kaynakları
+Made by Mohammad (mrh12)	Mohammad (mrh12) tarafından yapıldı
 Main (TMDB)	Ana (TMDB)
 Main TV	Ana TV
 Main TV (the others follow it)	Ana TV (diğerleri onu izler)
@@ -818,6 +875,8 @@ Maximum (original)	Maksimum (özgün)
 Menu & themes	Menü ve temalar
 Menu items	Menü öğeleri
 Menu order	Menü sırası
+Menu → Camera goes straight to the cameras page instead of the live card	Menü → Kamera, canlı kart yerine doğrudan kameralar sayfasına gider
+Menu's Camera opens the whole screen	Menüdeki Kamera tam ekranı açar
 Message	Mesaj
 Middle	Orta
 Mixed with catalogs	Kataloglarla karışık
@@ -850,18 +909,21 @@ Needs "Notification access" for Glassio in the TV's settings: press to open it	T
 Needs a TMDB token. English is used when a title has no text in this language	TMDB belirteci gerekir. Bir yapımın bu dilde metni yoksa İngilizce kullanılır
 Needs Glassio's accessibility service	Glassio erişilebilirlik hizmeti gerekir
 Needs the Home Assistant link and token (Doorbell → Home Assistant link)	Home Assistant bağlantısı ve belirteci gerekir (Kapı zili → Home Assistant bağlantısı)
-Needs the Home button service: System → Turn it on	Home tuşu hizmeti gerekir: Sistem → Aç
 Needs the TMDB token (Accounts & profiles) · a row per streaming service	TMDB belirteci gerekir (Hesaplar ve profiller) · her yayın servisi için bir satır
+Needs TV access (ADB): System → TV access (ADB).	TV erişimi (ADB) gerekir: Sistem → TV erişimi (ADB).
 Needs TV access (ADB, System) to read the music apps: press to try again	Müzik uygulamalarını okumak için TV erişimi gerekir (ADB, Sistem): tekrar denemek için bas
 Needs TV access (ADB, System), or the TV's own question: press to try again	TV erişimi (ADB, Sistem) ya da TV'nin kendi sorusu gerekir: tekrar denemek için bas
+Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	Kendi arka planınız (Başlık arka planları değil) ve altta dock gerekir: izlediğiniz içerik dock'un üstünde küçük kartlar olarak görünür
 Neither Spotify nor SoundCloud is on this TV	Bu TV'de ne Spotify ne de SoundCloud var
 Netflix (one by one)	Netflix (tek tek)
 Netflix, Apple TV, Prime Video, Disney+: the ones on this TV that have the title in your country (JustWatch)	Netflix, Apple TV, Prime Video, Disney+: bu TV'de olup yapımı ülkende bulunduranlar (JustWatch)
 Never	Asla
 Never synced: Nuvio, Stremio, Trakt and Simkl sign-ins. Each of them hands one TV a sign-in that the next use replaces: shared, the two TVs would sign each other out. Sign in on each TV once.	Hiç eşitlenmez: Nuvio, Stremio, Trakt ve Simkl girişleri. Her biri bir TV'ye, sonraki kullanımda yenilenen bir giriş verir: paylaşılırsa iki TV birbirini çıkış yaptırır. Her TV'de bir kez giriş yap.
 New	Yeni
+New code	Yeni kod
 New mix	Yeni karışım
 New mix every	Yeni karışım sıklığı
+New PIN	Yeni PIN
 New settings	Yeni ayarlar
 New titles first	Yeni yapımlar önce
 Next to Play (Apple TV buttons). Hold OK on Play has Trailer too	Oynat'ın yanında (Apple TV düğmeleri). Oynat'ta OK'a basılı tutmada da Fragman var
@@ -880,6 +942,7 @@ No hidden titles	Gizli yapım yok
 No limit	Sınır yok
 No main TV found. On the other TV: Settings → System → Sync between TVs → This TV → Main TV (both on the same network)	Ana TV bulunamadı. Diğer TV'de: Ayarlar → Sistem → TV'ler arası eşitleme → Bu TV → Ana TV (ikisi de aynı ağda)
 No results	Sonuç yok
+No rows of its own · OK → Rows from	Kendi satırı yok · OK → Satırların kaynağı
 No sensors found	Sensör bulunamadı
 No streaming app on this TV yet	Bu TV'de henüz yayın uygulaması yok
 No streaming service's app on this TV yet	Bu TV'de henüz bir yayın servisinin uygulaması yok
@@ -893,6 +956,7 @@ none installed	yüklü yok
 None linked	Bağlı yok
 None linked yet	Henüz bağlı yok
 None of them is on this TV	Hiçbiri bu TV'de yok
+None of them is on this TV.	Hiçbiri bu TV'de yok.
 none yet	henüz yok
 None yet: add one from your phone, a link or Nuvio	Henüz yok: telefondan, bağlantıdan ya da Nuvio'dan ekle
 Not allowed yet: press OK, then Always allow on the TV	Henüz izin verilmedi: OK'a bas, sonra TV'de Her zaman izin ver
@@ -903,6 +967,7 @@ Not set (the Hue app shows it: Settings → Bridges)	Ayarlanmadı (Hue uygulamas
 Not synced with another TV	Başka bir TV ile eşitlenmiyor
 Not working	Çalışmıyor
 Nothing playing: the app's player	Çalan yok: uygulamanın oynatıcısı
+Nothing: apps that were off before stay as they are	Hiçbir şey: önceden kapalı olan uygulamalar olduğu gibi kalır
 Nuvio account	Nuvio hesabı
 Nuvio account connected	Nuvio hesabı bağlandı
 Nuvio and Stremio	Nuvio ve Stremio
@@ -917,9 +982,13 @@ Nuvio plays at once	Nuvio hemen oynatır
 Nuvio server	Nuvio sunucusu
 Nuvio server address (empty: the official one)	Nuvio sunucu adresi (boşsa: resmi olan)
 Nuvio server set: sign in again	Nuvio sunucusu ayarlandı: tekrar giriş yap
+Nuvio's	Nuvio'nun
+Nuvio's picture by itself	Nuvio resmi kendiliğinden
 Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio, Trakt, Simkl ya da Stremio, kendi renginde bir noktayla
 Off	Kapalı
 Off (OK opens Settings)	Kapalı (OK Ayarlar'ı açar)
+Off by itself: one failed to play on this TV (a green or black picture). Only H.264 videos play, without Amazon's	Kendiliğinden kapandı: biri bu TV'de oynatılamadı (yeşil veya siyah görüntü). Yalnızca H.264 videoları oynatılır, Amazon'unkiler hariç
+Off while the type is the TV's screensaver app (another process). On: the type becomes Videos, shown on the home screen itself	Tür TV'nin ekran koruyucu uygulaması olduğunda kapalı (başka bir işlem). Açık: tür Videolar olur ve ana ekranın kendisinde gösterilir
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	Kapalı: evdeki her cihaz pencereyi gösterebilir. Açık: Home Assistant X-Glassio-Token başlığını ekler (ya da bağlantıda ?token=)
 Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	Kapalı: OK'a basılı tutmak videoyu her zamanki gibi kilitler. Açık: saklamak ya da bir daha göstermemek için küçük bir menü
 Off: in the collections' order	Kapalı: koleksiyonların sırasında
@@ -939,6 +1008,9 @@ On the Inputs icon's page (hold OK on it there to change its icon)	Girişler sim
 On the screensaver	Ekran koruyucuda
 On the Search icon ▼ doesn't open the Library, and ▲ from the search bar doesn't go to the menu	Arama simgesindeyken ▼ Kitaplığı açmaz, arama çubuğundan ▲ menüye gitmez
 On the TV	TV'de
+On the video screensaver	Video ekran koruyucuda
+On the whole screen	Tam ekranda
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	Tam ekranda seçili kameranın sesi kendiliğinden çalar (ses gönderen kameralar)
 On: accounts and keys (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, the lock code) go into the backup too, to move them to another TV: keep the file private. Off: they stay on each TV	Açık: hesaplar ve anahtarlar (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, kilit kodu) başka TV'ye taşımak için yedeğe de girer: dosyayı gizli tut. Kapalı: her TV'de kalır
 On: following your music apps	Açık: müzik uygulamaların izleniyor
 On: it starts in every app when the TV is idle, not only on the home screen	Açık: TV boştayken yalnızca ana ekranda değil, her uygulamada başlar
@@ -959,10 +1031,12 @@ One title: on the carousel hold OK (or press Menu) to switch to its next picture
 One video	Tek video
 One way only: what you change here in a synced part is replaced by the main TV's next change. Apps not installed on this TV are left out of its dock.	Tek yönlü: eşitlenen bir bölümde burada yaptığın değişiklik, ana TV'nin sonraki değişikliğiyle değişir. Bu TV'de yüklü olmayan uygulamalar dock'ta yer almaz.
 Online	Çevrimiçi
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Yalnızca TV'nin ihtiyaç duymadığı uygulamalar listelenir: raporlar, reklamlar ve yükleyiciler. Başlatma, kumanda, ses, yayınlama, Play Store ve güncellemelere asla dokunulmaz. Hiçbir şey silinmez ve TV'yi sıfırlamak her şeyi geri getirir.
 Only locked videos	Yalnızca kilitli videolar
 Only on my services	Yalnızca servislerimde
 Only on the carousel	Yalnızca karuselde
 Only on the carousel: slides change only while the carousel itself is selected (lighter on a weak TV)	Yalnızca karuselde: slaytlar yalnızca karuselin kendisi seçiliyken değişir (zayıf bir TV'de daha hafif)
+Only the song's name, artist and length are sent, and only to the sources that are on.	Yalnızca şarkının adı, sanatçısı ve süresi gönderilir, o da sadece açık olan kaynaklara.
 Only titles that a service's app on this TV has. Titles that are on none of them are left out, also when Nuvio or Stremio could open them	Yalnızca bu TV'deki bir servis uygulamasında bulunan başlıklar. Hiçbirinde olmayan başlıklar, Nuvio veya Stremio açabilse bile gösterilmez
 Only when selected	Yalnızca seçiliyken
 Open app	Uygulamayı aç
@@ -977,6 +1051,7 @@ Opens the first place	İlk yeri açar
 Opens when you go up to it	Ona çıkınca açılır
 Opens with OK	OK ile açılır
 Optional: also lists apps opened before Glassio started	İsteğe bağlı: Glassio başlamadan önce açılan uygulamaları da listeler
+Or scan with your phone (same Wi-Fi) and change any setting there	Ya da telefonunuzla (aynı Wi-Fi) tarayın ve istediğiniz ayarı orada değiştirin
 Order	Sıra
 Order of the list	Liste sırası
 Original	Özgün
@@ -986,6 +1061,7 @@ Other apps (YouTube, Netflix, Apple TV…) keep their Continue Watching private 
 Other TVs & backups	Diğer TV'ler ve yedekler
 Over the background	Arka planın üstünde
 Page background	Sayfa arka planı
+Page behind the player	Oynatıcının arkasındaki sayfa
 Page behind the search	Aramanın arkasındaki sayfa
 Password	Şifre
 Password (empty if it has none)	Şifre (yoksa boş bırakın)
@@ -1014,6 +1090,8 @@ Picture set	Resim ayarlandı
 Pictures	Resimler
 Pictures in the folder	Klasördeki resimler
 Pictures per title	Yapım başına resim
+PIN removed	PIN kaldırıldı
+PIN set for this profile	Bu profil için PIN ayarlandı
 Place & size	Yer ve boyut
 Place and credit	Yer ve katkı
 placed around the TV	TV'nin etrafına yerleştirilmiş
@@ -1065,6 +1143,7 @@ projectivy icon pack	projectivy simge paketi
 Purple	Mor
 Put the lights back now	Işıkları şimdi eski haline getir
 QR code	QR kodu
+QR code in Settings' search	Ayarlar aramasında QR kod
 Quality	Kalite
 Quick	Hızlı
 RAM, CPU, GPU, storage, IP (the ones on in Look & menu → TV info)	RAM, CPU, GPU, depolama, IP (Görünüm ve menü → TV bilgisi'nde açık olanlar)
@@ -1073,14 +1152,13 @@ Rating	Puan
 Rating, year, platform	Puan, yıl, platform
 Rating, year, where it streams and genres, as on the carousel	Puan, yıl, nerede yayınlandığı ve türler, karuseldeki gibi
 Reading the bridge…	Köprü okunuyor…
+Reading the TV's apps…	TV'nin uygulamaları okunuyor…
 Reading what you watch in Nuvio Legacy	Nuvio Legacy'de izlediklerin okunuyor
 Ready-made words, or write your own below	Hazır sözler ya da aşağıya kendin yaz
 Recent apps	Son uygulamalar
 Recent apps use TV access (ADB)	Son uygulamalar TV erişimini (ADB) kullanır
 Recommended for this make	Bu marka için önerilen
 Recommended for this TV	Bu TV için önerilen
-Reddit app id	Reddit uygulama kimliği
-Reddit lets apps in only with an id: reddit.com/prefs/apps → create app → "installed app" (any name, redirect http://localhost) → the id under its name	Reddit uygulamaları yalnızca kimlikle kabul eder: reddit.com/prefs/apps → create app → "installed app" (herhangi bir ad, redirect http://localhost) → adının altındaki kimlik
 Refresh catalogs	Katalogları yenile
 Reload carousel now	Karuseli şimdi yeniden yükle
 Reload to apply	Uygulamak için yeniden yükle
@@ -1089,6 +1167,7 @@ Remote buttons	Kumanda tuşları
 Remote mapping	Kumanda eşleme
 Remove add-on	Eklentiyi kaldır
 Remove the picture	Resmi kaldır
+Remove the PIN	PIN'i kaldır
 Remove this button	Bu düğmeyi kaldır
 Replace every setting on this TV?	Bu TV'deki tüm ayarlar değiştirilsin mi?
 Reset pictures picked per title	Yapım başına seçilen resimleri sıfırla
@@ -1101,6 +1180,7 @@ Right, by Settings	Sağda, Ayarlar'ın yanında
 Room	Oda
 Rows	Satırlar
 Rows above the dock	Satırlar dock'un üstünde
+Rows from:	Satırların kaynağı:
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	Satırlar alt alta ya da ▲ / ▼ ile değişen ortada tek satır
 Rows per platform	Platform başına satır
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… , bir HLS (.m3u8) ya da video bağlantısı
@@ -1141,6 +1221,7 @@ Select none	Hiçbirini seçme
 Selected icon plate	Seçili simge plakası
 Selection	Seçim
 Send a test event	Test olayı gönder
+Send crash reports by themselves	Çökme raporlarını kendiliğinden gönder
 Send Nuvio playback	Nuvio oynatmasını gönder
 Sends title, type and id as JSON	Yapım, tür ve kimliği JSON olarak gönderir
 Service apps	Servis uygulamaları
@@ -1188,8 +1269,10 @@ Shows the pop-up now with your camera	Pencereyi şimdi kameranla gösterir
 Shuffle	Karıştır
 Shuffle all catalogs	Tüm katalogları karıştır
 Shuffle button	Karıştır düğmesi
+Shuffle button repeats a song	Karıştır düğmesi şarkıyı tekrarlar
 Shuffle my pictures	Resimlerimi karıştır
 Shuffle photos	Fotoğrafları karıştır
+Shuffle the carousel	Karuseli karıştır
 Sign in first	Önce giriş yap
 Sign in to Nuvio first (Accounts & profiles)	Önce Nuvio'ya giriş yap (Hesaplar ve profiller)
 Sign in to Nuvio first (Connections)	Önce Nuvio'ya giriş yap (Bağlantılar)
@@ -1218,6 +1301,7 @@ Slides at the start	Başlangıçtaki slaytlar
 Slides change on their own	Slaytlar kendiliğinden değişir
 Slides loaded before you get to them	Sen gelmeden önce yüklenen slaytlar
 Slow	Yavaş
+Small cards above the dock over your own background	Kendi arka planınızda dock'un üstünde küçük kartlar
 Smaller makes the dock and its icons narrower	Küçültünce dock ve simgeleri daralır
 Smaller posters leave more room at the sides	Küçük afişler yanlarda daha fazla yer bırakır
 Smart home	Akıllı ev
@@ -1228,6 +1312,7 @@ Software keeps the TV's own video playing while a camera shows (some TVs stopped
 Someone is at the door	Kapıda biri var
 Song and artist	Şarkı ve sanatçı
 Sound	Ses
+Sound follows the selection	Ses seçimi izler
 SoundCloud's songs under the titles, and Spotify's own search with the words in it	Başlıkların altında SoundCloud şarkıları ve yazdığınız sözcüklerle Spotify'ın kendi araması
 Sources	Kaynaklar
 Sources without a direct address (marked P2P). Stremio plays them only where its streaming server runs; on most TVs they don't start	Doğrudan adresi olmayan kaynaklar (P2P işaretli). Stremio bunları yalnızca yayın sunucusunun çalıştığı yerde oynatır; çoğu TV'de başlamazlar
@@ -1249,7 +1334,6 @@ Stop every TV following this one	Bu TV'yi izleyen tüm TV'leri durdur
 Stop every TV following this one?	Bu TV'yi izleyen tüm TV'ler durdurulsun mu?
 Stop following	İzlemeyi bırak
 Stops the app on screen and comes back to Glassio. Needs TV access (ADB)	Ekrandaki uygulamayı durdurur ve Glassio'ya döner. TV erişimi (ADB) gerekir
-Stops when you leave	Çıkınca durur
 Straight from the packs' own pages (GitHub, F-Droid)	Doğrudan paketlerin kendi sayfalarından (GitHub, F-Droid)
 Streaming services	Yayın servisleri
 Stremio account	Stremio hesabı
@@ -1262,10 +1346,9 @@ Stremio's sources	Stremio kaynakları
 Strength	Güç
 Style	Stil
 Subject	Konu
-Subreddit wallpapers: one or more, comma separated (EarthPorn, wallpapers, SkyPorn…)	Subreddit duvar kağıtları: bir ya da daha fazla, virgülle ayır (EarthPorn, wallpapers, SkyPorn…)
-Subreddits	Subreddit'ler
 Subtitles	Altyazılar
 Subtle	Hafif
+Supporters	Destekçiler
 Surprise me	Sürpriz yap
 Switch between title backdrops, your picture, your video and the screensaver	Yapım arka görselleri, resmin, videon ve ekran koruyucu arasında geçiş yap
 Switch cameras every	Kamera değiştirme sıklığı
@@ -1286,6 +1369,7 @@ Temperature + city	Sıcaklık + şehir
 Temperature + sky	Sıcaklık + gökyüzü
 Temperature, conditions, high / low, humidity and wind (the city: Clock & weather)	Sıcaklık, durum, en yüksek / en düşük, nem ve rüzgâr (şehir: Saat ve hava durumu)
 Text	Yazı
+Thank you for keeping Glassio going.	Glassio'nun yaşamasını sağladığınız için teşekkürler.
 Thank you! Scan the code on the left	Teşekkürler! Soldaki kodu tara
 That isn't a link	Bu bir bağlantı değil
 That one first, then the nearest below it	Önce o, sonra altındaki en yakın
@@ -1299,19 +1383,18 @@ The Apple TV-style menu at the settings button	Ayarlar düğmesindeki Apple TV t
 The Apps folder	Uygulamalar klasörü
 The bridge's button wasn't pressed: press it, then Connect again	Köprünün düğmesine basılmadı: bas, sonra tekrar Bağlan
 The button at the top that opens the menu	Üstteki menüyü açan düğme
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Geri'ye kadar ekranı dolduran kameralar; oklar birini seçer, OK sesini açar (ayrıca: menü → Kamera → Tam ekran veya bir kumanda tuşu)
 The chips under the title	Yapımın altındaki etiketler
 The clock and the settings button hide while you browse, and come back when you go up to them	Gezinirken saat ve ayarlar düğmesi gizlenir, onlara çıkınca geri gelir
 The colour of the switches in Settings, and of a row while you change it	Ayarlar'daki anahtarların ve değiştirirken satırın rengi
 The dark shade along the left side (it keeps the clock and text readable on bright pictures)	Sol kenar boyunca koyu gölge (parlak resimlerde saat ve yazının okunmasını sağlar)
 The dark shades over the title's picture: on the left behind the logo, text and buttons, and at the bottom above the dock. Off: the picture as it is (the writing gets a soft shadow of its own)	Yapımın resmi üzerindeki koyu gölgeler: solda logo, yazı ve düğmelerin arkasında, altta dock'un üstünde. Kapalı: resim olduğu gibi (yazıya kendi yumuşak gölgesi eklenir)
-The date above the time in white, whatever the clock's look	Saatin görünümü ne olursa olsun, saatin üstünde beyaz tarih
 The dock and the dots step aside while a trailer fills the page, and come back when it stops or ends (never with the window)	Fragman sayfayı doldururken dock ve noktalar çekilir, fragman durunca ya da bitince geri gelir (pencereyle asla)
 The dock's order, hidden apps, its size and place, and icons you made	Dock'un sırası, gizli uygulamalar, boyutu ve yeri ile yaptığın simgeler
 The dots bar (and the liquid glass drops)	Nokta çubuğu (ve sıvı cam damlaları)
 The folder with all your apps, in the dock. Hidden apps stay listed in Arrange apps	Dock'ta tüm uygulamalarının olduğu klasör. Gizli uygulamalar Uygulamaları düzenle'de listelenmeye devam eder
 The grey page, Glassio's soft coloured lights, or the carousel's picture blurred. The Music and Inputs icons' page is the same one	Gri sayfa, Glassio'nun yumuşak renkli ışıkları ya da karuselin bulanık görseli. Müzik ve Girişler simgelerinin sayfası da aynıdır
 The Hue bridge Glassio is paired with (each TV keeps its own lights and room)	Glassio'nun eşleştiği Hue köprüsü (her TV kendi ışıklarını ve odasını tutar)
-the id under the app's name	uygulama adının altındaki kimlik
 The Jellyfin app isn't on this TV: install it (Google Play: Jellyfin for Android TV) and sign in there to the same server, so titles open in it.	Jellyfin uygulaması bu TV'de yok: yükleyin (Google Play: Jellyfin for Android TV) ve başlıklar orada açılsın diye aynı sunucuya giriş yapın.
 The large glass clock in the middle of the screensaver (its look: Large clock, above)	Ekran koruyucunun ortasındaki büyük cam saat (görünümü: yukarıdaki Büyük saat)
 The Library	Kitaplık
@@ -1326,7 +1409,7 @@ The main TV: the TVs that follow it take its setup	Ana TV: onu izleyen TV'ler ku
 The menu	Menü
 The menu, the dock and the icons with square corners	Köşeleri kare menü, dock ve simgeler
 The music island at the top of the screensaver	Ekran koruyucunun üstündeki müzik adası
-The newest backup in Download/Glassio on the TV. Glassio restarts after	TV'de Download/Glassio içindeki en yeni yedek. Ardından Glassio yeniden başlar
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	TV'deki Download/Glassio içindeki en yeni yedek, yoksa bu TV'deki Google Play'den Glassio'nun ayarları. Ardından Glassio yeniden başlar
 The next video, picture or photo now	Sıradaki video, resim ya da fotoğraf şimdi
 The Nuvio apps and Stremio on this TV: they can open any title	Bu TV'deki Nuvio uygulamaları ve Stremio: her yapımı açabilirler
 The official Nuvio app, Nuvio Arc and Re-Shaped don't write that log: connect Trakt (and turn on Trakt in that Nuvio app) and what you pause there shows up here through Trakt.	Resmi Nuvio uygulaması, Nuvio Arc ve Re-Shaped bu günlüğü yazmaz: Trakt'ı bağla (ve o Nuvio uygulamasında Trakt'ı aç), orada durdurduklarını burada Trakt üzerinden görürsün.
@@ -1338,7 +1421,10 @@ The open apps, like holding Home	Açık uygulamalar, Home'a basılı tutmak gibi
 The open apps, like the Apple TV app switcher	Açık uygulamalar, Apple TV uygulama değiştirici gibi
 The others open a title as usual	Diğerleri yapımı her zamanki gibi açar
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	Performans modu ve ayarladıkları: resim kalitesi, cam detayı ve kırılması, slayt animasyonu, arka görsel galerisi, önbellekler ve ekran koruyucu kalitesi. Kapalı: bu TV kendininkini korur, böylece zayıf bir TV akıcı kalır
+The phone page's QR code: change settings from your phone	Telefon sayfasının QR kodu: ayarları telefonunuzdan değiştirin
 The row at the top of the results. The others follow in their usual order	Sonuçların en üstündeki satır. Diğerleri her zamanki sırayla gelir
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Aynı görünüm, bellek ve işlemciye daha hafif: hazır tutulan resimler daha az, arka planda daha az iş
+The same PIN again	Aynı PIN'i tekrar girin
 The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	Ekran koruyucu burada oynayan videoyla kaldığı yerden başlar, arka plan da onun bittiği videoyla devam eder. Belleği az TV'de daha hafif
 The screensaver: what it shows and how	Ekran koruyucu: ne gösterdiği ve nasıl
 The search opens empty each time. Off: what was typed last is still in the bar	Arama her seferinde boş açılır. Kapalı: son yazılan çubukta kalır
@@ -1348,7 +1434,9 @@ The selected icon rises a little, glass and all	Seçili simge camıyla birlikte 
 The selected poster in the Library	Kitaplık'ta seçili afiş
 The service then does nothing, also while it is on in the TV's settings	Hizmet o zaman hiçbir şey yapmaz, TV ayarlarında açıkken de
 The services whose app is on this TV, the ones you choose, or none	Uygulaması bu TV'de olan servisler, seçtiklerin ya da hiçbiri
+The shuffle button of the player, the island and the menu has a second press: the song playing starts again each time it ends. Off → shuffle → this song again → off. An app that takes no repeat from outside is sent back to the song's start a second before its end	Oynatıcının, adanın ve menünün karıştır düğmesinin ikinci bir basışı vardır: çalan şarkı her bittiğinde yeniden başlar. Kapalı → karıştır → bu şarkı tekrar → kapalı. Dışarıdan tekrar kabul etmeyen bir uygulama, bitmesine bir saniye kala şarkının başına döndürülür
 The small player in the menu is with the music	Menüdeki küçük oynatıcı müzikle birlikte
+The song's artwork	Şarkının kapak resmi
 The title's logo	Yapımın logosu
 The title's logo (or its name)	Yapımın logosu (ya da adı)
 The title's poster	Yapımın afişi
@@ -1356,6 +1444,7 @@ The title's rating, the number alone, faint, beside the year and Film / Series	B
 The titles and their progress from Nuvio only, even with Trakt, Simkl and Stremio syncing too (their progress for the same title could be older or off)	Yalnızca Nuvio'dan yapımlar ve ilerlemeleri; Trakt, Simkl ve Stremio da eşitlenirken bile (aynı yapım için ilerlemeleri eski ya da hatalı olabilir)
 The TV is not on a network	TV bir ağa bağlı değil
 The TV is not on a network, so the phone page can't start.	TV bir ağa bağlı değil, bu yüzden telefon sayfası başlatılamıyor.
+The TV refused:	TV reddetti:
 The TV screensaver now starts after	TV ekran koruyucusu şimdi şu süre sonra başlar
 The TV's app	TV'nin uygulaması
 The TV's Bluetooth: remotes, headphones, speakers and controllers	TV'nin Bluetooth'u: kumandalar, kulaklıklar, hoparlörler ve oyun kolları
@@ -1364,6 +1453,7 @@ The TV's inputs over any app · press again to close	Herhangi bir uygulamanın �
 The TV's own idle time, in any app (ADB)	TV'nin kendi boşta kalma süresi, her uygulamada (ADB)
 The TV's screensaver app (	TV'nin ekran koruyucu uygulaması (
 The welcome screen: restore, catalogs, accounts and theme	Karşılama ekranı: geri yükleme, kataloglar, hesaplar ve tema
+The words also show over the screensaver's videos while a song plays (never over the posters or trailers). The island's lyrics button (▲ on the screensaver) turns Lyrics on and off	Şarkı çalarken sözler ekran koruyucunun videoları üzerinde de görünür (afişlerde veya fragmanlarda asla). Adanın söz düğmesi (ekran koruyucuda ▲) Şarkı sözlerini açıp kapatır
 Their order in the dock, the hidden ones, and each app's options	Dock'taki sıraları, gizli olanlar ve her uygulamanın seçenekleri
 Their own colour, at 20 %	Kendi renkleri, %20'de
 Theme	Tema
@@ -1377,6 +1467,8 @@ This add-on has no catalogs for the carousel	Bu eklentinin karusel için katalo�
 This build has no Trakt app id.	Bu sürümde Trakt uygulama kimliği yok.
 This closes by itself once you approve.	Onaylayınca bu kendiliğinden kapanır.
 This is the main TV now. Add a TV shows the code for the other one	Artık ana TV bu. TV ekle, diğeri için kodu gösterir
+This PIN is the one in Nuvio: change it in the Nuvio app	Bu PIN, Nuvio'dakidir: Nuvio uygulamasında değiştirin
+This profile has a PIN in Nuvio: Glassio asks for the same one, and Nuvio checks it. It is changed in the Nuvio app	Bu profilin Nuvio'da bir PIN'i var: Glassio aynısını ister ve Nuvio denetler. Nuvio uygulamasında değiştirilir
 This screen is not available on this device	Bu ekran bu cihazda yok
 This TV	Bu TV
 This TV has no Usage access screen: Recent apps still works without it	Bu TV'de Kullanım erişimi ekranı yok: Son uygulamalar onsuz da çalışır
@@ -1409,11 +1501,14 @@ Trailers (the carousel's titles, one after another) · OK opens the title in Nuv
 Trakt account	Trakt hesabı
 Transition speed	Geçiş hızı
 Try it	Dene
+Turn back on what Glassio turned off	Glassio'nun kapattıklarını geri aç
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	TV'nin yalnızca rapor gönderen, reklam gösteren veya başka uygulama yükleyen uygulamalarını kapatın. Hiçbir şey silinmez: bir anahtar her birini geri açar
 Turn on a collection first	Önce bir koleksiyonu aç
 Turn on Glassio under Notification access, then switch Music on again	Bildirim erişiminde Glassio'yu aç, sonra Müzik'i tekrar aç
 Turn on the service	Hizmeti aç
 Turn on USB debugging	USB hata ayıklamayı aç
 Turn on USB debugging first (step 2)	Önce USB hata ayıklamayı aç (2. adım)
+Turn them all off	Hepsini kapat
 Turn them off	Kapat
 TV access (ADB)	TV erişimi (ADB)
 TV access (ADB): Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, inputs and open apps use the TV's own debugging connection. Optional. Turn it on once:	TV erişimi (ADB): Nuvio Legacy'den İzlemeye devam, Glassio'nun TV ekran koruyucusu olması, TV bilgisi, girişler ve açık uygulamalar TV'nin kendi hata ayıklama bağlantısını kullanır. İsteğe bağlı. Bir kez aç:
@@ -1432,6 +1527,7 @@ Under the weather in the menu: IP, CPU, GPU, RAM, storage	Menüde hava durumunun
 Under the weather: IP, CPU, GPU, RAM, storage (CPU and GPU need TV access (ADB))	Hava durumunun altında: IP, CPU, GPU, RAM, depolama (CPU ve GPU için TV erişimi (ADB) gerekir)
 Unknown	Bilinmiyor
 Unlimited	Sınırsız
+Unneeded apps	Gereksiz uygulamalar
 Unsplash key	Unsplash anahtarı
 Until closed	Kapatılana kadar
 Update	Güncelle
@@ -1474,12 +1570,13 @@ What plays	Ne oynar
 What the lights take their colours from	Işıkların renklerini aldığı kaynak
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	Menünün gösterdikleri: saat, hava durumu, Kitaplık, temalar, profil, arka plan ve daha fazlası
 What went wrong?	Ne yanlış gitti?
-What Wikimedia and Unsplash photos show	Wikimedia ve Unsplash fotoğraflarının gösterdikleri
+What Wikimedia, Unsplash and Pexels photos show	Wikimedia, Unsplash ve Pexels fotoğraflarının gösterdikleri
 What you are watching on the server (titles it knows by IMDb number)	Sunucuda izledikleriniz (IMDb numarasıyla bildiği başlıklar)
 What you are watching on your Jellyfin server	Jellyfin sunucunuzda izledikleriniz
 What you paused in any app that uses Simkl	Simkl kullanan herhangi bir uygulamada durdurduklarına
 What you paused in Stremio	Stremio'da durdurduklarına
 What you watch in Nuvio Legacy, the official app and forks	Nuvio Legacy'de, resmi uygulamada ve çatallarda izlediklerin
+What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	İzlediğiniz içerik dock'un üstünde küçük kartlar olarak, arka plan bozulmadan. Dock'tan yukarı onlara gider
 What's new	Yenilikler
 When Music mode is off	Müzik modu kapalıyken
 When the TV doesn't let you (restricted setting / greyed out). Needs TV access (ADB)	TV izin vermediğinde (kısıtlı ayar / gri). TV erişimi (ADB) gerekir
@@ -1492,19 +1589,19 @@ Where it came from	Nereden geldi
 Where it comes from	Nereden geliyor
 Where the photo or video was taken and who took it	Fotoğraf ya da videonun nerede ve kim tarafından çekildiği
 Where the video was filmed	Videonun nerede çekildiği
-Where titles you are watching appear	İzlediğin yapımların göründüğü yer
+Where the words are looked for. All are asked at once and the best answer is kept: word by word before line by line, the song's own writing before Latin letters	Sözlerin nerede aranacağı. Hepsine aynı anda sorulur ve en iyi yanıt tutulur: satır satırdan önce kelime kelime, Latin harflerinden önce şarkının kendi yazısı
 Which apps are locked, the code and its reminder	Hangi uygulamalar kilitli, kod ve hatırlatması
 Which camera opens when you hold Home	Home'a basılı tutunca hangi kamera açılır
 Which catalogs the carousel takes its titles from	Karuselin yapımları hangi kataloglardan aldığı
 Which inputs show on the Inputs icon's page, and their order	Girişler simgesinin sayfasında hangi girişlerin görüneceği ve sırası
-Which ones, in this order (up to four). None chosen = the first four	Hangileri, bu sırayla (en fazla dört). Hiçbiri seçilmezse = ilk dört
+Which ones, in this order (up to nine). None chosen = all	Hangileri, bu sırayla (en fazla dokuz). Hiçbiri seçilmezse = hepsi
 Which picture each title uses	Her yapımın hangi resmi kullandığı
 While a song plays, the carousel's place becomes the player (artwork, song, buttons). ■ stops the music. With your own picture, photos, video or the screensaver's videos as the background, the island shows instead	Şarkı çalarken karuselin yeri oynatıcı olur (kapak, şarkı, düğmeler). ■ müziği durdurur. Arka plan olarak kendi resmin, fotoğrafların, videon ya da ekran koruyucu videoları varsa onun yerine ada görünür
 While an app that has channels is selected in the dock (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…), its rows (Continue watching, New…) take the carousel's place. ▲ goes into them, ▼ back to the app	Dock'ta kanalları olan bir uygulama seçiliyken (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…) satırları (İzlemeye devam, Yeni…) karuselin yerini alır. ▲ onlara girer, ▼ uygulamaya döner
 While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it.	Oynarken: ◀ ▶ videoyu değiştirir, OK bu bilgiyi gösterir ya da gizler, diğer tüm tuşlar bitirir.
 While music plays, a small island at the top of the screensaver (like the iPhone's). ▲ opens it with its buttons, ▼ closes it	Müzik çalarken ekran koruyucunun üstünde küçük bir ada (iPhone'daki gibi). ▲ düğmeleriyle açar, ▼ kapatır
+While nothing is typed in the search, this code is there too	Aramada hiçbir şey yazılmamışken bu kod da orada
 White	Beyaz
-White date	Beyaz tarih
 White logo	Beyaz logo
 White only (it follows the brightness)	Yalnızca beyaz (parlaklığı izler)
 White or black turn the other way round when selected	Beyaz ya da siyah seçilince tersine döner
@@ -1516,6 +1613,8 @@ With a streaming app selected in the dock, the carousel shows the catalogs linke
 With ADB	ADB ile
 With Colour on focus	Odakta renk ile
 With fewer apps than a full row, the dock shrinks around them	Tam bir satırdan az uygulama varsa dock onların etrafında küçülür
+With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	Nuvio bağlıyken düğme, siz başka bir görünüm seçene kadar Nuvio profilinizin resmini gösterir
+With One player it starts here a little before the TV's own, Off or not	Tek oynatıcı ile burada TV'nin kendisinden biraz önce başlar, Kapalı olsa da olmasa da
 With the account's email and password (for a server without a TV sign-in page)	Hesabın e-postası ve şifresiyle (TV giriş sayfası olmayan sunucu için)
 With the theme	Temayla
 With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)	Temayla: rakamlar temandaki dock ile aynı şekilde yapılır (camı, tonu ve rengi)
@@ -1525,12 +1624,15 @@ Write	Yaz
 Write a few more words, so the problem can be found	Sorunun bulunabilmesi için birkaç sözcük daha yaz
 Your add-ons	Eklentilerin
 Your add-ons and the catalogs chosen from them	Eklentilerin ve onlardan seçilen kataloglar
+Your background	Arka planınız
 Your cameras, the corner camera and multi-view, and the doorbell	Kameraların, köşe kamerası ve çoklu görünüm ile kapı zili
+your city	şehriniz
 Your Jellyfin favourites as a row in the Library	Jellyfin favorileriniz Kitaplık'ta bir satır olarak
 Your links	Bağlantıların
 Your links and the videos in the backgrounds folder	Bağlantıların ve arka planlar klasöründeki videolar
 Your links and the videos in the backgrounds folder, with a picture of each. OK plays only that one	Bağlantıların ve arka planlar klasöründeki videolar, her birinin resmiyle. OK yalnızca onu oynatır
 Your links below and the videos in the backgrounds folder	Aşağıdaki bağlantıların ve arka planlar klasöründeki videolar
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Çoklu görünüm kameralarınız ekranı doldurur · OK bir kameranın sesini açar · Geri kapatır
 Your own mix of the settings below	Aşağıdaki ayarların kendi karışımın
 Your own Nuvio backend, if you host one. Easier to type on the phone page	Kendi Nuvio arka ucun, barındırıyorsan. Telefon sayfasında yazmak daha kolay
 Your own words under the digits	Rakamların altında kendi sözlerin
@@ -1605,7 +1707,6 @@ Focus plate	Odak plakası
 Glassio settings	Glassio ayarları
 Hello, name	Merhaba, ad
 Locked only	Yalnızca kilitliler
-Multi-view needs the Home button service (Glassio settings → System)	Çoklu görünüm için Home tuşu hizmeti gerekir (Glassio ayarları → Sistem)
 Next photo	Sonraki fotoğraf
 Next picture	Sonraki resim
 Next video	Sonraki video
@@ -1615,10 +1716,14 @@ OK: multi-view	OK: çoklu görünüm
 Pair a new device	Yeni cihaz eşleştir
 Play trailer	Fragmanı oynat
 Posters	Afişler
+Scan with your phone (same Wi-Fi) and change any setting there	Telefonunuzla (aynı Wi-Fi) tarayın ve istediğiniz ayarı orada değiştirin
+Screensaver's	Ekran koruyucunun
 Starts after	Şu süre sonra başlar
 Starts by itself	Kendiliğinden başlar
 The remote stays connected	Kumanda bağlı kalır
+Titles	Başlıklar
 TV screensaver	TV ekran koruyucusu
+Whole screen	Tam ekran
 screensaver did not start	ekran koruyucu başlamadı
 **Sharp glass**: …	**Keskin cam**: …
 Go up to Update and press OK	Güncelle'ye çık ve OK'a bas
@@ -1628,41 +1733,71 @@ Next trailer	Sonraki fragman
 No internet connection\nThe trailers come back when it's back	İnternet bağlantısı yok\nBağlantı gelince fragmanlar geri gelir
 No titles in the carousel yet	Karuselde henüz yapım yok
 No trailers found	Fragman bulunamadı
-Open in Nuvio	Nuvio'da aç
 Sound off	Ses kapalı
 Sound on	Ses açık
 move app	uygulamayı taşı
 11 sections in groups, every setting in one place, long lists on their own pages.	Gruplar halinde 11 bölüm, her ayar tek bir yerde, uzun listeler kendi sayfalarında.
+A paused song leaves the music island and stays gone (Island → A paused song goes).	Duraklatılmış şarkı müzik adasından kalkar ve geri gelmez (Ada → Duraklatılmış şarkı kalkar).
+A PIN for a profile	Profil için PIN
+A profile can ask for its four-digit PIN: when the TV starts, when it wakes after a while, and when you change to that profile.	Bir profil dört haneli PIN'ini isteyebilir: TV açıldığında, bir süre sonra uyandığında ve o profile geçtiğinizde.
+A profile with a PIN in Nuvio uses that one, checked by Nuvio. Any other profile can get a PIN made here, kept on this TV only.	Nuvio'da PIN'i olan bir profil onu kullanır, Nuvio denetler. Diğer profiller için burada bir PIN oluşturulabilir, yalnızca bu TV'de tutulur.
+A song's words beside the player, in time with the song: the line being sung is bright and lights word by word.	Şarkının sözleri oynatıcının yanında, şarkıyla eş zamanlı: söylenen satır parlaktır ve kelime kelime yanar.
+A tidier menu	Daha derli toplu bir menü
 A title on your server opens on its page in the Jellyfin app.	Sunucunuzdaki bir başlık, Jellyfin uygulamasında kendi sayfasında açılır.
 A TV inputs button: your inputs over any app.	TV girişleri düğmesi: girişleriniz herhangi bir uygulamanın üstünde.
+A TV that can't play HEVC videos gets only the videos it can play. Home Assistant cameras fall back to their live picture, and Reolink cameras turn with the remote.	HEVC videoları oynatamayan bir TV yalnızca oynatabildiği videoları alır. Home Assistant kameraları canlı görüntülerine döner ve Reolink kameraları kumandayla döner.
 A ⭐ on GitHub and sharing Glassio with friends keeps it going.	GitHub'da bir ⭐ ve Glassio'yu arkadaşlarla paylaşmak onu yaşatır.
 Also in Settings → About → PlayStation gift card	Ayrıca Ayarlar → Hakkında → PlayStation hediye kartı
+An app with its own Continue watching row (Netflix, Stremio…) shows it as cards too while it is selected.	Kendi İzlemeye devam satırı olan bir uygulama (Netflix, Stremio…) seçiliyken onu da kartlar olarak gösterir.
 And more	Ve dahası
+Ask for the PIN → Automatic: this TV goes in without it.	PIN iste → Otomatik: bu TV onsuz girer.
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Bir süre başka bir uygulamada kalınca Glassio resimlerini bırakır ve döndüğünüzde geri getirir.
 Buttons that send no key code (some remotes' Netflix button) can be given a job too.	Tuş kodu göndermeyen düğmelere de (bazı kumandaların Netflix düğmesi) görev verilebilir.
 Catalogs for apps: with Netflix, Apple TV or Prime Video selected in the dock, the carousel shows that app's titles.	Uygulamalar için kataloglar: dock'ta Netflix, Apple TV veya Prime Video seçiliyken karusel o uygulamanın başlıklarını gösterir.
+Change the theme, language, screensaver and more from your phone.	Temayı, dili, ekran koruyucuyu ve daha fazlasını telefonunuzdan değiştirin.
 Connect your Jellyfin server with a code (Quick Connect), nothing to type.	Jellyfin sunucunuzu bir kodla (Quick Connect) bağlayın, hiçbir şey yazmadan.
 Each button can do three things: a press, a double press and a hold.	Her düğme üç iş yapabilir: basma, çift basma ve basılı tutma.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Her kamera oynar, arkasında video olsa bile: video bekler ve çözücüsünü geri verir.
 Every screen of Glassio in your language, changed at once.	Glassio'nun her ekranı sizin dilinizde, anında.
-Everything new since Glassio 4.0, page by page. Your setup stays as it is: each new thing is a choice.	Glassio 4.0'dan bu yana tüm yenilikler, sayfa sayfa. Kurulumunuz olduğu gibi kalır: her yenilik bir seçenektir.
+Everything new since Glassio 4.0, page by page, 4.8's first. Your setup stays as it is: each new thing is a choice.	Glassio 4.0'dan beri her yenilik, sayfa sayfa, önce 4.8'inkiler. Kurulumunuz olduğu gibi kalır: her yenilik bir seçimdir.
 Find a film or a series and open it where it can be watched: your streaming apps, Nuvio or Stremio.	Bir film veya dizi bulun ve izlenebildiği yerde açın: yayın uygulamalarınız, Nuvio veya Stremio.
+Glass over the video and the video quality are in the menu too.	Video üzerindeki cam ve video kalitesi de menüde.
 Glassio is free and open source. Scan the code to see every version, report a problem or ask for a feature.	Glassio ücretsiz ve açık kaynaktır. Tüm sürümleri görmek, sorun bildirmek ya da özellik istemek için kodu tara.
 Glassio is free, with no ads, made in my spare time.	Glassio ücretsiz, reklamsız ve boş zamanımda yapıldı.
 Glassio on GitHub	GitHub'da Glassio
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Dönebilen (PTZ) bir kamerada OK'e basılı tutun: kumandayla hareket ettirin ve yakınlaştırın.
 Hold OK on a video: keep it, or never show it again.	Bir videoda OK'a basılı tutun: saklayın ya da bir daha hiç göstermeyin.
+Home over the TV's screensaver now takes you straight to Glassio.	TV'nin ekran koruyucusu üzerindeyken Home artık sizi doğrudan Glassio'ya götürür.
 If you enjoy it, a PlayStation gift card (PSN, USA) helps a lot. Maybe for GTA VI 😉	Beğendiysen bir PlayStation hediye kartı (PSN, ABD) çok yardımcı olur. Belki GTA VI için 😉
 In the menu: Screensaver → Collections and One player.	Menüde: Ekran koruyucu → Koleksiyonlar ve Tek oynatıcı.
+It shows the shuffle you set in the music app itself.	Müzik uygulamasının kendisinde ayarladığınız karıştırmayı gösterir.
 Its icon is in the dock. Turn Search off in Settings if you don't want it.	Simgesi dock'ta. İstemiyorsanız Arama'yı Ayarlar'dan kapatın.
 Its libraries in the carousel, what you are watching, your favourites in the Library, its titles first in the search.	Karuselde kitaplıkları, izledikleriniz, Kitaplık'ta favorileriniz, aramada önce onun başlıkları.
+Its QR code is in the menu and in Settings' search, ready to scan.	QR kodu menüde ve Ayarlar aramasında, taramaya hazır.
+Lighter	Daha hafif
+Menu → Manage from phone	Menü → Telefondan yönet
+Menu → Themes, Background, Screensaver · Settings → Music & app rows	Menü → Temalar, Arka plan, Ekran koruyucu · Ayarlar → Müzik ve uygulama satırları
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	Çoklu görünüm ekranı asla aşmaz: dört kamera ikiye iki, ekranın izin verdiği kadar büyük.
+Music icon in the dock · Settings → Music & app rows	Dock'taki Müzik simgesi · Ayarlar → Müzik ve uygulama satırları
 New job: close the app in front and come back to Glassio.	Yeni görev: öndeki uygulamayı kapatıp Glassio'ya dönmek.
 New Settings	Yeni Ayarlar
 New: what this version added. Changed: every setting you changed, with Back to default.	Yeni: bu sürümün ekledikleri. Değişenler: değiştirdiğiniz her ayar, Varsayılana dön ile birlikte.
 Nine languages	Dokuz dil
 OK  Done	OK  Bitti
 OK  Next  ▶	OK  Sonraki  ▶
+OK on a music app's card plays in that app, without opening it.	Bir müzik uygulamasının kartında OK, uygulamayı açmadan o uygulamada oynatır.
 One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.	Nuvio hesabındaki her profil için bir Glassio: kendi görünümü, dock'u, katalogları, Kitaplık'ı ve İzlemeye devam'ı.
+One player starts on the home screen just before the TV's own screensaver, which stays for other apps; the TV still sleeps on time.	Tek oynatıcı ana ekranda TV'nin kendi ekran koruyucusundan hemen önce başlar; o ekran koruyucu diğer uygulamalar için kalır; TV yine zamanında uykuya geçer.
 One player: the screensaver on the home screen itself. With the screensaver's videos as background it goes on with the same video, and you are back at once.	Tek oynatıcı: ekran koruyucu doğrudan ana ekranda. Arka plan olarak ekran koruyucunun videolarıyla aynı videodan devam eder ve anında geri dönersiniz.
+Over a video background Glassio keeps its full frame rate. Changing profile starts Glassio once.	Video arka planda Glassio tam kare hızını korur. Profil değiştirmek Glassio'yu bir kez başlatır.
+Over the video screensaver too, while a song plays.	Şarkı çalarken video ekran koruyucuda da.
+Over your own background, what you're watching as small glass cards right above the dock: the picture stays whole.	Kendi arka planınızda, izlediğiniz içerik dock'un hemen üstünde küçük cam kartlar olarak: resim bozulmaz.
+Page behind the player: your own video or picture can stay behind the music player.	Oynatıcının arkasındaki sayfa: kendi videonuz veya resminiz müzik oynatıcının arkasında kalabilir.
+Performance → Lite: the same look, lighter on memory and on the processor.	Performans → Lite: aynı görünüm, bellek ve işlemciye daha hafif.
 Pexels videos for the words you choose, with your own free key.	Seçtiğiniz kelimeler için Pexels videoları, kendi ücretsiz anahtarınızla.
 Pexels videos, and YouTube videos and playlists among My videos, each one on or off.	Pexels videoları ve Videolarım arasında YouTube videoları ve oynatma listeleri, her biri açık veya kapalı.
+Photos as your background: Windows Spotlight, museum paintings and Pexels photos are new sources.	Arka plan olarak fotoğraflar: Windows Spotlight, müze tabloları ve Pexels fotoğrafları yeni kaynaklar.
+Photos, the Apps folder, cameras	Fotoğraflar, Uygulamalar klasörü, kameralar
 Play opens the streaming app: the title's own page in Netflix, Apple TV, Prime Video or Disney+.	Oynat yayın uygulamasını açar: başlığın Netflix, Apple TV, Prime Video veya Disney+'taki kendi sayfası.
 Press OK, type the code and press Send: it comes straight to me. Thank you!	OK'a bas, kodu yaz ve Gönder'e bas: doğrudan bana ulaşır. Teşekkürler!
 Press ▶ to see what's new.	Yenilikleri görmek için ▶'ya bas.
@@ -1670,149 +1805,41 @@ Recommended for this TV: the right settings for a weaker TV in one press (Settin
 Report a problem from the TV or the phone, cleaned of anything private before it goes.	TV'den veya telefondan sorun bildirin, gönderilmeden önce özel her şeyden arındırılır.
 Rows above the dock: an app's row sits right above the dock, so the clock stays in view.	Satırlar dock'un üstünde: uygulamanın satırı dock'un hemen üstünde durur, böylece saat görünür kalır.
 Rows per service in the Library (On Netflix, On Apple TV…), for your country.	Kitaplık'ta her hizmet için satırlar (Netflix'te, Apple TV'de…), ülkenize göre.
+Screensaver and clock	Ekran koruyucu ve saat
 Send a gift card	Hediye kartı gönder
 Settings → About → Report a problem	Ayarlar → Hakkında → Sorun bildir
 Settings → About → What's new	Ayarlar → Hakkında → Yenilikler
 Settings → Accounts & profiles	Ayarlar → Hesaplar ve profiller
 Settings → Accounts & profiles → Connect Jellyfin	Ayarlar → Hesaplar ve profiller → Jellyfin'i bağla
+Settings → Accounts & profiles → PIN	Ayarlar → Hesaplar ve profiller → PIN
 Settings → Background & screensaver	Ayarlar → Arka plan ve ekran koruyucu
+Settings → Background & screensaver · Music & app rows → Island	Ayarlar → Arka plan ve ekran koruyucu · Müzik ve uygulama satırları → Ada
+Settings → Background & screensaver · Smart home	Ayarlar → Arka plan ve ekran koruyucu · Akıllı ev
+Settings → Background & screensaver → Continue Watching cards	Ayarlar → Arka plan ve ekran koruyucu → İzlemeye devam kartları
 Settings → Catalogs & add-ons	Ayarlar → Katalog ve eklentiler
 Settings → Continue Watching & Library → Search	Ayarlar → Continue Watching & Library → Search
+Settings → Music & app rows → Lyrics	Ayarlar → Müzik ve uygulama satırları → Şarkı sözleri
+Settings → Smart home → Multi-view	Ayarlar → Akıllı ev → Çoklu görünüm
 Settings → System → Language	Ayarlar → System → Language
+Settings → System → Performance	Ayarlar → Sistem → Performans
 Settings → System → Remote buttons	Ayarlar → Sistem → Kumanda tuşları
 Something wrong? Settings → About → Report a problem.	Bir sorun mu var? Ayarlar → Hakkında → Sorun bildir.
+The Apps folder shows three whole rows and grows as you go down, like the dock. It opens and closes faster.	Uygulamalar klasörü üç tam satır gösterir ve dock gibi aşağı indikçe büyür. Daha hızlı açılır ve kapanır.
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Kameralar sayfası: kameralarınız tüm ekranda; oklar birini seçer, OK sesini açar.
+The large clock's Still Glass style looks like the lock screen: tall digits of thick glass under the date.	Büyük saatin Still Glass stili kilit ekranına benzer: tarihin altında kalın camdan uzun rakamlar.
 The Library scrolls in one smooth movement, also with a button held down.	Kitaplık tek ve akıcı bir hareketle kayar, bir düğme basılı tutulduğunda da.
+The lyrics button of the player and of the open island turns them on and off. Off until you turn it on: the song's name and artist go to the lyrics sources.	Oynatıcının ve açık adanın söz düğmesi onları açıp kapatır. Siz açana kadar kapalıdır: şarkının adı ve sanatçısı söz kaynaklarına gider.
+The music player	Müzik oynatıcı
+The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	Sayfa bu TV için tek bir kodla açık kalır: telefonunuzun ana ekranına kaydedin, çalışmaya devam eder.
 The search finds any setting, also inside those pages.	Arama her ayarı bulur, o sayfaların içinde de.
+The shuffle button has a second press: the song playing starts again each time it ends. A third press turns both off.	Karıştır düğmesinin ikinci bir basışı vardır: çalan şarkı her bittiğinde yeniden başlar. Üçüncü basış ikisini de kapatır.
 The translations were made by machine: tell us where the wording is wrong.	Çeviriler makineyle yapıldı: ifadenin yanlış olduğu yerleri bize bildirin.
-Welcome to Glassio 4.2	Glassio 4.2'ye hoş geldiniz
+Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	Temalar, Arka plan ve Ekran koruyucu seçeneklerini tek satırda gösterir, her tema kendisinin küçük bir örneği olarak.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Gereksiz uygulamalar: TV'nin yalnızca rapor gönderen, reklam gösteren veya başka uygulama yükleyen uygulamalarını kapatın (Ayarlar → Sistem).
+Up from the dock goes to them, OK opens the title. Off by default.	Dock'tan yukarı onlara gider, OK başlığı açar. Varsayılan olarak kapalı.
+Welcome to Glassio 4.8	Glassio 4.8'e hoş geldiniz
 Who is watching? at start or from the menu, with Nuvio's profile pictures and a greeting at the top of the menu.	Kim izliyor? başlangıçta veya menüden, Nuvio'nun profil resimleri ve menünün üstünde bir selamlamayla.
+With Nuvio connected, the settings button becomes your Nuvio profile's picture.	Nuvio bağlıyken ayarlar düğmesi Nuvio profilinizin resmi olur.
 Your streaming apps	Yayın uygulamalarınız
 YouTube videos and songs under the titles; a song plays while you stay in Glassio.	Başlıkların altında YouTube videoları ve şarkılar; şarkı çalarken Glassio'da kalırsınız.
 🎁  Send a gift card	🎁  Hediye kartı gönder
-Nuvio's picture by itself	Nuvio resmi kendiliğinden
-With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	Nuvio bağlıyken düğme, siz başka bir görünüm seçene kadar Nuvio profilinizin resmini gösterir
-Or scan with your phone (same Wi-Fi) and change any setting there	Ya da telefonunuzla tarayın (aynı Wi-Fi) ve her ayarı oradan değiştirin
-The phone page's QR code: change settings from your phone	Telefon sayfasının QR kodu: ayarları telefonunuzdan değiştirin
-QR code in Settings' search	Ayarlar aramasında QR kodu
-While nothing is typed in the search, this code is there too	Aramaya bir şey yazılmamışken bu kod orada da olur
-After you leave this screen. Always: the same address and code whenever Glassio runs, so the page saved on your phone keeps working	Bu ekrandan çıktıktan sonra. Her zaman: Glassio çalıştıkça aynı adres ve kod, telefonunuza kaydedilen sayfa çalışmaya devam eder
-New code	Yeni kod
-Every QR code and page saved on a phone stops working; scan the new code	Her QR kodu ve telefonda kayıtlı sayfa çalışmayı bırakır; yeni kodu tarayın
-After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	Bu ekrandan çıktıktan sonra. Adres ve kod aynı kalır, telefonunuza kaydedilen sayfa, sayfa açık olduğu sürece çalışır. Her zaman: Glassio çalıştıkça
-Welcome to Glassio 4.3	Glassio 4.3'e hoş geldiniz
-Its QR code is in the menu and in Settings' search, ready to scan.	QR kodu menüde ve Ayarlar aramasında, taramaya hazır.
-The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	Sayfa bu TV için tek bir kodla açık kalır: telefonunuzun ana ekranına kaydedin, çalışmaya devam eder.
-Change the theme, language, screensaver and more from your phone.	Temayı, dili, ekran koruyucuyu ve daha fazlasını telefonunuzdan değiştirin.
-Menu → Manage from phone	Menü → Telefondan yönet
-With Nuvio connected, the settings button becomes your Nuvio profile's picture.	Nuvio bağlıyken ayarlar düğmesi Nuvio profil resminiz olur.
-Two by two	İkiye iki
-Whole screen	Tam ekran
-On the whole screen	Tam ekranda
-Cameras on the whole screen	Kameralar tam ekranda
-Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	Otomatik: kameralar bu boyutta sığarsa tek sıra, yoksa ikiye iki. Ekranın kenarlarını asla aşmazlar
-The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	Kameralar Geri'ye kadar ekranı doldurur; oklar birini seçer, OK sesini açar (ayrıca: menü → Kamera → Tam ekran veya bir kumanda düğmesi)
-Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	Çoklu görünüm kameraların tam ekranda · OK bir kameranın sesini açar · Geri kapatır
-Menu's Camera opens the whole screen	Menüdeki Kamera tam ekranı açar
-Menu → Camera goes straight to the cameras page instead of the live card	Menü → Kamera canlı kart yerine doğrudan kameralar sayfasını açar
-Sound follows the selection	Ses seçimi izler
-On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	Tam ekranda seçili kameranın sesi kendiliğinden çalar (ses gönderen kameralar)
-Lite	Hafif
-The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	Aynı görünüm, bellek ve işlemci için daha hafif: daha az hazır resim, arka planda daha az iş
-All of them are off	Hepsi kapalı
-It is the TV's screensaver: choose another one first	Şu an TV'nin ekran koruyucusu: önce başka birini seçin
-Needs TV access (ADB): System → TV access (ADB).	TV erişimi (ADB) gerekir: Sistem → TV erişimi (ADB).
-None of them is on this TV.	Hiçbiri bu TV'de yok.
-Nothing: apps that were off before stay as they are	Hiçbir şey: önceden kapalı olan uygulamalar öyle kalır
-Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	Yalnızca TV'nin ihtiyaç duymadığı uygulamalar listelenir: raporlar, reklamlar ve yükleyiciler. Açılış, kumanda, ses, yayın, Play Store ve güncellemelere asla dokunulmaz. Hiçbir şey silinmez ve TV'yi sıfırlamak her şeyi geri getirir.
-Reading the TV's apps…	TV'nin uygulamaları okunuyor…
-Turn back on what Glassio turned off	Glassio'nun kapattıklarını yeniden aç
-Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	TV'nin yalnızca rapor gönderen, reklam gösteren veya başka uygulama yükleyen uygulamalarını kapatın. Hiçbir şey silinmez: bir anahtar her birini yeniden açar
-Turn them all off	Hepsini kapat
-Unneeded apps	Gereksiz uygulamalar
-Scan with your phone (same Wi-Fi) and change any setting there	Ya da telefonunuzla tarayın (aynı Wi-Fi) ve oradan herhangi bir ayarı değiştirin
-Google feedback	Google geri bildirimi
-Sends feedback and problem reports to Google	Geri bildirim ve sorun raporlarını Google'a gönderir
-Bug report sender	Hata raporu gönderici
-Sends the TV's bug reports to Google	TV'nin hata raporlarını Google'a gönderir
-Network diagnostics	Ağ tanılama
-Google's connection checks and their reports	Google'ın bağlantı kontrolleri ve raporları
-Ad services	Reklam hizmetleri
-Android's ad measurement and ad topics	Android'in reklam ölçümü ve reklam konuları
-Ad personalisation	Reklam kişiselleştirme
-Works out personalised ads on the TV	TV'de kişiselleştirilmiş reklamları belirler
-Federated learning	Birleşik öğrenme
-Trains Google's models with data from the TV	Google'ın modellerini TV'den gelen verilerle eğitir
-Google Play Games	Google Play Oyunlar
-The games app and its sign-in	Oyun uygulaması ve oturum açma
-Google TV purchases	Google TV satın alımları
-Films and series bought from Google: they can't be watched while it is off	Google'dan satın alınan filmler ve diziler: kapalıyken izlenemez
-Maker's app installer	Üreticinin uygulama yükleyicisi
-Installs the maker's chosen apps after a setup or a reset	Kurulum veya sıfırlamadan sonra üreticinin seçtiği uygulamaları yükler
-Ambient mode	Ambient modu
-Google's screensaver (kept while it is the TV's screensaver)	Google'ın ekran koruyucusu (TV'nin ekran koruyucusu olduğu sürece kalır)
-The older Ambient screensaver (kept while it is the TV's screensaver)	Eski Ambient ekran koruyucusu (TV'nin ekran koruyucusu olduğu sürece kalır)
-Xiaomi analytics	Xiaomi analizleri
-Sends usage data to Xiaomi	Kullanım verilerini Xiaomi'ye gönderir
-Recognises what is on screen, for ads	Reklam için ekrandakini tanır
-TCL start-up ads	TCL açılış reklamları
-Ads shown when the TV starts	TV açılırken gösterilen reklamlar
-TCL app promotions	TCL uygulama tanıtımları
-Suggested apps and promotions	Önerilen uygulamalar ve tanıtımlar
-Amazon device metrics	Amazon cihaz ölçümleri
-Sends usage data to Amazon	Kullanım verilerini Amazon'a gönderir
-Amazon app metrics	Amazon uygulama ölçümleri
-Sends app usage data to Amazon	Uygulama kullanım verilerini Amazon'a gönderir
-Amazon network metrics	Amazon ağ ölçümleri
-Sends Wi-Fi data to Amazon	Wi-Fi verilerini Amazon'a gönderir
-Amazon logger	Amazon günlükçüsü
-Collects the device's logs for Amazon	Cihazın günlüklerini Amazon için toplar
-Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	Bir süre başka bir uygulamadayken Glassio resimlerini bırakır, döndüğünüzde geri getirir.
-Every camera plays, also with a video behind it: the video waits and gives its decoder back.	Arkasında bir video olsa da her kamera oynar: video bekler ve kod çözücüsünü geri verir.
-Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	Glassio 4.0'dan beri tüm yenilikler, sayfa sayfa, önce 4.4'ün yenilikleri. Kurulumunuz olduğu gibi kalır: her yenilik bir seçimdir.
-Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	Dönebilen bir kamerada (PTZ) OK'yi basılı tutun: kumandayla hareket ettirin ve yakınlaştırın.
-Lighter	Daha hafif
-Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	Çoklu görünüm asla ekranı aşmaz: dört kamera ikiye iki, ekranın izin verdiği kadar büyük.
-Performance → Lite: the same look, lighter on memory and on the processor.	Performans → Lite: aynı görünüm, bellek ve işlemci için daha hafif.
-Settings → Smart home → Multi-view	Ayarlar → Akıllı ev → Çoklu görünüm
-Settings → System → Performance	Ayarlar → Sistem → Performans
-The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	Kameralar sayfası: kameralarınız tüm ekranda; oklar birini seçer, OK sesini açar.
-Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	Gereksiz uygulamalar: TV'nin yalnızca rapor gönderen, reklam gösteren veya başka uygulama yükleyen uygulamalarını kapatın (Ayarlar → Sistem).
-Welcome to Glassio 4.4	Glassio 4.4'e hoş geldiniz
-Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	Hangileri, bu sırayla (dokuza kadar). Çoklu görünüm ilk dördünü, tam ekran hepsini gösterir. Seçim yok = hepsi
-Which ones, in this order (up to nine). None chosen = all	Hangileri, bu sırayla (dokuza kadar). Seçim yok = hepsi
-Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	Otomatik: kameralar bu boyutta sığarsa tek sıra, yoksa ızgara (ikiye iki, dörtten fazlasında üçe üç). Ekranın kenarlarını asla aşmazlar
-Grid	Izgara
-From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	Bu TV'de varsa Glassio'dan (GitHub), yoksa Download/Glassio'daki en yeni yedekten. Ardından Glassio yeniden başlar
-The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	TV'deki Download/Glassio içindeki en yeni yedek, yoksa bu TV'deki Google Play Glassio'nun ayarları. Ardından Glassio yeniden başlar
-Choose a city	Bir şehir seçin
-  · Page behind the player	  · Oynatıcının arkasındaki sayfa
-Your background: your video or picture stays behind the player (with see-through glass the dock shows it too). The song's artwork: its picture fills the page	Arka planınız: videonuz veya resminiz oynatıcının arkasında kalır (şeffaf camla dock'ta da görünür). Şarkının kapağı: resmi sayfayı doldurur
-Your background	Arka planınız
-The song's artwork	Şarkının kapağı
-Screensaver's	Ekran koruyucununki
-Titles	Başlıklar
-Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	Otomatik: video üzerinde şeffaf camla arka planınız, yoksa şarkının kapağı. Arka planınız: videonuz veya resminiz oynatıcının arkasında kalır. Şarkının kapağı: resmi sayfayı doldurur
-Welcome to Glassio 4.5	Glassio 4.5'e hoş geldiniz
-Everything new since Glassio 4.0, page by page, 4.5's first. Your setup stays as it is: each new thing is a choice.	Glassio 4.0'dan beri tüm yenilikler, sayfa sayfa, önce 4.5'inkiler. Ayarlarınız olduğu gibi kalır: her yenilik bir seçimdir.
-A tidier menu	Daha düzenli bir menü
-Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	Temalar, Arka plan ve Ekran koruyucu seçeneklerini tek satırda gösterir; her tema kendinin küçük bir örneği.
-Glass over the video and the video quality are in the menu too.	Video üzerindeki cam ve video kalitesi de menüde.
-Page behind the player: your own video or picture can stay behind the music player.	Oynatıcının arkasındaki sayfa: kendi videonuz veya resminiz müzik oynatıcının arkasında kalabilir.
-Menu → Themes, Background, Screensaver · Settings → Music & app rows	Menü → Temalar, Arka plan, Ekran koruyucu · Ayarlar → Müzik ve uygulama satırları
-Anywhere: the cameras in the middle · press again to close	Her yerde: kameralar ortada · kapatmak için tekrar basın
-Anywhere: the camera in the corner · press again to close	Her yerde: köşede kamera · kapatmak için tekrar basın
-Shuffle the carousel	Karuseli karıştır
-Rows from…	Satırlar şuradan…
-Its own rows	Kendi satırları
-It has none now	Şu an hiç yok
-Its catalogs show instead (OK → Show)	Yerine katalogları gösteriliyor (OK → Göster)
-Continue Watching cards	İzlemeye devam et kartları
-What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	İzledikleriniz dock'un üstünde küçük kartlarda, arka plan bütün kalır. Dock'tan yukarı onlara gider
-  · Cards	  · Kartlar
-How many at most	En fazla kaç tane
-Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	Kendi arka planınız (başlık görselleri değil) ve altta dock gerekir: o zaman izledikleriniz dock'un üstünde küçük kartlarda görünür
-  · Apps' Continue watching	  · Uygulamaların İzlemeye devam et
-An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	Kendi İzlemeye devam et satırı olan bir uygulama (Netflix, YouTube…) satırları yerine onu da kartlarla gösterir. Uygulama başına: Müzik ve uygulama satırları → Kanallı uygulamalar
-Small cards above the dock over your own background	Kendi arka planınızın üstünde, dock'un üzerinde küçük kartlar
-Continue watching as cards: on	Kart olarak izlemeye devam et: açık
-Continue watching as cards: off	Kart olarak izlemeye devam et: kapalı

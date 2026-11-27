@@ -29,6 +29,8 @@ object AerialSource {
 
     data class Video(val id: String, val title: String, val source: String, val urls: Map<String, String>, val preview: String) {
         fun url(quality: String): String? {
+            // HEVC doesn't play on this TV (#53): its H.264 file or nothing (My videos are kept: their codec isn't known).
+            if (h264Only && source != "mine") return urls["1080-H264"]
             val order = listOf(quality) + when {
                 quality.startsWith("4K") -> listOf("4K-SDR", "1080-SDR", "1080-H264")
                 else -> listOf("1080-H264", "1080-SDR", "4K-SDR")
@@ -144,12 +146,16 @@ object AerialSource {
         }.getOrElse { com.glasslauncher.tv.data.Glog.w("Pexels videos", it); emptyList() }
     }
 
+    /** Set from [com.glasslauncher.tv.data.Settings.hevcFailed] whenever a list is made. */
+    @Volatile var h264Only = false
+
     /** Link → video id, of every list made (the screensaver's Lock & release and Hidden videos name videos by id). */
     @Volatile var idOfUrl: Map<String, String> = emptyMap()
 
     /** Blocking. What the screensaver plays, as (title, link), in play order. */
     fun playlistItems(app: GlassApp, quality: String = app.settings.saverQuality, forSaver: Boolean = true): List<Pair<String, String>> {
         val st = app.settings
+        h264Only = st.hevcFailed
         val all = all(app)
         val pick = st.saverPick
         var chosen = if (pick.isNotBlank()) all.filter { it.id == pick }.ifEmpty { all } else all
@@ -161,7 +167,13 @@ object AerialSource {
             val locked = st.saverLocked.toSet()
             chosen.filter { it.id in locked }.takeIf { it.isNotEmpty() }?.let { chosen = it }
         }
-        val pairs = chosen.mapNotNull { v -> v.url(quality)?.let { Triple(v.title, it, v.id) } }.distinctBy { it.second }
+        var pairs = chosen.mapNotNull { v -> v.url(quality)?.let { Triple(v.title, it, v.id) } }.distinctBy { it.second }
+        if (h264Only) {
+            val left = chosen.size - pairs.size
+            if (left > 0) com.glasslauncher.tv.data.Glog.i("Videos: $left left out (HEVC only, and HEVC doesn't play on this TV)")
+            // (Nothing left at all, only HEVC collections on: those rather than nothing.)
+            if (pairs.isEmpty() && chosen.isNotEmpty()) { h264Only = false; pairs = chosen.mapNotNull { v -> v.url(quality)?.let { Triple(v.title, it, v.id) } }.distinctBy { it.second }; h264Only = true }
+        }
         // (Every list adds to it: the background's list and the screensaver's are of different qualities, and one
         // replacing the other left the video on screen unknown: Keep and Don't show it again did nothing.)
         idOfUrl = idOfUrl + pairs.associate { it.second to it.third }

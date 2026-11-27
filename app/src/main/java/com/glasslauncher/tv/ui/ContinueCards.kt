@@ -147,8 +147,10 @@ internal fun ContinueCards(app: GlassApp, s: Float, bottom: Float, side: Float, 
                         )
                         Spacer(Modifier.width((8 * s).dp))
                         Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                            Plain(c.title, color = Color.White, fontSize = (9.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (c.sub.isNotBlank()) Plain(c.sub, color = Color.White.copy(alpha = 0.65f), fontSize = (8 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            // (Writing on a picture: solid, bold, with its shadow, like the island's and the rows' headings.)
+                            val onPicture = androidx.compose.material3.LocalTextStyle.current.copy(shadow = InkShadow)
+                            Plain(c.title, color = Color.White, fontSize = (9.5f * s).sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, style = onPicture)
+                            if (c.sub.isNotBlank()) Plain(c.sub, color = Color.White.copy(alpha = 0.86f), fontSize = (8 * s).sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, style = onPicture)
                             if (c.progress > 0f) {
                                 Spacer(Modifier.height((4 * s).dp))
                                 Box(Modifier.fillMaxWidth().height((2 * s).dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.22f))) {

@@ -11,8 +11,11 @@ import java.net.URLEncoder
 /**
  * Background "Photos": 4K pictures that change by themselves, with where each was taken and who took it.
  *  - Bing: the photo of the day (UHD, 3840 px) from several countries. No account.
+ *  - Windows Spotlight: Windows' lock-screen pictures (4K). No account.
  *  - Wikimedia: Wikimedia Commons' featured pictures (chosen by its community) on a subject. No account.
- *  - Unsplash: photographers' pictures on a subject. Needs a free Access Key.
+ *  - Paintings: the Cleveland Museum of Art's public-domain paintings. No account.
+ *  - Unsplash, Pexels: photographers' pictures on a subject. Each needs its free key.
+ *  (Subreddit wallpapers were here until 4.7.3: Reddit lets no app in without an id of its own any more.)
  *  - Mine: the pictures in Glassio's backgrounds folder.
  * Each photo is downloaded before it is shown (the next one is fetched while this one is on screen), and kept on
  * the TV up to a size you choose, so it changes at once and comes back without downloading.
@@ -20,7 +23,8 @@ import java.net.URLEncoder
 object Photos {
     data class Photo(val url: String, val title: String, val credit: String)
 
-    val SOURCES = listOf("bing" to "Bing photo of the day", "commons" to "Wikimedia (featured, 4K)", "unsplash" to "Unsplash", "reddit" to "Subreddit wallpapers", "mine" to "My pictures")
+    val SOURCES = listOf("bing" to "Bing photo of the day", "spotlight" to "Windows Spotlight (4K)", "commons" to "Wikimedia (featured, 4K)",
+        "art" to "Paintings (museum)", "unsplash" to "Unsplash", "pexels" to "Pexels", "mine" to "My pictures")
     val TOPICS = listOf("nature", "mountains", "forest", "waterfalls", "city", "architecture", "space")
     private const val UA = "Glassio/2.0 (Google TV launcher; https://github.com/mohammadmrh12/glassio)"
 
@@ -59,7 +63,7 @@ object Photos {
         while (true) {
             val st = app.settings
             if (st.bgMode != "photos") { Thread.sleep(2_000); continue }
-            val key = listOf(st.photoSource, st.photoTopic, st.unsplashKey.isNotBlank(), st.photoShuffle, st.photoSubreddit, st.redditAppId.isNotBlank()).joinToString("|")
+            val key = listOf(st.photoSource, st.photoTopic, st.unsplashKey.isNotBlank(), st.photoShuffle, st.pexelsKey.isNotBlank()).joinToString("|")
             val now = System.currentTimeMillis()
             // A setting changed (not just the first list after Glassio started): a photo from the new choice now.
             val changed = key != listKey && listKey.isNotEmpty()
@@ -73,7 +77,7 @@ object Photos {
                     while (System.currentTimeMillis() < until) {
                         Thread.sleep(2_000)
                         val s2 = app.settings
-                        if (listOf(s2.photoSource, s2.photoTopic, s2.unsplashKey.isNotBlank(), s2.photoShuffle, s2.photoSubreddit, s2.redditAppId.isNotBlank()).joinToString("|") != key) { failWait = 30_000L; break }
+                        if (listOf(s2.photoSource, s2.photoTopic, s2.unsplashKey.isNotBlank(), s2.photoShuffle, s2.pexelsKey.isNotBlank()).joinToString("|") != key) { failWait = 30_000L; break }
                     }
                     continue
                 }
@@ -172,7 +176,9 @@ object Photos {
                 .also { if (it.isEmpty()) error("No pictures in the backgrounds folder yet") }
             "commons", "wallhaven" -> commons(st.photoTopic)
             "unsplash" -> unsplash(app, st.photoTopic, st.unsplashKey)
-            "reddit" -> reddit(st.photoSubreddit, st.redditAppId)
+            "spotlight" -> spotlight()
+            "art" -> paintings(app)
+            "pexels" -> pexels(app, st.photoTopic, st.pexelsKey)
             else -> bing(app)
         }
     }
@@ -231,56 +237,68 @@ object Photos {
     }
 
     /**
-     * The month's top wallpapers of one or more subreddits (comma separated): pictures only, landscape and at least
-     * 1920 px wide, nothing marked NSFW. Reddit lets apps in only with an app id of their own (free, reddit.com/prefs/apps,
-     * "installed app"); without one the public pages are tried, which Reddit often refuses.
+     * Windows Spotlight: the lock-screen pictures of Windows (landscapes and wildlife from around the world, 3840×2160),
+     * a few from each of several countries. No account. Each comes with its title and who took it.
      */
-    private fun reddit(subs: String, appId: String): List<Photo> {
-        val names = subs.split(',', ' ', '+').map { it.trim().removePrefix("r/").removePrefix("/r/") }.filter { it.matches(Regex("[A-Za-z0-9_]{2,21}")) }
-        require(names.isNotEmpty()) { "Add a subreddit in Settings (for example EarthPorn)" }
-        val token = if (appId.isNotBlank()) redditToken(appId) else null
-        val out = ArrayList<Photo>()
-        for (sub in names) runCatching {
-            val url = if (token != null) "https://oauth.reddit.com/r/$sub/top?t=month&limit=100&raw_json=1" else "https://www.reddit.com/r/$sub/top.json?t=month&limit=100&raw_json=1"
-            val c = URL(url).openConnection() as HttpURLConnection
-            c.connectTimeout = 10_000; c.readTimeout = 20_000
-            c.setRequestProperty("User-Agent", "android:com.glasslauncher.tv:v3 (Glassio wallpapers)")
-            if (token != null) c.setRequestProperty("Authorization", "bearer $token")
-            val body = try { check(c.responseCode in 200..299) { "HTTP ${c.responseCode}" }; c.inputStream.bufferedReader().use { it.readText() } } finally { c.disconnect() }
-            check(body.trimStart().startsWith("{")) { "Reddit refused (add a Reddit app id in Settings)" }
-            val kids = JSONObject(body).optJSONObject("data")?.optJSONArray("children") ?: JSONArray()
-            for (k in 0 until kids.length()) {
-                val d = kids.optJSONObject(k)?.optJSONObject("data") ?: continue
-                if (d.optBoolean("over_18") || d.optBoolean("spoiler")) continue
-                val src = d.optJSONObject("preview")?.optJSONArray("images")?.optJSONObject(0)?.optJSONObject("source")
-                val w = src?.optInt("width") ?: 0; val h = src?.optInt("height") ?: 0
-                if (w < 1920 || w < h * 1.25f) continue
-                val link = d.optString("url").takeIf { Regex("\\.(jpe?g|png|webp)(\\?.*)?$", RegexOption.IGNORE_CASE).containsMatchIn(it) }
-                    ?: src?.optString("url")?.takeIf { it.startsWith("http") } ?: continue
-                val title = d.optString("title").replace(Regex("\\s*[\\[(]\\s*\\d{3,5}\\s*[x×X]\\s*\\d{3,5}\\s*[\\])]"), "").trim().take(90)
-                out += Photo(link, title, "u/${d.optString("author")} · r/$sub")
+    private fun spotlight(): List<Photo> {
+        val out = LinkedHashMap<String, Photo>()
+        // (Each call gives four at random: twice per country, the same picture once.)
+        for ((country, locale) in listOf("US" to "en-US", "GB" to "en-GB", "DE" to "de-DE", "FR" to "fr-FR", "JP" to "ja-JP", "AU" to "en-AU", "CA" to "en-CA", "IN" to "en-IN")) repeat(2) {
+            runCatching {
+                val items = JSONObject(get("https://fd.api.iris.microsoft.com/v4/api/selection?placement=88000820&bcnt=4&country=$country&locale=$locale&fmt=json"))
+                    .optJSONObject("batchrsp")?.optJSONArray("items") ?: JSONArray()
+                for (k in 0 until items.length()) {
+                    val ad = JSONObject(items.optJSONObject(k)?.optString("item").orEmpty()).optJSONObject("ad") ?: continue
+                    val url = ad.optJSONObject("landscapeImage")?.optString("asset")?.takeIf { it.startsWith("https://") } ?: continue
+                    if (url in out) continue
+                    out[url] = Photo(url, ad.optString("title").take(90), ad.optString("copyright").trim().take(80).ifBlank { "Windows Spotlight" })
+                }
             }
-        }.onFailure { if (out.isEmpty() && sub == names.last()) throw it }
-        if (out.isEmpty()) error("No landscape wallpapers in r/${names.joinToString(", r/")} this month")
+        }
+        if (out.isEmpty()) error("Windows Spotlight didn't answer")
+        return out.values.toList()
+    }
+
+    /**
+     * Paintings: the Cleveland Museum of Art's open-access collection (public domain, CC0), the landscape-shaped ones,
+     * at 3400 px. No account. Each with its title, its painter and its year.
+     */
+    private fun paintings(app: GlassApp): List<Photo> {
+        val out = ArrayList<Photo>()
+        for (skip in listOf(0, 200, 400, 600, 800)) runCatching {
+            val data = app.http.json("https://openaccess-api.clevelandart.org/api/artworks/?cc0=1&has_image=1&type=Painting&limit=200&skip=$skip" +
+                "&fields=title,creators,creation_date,images", 7L * 24 * 3600_000L).optJSONArray("data") ?: JSONArray()
+            for (k in 0 until data.length()) {
+                val o = data.optJSONObject(k) ?: continue
+                val pic = o.optJSONObject("images")?.optJSONObject("print") ?: continue
+                val w = pic.optString("width").toIntOrNull() ?: pic.optInt("width"); val h = pic.optString("height").toIntOrNull() ?: pic.optInt("height")
+                if (w < 2400 || w < h * 1.25f) continue
+                val url = pic.optString("url").takeIf { it.startsWith("https://") } ?: continue
+                // "Robert S. Duncanson (American, 1821–1872)" → the name.
+                val who = o.optJSONArray("creators")?.optJSONObject(0)?.optString("description").orEmpty().substringBefore(" (").trim()
+                val year = o.optString("creation_date").takeIf { it.isNotBlank() && it != "null" }.orEmpty()
+                out += Photo(url, o.optString("title").take(90), listOf(who, year).filter { it.isNotBlank() }.joinToString(", ").ifBlank { "Painting" }.take(70) + " · Cleveland Museum of Art")
+            }
+        }.onFailure { Glog.w("Paintings (from $skip)", it) }
+        if (out.isEmpty()) error("The museum didn't answer")
         return out
     }
 
-    @Volatile private var redditTok: Pair<String, Long>? = null
-    /** An app-only Reddit token for an installed app's id (no account needed). */
-    private fun redditToken(appId: String): String {
-        redditTok?.takeIf { it.second > System.currentTimeMillis() }?.let { return it.first }
-        val c = URL("https://www.reddit.com/api/v1/access_token").openConnection() as HttpURLConnection
-        c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 10_000; c.readTimeout = 20_000
-        c.setRequestProperty("User-Agent", "android:com.glasslauncher.tv:v3 (Glassio wallpapers)")
-        c.setRequestProperty("Authorization", "Basic " + android.util.Base64.encodeToString("$appId:".toByteArray(), android.util.Base64.NO_WRAP))
-        c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-        val device = java.util.UUID.randomUUID().toString().replace("-", "").take(30)
-        c.outputStream.use { it.write("grant_type=${enc("https://oauth.reddit.com/grants/installed_client")}&device_id=$device".toByteArray()) }
-        val body = try { check(c.responseCode in 200..299) { "Reddit refused the app id (HTTP ${c.responseCode})" }; c.inputStream.bufferedReader().use { it.readText() } } finally { c.disconnect() }
-        val o = JSONObject(body)
-        val t = o.optString("access_token").ifBlank { error("Reddit refused the app id") }
-        redditTok = t to System.currentTimeMillis() + (o.optLong("expires_in", 3600) - 120) * 1000
-        return t
+    /** Pexels: 80 landscape photos on [topic] at 4K, with your own Pexels key (the same one as its videos). */
+    private fun pexels(app: GlassApp, topic: String, key: String): List<Photo> {
+        require(key.isNotBlank()) { "Pexels needs a free key (pexels.com/api): add it in Settings" }
+        val arr = app.http.json("https://api.pexels.com/v1/search?query=${enc(topic)}&orientation=landscape&size=large&per_page=80", 6 * 3600_000L, key = key).optJSONArray("photos") ?: JSONArray()
+        val out = ArrayList<Photo>()
+        for (k in 0 until arr.length()) {
+            val o = arr.optJSONObject(k) ?: continue
+            if (o.optInt("width") < 2400 || o.optInt("width") < o.optInt("height") * 1.25f) continue
+            val src = o.optJSONObject("src")?.optString("original")?.takeIf { it.startsWith("https://") } ?: continue
+            val who = o.optString("photographer")
+            out += Photo("$src?auto=compress&cs=tinysrgb&w=3840", o.optString("alt").ifBlank { topic }.replaceFirstChar { it.uppercase() }.take(80),
+                if (who.isNotBlank()) "Photo: $who · Pexels" else "Pexels")
+        }
+        if (out.isEmpty()) error("Pexels found nothing for \"$topic\"")
+        return out
     }
 
     /** Unsplash: 30 landscape photos on [topic] at 4K, with the place and the photographer. */

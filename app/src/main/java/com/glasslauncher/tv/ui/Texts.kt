@@ -54,3 +54,20 @@ fun Plain(
     maxLines: Int = Int.MAX_VALUE, style: TextStyle = LocalTextStyle.current,
 ) = androidx.compose.material3.Text(text, modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, fontFamily = fontFamily,
     letterSpacing = letterSpacing, textAlign = textAlign, lineHeight = lineHeight, overflow = overflow, maxLines = maxLines, style = style)
+
+/**
+ * Writing that stands straight on a picture or a video (the island, the headings over an app's rows): one tight dark
+ * shadow under the letters, the same everywhere, so it reads on fire, snow or a white wall alike. Only for light
+ * writing: [inkShadow] gives none for a dark ink (the island in Black on white).
+ */
+val InkShadow = androidx.compose.ui.graphics.Shadow(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.85f), androidx.compose.ui.geometry.Offset(0f, 2f), 6f)
+fun inkShadow(ink: androidx.compose.ui.graphics.Color): androidx.compose.ui.graphics.Shadow? =
+    if (0.299f * ink.red + 0.587f * ink.green + 0.114f * ink.blue > 0.5f) InkShadow else null
+
+/** [c] made light enough to read as writing on a picture (an app's own colour can be a dark blue): mixed towards white. */
+fun readableInk(c: androidx.compose.ui.graphics.Color): androidx.compose.ui.graphics.Color {
+    val l = 0.299f * c.red + 0.587f * c.green + 0.114f * c.blue
+    if (l >= 0.62f) return c
+    val t = ((0.62f - l) / (1f - l)).coerceIn(0f, 1f)
+    return androidx.compose.ui.graphics.Color(c.red + (1f - c.red) * t, c.green + (1f - c.green) * t, c.blue + (1f - c.blue) * t, c.alpha)
+}

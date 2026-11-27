@@ -81,12 +81,19 @@ fun SetupScreen(app: GlassApp, onDone: () -> Unit) {
     var profs by remember { mutableStateOf<List<com.glasslauncher.tv.data.Profiles.Info>>(emptyList()) }
     var who by remember { mutableIntStateOf(P.active(app)) }
     var askWho by remember { mutableStateOf(P.startMode(app) == "ask") }
+    var pinGiven by remember { mutableStateOf(false) }
     LaunchedEffect(rev, page) {
         if (!nuvio.connected) { profs = emptyList(); return@LaunchedEffect }
         val l = if (ProfilesUi.keepList) P.known(app) else withContext(Dispatchers.IO) { nuvio.profileInfos() }?.also { if (it.isNotEmpty()) P.remember(app, it) } ?: P.known(app)
         profs = if (l.size > 1) l else emptyList()
     }
     fun finish() {
+        // A profile with a PIN (Nuvio's): asked before Glassio opens as it.
+        val locked = profs.firstOrNull { it.id == who }?.takeIf { profs.size > 1 && it.id != P.active(app) && com.glasslauncher.tv.data.ProfilePin.asks(app, it.id) && !pinGiven }
+        if (locked != null) {
+            PinUi.show(PinUi.Ask("Enter the PIN", "This profile's PIN in Nuvio", locked, check = { com.glasslauncher.tv.data.ProfilePin.check(app, locked.id, it) }) { pinGiven = true; finish() })
+            return
+        }
         if (profs.size > 1) {
             P.setStartMode(app, if (askWho) "ask" else "auto"); P.setAutoId(app, who)
             profs.firstOrNull { it.id == who }?.let { p ->

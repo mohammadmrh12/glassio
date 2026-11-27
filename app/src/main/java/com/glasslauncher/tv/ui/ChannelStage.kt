@@ -235,17 +235,21 @@ fun ChannelStage(app: com.glasslauncher.tv.GlassApp, s: Float, pkg: String, rows
                         Row(Modifier.height(labelH.dp).padding(start = side.dp, end = side.dp), verticalAlignment = Alignment.CenterVertically) {
                             val name = androidx.compose.ui.text.buildAnnotatedString {
                                 if (r == shown.first()) {
-                                    withStyle(androidx.compose.ui.text.SpanStyle(color = nameColor)) { append(label) }
+                                    withStyle(androidx.compose.ui.text.SpanStyle(color = readableInk(nameColor))) { append(label) }
                                     append("  ·  ")
                                 }
                                 append(ch.name)
-                                if (rows.size > vis) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.45f))) { append("   ${r + 1} / ${rows.size}") }
+                                if (rows.size > vis) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.72f), fontWeight = FontWeight.Medium)) { append("   ${r + 1} / ${rows.size}") }
                             }
-                            Text(name, color = Color.White.copy(alpha = 0.85f), fontSize = (10.5f * s).sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            // Solid white and bold, with the shadow of writing on a picture (his ask): at 85 % white and
+                            // no shadow the heading was lost on a bright background (a fire, a snowfield), and an app's
+                            // own colour could be a dark blue.
+                            val onPicture = androidx.compose.material3.LocalTextStyle.current.copy(shadow = InkShadow)
+                            Text(name, color = Color.White, fontSize = (10.5f * s).sp, fontWeight = FontWeight.Bold, maxLines = 1, style = onPicture)
                             // The selected card's title, next to the row's name.
                             val t = ch.programs.getOrNull(sel)
-                            if (t != null) Text("   " + listOf(t.title, t.sub).filter { it.isNotBlank() }.joinToString("  ·  "), color = Color.White.copy(alpha = 0.6f),
-                                fontSize = (10 * s).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (t != null) Text("   " + listOf(t.title, t.sub).filter { it.isNotBlank() }.joinToString("  ·  "), color = Color.White.copy(alpha = 0.86f),
+                                fontSize = (10 * s).sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, style = onPicture)
                         }
                         val poster = ch.programs.firstOrNull()?.wide == false
                         val cardW = if (poster) cardH * 2f / 3f else cardH * 16f / 9f

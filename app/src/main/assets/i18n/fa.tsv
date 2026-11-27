@@ -12,20 +12,24 @@ Location	مکان
 Camera	دوربین
 Can't reach the camera	دسترسی به دوربین ممکن نیست
 Connecting…	در حال اتصال…
-Next	بعدی
+Continue watching	ادامه تماشا
+(TV access)	(دسترسی تلویزیون)
+1 row	۱ ردیف
 and enter	و وارد کنید
-and how a camera or the doorbell can show over another app.	و اینکه دوربین یا زنگ در چطور روی برنامه‌ی دیگر نمایش داده شود.
 Automatic ·	خودکار ·
 Button	دکمه
 Cancel	لغو
 Close	بستن
 Couldn't send it. Check the internet and try again	ارسال نشد. اینترنت را بررسی کنید و دوباره تلاش کنید
 Gift card code	کد کارت هدیه
-Glassio uses Android's Accessibility API for one thing: to notice the buttons of your remote, and when the TV's own home screen comes up.	Glassio فقط برای یک کار از دسترس‌پذیری Android استفاده می‌کند: تشخیص دکمه‌های ریموت و باز شدن صفحه‌ی اصلی خود تلویزیون.
+Glassio comes back when you leave an app it opened, it waits while the TV asks you to allow USB debugging, and a camera or the doorbell can show over another app.	وقتی از برنامه‌ای که Glassio باز کرده خارج می‌شوید، Glassio برمی‌گردد؛ تا زمانی که تلویزیون اجازه‌ی اشکال‌زدایی USB را می‌پرسد صبر می‌کند؛ و دوربین یا زنگ در می‌تواند روی برنامه‌ی دیگری نمایش داده شود.
+Glassio uses Android's Accessibility API for two things: to notice the buttons of your remote, and to know which app is in front (its name only).	Glassio از API دسترسی‌پذیری اندروید برای دو کار استفاده می‌کند: تشخیص دکمه‌های کنترل و دانستن اینکه کدام برنامه جلوست (فقط نام آن).
 Glassio's accessibility service	سرویس دسترس‌پذیری Glassio
 In the carousel's place	به‌جای کاروسل
+It has none now	اکنون هیچ‌کدام ندارد
 It only works after you turn it on yourself in the TV's Accessibility settings, and you can turn it off there at any time.	فقط بعد از اینکه خودتان آن را در تنظیمات دسترس‌پذیری تلویزیون روشن کنید کار می‌کند و هر وقت خواستید همان‌جا خاموشش کنید.
 Its catalogs	کاتالوگ‌های آن
+Its own rows	ردیف‌های خودش
 Its rows	ردیف‌های آن
 No catalogs yet: add an add-on in Settings → Catalogs	هنوز کاتالوگی نیست: در تنظیمات → کاتالوگ‌ها یک افزونه اضافه کنید
 Not now	حالا نه
@@ -48,13 +52,11 @@ Sending…	در حال ارسال…
 Sent. Thank you so much for your support!	ارسال شد. از حمایت شما بسیار سپاسگزارم!
 Support Glassio	حمایت از Glassio
 Support me	حمایت از من
-Supporters	حامیان
-Thank you for keeping Glassio going.	از اینکه Glassio را زنده نگه می‌دارید سپاسگزاریم.
 Thank you!	ممنون!
-That is how the Home button opens Glassio instead of the TV's own home screen, how holding Home and the remote buttons you choose do what you set,	به همین وسیله دکمه‌ی Home به‌جای صفحه‌ی اصلی خود تلویزیون، Glassio را باز می‌کند، نگه داشتن Home و دکمه‌های ریموتی که انتخاب می‌کنید کار تنظیم‌شده را انجام می‌دهند،
+That is how the Home button opens Glassio instead of the TV's own home screen, the remote buttons you choose do what you set, Recent apps lists the apps you used,	به همین ترتیب دکمه‌ی Home به‌جای صفحه‌ی اصلی خود تلویزیون، Glassio را باز می‌کند، دکمه‌های کنترلی که انتخاب می‌کنید کار تعیین‌شده را انجام می‌دهند، برنامه‌های اخیر برنامه‌هایی را که استفاده کرده‌اید فهرست می‌کند،
 That isn't a PSN code: 12 letters and digits	این کد PSN نیست: 12 حرف و عدد
 The arrows and OK move around Glassio: pick another button	کلیدهای جهت‌دار و OK برای حرکت در Glassio‌اند: دکمه‌ی دیگری انتخاب کنید
-The service does not read what is on the screen, does not read what you type, and collects or shares nothing.	این سرویس محتوای صفحه یا چیزی را که تایپ می‌کنید نمی‌خواند و هیچ داده‌ای جمع‌آوری یا به اشتراک نمی‌گذارد.
+The service does not read what is on the screen, does not read what you type, and collects or shares nothing: what it notices stays on this TV.	این سرویس محتوای صفحه یا آنچه تایپ می‌کنید را نمی‌خواند و چیزی جمع‌آوری یا به اشتراک نمی‌گذارد: آنچه تشخیص می‌دهد فقط روی همین تلویزیون می‌ماند.
 This button sends nothing Glassio can tell apart: pick another button	این دکمه چیزی نمی‌فرستد که Glassio بتواند تشخیص دهد: دکمهٔ دیگری انتخاب کنید
 This is everything that will be sent. It becomes a public issue on GitHub: addresses, keys, emails and names were removed	این همه‌ی چیزی است که ارسال می‌شود. به یک مورد عمومی در GitHub تبدیل می‌شود: نشانی‌ها، کلیدها، ایمیل‌ها و نام‌ها حذف شده‌اند
 Type the code first	اول کد را بنویسید
@@ -71,12 +73,9 @@ Glass like glass	شیشه‌ی شفاف
 None (clear)	هیچ (شفاف)
 Petrol	سبز دریایی
 Glassio is the TV screensaver	Glassio محافظ صفحه‌ی تلویزیون است
-Add to Library	افزودن به کتابخانه
 Change artwork	تغییر تصویر
 Continue	ادامه
 Hide this title	پنهان کردن این عنوان
-Like	پسندیدن
-Liked	پسندیده شد
 Loading…	در حال بارگذاری…
 Movie	فیلم
 Music apps	برنامه‌های موسیقی
@@ -85,7 +84,6 @@ No music app on this TV	برنامه‌ی موسیقی روی این تلویز�
 Open Catalogs	باز کردن کاتالوگ‌ها
 Open Settings → Catalogs & add-ons to connect Nuvio and fill the carousel.	تنظیمات → کاتالوگ‌ها و افزونه‌ها را باز کنید تا Nuvio را وصل کنید و کاروسل پر شود.
 Play	پخش
-Remove from Library	حذف از کتابخانه
 Series	سریال
 Stop trailer	توقف تریلر
 Trailer	تریلر
@@ -101,12 +99,14 @@ Apps folder hidden. Show it again: Settings → Dock & icons	پوشه‌ی بر�
 Catalogs	کاتالوگ‌ها
 Catalogs & add-ons	کاتالوگ‌ها و افزونه‌ها
 Change icon	تغییر آیکون
+Glassio closed by itself. Send this report?	Glassio خودش بسته شد. این گزارش ارسال شود؟
 Hide	پنهان کردن
 Hide from the dock	پنهان کردن از داک
 Hide its rows	پنهان کردن ردیف‌های آن
 Lock	قفل
 Move	جابه‌جایی
 Open	باز کردن
+Rows from…	ردیف‌ها از…
 Show in dock	نمایش در داک
 Show its rows	نمایش ردیف‌های آن
 Unlock	باز کردن قفل
@@ -152,29 +152,48 @@ Save to the Library	ذخیره در کتابخانه
 Saved	ذخیره شد
 Simkl · Plan to watch	Simkl · برنامه‌ی تماشا
 Trakt watchlist	فهرست تماشای Trakt
+doesn't play	پخش نمی‌شود
+has no session	نشست ندارد
+Looking for the lyrics…	در حال جست‌وجوی متن آهنگ…
+No lyrics for this song	متنی برای این آهنگ نیست
 No music app on this TV (Spotify, YouTube Music, Apple Music…)	برنامه‌ی موسیقی روی این تلویزیون نیست (Spotify، YouTube Music، Apple Music…)
 Nothing is playing. Pick a music app to start something.	چیزی پخش نمی‌شود. یک برنامه‌ی موسیقی انتخاب کنید.
 Nothing playing	چیزی پخش نمی‌شود
+the letters dance while the name moves	هنگام حرکت نام، حروف می‌لرزند
+This song again	دوباره همین آهنگ
+to its own receiver	به گیرنده‌ی خودش
 1280 enhanced	1280 بهبودیافته
 High	بالا
+Checking…	در حال بررسی…
+Nuvio can't be reached to check this PIN	برای بررسی این PIN نمی‌توان به Nuvio دسترسی پیدا کرد
+The remote's number keys work too · Back cancels	دکمه‌های عددی کنترل هم کار می‌کنند · Back لغو می‌کند
+Too many wrong tries. Try again in	تلاش‌های اشتباه بیش از حد. دوباره امتحان کنید، تا
+Wrong PIN	PIN اشتباه است
 Ask	پرسیدن
 At start	هنگام شروع
 Automatic	خودکار
+Choose a profile and enter its PIN	یک پروفایل انتخاب کنید و PIN آن را وارد کنید
+Enter the PIN	PIN را وارد کنید
 Glassio will start as	Glassio با این پروفایل شروع می‌شود:
 In use	در حال استفاده
 Main profile	پروفایل اصلی
 OK opens a profile · hold OK to always start as it	OK پروفایل را باز می‌کند · نگه داشتن OK برای همیشه شروع با آن
 Opening Glassio as	باز کردن Glassio با پروفایل
 Opening …	در حال باز کردن …
-PIN in Nuvio	PIN در Nuvio
-This profile has a PIN in Nuvio: it can't be opened from here yet	این پروفایل در Nuvio PIN دارد: هنوز از اینجا باز نمی‌شود
+This profile's PIN in Nuvio	PIN این پروفایل در Nuvio
 Credit	اعتبار
 Date	تاریخ
 Place	مکان
 Storage	حافظه
 Time	ساعت
 Weather	آب‌وهوا
+Add to Library	افزودن به کتابخانه
 Allow USB debugging for Glassio to use the TV screensaver	برای استفاده‌ی Glassio به‌عنوان محافظ صفحه، اشکال‌زدایی USB را مجاز کنید
+Like	پسندیدن
+Liked	پسندیده شد
+Next	بعدی
+Open in Nuvio	باز کردن در Nuvio
+Remove from Library	حذف از کتابخانه
 Asking the add-ons…	در حال پرسش از افزونه‌ها…
 Film	فیلم
 Films and series	فیلم‌ها و سریال‌ها
@@ -195,6 +214,7 @@ any setting	هر تنظیم
 back to default	بازگشت به پیش‌فرض
 display over other apps	نمایش روی برنامه‌های دیگر
 Hello, …	سلام، …
+New York	نیویورک
 Plan to watch	برنامه‌ی تماشا
 Videos · My videos	ویدیوها · ویدیوهای من
 (first its app id, from the phone)	(اول شناسه‌ی برنامه‌اش، از گوشی)
@@ -226,6 +246,7 @@ A live camera in the corner, over any app	دوربین زنده در گوشه، 
 A music app selected in the dock with nothing playing: its icon and Play. Off: its rows, or the carousel (its player still comes while its song is on)	برنامه‌ی موسیقی انتخاب‌شده در داک وقتی چیزی پخش نمی‌شود: آیکون و پخش. خاموش: ردیف‌هایش یا کاروسل (پخش‌کننده‌اش تا زمانی که آهنگ پخش می‌شود می‌آید)
 A Music icon (move, hide and change it like an app): opens the player	آیکون موسیقی (مثل یک برنامه جابه‌جا، پنهان و تغییرش دهید): پخش‌کننده را باز می‌کند
 A new one when each ends, fading through black like the screensaver	با پایان هرکدام، بعدی با محو شدن از سیاهی مثل محافظ صفحه
+A paused song goes	آهنگ متوقف‌شده می‌رود
 A picture or a video of your own as the background, from a link or the folder	عکس یا ویدیوی خودتان به‌عنوان پس‌زمینه، از لینک یا پوشه
 A pill appears next to the clock when a new version is out.	وقتی نسخه‌ی جدید بیاید، کنار ساعت یک قرص نمایش داده می‌شود.
 A random mix from all your catalogs (different titles each time), fetched again on its own	ترکیبی تصادفی از همه‌ی کاتالوگ‌ها (هر بار عنوان‌های متفاوت)، که خودکار دوباره دریافت می‌شود
@@ -236,6 +257,7 @@ A short tour of what's new and where to change it	تور کوتاه تازه‌�
 A soft ding-dong when it shows	صدای زنگ ملایم هنگام نمایش
 A song name too long for the island scrolls by (off: shortened with …)	نام آهنگ بلند در جزیره حرکت می‌کند (خاموش: با … کوتاه می‌شود)
 A song plays under the search	پخش آهنگ زیر جستجو
+A song's words beside the player, in time with it, lighting as they are sung. Found by the song's name and artist (only those are sent, to the sources below). The player's and the island's lyrics buttons do the same	متن آهنگ کنار پخش‌کننده و هم‌زمان با آن، با روشن شدن کلمات هنگام خوانده شدن. بر اساس نام و خواننده‌ی آهنگ پیدا می‌شود (فقط همین‌ها به منابع زیر فرستاده می‌شود). دکمه‌های متن آهنگ در پخش‌کننده و جزیره هم همین کار را می‌کنند
 A tall poster or a wide card with the title's backdrop. The name, the year and the rating are inside the picture, like a Continue Watching card of the Library	پوستر عمودی یا کارت پهن با تصویر زمینهٔ عنوان. نام، سال و امتیاز درون تصویر هستند، مثل کارت ادامه تماشا در کتابخانه
 A tint through all the glass (dock, icons, menus, panels), still see-through, like a tinted window	رنگی روی همه‌ی شیشه‌ها (داک، آیکون‌ها، منوها، پنل‌ها)، همچنان شفاف، مثل شیشه‌ی دودی
 A title here opens in its own app: Nuvio Legacy, Nuvio or Stremio (Trakt and Simkl titles: Open titles in)	عنوان اینجا در برنامه‌ی خودش باز می‌شود: Nuvio Legacy، Nuvio یا Stremio (عنوان‌های Trakt و Simkl: باز کردن عنوان‌ها در)
@@ -266,16 +288,19 @@ Add-ons asked	افزونه‌های پرسیده‌شده
 Add-ons asked for sources	افزونه‌هایی که منبع از آن‌ها پرسیده شد
 Add-ons from my Nuvio account	افزونه‌های حساب Nuvio من
 Add-ons, tokens, icons, cameras, videos and backups from your phone's browser	افزونه‌ها، توکن‌ها، آیکون‌ها، دوربین‌ها، ویدیوها و پشتیبان‌ها از مرورگر گوشی
+After 1 min	بعد از ۱ دقیقه
 After each new photo or video	بعد از هر عکس یا ویدیوی جدید
 After each new trailer	بعد از هر تریلر جدید
 After each new video	بعد از هر ویدیوی جدید
+After Glassio closes by itself, its report goes without asking. Off: the next start asks, and you see the report first	پس از اینکه Glassio خودش بسته شود، گزارش بدون پرسش ارسال می‌شود. خاموش: در شروع بعدی پرسیده می‌شود و ابتدا گزارش را می‌بینید
 After this long on a title its trailer starts; when it ends (or ◀ ▶) the next title comes	بعد از این مدت روی یک عنوان، تریلرش شروع می‌شود؛ وقتی تمام شد (یا ◀ ▶) عنوان بعدی می‌آید
 After you finish an episode, the next one waits here (from the Nuvio account and what Glassio saw)	بعد از تمام شدن یک قسمت، قسمت بعدی اینجا منتظر می‌ماند (از حساب Nuvio و آنچه Glassio دیده)
-After you leave this screen. The code changes each time it starts again	بعد از خروج از این صفحه. کد هر بار که دوباره شروع شود عوض می‌شود
+After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	بعد از ترک این صفحه. نشانی و کد ثابت می‌مانند، پس صفحه‌ای که روی گوشی ذخیره کرده‌اید هر وقت صفحه روشن باشد کار می‌کند. همیشه: تا زمانی که Glassio اجرا می‌شود
 Agree and open the TV's Accessibility settings	موافقم و باز کردن تنظیمات دسترس‌پذیری تلویزیون
 All	همه
 All of Glassio's writing a step bolder	همه‌ی نوشته‌های Glassio یک پله ضخیم‌تر
 All of them	همه‌ی آن‌ها
+All of them are off	همه‌ی آن‌ها خاموش‌اند
 All the lights	همه‌ی چراغ‌ها
 All the lights take the colour of the app selected in the dock (its glow's colour)	همه‌ی چراغ‌ها رنگ برنامه‌ی انتخاب‌شده در داک را می‌گیرند (رنگ درخشش آن)
 All the lights take the colour of the card you're on in an app's rows (as bright as the Library's posters)	همه‌ی چراغ‌ها رنگ کارتی را می‌گیرند که در ردیف‌های برنامه رویش هستید (به روشنی پوسترهای کتابخانه)
@@ -298,12 +323,16 @@ Also in the menu (hold OK)	در منو هم (نگه داشتن OK)
 Also, if your TVs are in the same home (off unless you turn them on)	همچنین اگر تلویزیون‌هایتان در یک خانه‌اند (خاموش مگر خودتان روشن کنید)
 Always	همیشه
 AMOLED black	مشکی AMOLED
+An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	برنامه‌ای که ردیف «ادامه تماشا» خودش را دارد (Netflix، YouTube…) آن را هم به‌صورت کارت نشان می‌دهد، به‌جای ردیف‌هایش. برای هر برنامه: موسیقی و ردیف‌های برنامه ← برنامه‌های دارای کانال
 An icon in the dock: select it and the search bar comes up in the carousel's place; OK types. Glassio plays nothing itself: a title opens in an app	یک آیکون در داک: انتخابش کنید تا نوار جستجو به‌جای کاروسل بیاید؛ OK برای نوشتن. Glassio خودش چیزی پخش نمی‌کند: عنوان در یک برنامه باز می‌شود
 Android settings	تنظیمات Android
 Any title your server has opens on its page in the Jellyfin app (off: only titles from the server itself)	هر عنوانی که سرور شما دارد در صفحه‌ی خودش در برنامه‌ی Jellyfin باز می‌شود (خاموش: فقط عنوان‌های خود سرور)
 Anything you like (even the code itself)	هر چیزی که دوست دارید (حتی خود کد)
 Anywhere: the camera in the corner (again closes it)	از هرجا: دوربین در گوشه (دوباره می‌بندد)
+Anywhere: the camera in the corner · press again to close	در هر جا: دوربین در گوشه · برای بستن دوباره فشار دهید
 Anywhere: the cameras in the middle (again closes them)	از هرجا: دوربین‌ها در وسط (دوباره می‌بندد)
+Anywhere: the cameras in the middle · press again to close	در هر جا: دوربین‌ها در وسط · برای بستن دوباره فشار دهید
+API key	کلید API
 API Key, not the token	API Key، نه توکن
 App	برنامه
 App lock	قفل برنامه
@@ -319,6 +348,7 @@ Apps folder	پوشه‌ی برنامه‌ها
 Apps in a row	برنامه‌ها در یک ردیف
 Apps with channels	برنامه‌های دارای کانال
 Apps without a TV launcher entry	برنامه‌های بدون ورودی در لانچر تلویزیون
+Apps' Continue watching	ادامه تماشای برنامه‌ها
 Aqara (through HomeKit), Frigate, Ring, Tapo… any camera Home Assistant shows. Uses the Home Assistant link and token (Doorbell → Home Assistant link)	Aqara (از طریق HomeKit)، Frigate، Ring، Tapo… هر دوربینی که Home Assistant نشان دهد. از لینک و توکن Home Assistant استفاده می‌کند (زنگ در → لینک Home Assistant)
 Around the settings button (it fills in white when selected)	دور دکمه‌ی تنظیمات (هنگام انتخاب سفید پر می‌شود)
 Arrange apps	چیدن برنامه‌ها
@@ -327,7 +357,9 @@ As before Hue Sync	مثل قبل از Hue Sync
 As Glassio shows this profile. Empty: the name it has in Nuvio	همان‌طور که Glassio این پروفایل را نشان می‌دهد. خالی: نامی که در Nuvio دارد
 As in Nuvio	مثل Nuvio
 As they were before Hue Sync (they follow the screen again on the home screen)	مثل قبل از Hue Sync (در صفحه‌ی اصلی دوباره از صفحه پیروی می‌کنند)
+Ask for the PIN	درخواست PIN
 Ask who is watching	پرسیدن اینکه چه کسی تماشا می‌کند
+At once	بلافاصله
 At the start	در ابتدا
 At the top, with where each title came from	بالا، همراه با اینکه هر عنوان از کجا آمده
 Auto	خودکار
@@ -337,7 +369,9 @@ Auto ·	خودکار ·
 Auto-hide	پنهان‌سازی خودکار
 Auto-hide the top bar	پنهان‌سازی خودکار نوار بالا
 Auto-play	پخش خودکار
+Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	خودکار: یک ردیف وقتی دوربین‌ها در این اندازه جا شوند، وگرنه یک شبکه (دو در دو، و بیش از چهار تا سه در سه). هرگز از لبه‌های صفحه بیرون نمی‌زنند
 Automatic: what you change on the main TV shows here a moment later. Manual: only when you press Sync now	خودکار: آنچه در تلویزیون اصلی تغییر دهید لحظه‌ای بعد اینجا دیده می‌شود. دستی: فقط وقتی همگام‌سازی حالا را بزنید
+Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	خودکار: پس‌زمینه‌ی شما با شیشه‌ی شفاف روی ویدیو، وگرنه تصویر آهنگ. پس‌زمینه‌ی شما: ویدیو یا تصویر شما پشت پخش‌کننده می‌ماند. تصویر آهنگ: تصویر آن کل صفحه را پر می‌کند
 Back as they were	برگشت به حالت قبل
 Back from Nuvio, the carousel shows that title first	با برگشت از Nuvio، کاروسل اول همان عنوان را نشان می‌دهد
 Back on the home screen starts it	Back در صفحه‌ی اصلی آن را شروع می‌کند
@@ -351,7 +385,6 @@ Backdrop gallery	گالری تصاویر پس‌زمینه
 Background	پس‌زمینه
 Background & glass	پس‌زمینه و شیشه
 Background & screensaver	پس‌زمینه و محافظ صفحه
-Baghdad	بغداد
 Balanced	متعادل
 Bar	نوار
 Bars colour	رنگ نوارها
@@ -368,7 +401,7 @@ Beta: new things first, they may still have bugs	بتا: تازه‌ها زود�
 Between Play and Next: saves the title to your Library	بین پخش و بعدی: عنوان را در کتابخانه‌ی شما ذخیره می‌کند
 Between posters and between rows	بین پوسترها و بین ردیف‌ها
 Bigger files are left out	فایل‌های بزرگ‌تر کنار گذاشته می‌شوند
-Bing and Wikimedia need no account; Unsplash needs a free key	Bing و Wikimedia حساب نمی‌خواهند؛ Unsplash کلید رایگان می‌خواهد
+Bing, Windows Spotlight, Wikimedia and the paintings need no account; Unsplash and Pexels each need a free key	Bing، Windows Spotlight، Wikimedia و نقاشی‌ها به حساب نیاز ندارند؛ Unsplash و Pexels هرکدام یک کلید رایگان می‌خواهند
 Black AMOLED	مشکی AMOLED
 Black on white	مشکی روی سفید
 Blink it	چشمک بزند
@@ -396,6 +429,7 @@ Cameras	دوربین‌ها
 Cameras found	دوربین‌های پیداشده
 Cameras from Home Assistant	دوربین‌ها از Home Assistant
 Cameras on the screensaver: ▼ brings them up from the bottom	دوربین‌ها روی محافظ صفحه: ▼ آن‌ها را از پایین بالا می‌آورد
+Cameras on the whole screen	دوربین‌ها روی تمام صفحه
 Cancelled	لغو شد
 Card	کارت
 Card size	اندازه‌ی کارت
@@ -415,6 +449,7 @@ Change one icon: on the home screen hold OK on the app → Change icon. Pick fro
 Change speed	سرعت تغییر
 Change the code	تغییر کد
 Change the order of its rows	تغییر ترتیب ردیف‌های آن
+Change the PIN	تغییر PIN
 Change who is watching (shown when your Nuvio account has more than one profile)	تغییر اینکه چه کسی تماشا می‌کند (وقتی حساب Nuvio بیش از یک پروفایل دارد نمایش داده می‌شود)
 Changed	تغییرکرده
 Changed settings	تنظیمات تغییرکرده
@@ -423,11 +458,11 @@ Channels	کانال‌ها
 Channels on	کانال‌ها روشن
 Check	بررسی
 Check for updates	بررسی به‌روزرسانی
-Checking…	در حال بررسی…
 Chime	زنگ
 Choose Always allow on the TV, then press OK here again	روی تلویزیون Always allow را انتخاب کنید، سپس اینجا دوباره OK بزنید
 Choose another button	دکمه‌ی دیگری انتخاب کنید
 Choose default home app	انتخاب برنامه‌ی اصلی پیش‌فرض
+choose one	یکی را انتخاب کنید
 Choose the video first: My pictures & videos → Video from the folder or a link	اول ویدیو را انتخاب کنید: تصاویر و ویدیوهای من ← ویدیو از پوشه یا پیوند
 Chosen	انتخاب‌شده
 Cinematic (fill)	سینمایی (پر)
@@ -463,6 +498,9 @@ Connected	متصل
 Connected to the Hue bridge: now choose the lights	به پل Hue وصل شد: حالا چراغ‌ها را انتخاب کنید
 Connections	اتصال‌ها
 Continue Watching & Library	ادامه تماشا و کتابخانه
+Continue watching as cards: off	ادامه تماشا به‌صورت کارت: خاموش
+Continue watching as cards: on	ادامه تماشا به‌صورت کارت: روشن
+Continue Watching cards	کارت‌های ادامه تماشا
 Continue Watching from Nuvio Legacy, Glassio as the TV screensaver, TV info, open apps, starting with the TV and silent updates use it. Three steps, once	ادامه تماشا از Nuvio Legacy، Glassio به‌عنوان محافظ صفحه‌ی تلویزیون، اطلاعات تلویزیون، باز کردن برنامه‌ها، شروع با تلویزیون و به‌روزرسانی بی‌صدا از آن استفاده می‌کنند. سه مرحله، فقط یک بار
 Continue Watching in app carousels	ادامه تماشا در کاروسل برنامه‌ها
 Continue Watching in the Library	ادامه تماشا در کتابخانه
@@ -516,7 +554,7 @@ Dynamic Glass	شیشه‌ی پویا
 e.g. year we met	مثلاً سال آشنایی ما
 Each app has its own number for a title. Wikidata has some; JustWatch knows many more and what can be watched now, through its site's own search (not an official service)	هر برنامه برای هر عنوان شماره‌ی خودش را دارد. Wikidata بعضی را دارد؛ JustWatch بیشتر آن‌ها و آنچه الان قابل تماشاست را از جستجوی خود سایتش می‌شناسد (سرویس رسمی نیست)
 Each app's rows, the music player and the island	ردیف‌های هر برنامه، پخش‌کننده‌ی موسیقی و جزیره
-Each app's rows: off, hidden one by one, or in another order	ردیف‌های هر برنامه: خاموش، پنهان یکی‌یکی، یا با ترتیب دیگر
+Each app's rows: off, hidden one by one, in another order, or another app's	ردیف‌های هر برنامه: خاموش، پنهان‌کردن یکی‌یکی، با ترتیبی دیگر، یا از برنامه‌ی دیگر
 Each film and series library as a catalog, newest first (Catalogs & add-ons → Catalogs in the carousel)	هر کتابخانه‌ی فیلم و سریال به‌صورت یک کاتالوگ، جدیدترین‌ها اول (کاتالوگ‌ها و افزونه‌ها ← کاتالوگ‌ها در کاروسل)
 Each input as an icon: move, hide and change its icon like an app	هر ورودی یک آیکون: مثل برنامه جابه‌جا، پنهان و آیکونش را تغییر دهید
 Each light a different colour of the picture, or all of them its main colour	هر چراغ یک رنگ متفاوت تصویر، یا همه رنگ اصلی آن
@@ -524,17 +562,20 @@ Each light · the part of the screen it follows	هر چراغ · بخشی از �
 Each music app selected in the dock: its player or its rows, and the player with nothing playing	هر برنامه‌ی موسیقی انتخاب‌شده در داک: پخش‌کننده یا ردیف‌هایش، و پخش‌کننده وقتی چیزی پخش نمی‌شود
 Each profile of your Nuvio account has its own Glassio: its look, dock, catalogs, Library and Continue Watching. Glassio starts again when you change it	هر پروفایل حساب Nuvio، Glassio خودش را دارد: ظاهر، داک، کاتالوگ‌ها، کتابخانه و ادامه تماشا. با تغییر آن، Glassio دوباره شروع می‌شود
 Each title's own picture, or yours: a picture, photos or videos	تصویر هر عنوان، یا مال شما: یک تصویر، عکس‌ها یا ویدیوها
-EarthPorn, wallpapers	EarthPorn، والپیپر
+Empty: automatic (	خالی: خودکار (
 Empty: the name in Nuvio	خالی: نام در Nuvio
 Entertainment	سرگرمی
 Every	هر
 Every app · press again to close it	هر برنامه · دوباره بزنید تا بسته شود
 Every hidden title is back	همه‌ی عنوان‌های پنهان برگشتند
 Every Hue light	همه‌ی چراغ‌های Hue
+Every QR code and page saved on a phone stops working; scan the new code	هر کد QR و صفحه‌ی ذخیره‌شده روی گوشی از کار می‌افتد؛ کد جدید را اسکن کنید
 Every row is hidden	همه‌ی ردیف‌ها پنهان‌اند
 Every setting is as it comes	همه‌ی تنظیمات پیش‌فرض‌اند
 Every setting, catalog, Library and Continue Watching (no sign-ins), saved to Download/Glassio on the TV (also from the phone page)	همه‌ی تنظیمات، کاتالوگ‌ها، کتابخانه و ادامه تماشا (بدون ورود به حساب)، ذخیره در Download/Glassio روی تلویزیون (از صفحه‌ی گوشی هم)
 Every setting, catalog, Library, Continue Watching, account and token, saved to Download/Glassio on the TV (also from the phone page). Keep it private	همه‌ی تنظیمات، کاتالوگ‌ها، کتابخانه، ادامه تماشا، حساب‌ها و توکن‌ها، ذخیره در Download/Glassio روی تلویزیون (از صفحه‌ی گوشی هم). آن را خصوصی نگه دارید
+Every time	هر بار
+Every time: when the TV starts or wakes, and when you change to this profile. Automatic: this TV opens it without the PIN	هر بار: هنگام روشن شدن یا بیدار شدن تلویزیون و هنگام تغییر به این پروفایل. خودکار: این تلویزیون آن را بدون PIN باز می‌کند
 Every title in progress, or one of them	همه‌ی عنوان‌های در حال تماشا، یا یکی از آن‌ها
 Every title is back to the Artwork setting	همه‌ی عنوان‌ها به تنظیم تصویر برگشتند
 Every video (Apple, Amazon or your link) is saved as it plays and starts at once next time	هر ویدیو (Apple، Amazon یا لینک شما) هنگام پخش ذخیره می‌شود و دفعه‌ی بعد بلافاصله شروع می‌شود
@@ -572,15 +613,21 @@ Follow which TV?	از کدام تلویزیون پیروی شود؟
 Following this TV	پیروی از این تلویزیون
 Follows	پیروی می‌کند
 Follows another TV	از تلویزیون دیگر پیروی می‌کند
+Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	قلم‌ها: Inter (SIL OFL) · آب‌وهوا: Open-Meteo · این محصول از API سرویس TMDB استفاده می‌کند اما توسط TMDB تأیید یا گواهی نشده است.
 Forget	فراموش کردن
 Forget the bridge	فراموش کردن پل
 Forget them	فراموش کردنشان
+Four digits	چهار رقم
+Four digits before this profile opens. A profile with a PIN in Nuvio uses that one by itself	چهار رقم پیش از باز شدن این پروفایل. پروفایلی که در Nuvio PIN دارد خودش از همان استفاده می‌کند
+Four digits before this profile opens. Kept on this TV only	چهار رقم پیش از باز شدن این پروفایل. فقط روی همین تلویزیون نگه‌داری می‌شود
 Frame	قاب
 Free at pexels.com/api: sign in there, then copy your key. Kept on this TV only	رایگان در pexels.com/api: آنجا وارد شوید و کلیدتان را کپی کنید. فقط روی همین تلویزیون نگه داشته می‌شود
 Free videos from pexels.com for the words below	ویدیوهای رایگان pexels.com برای واژه‌های زیر
 Free videos from pexels.com for the words below. Needs your own Pexels key	ویدیوهای رایگان pexels.com برای واژه‌های زیر. کلید Pexels خودتان لازم است
+Free: pexels.com/api → Your API key. The same key brings Pexels' videos to the screensaver. Easier to paste from your phone (Manage from phone)	رایگان: pexels.com/api ← Your API key. همین کلید ویدیوهای Pexels را به محافظ صفحه هم می‌آورد. چسباندن از گوشی آسان‌تر است (مدیریت از گوشی)
 Free: unsplash.com/developers → New application → Access Key. Easier to paste from your phone (Manage from phone)	رایگان: unsplash.com/developers → New application → Access Key. از گوشی راحت‌تر می‌شود چسباند (مدیریت از گوشی)
 From a computer or phone with ADB, connected to this Fire TV, type once:	از کامپیوتر یا گوشی دارای ADB که به این Fire TV وصل است، یک بار بنویسید:
+From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	از Glassio (GitHub) اگر روی این تلویزیون باشد، وگرنه جدیدترین پشتیبان در Download/Glassio. پس از آن Glassio دوباره راه‌اندازی می‌شود
 From Home Assistant	از Home Assistant
 From Home Assistant: the one its automation sends; or one of your cameras here	از Home Assistant: همانی که اتوماسیونش می‌فرستد؛ یا یکی از دوربین‌های شما اینجا
 From the artwork	از تصویر
@@ -626,12 +673,14 @@ Google Play is not available on this device	Google Play در این دستگاه
 Green	سبز
 Greeting	خوش‌آمدگویی
 Grey	خاکستری
+Grid	شبکه
 Guest room	اتاق مهمان
 Hardware	سخت‌افزار
 HDR and Dolby Vision	HDR و Dolby Vision
 Hello	سلام
 hello (handwriting)	سلام (دست‌نویس)
 Hello and the profile's name at the top of the menu, with its picture (the name alone under a Hello button, no picture under a picture button)	سلام و نام پروفایل بالای منو، همراه با تصویرش (فقط نام زیر دکمه‌ی سلام، بدون تصویر زیر دکمه‌ی تصویر)
+HEVC videos	ویدیوهای HEVC
 Hidden	پنهان
 Hidden titles	عنوان‌های پنهان
 Hidden titles · pick one to show it again	عنوان‌های پنهان · یکی را انتخاب کنید تا دوباره نمایش داده شود
@@ -674,6 +723,7 @@ How colourful the lights are	میزان رنگارنگی چراغ‌ها
 How deep the glass colour is	پررنگی رنگ شیشه
 How far and how strong it is	تا چه حد و چه‌قدر قوی است
 How it works: Nuvio Legacy writes what you play to the TV's log (title, episode, how far). Glassio reads that log through the TV's own debugging connection (ADB), so this needs ADB once: System → TV access (ADB). Nothing leaves the TV.	طرز کار: Nuvio Legacy آنچه پخش می‌کنید (عنوان، قسمت، میزان پیشرفت) را در گزارش تلویزیون می‌نویسد. Glassio آن گزارش را از طریق اتصال اشکال‌زدایی خود تلویزیون (ADB) می‌خواند، پس یک بار ADB لازم است: سیستم ← دسترسی به تلویزیون (ADB). هیچ‌چیز از تلویزیون خارج نمی‌شود.
+How long the island stays once nothing plays (it comes back when a song plays, or with ▲)	مدت ماندن جزیره پس از توقف پخش (با پخش آهنگ یا با ▲ برمی‌گردد)
 How long the lights take to follow a video (a new title's colours come at once)	مدت زمانی که چراغ‌ها از ویدیو پیروی می‌کنند (رنگ‌های عنوان جدید بلافاصله می‌آید)
 How loud the trailers play (the TV's own volume stays as it is)	بلندی صدای تریلرها (صدای خود تلویزیون تغییر نمی‌کند)
 How many cards fit across a row at first (posters are narrower: more of them show)	در ابتدا چند کارت در یک ردیف جا می‌شود (پوسترها باریک‌ترند: بیشتر نمایش داده می‌شود)
@@ -707,6 +757,7 @@ In a Jellyfin app signed in to this server: your profile → Quick Connect, then
 In another app or the screensaver, the background video is let go after a few seconds and taken again on the way back: less memory used on a small TV	در برنامهٔ دیگر یا محافظ صفحه، ویدیوی پس‌زمینه پس از چند ثانیه رها و هنگام برگشت دوباره گرفته می‌شود: حافظهٔ کمتر در تلویزیون کوچک
 In its own colour	با رنگ خودش
 In the carousel	در کاروسل
+In the carousel. The Library's row: Continue Watching in the Library, below	در کاروسل. ردیف کتابخانه: ادامه تماشا در کتابخانه، پایین‌تر
 In the last colours	با آخرین رنگ‌ها
 In the Library	در کتابخانه
 In the Library: OK opens the title like the carousel. Hold OK (or Menu) to remove it.	در کتابخانه: OK عنوان را مثل کاروسل باز می‌کند. برای حذف، OK (یا Menu) را نگه دارید.
@@ -734,9 +785,13 @@ IP address	نشانی IP
 Island	جزیره
 It goes away on its own after this (Back or holding Home again closes it sooner)	بعد از این مدت خودش می‌رود (Back یا نگه داشتن دوباره‌ی Home زودتر می‌بندد)
 It is off: without it no service is found for a title	خاموش است: بدون آن برای عنوان هیچ سرویسی پیدا نمی‌شود
+It is the TV's screensaver now	اکنون محافظ صفحه‌ی تلویزیون است
+It is the TV's screensaver: choose another one first	این محافظ صفحه‌ی تلویزیون است: ابتدا دیگری را انتخاب کنید
 It stays below the screen until you go down to it (the dots go down too)	زیر صفحه می‌ماند تا به سمتش پایین بروید (نقطه‌ها هم پایین می‌روند)
 Its anon (public) key	کلید anon (عمومی) آن
+Its catalogs show instead (OK → Show)	به‌جای آن کاتالوگ‌هایش نمایش داده می‌شود (OK ← نمایش)
 Its libraries in the carousel, what you are watching, your favourites, the search, Play	کتابخانه‌هایش در کاروسل، آنچه تماشا می‌کنید، علاقه‌مندی‌هایتان، جستجو، پخش
+its own	مال خودش
 Its page in Stremio	صفحه‌ی آن در Stremio
 Its place in the area	جای آن در ناحیه
 Its player with nothing playing	پخش‌کننده‌ی آن وقتی چیزی پخش نمی‌شود
@@ -791,6 +846,7 @@ Liquid glass dots	نقطه‌های شیشه‌ی مایع
 Lists in the Library	فهرست‌ها در کتابخانه
 Lists the sources	منابع را فهرست می‌کند
 Lists where to watch	جاهای تماشا را فهرست می‌کند
+Lite	سبک
 Live view in the menu, like Apple TV (◀ ▶ switches camera)	نمای زنده در منو، مثل Apple TV (◀ ▶ دوربین را عوض می‌کند)
 Living room	اتاق نشیمن
 Lock & release	قفل و آزادسازی
@@ -806,8 +862,9 @@ Looking for Glassio on your network…	در حال جستجوی Glassio در ش�
 Looks at the latest release on GitHub	آخرین نسخه را در GitHub بررسی می‌کند
 Looks for the Hue bridge on this network	پل Hue را در این شبکه جستجو می‌کند
 Lower	پایین‌تر
+Lyrics	متن آهنگ
+Lyrics sources	منابع متن آهنگ
 Made by Mohammad (mrh12)	ساخته‌ی Mohammad (mrh12)
-Fonts: Inter (SIL OFL) · Weather: Open-Meteo · This product uses the TMDB API but is not endorsed or certified by TMDB.	فونت‌ها: Inter (SIL OFL) · آب‌وهوا: Open-Meteo · این محصول از TMDB API استفاده می‌کند اما توسط TMDB تأیید یا گواهی نشده است.
 Main (TMDB)	اصلی (TMDB)
 Main TV	تلویزیون اصلی
 Main TV (the others follow it)	تلویزیون اصلی (بقیه از آن پیروی می‌کنند)
@@ -821,6 +878,8 @@ Maximum (original)	حداکثر (اصلی)
 Menu & themes	منو و تم‌ها
 Menu items	موارد منو
 Menu order	ترتیب منو
+Menu → Camera goes straight to the cameras page instead of the live card	منو ← دوربین مستقیم به صفحه‌ی دوربین‌ها می‌رود، نه کارت زنده
+Menu's Camera opens the whole screen	دوربین منو تمام صفحه را باز می‌کند
 Message	پیام
 Middle	وسط
 Mixed with catalogs	ترکیب با کاتالوگ‌ها
@@ -853,18 +912,21 @@ Needs "Notification access" for Glassio in the TV's settings: press to open it	�
 Needs a TMDB token. English is used when a title has no text in this language	به توکن TMDB نیاز دارد. وقتی عنوانی متن این زبان را نداشته باشد انگلیسی استفاده می‌شود
 Needs Glassio's accessibility service	به سرویس دسترس‌پذیری Glassio نیاز دارد
 Needs the Home Assistant link and token (Doorbell → Home Assistant link)	به لینک و توکن Home Assistant نیاز دارد (زنگ در → لینک Home Assistant)
-Needs the Home button service: System → Turn it on	به سرویس دکمه‌ی Home نیاز دارد: سیستم ← روشن کردن
 Needs the TMDB token (Accounts & profiles) · a row per streaming service	به توکن TMDB نیاز دارد (حساب‌ها و پروفایل‌ها) · یک ردیف برای هر سرویس پخش
+Needs TV access (ADB): System → TV access (ADB).	به دسترسی تلویزیون (ADB) نیاز دارد: سیستم ← دسترسی تلویزیون (ADB).
 Needs TV access (ADB, System) to read the music apps: press to try again	برای خواندن برنامه‌های موسیقی به دسترسی به تلویزیون (ADB، سیستم) نیاز دارد: برای تلاش دوباره بزنید
 Needs TV access (ADB, System), or the TV's own question: press to try again	به دسترسی به تلویزیون (ADB، سیستم) یا پرسش خود تلویزیون نیاز دارد: برای تلاش دوباره بزنید
+Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	به پس‌زمینه‌ی خودتان (نه تصاویر عناوین) و داک در پایین نیاز دارد: آنگاه آنچه تماشا می‌کنید به‌صورت کارت‌های کوچک بالای داک نمایش داده می‌شود
 Neither Spotify nor SoundCloud is on this TV	نه Spotify و نه SoundCloud روی این تلویزیون نیست
 Netflix (one by one)	Netflix (یکی‌یکی)
 Netflix, Apple TV, Prime Video, Disney+: the ones on this TV that have the title in your country (JustWatch)	Netflix، Apple TV، Prime Video، Disney+: آن‌هایی روی این تلویزیون که عنوان را در کشور شما دارند (JustWatch)
 Never	هرگز
 Never synced: Nuvio, Stremio, Trakt and Simkl sign-ins. Each of them hands one TV a sign-in that the next use replaces: shared, the two TVs would sign each other out. Sign in on each TV once.	هرگز همگام نمی‌شود: ورود به Nuvio، Stremio، Trakt و Simkl. هرکدام به یک تلویزیون یک ورود می‌دهد که استفاده‌ی بعدی جایگزینش می‌کند: اگر مشترک باشد، دو تلویزیون همدیگر را خارج می‌کنند. روی هر تلویزیون یک بار وارد شوید.
 New	جدید
+New code	کد جدید
 New mix	ترکیب جدید
 New mix every	ترکیب جدید هر
+New PIN	PIN جدید
 New settings	تنظیمات جدید
 New titles first	عنوان‌های جدید اول
 Next to Play (Apple TV buttons). Hold OK on Play has Trailer too	کنار پخش (دکمه‌های Apple TV). نگه داشتن OK روی پخش هم تریلر دارد
@@ -883,6 +945,7 @@ No hidden titles	عنوان پنهانی نیست
 No limit	بدون محدودیت
 No main TV found. On the other TV: Settings → System → Sync between TVs → This TV → Main TV (both on the same network)	تلویزیون اصلی پیدا نشد. روی تلویزیون دیگر: تنظیمات ← سیستم ← همگام‌سازی بین تلویزیون‌ها ← این تلویزیون ← تلویزیون اصلی (هر دو در یک شبکه)
 No results	نتیجه‌ای نیست
+No rows of its own · OK → Rows from	ردیف مخصوص خود ندارد · OK ← ردیف‌ها از
 No sensors found	حسگری پیدا نشد
 No streaming app on this TV yet	هنوز برنامه‌ی پخشی روی این تلویزیون نیست
 No streaming service's app on this TV yet	هنوز برنامه‌ی سرویس پخشی روی این تلویزیون نیست
@@ -896,6 +959,7 @@ none installed	هیچ‌کدام نصب نیست
 None linked	هیچ‌کدام وصل نیست
 None linked yet	هنوز هیچ‌کدام وصل نیست
 None of them is on this TV	هیچ‌کدام روی این تلویزیون نیست
+None of them is on this TV.	هیچ‌کدام روی این تلویزیون نیست.
 none yet	هنوز هیچ
 None yet: add one from your phone, a link or Nuvio	هنوز هیچ: از گوشی، لینک یا Nuvio اضافه کنید
 Not allowed yet: press OK, then Always allow on the TV	هنوز مجاز نیست: OK را بزنید، سپس روی تلویزیون Always allow
@@ -906,6 +970,7 @@ Not set (the Hue app shows it: Settings → Bridges)	تنظیم نشده (برن
 Not synced with another TV	با تلویزیون دیگر همگام نیست
 Not working	کار نمی‌کند
 Nothing playing: the app's player	چیزی پخش نمی‌شود: پخش‌کننده‌ی برنامه
+Nothing: apps that were off before stay as they are	هیچ: برنامه‌هایی که از قبل خاموش بودند همان‌طور می‌مانند
 Nuvio account	حساب Nuvio
 Nuvio account connected	حساب Nuvio وصل شد
 Nuvio and Stremio	Nuvio و Stremio
@@ -920,9 +985,13 @@ Nuvio plays at once	Nuvio بلافاصله پخش می‌کند
 Nuvio server	سرور Nuvio
 Nuvio server address (empty: the official one)	نشانی سرور Nuvio (خالی: سرور رسمی)
 Nuvio server set: sign in again	سرور Nuvio تنظیم شد: دوباره وارد شوید
+Nuvio's	مال Nuvio
+Nuvio's picture by itself	تصویر Nuvio به‌صورت خودکار
 Nuvio, Trakt, Simkl or Stremio, with a dot in its colour	Nuvio، Trakt، Simkl یا Stremio، با نقطه‌ای به رنگ خودش
 Off	خاموش
 Off (OK opens Settings)	خاموش (OK تنظیمات را باز می‌کند)
+Off by itself: one failed to play on this TV (a green or black picture). Only H.264 videos play, without Amazon's	خودش خاموش شد: یکی روی این تلویزیون پخش نشد (تصویر سبز یا سیاه). فقط ویدیوهای H.264 پخش می‌شوند، بدون ویدیوهای Amazon
+Off while the type is the TV's screensaver app (another process). On: the type becomes Videos, shown on the home screen itself	وقتی نوع، برنامه‌ی محافظ صفحه‌ی تلویزیون باشد (فرایند دیگر) خاموش است. روشن: نوع به «ویدیوها» تغییر می‌کند و روی خود صفحه‌ی اصلی نمایش داده می‌شود
 Off: any device at home can show the pop-up. On: Home Assistant adds the header X-Glassio-Token (or ?token= in the link)	خاموش: هر دستگاه در خانه می‌تواند پنجره را نشان دهد. روشن: Home Assistant هدر X-Glassio-Token را اضافه می‌کند (یا ?token= در لینک)
 Off: holding OK locks a video, as always. On: a small menu to keep it or never show it again	خاموش: نگه داشتن OK مثل همیشه ویدیو را قفل می‌کند. روشن: منوی کوچکی برای نگه داشتن یا دیگر نشان ندادنش
 Off: in the collections' order	خاموش: به ترتیب مجموعه‌ها
@@ -942,6 +1011,9 @@ On the Inputs icon's page (hold OK on it there to change its icon)	در صفحه
 On the screensaver	روی محافظ صفحه
 On the Search icon ▼ doesn't open the Library, and ▲ from the search bar doesn't go to the menu	روی نماد جستجو ▼ کتابخانه را باز نمی‌کند و ▲ از نوار جستجو به منو نمی‌رود
 On the TV	روی تلویزیون
+On the video screensaver	روی محافظ صفحه‌ی ویدیویی
+On the whole screen	روی تمام صفحه
+On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	روی تمام صفحه، صدای دوربین انتخاب‌شده خودکار پخش می‌شود (دوربین‌هایی که صدا می‌فرستند)
 On: accounts and keys (Nuvio, Trakt, Simkl, Stremio, TMDB, Home Assistant, Hue, the lock code) go into the backup too, to move them to another TV: keep the file private. Off: they stay on each TV	روشن: حساب‌ها و کلیدها (Nuvio، Trakt، Simkl، Stremio، TMDB، Home Assistant، Hue، کد قفل) هم برای انتقال به تلویزیون دیگر وارد پشتیبان می‌شوند: فایل را خصوصی نگه دارید. خاموش: روی هر تلویزیون می‌مانند
 On: following your music apps	روشن: دنبال کردن برنامه‌های موسیقی شما
 On: it starts in every app when the TV is idle, not only on the home screen	روشن: وقتی تلویزیون بی‌کار است در هر برنامه شروع می‌شود، نه فقط در صفحه‌ی اصلی
@@ -962,10 +1034,12 @@ One title: on the carousel hold OK (or press Menu) to switch to its next picture
 One video	یک ویدیو
 One way only: what you change here in a synced part is replaced by the main TV's next change. Apps not installed on this TV are left out of its dock.	فقط یک‌طرفه: آنچه اینجا در بخش همگام تغییر دهید با تغییر بعدی تلویزیون اصلی جایگزین می‌شود. برنامه‌هایی که روی این تلویزیون نصب نیستند در داکش نمی‌آیند.
 Online	آنلاین
+Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	فقط برنامه‌هایی فهرست می‌شوند که تلویزیون به آن‌ها نیاز ندارد: گزارش‌ها، تبلیغات و نصب‌کننده‌ها. راه‌اندازی، کنترل، صدا، پخش همگانی، Play Store و به‌روزرسانی‌ها هرگز دست‌کاری نمی‌شوند. چیزی حذف نمی‌شود و با بازنشانی تلویزیون همه‌چیز برمی‌گردد.
 Only locked videos	فقط ویدیوهای قفل‌شده
 Only on my services	فقط سرویس‌های من
 Only on the carousel	فقط روی کاروسل
 Only on the carousel: slides change only while the carousel itself is selected (lighter on a weak TV)	فقط روی کاروسل: اسلایدها فقط وقتی خود کاروسل انتخاب شده عوض می‌شوند (سبک‌تر برای تلویزیون ضعیف)
+Only the song's name, artist and length are sent, and only to the sources that are on.	فقط نام، خواننده و طول آهنگ فرستاده می‌شود، آن هم فقط به منابع روشن.
 Only titles that a service's app on this TV has. Titles that are on none of them are left out, also when Nuvio or Stremio could open them	فقط عنوان‌هایی که برنامه‌ی یک سرویس روی این تلویزیون دارد. عنوان‌هایی که در هیچ‌کدام نیستند حذف می‌شوند، حتی اگر Nuvio یا Stremio بتواند آن‌ها را باز کند
 Only when selected	فقط وقتی انتخاب شده
 Open app	باز کردن برنامه
@@ -980,6 +1054,7 @@ Opens the first place	اولین جا را باز می‌کند
 Opens when you go up to it	وقتی به سمتش بالا بروید باز می‌شود
 Opens with OK	با OK باز می‌شود
 Optional: also lists apps opened before Glassio started	اختیاری: برنامه‌های باز شده قبل از شروع Glassio را هم فهرست می‌کند
+Or scan with your phone (same Wi-Fi) and change any setting there	یا با گوشی اسکن کنید (همان Wi-Fi) و هر تنظیمی را همان‌جا تغییر دهید
 Order	ترتیب
 Order of the list	ترتیب فهرست
 Original	اصلی
@@ -989,6 +1064,7 @@ Other apps (YouTube, Netflix, Apple TV…) keep their Continue Watching private 
 Other TVs & backups	تلویزیون‌های دیگر و پشتیبان‌ها
 Over the background	روی پس‌زمینه
 Page background	پس‌زمینه‌ی صفحه
+Page behind the player	صفحه‌ی پشت پخش‌کننده
 Page behind the search	صفحه‌ی پشت جستجو
 Password	رمز
 Password (empty if it has none)	رمز (اگر ندارد خالی بگذارید)
@@ -1017,6 +1093,8 @@ Picture set	مجموعه‌ی تصاویر
 Pictures	تصاویر
 Pictures in the folder	تصاویر داخل پوشه
 Pictures per title	تصاویر برای هر عنوان
+PIN removed	PIN حذف شد
+PIN set for this profile	PIN برای این پروفایل تنظیم شد
 Place & size	جا و اندازه
 Place and credit	جا و اعتبار
 placed around the TV	دور تلویزیون قرار داده شده
@@ -1067,6 +1145,7 @@ Projectivy / Blueprint / Nova packs installed on this TV	بسته‌های Proje
 Purple	بنفش
 Put the lights back now	چراغ‌ها را همین حالا برگردان
 QR code	کد QR
+QR code in Settings' search	کد QR در جست‌وجوی تنظیمات
 Quality	کیفیت
 Quick	سریع
 RAM, CPU, GPU, storage, IP (the ones on in Look & menu → TV info)	RAM، CPU، GPU، حافظه، IP (آن‌هایی که در ظاهر و منو ← اطلاعات تلویزیون روشن‌اند)
@@ -1075,14 +1154,13 @@ Rating	امتیاز
 Rating, year, platform	امتیاز، سال، پلتفرم
 Rating, year, where it streams and genres, as on the carousel	امتیاز، سال، جای پخش و ژانرها، مثل کاروسل
 Reading the bridge…	در حال خواندن پل…
+Reading the TV's apps…	در حال خواندن برنامه‌های تلویزیون…
 Reading what you watch in Nuvio Legacy	در حال خواندن آنچه در Nuvio Legacy تماشا می‌کنید
 Ready-made words, or write your own below	متن‌های آماده، یا پایین متن خودتان را بنویسید
 Recent apps	برنامه‌های اخیر
 Recent apps use TV access (ADB)	برنامه‌های اخیر از دسترسی به تلویزیون (ADB) استفاده می‌کنند
 Recommended for this make	پیشنهادی برای این مارک
 Recommended for this TV	پیشنهادی برای این تلویزیون
-Reddit app id	شناسه‌ی برنامه‌ی Reddit
-Reddit lets apps in only with an id: reddit.com/prefs/apps → create app → "installed app" (any name, redirect http://localhost) → the id under its name	Reddit فقط با شناسه به برنامه‌ها اجازه می‌دهد: reddit.com/prefs/apps ← create app ← «installed app» (هر نام، redirect http://localhost) ← شناسه زیر نام آن
 Refresh catalogs	تازه‌سازی کاتالوگ‌ها
 Reload carousel now	بارگذاری دوباره‌ی کاروسل حالا
 Reload to apply	برای اعمال دوباره بارگذاری کنید
@@ -1091,6 +1169,7 @@ Remote buttons	دکمه‌های ریموت
 Remote mapping	نگاشت ریموت
 Remove add-on	حذف افزونه
 Remove the picture	حذف تصویر
+Remove the PIN	حذف PIN
 Remove this button	حذف این دکمه
 Replace every setting on this TV?	همه‌ی تنظیمات این تلویزیون جایگزین شود؟
 Reset pictures picked per title	بازنشانی تصاویر انتخاب‌شده برای هر عنوان
@@ -1103,6 +1182,7 @@ Right, by Settings	راست، کنار تنظیمات
 Room	اتاق
 Rows	ردیف‌ها
 Rows above the dock	ردیف‌ها بالای داک
+Rows from:	ردیف‌ها از:
 Rows one above the other, or one row in the middle that ▲ / ▼ switch	ردیف‌ها بالای هم، یا یک ردیف در وسط که ▲ / ▼ عوضش می‌کنند
 Rows per platform	ردیف برای هر پلتفرم
 rtsp://user:password@ip:554/… , an HLS (.m3u8) or video link	rtsp://user:password@ip:554/… ، یا لینک HLS (.m3u8) یا ویدیو
@@ -1143,6 +1223,7 @@ Select none	انتخاب هیچ‌کدام
 Selected icon plate	صفحه‌ی آیکون انتخاب‌شده
 Selection	انتخاب
 Send a test event	ارسال رویداد آزمایشی
+Send crash reports by themselves	ارسال خودکار گزارش خرابی
 Send Nuvio playback	ارسال پخش Nuvio
 Sends title, type and id as JSON	عنوان، نوع و شناسه را به‌صورت JSON می‌فرستد
 Service apps	برنامه‌های سرویس
@@ -1190,8 +1271,10 @@ Shows the pop-up now with your camera	پنجره‌ی بازشو را همین �
 Shuffle	پخش تصادفی
 Shuffle all catalogs	پخش تصادفی همه‌ی کاتالوگ‌ها
 Shuffle button	دکمه‌ی پخش تصادفی
+Shuffle button repeats a song	دکمه‌ی پخش تصادفی آهنگ را تکرار می‌کند
 Shuffle my pictures	پخش تصادفی عکس‌های من
 Shuffle photos	پخش تصادفی عکس‌ها
+Shuffle the carousel	بر زدن کاروسل
 Sign in first	اول وارد شوید
 Sign in to Nuvio first (Accounts & profiles)	اول وارد Nuvio شوید (حساب‌ها و پروفایل‌ها)
 Sign in to Nuvio first (Connections)	اول وارد Nuvio شوید (اتصال‌ها)
@@ -1220,6 +1303,7 @@ Slides at the start	اسلایدها در ابتدا
 Slides change on their own	اسلایدها خودکار عوض می‌شوند
 Slides loaded before you get to them	اسلایدها پیش از رسیدن شما بارگذاری می‌شوند
 Slow	آهسته
+Small cards above the dock over your own background	کارت‌های کوچک بالای داک روی پس‌زمینه‌ی خودتان
 Smaller makes the dock and its icons narrower	کوچک‌تر، داک و آیکون‌هایش را باریک‌تر می‌کند
 Smaller posters leave more room at the sides	پوسترهای کوچک‌تر جای بیشتری در کنارها می‌گذارند
 Smart home	خانه‌ی هوشمند
@@ -1230,6 +1314,7 @@ Software keeps the TV's own video playing while a camera shows (some TVs stopped
 Someone is at the door	کسی پشت در است
 Song and artist	آهنگ و خواننده
 Sound	صدا
+Sound follows the selection	صدا از انتخاب پیروی می‌کند
 SoundCloud's songs under the titles, and Spotify's own search with the words in it	آهنگ‌های SoundCloud زیر عنوان‌ها، و جستجوی خود Spotify با کلمات واردشده
 Sources	منابع
 Sources without a direct address (marked P2P). Stremio plays them only where its streaming server runs; on most TVs they don't start	منابع بدون نشانی مستقیم (علامت P2P). Stremio فقط جایی که سرور پخشش اجرا می‌شود آن‌ها را پخش می‌کند؛ در بیشتر تلویزیون‌ها شروع نمی‌شوند
@@ -1251,7 +1336,6 @@ Stop every TV following this one	توقف پیروی همه‌ی تلویزیو�
 Stop every TV following this one?	پیروی همه‌ی تلویزیون‌ها از این متوقف شود؟
 Stop following	توقف پیروی
 Stops the app on screen and comes back to Glassio. Needs TV access (ADB)	برنامهٔ روی صفحه را می‌بندد و به Glassio برمی‌گردد. دسترسی تلویزیون (ADB) لازم است
-Stops when you leave	با خروج شما متوقف می‌شود
 Straight from the packs' own pages (GitHub, F-Droid)	مستقیم از صفحه‌های خود بسته‌ها (GitHub، F-Droid)
 Streaming services	سرویس‌های پخش
 Stremio account	حساب Stremio
@@ -1264,11 +1348,10 @@ Stremio's sources	منابع Stremio
 Strength	قدرت
 Style	سبک
 Subject	موضوع
-Subreddit wallpapers: one or more, comma separated (EarthPorn, wallpapers, SkyPorn…)	والپیپرهای subreddit: یکی یا بیشتر، با ویرگول جدا شده (EarthPorn، wallpapers، SkyPorn…)
-Subreddits	Subreddit‌ها
 Subtitles	زیرنویس
 Subtle	ملایم
 Supabase → Project Settings → API → anon key	Supabase ← Project Settings ← API ← anon key
+Supporters	حامیان
 Surprise me	غافلگیرم کن
 Switch between title backdrops, your picture, your video and the screensaver	جابه‌جایی بین پس‌زمینه‌ی عنوان‌ها، عکس شما، ویدیوی شما و محافظ صفحه
 Switch cameras every	تعویض دوربین‌ها هر
@@ -1289,6 +1372,7 @@ Temperature + city	دما + شهر
 Temperature + sky	دما + آسمان
 Temperature, conditions, high / low, humidity and wind (the city: Clock & weather)	دما، وضعیت، بیشینه / کمینه، رطوبت و باد (شهر: ساعت و آب‌وهوا)
 Text	متن
+Thank you for keeping Glassio going.	از اینکه Glassio را زنده نگه می‌دارید سپاسگزاریم.
 Thank you! Scan the code on the left	ممنون! کد سمت چپ را اسکن کنید
 That isn't a link	این لینک نیست
 That one first, then the nearest below it	اول آن، بعد نزدیک‌ترین زیر آن
@@ -1302,19 +1386,18 @@ The Apple TV-style menu at the settings button	منوی به سبک Apple TV ک�
 The Apps folder	پوشه‌ی برنامه‌ها
 The bridge's button wasn't pressed: press it, then Connect again	دکمه‌ی پل زده نشد: آن را بزنید، سپس دوباره وصل شوید
 The button at the top that opens the menu	دکمه‌ی بالا که منو را باز می‌کند
+The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	دوربین‌ها تا زمان Back کل صفحه را پر می‌کنند؛ با کلیدهای جهت یکی را انتخاب کنید، OK صدای آن را روشن می‌کند (همچنین: منو ← دوربین ← تمام صفحه، یا یک دکمه‌ی کنترل)
 The chips under the title	چیپ‌های زیر عنوان
 The clock and the settings button hide while you browse, and come back when you go up to them	ساعت و دکمه‌ی تنظیمات هنگام مرور پنهان می‌شوند و وقتی به سمتشان بالا بروید برمی‌گردند
 The colour of the switches in Settings, and of a row while you change it	رنگ سوئیچ‌ها در تنظیمات، و رنگ ردیف هنگام تغییر آن
 The dark shade along the left side (it keeps the clock and text readable on bright pictures)	سایه‌ی تیره در سمت چپ (ساعت و متن را روی تصاویر روشن خوانا نگه می‌دارد)
 The dark shades over the title's picture: on the left behind the logo, text and buttons, and at the bottom above the dock. Off: the picture as it is (the writing gets a soft shadow of its own)	سایه‌های تیره روی تصویر عنوان: سمت چپ پشت لوگو، متن و دکمه‌ها، و پایین بالای داک. خاموش: تصویر همان‌طور که هست (نوشته سایه‌ی ملایم خودش را می‌گیرد)
-The date above the time in white, whatever the clock's look	تاریخ بالای ساعت به رنگ سفید، با هر ظاهری برای ساعت
 The dock and the dots step aside while a trailer fills the page, and come back when it stops or ends (never with the window)	وقتی تریلر صفحه را پر می‌کند داک و نقطه‌ها کنار می‌روند و با توقف یا پایان برمی‌گردند (هرگز با پنجره)
 The dock's order, hidden apps, its size and place, and icons you made	ترتیب داک، برنامه‌های پنهان، اندازه و جای آن، و آیکون‌هایی که ساخته‌اید
 The dots bar (and the liquid glass drops)	نوار نقطه‌ها (و قطره‌های شیشه‌ی مایع)
 The folder with all your apps, in the dock. Hidden apps stay listed in Arrange apps	پوشه‌ی همه‌ی برنامه‌ها، در داک. برنامه‌های پنهان در چیدن برنامه‌ها فهرست می‌مانند
 The grey page, Glassio's soft coloured lights, or the carousel's picture blurred. The Music and Inputs icons' page is the same one	صفحهٔ خاکستری، نورهای رنگی ملایم Glassio، یا تصویر محو کاروسل. صفحهٔ آیکون‌های موسیقی و ورودی‌ها هم همین است
 The Hue bridge Glassio is paired with (each TV keeps its own lights and room)	پل Hue که Glassio با آن جفت شده (هر تلویزیون چراغ‌ها و اتاق خودش را نگه می‌دارد)
-the id under the app's name	شناسه‌ی زیر نام برنامه
 The Jellyfin app isn't on this TV: install it (Google Play: Jellyfin for Android TV) and sign in there to the same server, so titles open in it.	برنامه‌ی Jellyfin روی این تلویزیون نیست: نصبش کنید (Google Play: Jellyfin for Android TV) و در آن به همین سرور وارد شوید تا عنوان‌ها در آن باز شوند.
 The large glass clock in the middle of the screensaver (its look: Large clock, above)	ساعت بزرگ شیشه‌ای وسط محافظ صفحه (ظاهرش: ساعت بزرگ، بالا)
 The Library	کتابخانه
@@ -1329,7 +1412,7 @@ The main TV: the TVs that follow it take its setup	تلویزیون اصلی: ت
 The menu	منو
 The menu, the dock and the icons with square corners	منو، داک و آیکون‌ها با گوشه‌های مربعی
 The music island at the top of the screensaver	جزیره‌ی موسیقی بالای محافظ صفحه
-The newest backup in Download/Glassio on the TV. Glassio restarts after	جدیدترین پشتیبان در Download/Glassio روی تلویزیون. بعد از آن Glassio دوباره راه‌اندازی می‌شود
+The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	جدیدترین پشتیبان در Download/Glassio روی تلویزیون، وگرنه تنظیمات Glassio از Google Play روی این تلویزیون. پس از آن Glassio دوباره راه‌اندازی می‌شود
 The next video, picture or photo now	ویدیو، تصویر یا عکس بعدی همین حالا
 The Nuvio apps and Stremio on this TV: they can open any title	برنامه‌های Nuvio و Stremio روی این تلویزیون: می‌توانند هر عنوانی را باز کنند
 The official Nuvio app, Nuvio Arc and Re-Shaped don't write that log: connect Trakt (and turn on Trakt in that Nuvio app) and what you pause there shows up here through Trakt.	برنامه‌ی رسمی Nuvio، Nuvio Arc و Re-Shaped آن گزارش را نمی‌نویسند: Trakt را وصل کنید (و در آن برنامه‌ی Nuvio، Trakt را روشن کنید) تا آنچه آنجا متوقف می‌کنید از طریق Trakt اینجا نمایش داده شود.
@@ -1341,7 +1424,10 @@ The open apps, like holding Home	برنامه‌های باز، مثل نگه د
 The open apps, like the Apple TV app switcher	برنامه‌های باز، مثل تعویض‌کننده‌ی برنامه‌ی Apple TV
 The others open a title as usual	بقیه عنوان را مثل همیشه باز می‌کنند
 The performance mode and what it sets: picture quality, glass detail and refraction, slide animation, the backdrop gallery, caches and screensaver quality. Off: this TV keeps its own, so a weaker TV stays smooth	حالت کارایی و آنچه تنظیم می‌کند: کیفیت تصویر، جزئیات و شکست شیشه، انیمیشن اسلاید، گالری تصاویر پس‌زمینه، حافظه‌های نهان و کیفیت محافظ صفحه. خاموش: این تلویزیون تنظیم خودش را نگه می‌دارد، پس تلویزیون ضعیف‌تر روان می‌ماند
+The phone page's QR code: change settings from your phone	کد QR صفحه‌ی گوشی: تنظیمات را از گوشی تغییر دهید
 The row at the top of the results. The others follow in their usual order	ردیفی که بالای نتیجه‌ها می‌آید. بقیه به ترتیب همیشگی دنبالش می‌آیند
+The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	همان ظاهر، با مصرف کمتر حافظه و پردازنده: تصاویر آماده‌ی کمتر و کار پس‌زمینه‌ی کمتر
+The same PIN again	دوباره همان PIN
 The screensaver starts with the video playing here, where it was, and the background goes on with the one it ended on. Lighter on a TV with little memory	محافظ صفحه با ویدیوی در حال پخش همین‌جا از همان لحظه شروع می‌شود و پس‌زمینه با ویدیویی که آن پایان داد ادامه می‌دهد. برای تلویزیون کم‌حافظه سبک‌تر
 The screensaver: what it shows and how	محافظ صفحه: چه نشان می‌دهد و چطور
 The search opens empty each time. Off: what was typed last is still in the bar	جستجو هر بار خالی باز می‌شود. خاموش: آخرین متن تایپ‌شده در نوار می‌ماند
@@ -1351,7 +1437,9 @@ The selected icon rises a little, glass and all	آیکون انتخاب‌شده
 The selected poster in the Library	پوستر انتخاب‌شده در کتابخانه
 The service then does nothing, also while it is on in the TV's settings	سپس سرویس هیچ کاری نمی‌کند، حتی وقتی در تنظیمات تلویزیون روشن است
 The services whose app is on this TV, the ones you choose, or none	سرویس‌هایی که برنامه‌شان روی این تلویزیون است، آن‌هایی که انتخاب می‌کنید، یا هیچ
+The shuffle button of the player, the island and the menu has a second press: the song playing starts again each time it ends. Off → shuffle → this song again → off. An app that takes no repeat from outside is sent back to the song's start a second before its end	دکمه‌ی پخش تصادفی در پخش‌کننده، جزیره و منو فشار دوم هم دارد: آهنگ در حال پخش هر بار پس از پایان دوباره شروع می‌شود. خاموش ← تصادفی ← دوباره همین آهنگ ← خاموش. برنامه‌ای که تکرار را از بیرون نمی‌پذیرد یک ثانیه پیش از پایان به ابتدای آهنگ برمی‌گردد
 The small player in the menu is with the music	پخش‌کننده‌ی کوچک در منو کنار موسیقی است
+The song's artwork	تصویر آهنگ
 The title's logo	لوگوی عنوان
 The title's logo (or its name)	لوگوی عنوان (یا نام آن)
 The title's poster	پوستر عنوان
@@ -1359,6 +1447,7 @@ The title's rating, the number alone, faint, beside the year and Film / Series	�
 The titles and their progress from Nuvio only, even with Trakt, Simkl and Stremio syncing too (their progress for the same title could be older or off)	عنوان‌ها و پیشرفتشان فقط از Nuvio، حتی وقتی Trakt، Simkl و Stremio هم همگام می‌شوند (پیشرفت آن‌ها برای همان عنوان ممکن است قدیمی‌تر یا نادرست باشد)
 The TV is not on a network	تلویزیون به شبکه وصل نیست
 The TV is not on a network, so the phone page can't start.	تلویزیون به شبکه وصل نیست، پس صفحه‌ی گوشی شروع نمی‌شود.
+The TV refused:	تلویزیون نپذیرفت:
 The TV screensaver now starts after	محافظ صفحه‌ی تلویزیون اکنون شروع می‌شود بعد از
 The TV's app	برنامه‌ی تلویزیون
 The TV's Bluetooth: remotes, headphones, speakers and controllers	Bluetooth تلویزیون: ریموت‌ها، هدفون‌ها، بلندگوها و دسته‌ها
@@ -1367,6 +1456,7 @@ The TV's inputs over any app · press again to close	ورودی‌های تلو�
 The TV's own idle time, in any app (ADB)	زمان بی‌کاری خود تلویزیون، در هر برنامه (ADB)
 The TV's screensaver app (	برنامه‌ی محافظ صفحه‌ی تلویزیون (
 The welcome screen: restore, catalogs, accounts and theme	صفحه‌ی خوش‌آمد: بازیابی، کاتالوگ‌ها، حساب‌ها و تم
+The words also show over the screensaver's videos while a song plays (never over the posters or trailers). The island's lyrics button (▲ on the screensaver) turns Lyrics on and off	هنگام پخش آهنگ، متن روی ویدیوهای محافظ صفحه هم نمایش داده می‌شود (هرگز روی پوسترها یا تریلرها). دکمه‌ی متن آهنگ در جزیره (▲ روی محافظ صفحه) متن آهنگ را روشن و خاموش می‌کند
 Their order in the dock, the hidden ones, and each app's options	ترتیب آن‌ها در داک، پنهان‌ها، و گزینه‌های هر برنامه
 Their own colour, at 20 %	رنگ خودشان، با 20 %
 Theme	تم
@@ -1380,6 +1470,8 @@ This add-on has no catalogs for the carousel	این افزونه کاتالوگ�
 This build has no Trakt app id.	این نسخه شناسه‌ی برنامه‌ی Trakt ندارد.
 This closes by itself once you approve.	بعد از تأیید شما خودش بسته می‌شود.
 This is the main TV now. Add a TV shows the code for the other one	اکنون این تلویزیون اصلی است. افزودن تلویزیون کد را برای تلویزیون دیگر نشان می‌دهد
+This PIN is the one in Nuvio: change it in the Nuvio app	این PIN همان PIN در Nuvio است: آن را در برنامه‌ی Nuvio تغییر دهید
+This profile has a PIN in Nuvio: Glassio asks for the same one, and Nuvio checks it. It is changed in the Nuvio app	این پروفایل در Nuvio PIN دارد: Glassio همان را می‌پرسد و Nuvio آن را بررسی می‌کند. تغییر آن در برنامه‌ی Nuvio انجام می‌شود
 This screen is not available on this device	این صفحه در این دستگاه در دسترس نیست
 This TV	این تلویزیون
 This TV has no Usage access screen: Recent apps still works without it	این تلویزیون صفحه‌ی Usage access ندارد: برنامه‌های اخیر بدون آن هم کار می‌کند
@@ -1412,11 +1504,14 @@ Trailers (the carousel's titles, one after another) · OK opens the title in Nuv
 Trakt account	حساب Trakt
 Transition speed	سرعت گذار
 Try it	امتحان کنید
+Turn back on what Glassio turned off	روشن کردن دوباره‌ی آنچه Glassio خاموش کرده بود
+Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	برنامه‌های تلویزیون را که فقط گزارش می‌فرستند، تبلیغ نشان می‌دهند یا برنامه‌های دیگر نصب می‌کنند خاموش کنید. چیزی حذف نمی‌شود: با یک کلید هرکدام دوباره روشن می‌شود
 Turn on a collection first	اول یک مجموعه را روشن کنید
 Turn on Glassio under Notification access, then switch Music on again	Glassio را در Notification access روشن کنید، سپس موسیقی را دوباره روشن کنید
 Turn on the service	روشن کردن سرویس
 Turn on USB debugging	روشن کردن اشکال‌زدایی USB
 Turn on USB debugging first (step 2)	اول اشکال‌زدایی USB را روشن کنید (مرحله‌ی 2)
+Turn them all off	همه را خاموش کن
 Turn them off	خاموششان کن
 TV	تلویزیون
 TV access (ADB)	دسترسی به تلویزیون (ADB)
@@ -1436,6 +1531,7 @@ Under the weather in the menu: IP, CPU, GPU, RAM, storage	زیر آب‌وهوا
 Under the weather: IP, CPU, GPU, RAM, storage (CPU and GPU need TV access (ADB))	زیر آب‌وهوا: IP، CPU، GPU، RAM، حافظه (CPU و GPU به دسترسی به تلویزیون (ADB) نیاز دارند)
 Unknown	ناشناخته
 Unlimited	نامحدود
+Unneeded apps	برنامه‌های غیرضروری
 Unsplash key	کلید Unsplash
 Until closed	تا وقتی بسته شود
 Update	به‌روزرسانی
@@ -1478,12 +1574,13 @@ What plays	چه چیزی پخش شود
 What the lights take their colours from	چراغ‌ها رنگشان را از چه می‌گیرند
 What the menu shows: the clock, the weather, the Library, themes, the profile, the background and more	آنچه منو نشان می‌دهد: ساعت، آب‌وهوا، کتابخانه، تم‌ها، پروفایل، پس‌زمینه و بیشتر
 What went wrong?	چه مشکلی پیش آمد؟
-What Wikimedia and Unsplash photos show	عکس‌های Wikimedia و Unsplash چه نشان می‌دهند
+What Wikimedia, Unsplash and Pexels photos show	آنچه عکس‌های Wikimedia، Unsplash و Pexels نشان می‌دهند
 What you are watching on the server (titles it knows by IMDb number)	آنچه روی سرور تماشا می‌کنید (عنوان‌هایی که با شماره‌ی IMDb می‌شناسد)
 What you are watching on your Jellyfin server	آنچه روی سرور Jellyfin خود تماشا می‌کنید
 What you paused in any app that uses Simkl	آنچه در هر برنامه‌ی دارای Simkl متوقف کرده‌اید
 What you paused in Stremio	آنچه در Stremio متوقف کرده‌اید
 What you watch in Nuvio Legacy, the official app and forks	آنچه در Nuvio Legacy، برنامه‌ی رسمی و نسخه‌های مشتق تماشا می‌کنید
+What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	آنچه تماشا می‌کنید به‌صورت کارت‌های کوچک بالای داک، با پس‌زمینه‌ی دست‌نخورده. با بالا رفتن از داک به آن‌ها می‌رسید
 What's new	تازه‌ها
 When Music mode is off	وقتی حالت موسیقی خاموش است
 When the TV doesn't let you (restricted setting / greyed out). Needs TV access (ADB)	وقتی تلویزیون اجازه نمی‌دهد (تنظیم محدود / خاکستری). به دسترسی به تلویزیون (ADB) نیاز دارد
@@ -1496,19 +1593,19 @@ Where it came from	از کجا آمده
 Where it comes from	از کجا می‌آید
 Where the photo or video was taken and who took it	عکس یا ویدیو کجا گرفته شده و چه کسی گرفته
 Where the video was filmed	ویدیو کجا فیلم‌برداری شده
-Where titles you are watching appear	عنوان‌هایی که تماشا می‌کنید کجا نمایش داده می‌شوند
+Where the words are looked for. All are asked at once and the best answer is kept: word by word before line by line, the song's own writing before Latin letters	جایی که متن در آن جست‌وجو می‌شود. همه هم‌زمان پرسیده می‌شوند و بهترین پاسخ نگه داشته می‌شود: کلمه‌به‌کلمه پیش از خط‌به‌خط، و خط اصلی آهنگ پیش از حروف لاتین
 Which apps are locked, the code and its reminder	کدام برنامه‌ها قفل‌اند، کد و یادآور آن
 Which camera opens when you hold Home	با نگه داشتن Home کدام دوربین باز شود
 Which catalogs the carousel takes its titles from	کاروسل عنوان‌هایش را از کدام کاتالوگ‌ها می‌گیرد
 Which inputs show on the Inputs icon's page, and their order	کدام ورودی‌ها در صفحه‌ی آیکون ورودی‌ها نمایش داده شوند، و ترتیبشان
-Which ones, in this order (up to four). None chosen = the first four	کدام‌ها، به این ترتیب (تا چهار). هیچ‌کدام انتخاب نشود = چهار تای اول
+Which ones, in this order (up to nine). None chosen = all	کدام‌ها، به این ترتیب (تا نه تا). هیچ انتخابی = همه
 Which picture each title uses	هر عنوان از کدام تصویر استفاده کند
 While a song plays, the carousel's place becomes the player (artwork, song, buttons). ■ stops the music. With your own picture, photos, video or the screensaver's videos as the background, the island shows instead	وقتی آهنگی پخش می‌شود، جای کاروسل پخش‌کننده می‌شود (تصویر، آهنگ، دکمه‌ها). ■ موسیقی را متوقف می‌کند. با عکس، عکس‌ها، ویدیو یا ویدیوهای محافظ صفحه‌ی خودتان به‌عنوان پس‌زمینه، به‌جایش جزیره نمایش داده می‌شود
 While an app that has channels is selected in the dock (YouTube, Netflix, Shahid, Prime Video, Apple TV, Spotify…), its rows (Continue watching, New…) take the carousel's place. ▲ goes into them, ▼ back to the app	وقتی برنامه‌ای که کانال دارد در داک انتخاب شده است (YouTube، Netflix، Shahid، Prime Video، Apple TV، Spotify…)، ردیف‌هایش (ادامه تماشا، جدید…) جای کاروسل را می‌گیرند. ▲ واردشان می‌شود، ▼ برمی‌گردد به برنامه
 While it plays: ◀ ▶ change the video, OK shows or hides this info, any other key ends it.	هنگام پخش: ◀ ▶ ویدیو را عوض می‌کنند، OK این اطلاعات را نشان یا پنهان می‌کند، هر کلید دیگر آن را تمام می‌کند.
 While music plays, a small island at the top of the screensaver (like the iPhone's). ▲ opens it with its buttons, ▼ closes it	هنگام پخش موسیقی، جزیره‌ای کوچک بالای محافظ صفحه (مثل iPhone). ▲ آن را با دکمه‌هایش باز می‌کند، ▼ می‌بندد
+While nothing is typed in the search, this code is there too	تا زمانی که چیزی در جست‌وجو تایپ نشده، این کد هم همان‌جاست
 White	سفید
-White date	تاریخ سفید
 White logo	لوگوی سفید
 White only (it follows the brightness)	فقط سفید (از روشنایی پیروی می‌کند)
 White or black turn the other way round when selected	سفید یا مشکی هنگام انتخاب برعکس می‌شوند
@@ -1520,6 +1617,8 @@ With a streaming app selected in the dock, the carousel shows the catalogs linke
 With ADB	با ADB
 With Colour on focus	با رنگ هنگام انتخاب
 With fewer apps than a full row, the dock shrinks around them	وقتی برنامه‌ها از یک ردیف کامل کمترند، داک دور آن‌ها جمع می‌شود
+With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	با اتصال Nuvio، دکمه تصویر پروفایل Nuvio شما را نشان می‌دهد تا وقتی ظاهر دیگری برایش انتخاب کنید
+With One player it starts here a little before the TV's own, Off or not	با «پخش‌کننده‌ی واحد» اینجا کمی پیش از محافظ خود تلویزیون شروع می‌شود، چه خاموش باشد چه نه
 With the account's email and password (for a server without a TV sign-in page)	با ایمیل و رمز حساب (برای سروری بدون صفحه‌ی ورود تلویزیونی)
 With the theme	با تم
 With the theme: the digits are made exactly like the dock in your theme (its glass, tint and colour)	با تم: ارقام دقیقاً مثل داک در تم شما ساخته می‌شوند (شیشه، رنگ‌مایه و رنگ آن)
@@ -1529,12 +1628,15 @@ Write	نوشتن
 Write a few more words, so the problem can be found	چند کلمه‌ی دیگر بنویسید تا مشکل پیدا شود
 Your add-ons	افزونه‌های شما
 Your add-ons and the catalogs chosen from them	افزونه‌های شما و کاتالوگ‌های انتخاب‌شده از آن‌ها
+Your background	پس‌زمینه‌ی شما
 Your cameras, the corner camera and multi-view, and the doorbell	دوربین‌های شما، دوربین گوشه و چندنما، و زنگ در
+your city	شهر شما
 Your Jellyfin favourites as a row in the Library	علاقه‌مندی‌های Jellyfin شما به‌صورت یک ردیف در کتابخانه
 Your links	لینک‌های شما
 Your links and the videos in the backgrounds folder	لینک‌های شما و ویدیوهای پوشه‌ی پس‌زمینه‌ها
 Your links and the videos in the backgrounds folder, with a picture of each. OK plays only that one	لینک‌های شما و ویدیوهای پوشه‌ی پس‌زمینه‌ها، با تصویری از هرکدام. OK فقط همان را پخش می‌کند
 Your links below and the videos in the backgrounds folder	لینک‌های شما در پایین و ویدیوهای پوشه‌ی پس‌زمینه‌ها
+Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	دوربین‌های چندنمایی شما کل صفحه را پر می‌کنند · OK صدای یک دوربین را روشن می‌کند · Back می‌بندد
 Your own mix of the settings below	ترکیب خودتان از تنظیمات پایین
 Your own Nuvio backend, if you host one. Easier to type on the phone page	بک‌اند Nuvio خودتان، اگر میزبانی می‌کنید. روی صفحه‌ی گوشی راحت‌تر نوشته می‌شود
 Your own words under the digits	متن خودتان زیر ارقام
@@ -1610,7 +1712,6 @@ Focus plate	صفحه‌ی انتخاب
 Glassio settings	تنظیمات Glassio
 Hello, name	سلام، name
 Locked only	فقط قفل‌شده‌ها
-Multi-view needs the Home button service (Glassio settings → System)	چندنما به سرویس دکمه‌ی Home نیاز دارد (تنظیمات Glassio ← سیستم)
 Next photo	عکس بعدی
 Next picture	تصویر بعدی
 Next video	ویدیوی بعدی
@@ -1620,10 +1721,14 @@ OK: multi-view	OK: چندنما
 Pair a new device	جفت کردن دستگاه جدید
 Play trailer	پخش تریلر
 Posters	پوسترها
+Scan with your phone (same Wi-Fi) and change any setting there	با گوشی اسکن کنید (همان Wi-Fi) و هر تنظیمی را همان‌جا تغییر دهید
+Screensaver's	مال محافظ صفحه
 Starts after	شروع بعد از
 Starts by itself	خودکار شروع می‌شود
 The remote stays connected	ریموت وصل می‌ماند
+Titles	عناوین
 TV screensaver	محافظ صفحهٔ تلویزیون
+Whole screen	تمام صفحه
 screensaver did not start	محافظ صفحه شروع نشد
 Go up to Update and press OK	به به‌روزرسانی بالا بروید و OK بزنید
 Press OK to update now	برای به‌روزرسانی حالا OK را بزنید
@@ -1632,42 +1737,72 @@ Next trailer	تریلر بعدی
 No internet connection\nThe trailers come back when it's back	اتصال اینترنت نیست\nبا برگشتن اینترنت تریلرها برمی‌گردند
 No titles in the carousel yet	هنوز عنوانی در کاروسل نیست
 No trailers found	تریلری پیدا نشد
-Open in Nuvio	باز کردن در Nuvio
 Sound off	صدا خاموش
 Sound on	صدا روشن
 Teaser	تیزر
 move app	جابه‌جایی برنامه
 11 sections in groups, every setting in one place, long lists on their own pages.	11 بخش در گروه‌ها، هر تنظیم در یک جا، فهرست‌های بلند در صفحه‌های جداگانه.
+A paused song leaves the music island and stays gone (Island → A paused song goes).	آهنگ متوقف‌شده از جزیره‌ی موسیقی می‌رود و برنمی‌گردد (جزیره ← آهنگ متوقف‌شده می‌رود).
+A PIN for a profile	PIN برای پروفایل
+A profile can ask for its four-digit PIN: when the TV starts, when it wakes after a while, and when you change to that profile.	یک پروفایل می‌تواند PIN چهار‌رقمی بخواهد: هنگام روشن شدن تلویزیون، هنگام بیدار شدن پس از مدتی، و هنگام تغییر به آن پروفایل.
+A profile with a PIN in Nuvio uses that one, checked by Nuvio. Any other profile can get a PIN made here, kept on this TV only.	پروفایلی که در Nuvio PIN دارد از همان استفاده می‌کند و Nuvio آن را بررسی می‌کند. برای هر پروفایل دیگر می‌توان اینجا PIN ساخت که فقط روی همین تلویزیون نگه‌داری می‌شود.
+A song's words beside the player, in time with the song: the line being sung is bright and lights word by word.	متن آهنگ کنار پخش‌کننده و هم‌زمان با آن: خطی که خوانده می‌شود روشن است و کلمه‌به‌کلمه روشن می‌شود.
+A tidier menu	منویی مرتب‌تر
 A title on your server opens on its page in the Jellyfin app.	عنوانی که روی سرور شماست در صفحه‌ی خودش در برنامه‌ی Jellyfin باز می‌شود.
 A TV inputs button: your inputs over any app.	دکمه‌ای برای ورودی‌های تلویزیون: ورودی‌هایتان روی هر برنامه.
+A TV that can't play HEVC videos gets only the videos it can play. Home Assistant cameras fall back to their live picture, and Reolink cameras turn with the remote.	تلویزیونی که نمی‌تواند ویدیوهای HEVC را پخش کند فقط ویدیوهای قابل پخش را می‌گیرد. دوربین‌های Home Assistant به تصویر زنده‌ی خود برمی‌گردند و دوربین‌های Reolink با کنترل می‌چرخند.
 A ⭐ on GitHub and sharing Glassio with friends keeps it going.	یک ⭐ در GitHub و معرفی Glassio به دوستان، آن را زنده نگه می‌دارد.
 Also in Settings → About → PlayStation gift card	همچنین در تنظیمات ← درباره ← کارت هدیه‌ی PlayStation
+An app with its own Continue watching row (Netflix, Stremio…) shows it as cards too while it is selected.	برنامه‌ای که ردیف «ادامه تماشا» خودش را دارد (Netflix، Stremio…) آن را هنگام انتخاب به‌صورت کارت هم نشان می‌دهد.
 And more	و بیشتر
+Ask for the PIN → Automatic: this TV goes in without it.	درخواست PIN ← خودکار: این تلویزیون بدون آن وارد می‌شود.
+Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	وقتی مدتی در برنامه‌ی دیگری هستید، Glassio تصاویرش را رها می‌کند و هنگام بازگشت دوباره می‌آورد.
 Buttons that send no key code (some remotes' Netflix button) can be given a job too.	به دکمه‌هایی که کد کلید نمی‌فرستند (دکمه‌ی Netflix برخی ریموت‌ها) هم می‌توان کاری داد.
 Catalogs for apps: with Netflix, Apple TV or Prime Video selected in the dock, the carousel shows that app's titles.	کاتالوگ برای برنامه‌ها: با انتخاب Netflix، Apple TV یا Prime Video در داک، کاروسل عنوان‌های همان برنامه را نشان می‌دهد.
+Change the theme, language, screensaver and more from your phone.	از گوشی خود زمینه، زبان، محافظ صفحه و موارد دیگر را تغییر دهید.
 Connect your Jellyfin server with a code (Quick Connect), nothing to type.	سرور Jellyfin خود را با یک کد (Quick Connect) وصل کنید، بدون تایپ.
 Each button can do three things: a press, a double press and a hold.	هر دکمه سه کار می‌تواند بکند: فشار، فشار دوبار و نگه داشتن.
+Every camera plays, also with a video behind it: the video waits and gives its decoder back.	همه‌ی دوربین‌ها پخش می‌شوند، حتی با ویدیو در پشت آن‌ها: ویدیو منتظر می‌ماند و رمزگشایش را پس می‌دهد.
 Every screen of Glassio in your language, changed at once.	همهٔ صفحه‌های Glassio به زبان شما، بی‌درنگ.
-Everything new since Glassio 4.0, page by page. Your setup stays as it is: each new thing is a choice.	همه‌ی تازه‌ها از Glassio 4.0، صفحه به صفحه. تنظیمات شما همان‌طور می‌ماند: هر چیز تازه یک انتخاب است.
+Everything new since Glassio 4.0, page by page, 4.8's first. Your setup stays as it is: each new thing is a choice.	هر آنچه از Glassio 4.0 جدید است، صفحه‌به‌صفحه، با موارد 4.8 در ابتدا. تنظیمات شما همان‌طور می‌ماند: هر مورد جدید یک انتخاب است.
 Find a film or a series and open it where it can be watched: your streaming apps, Nuvio or Stremio.	فیلم یا سریالی را پیدا کنید و هر جا قابل تماشاست بازش کنید: برنامه‌های پخش شما، Nuvio یا Stremio.
+Glass over the video and the video quality are in the menu too.	شیشه روی ویدیو و کیفیت ویدیو در منو هم هستند.
 Glassio is free and open source. Scan the code to see every version, report a problem or ask for a feature.	Glassio رایگان و متن‌باز است. کد را اسکن کنید تا همه‌ی نسخه‌ها را ببینید، مشکلی گزارش دهید یا قابلیتی بخواهید.
 Glassio is free, with no ads, made in my spare time.	Glassio رایگان و بدون تبلیغ است و در اوقات فراغتم ساخته شده.
 Glassio on GitHub	Glassio در GitHub
+Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	روی دوربینی که می‌چرخد (PTZ) OK را نگه دارید: با کنترل آن را حرکت دهید و زوم کنید.
 Hold OK on a video: keep it, or never show it again.	OK را روی یک ویدیو نگه دارید: نگهش دارید، یا دیگر هرگز نشانش ندهید.
+Home over the TV's screensaver now takes you straight to Glassio.	اکنون Home روی محافظ صفحه‌ی تلویزیون شما را مستقیم به Glassio می‌برد.
 If you enjoy it, a PlayStation gift card (PSN, USA) helps a lot. Maybe for GTA VI 😉	اگر خوشتان آمد، کارت هدیه‌ی PlayStation (PSN، آمریکا) خیلی کمک می‌کند. شاید برای GTA VI 😉
 In the menu: Screensaver → Collections and One player.	در منو: محافظ صفحه ← مجموعه‌ها و یک پخش‌کننده.
+It shows the shuffle you set in the music app itself.	پخش تصادفی‌ای را که در خود برنامه‌ی موسیقی تنظیم کرده‌اید نشان می‌دهد.
 Its icon is in the dock. Turn Search off in Settings if you don't want it.	نمادش در داک است. اگر نمی‌خواهیدش، جستجو را در تنظیمات خاموش کنید.
 Its libraries in the carousel, what you are watching, your favourites in the Library, its titles first in the search.	کتابخانه‌هایش در کاروسل، آنچه تماشا می‌کنید، علاقه‌مندی‌هایتان در کتابخانه، عنوان‌هایش اول در جستجو.
+Its QR code is in the menu and in Settings' search, ready to scan.	کد QR آن در منو و در جست‌وجوی تنظیمات برای اسکن آماده است.
+Lighter	سبک‌تر
+Menu → Manage from phone	منو ← مدیریت از گوشی
+Menu → Themes, Background, Screensaver · Settings → Music & app rows	منو ← زمینه‌ها، پس‌زمینه، محافظ صفحه · تنظیمات ← موسیقی و ردیف‌های برنامه
+Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	چندنمایی هرگز از صفحه بیرون نمی‌زند: چهار دوربین دو در دو، به بزرگ‌ترین اندازه‌ی ممکن.
+Music icon in the dock · Settings → Music & app rows	آیکون موسیقی در داک · تنظیمات ← موسیقی و ردیف‌های برنامه
 New job: close the app in front and come back to Glassio.	کار تازه: بستن برنامه‌ی روی صفحه و بازگشت به Glassio.
 New Settings	تنظیمات تازه
 New: what this version added. Changed: every setting you changed, with Back to default.	جدید: آنچه این نسخه افزوده. تغییرکرده: هر تنظیمی که تغییر داده‌اید، با بازگشت به پیش‌فرض.
 Nine languages	نه زبان
 OK  Done	OK  انجام شد
 OK  Next  ▶	OK  بعدی  ▶
+OK on a music app's card plays in that app, without opening it.	OK روی کارت یک برنامه‌ی موسیقی، آهنگ را در همان برنامه و بدون باز کردن آن پخش می‌کند.
 One Glassio per profile of your Nuvio account: its own look, dock, catalogs, Library and Continue Watching.	یک Glassio برای هر پروفایل حساب Nuvio: ظاهر، داک، کاتالوگ‌ها، کتابخانه و ادامه تماشای خودش.
+One player starts on the home screen just before the TV's own screensaver, which stays for other apps; the TV still sleeps on time.	پخش‌کننده‌ی واحد روی صفحه‌ی اصلی کمی پیش از محافظ صفحه‌ی خود تلویزیون شروع می‌شود، که برای برنامه‌های دیگر می‌ماند؛ تلویزیون همچنان به‌موقع به خواب می‌رود.
 One player: the screensaver on the home screen itself. With the screensaver's videos as background it goes on with the same video, and you are back at once.	یک پخش‌کننده: محافظ صفحه روی خود صفحه‌ی اصلی. با ویدیوهای محافظ صفحه به‌عنوان پس‌زمینه، با همان ویدیو ادامه می‌دهد و فوراً برمی‌گردید.
+Over a video background Glassio keeps its full frame rate. Changing profile starts Glassio once.	روی پس‌زمینه‌ی ویدیویی Glassio نرخ فریم کامل خود را حفظ می‌کند. تغییر پروفایل Glassio را فقط یک‌بار راه‌اندازی می‌کند.
+Over the video screensaver too, while a song plays.	روی محافظ صفحه‌ی ویدیویی هم، هنگام پخش آهنگ.
+Over your own background, what you're watching as small glass cards right above the dock: the picture stays whole.	روی پس‌زمینه‌ی خودتان، آنچه تماشا می‌کنید به‌صورت کارت‌های شیشه‌ای کوچک درست بالای داک: تصویر دست‌نخورده می‌ماند.
+Page behind the player: your own video or picture can stay behind the music player.	صفحه‌ی پشت پخش‌کننده: ویدیو یا تصویر خودتان می‌تواند پشت پخش‌کننده‌ی موسیقی بماند.
+Performance → Lite: the same look, lighter on memory and on the processor.	عملکرد ← سبک: همان ظاهر، با مصرف کمتر حافظه و پردازنده.
 Pexels videos for the words you choose, with your own free key.	ویدیوهای Pexels برای واژه‌هایی که انتخاب می‌کنید، با کلید رایگان خودتان.
 Pexels videos, and YouTube videos and playlists among My videos, each one on or off.	ویدیوهای Pexels، و ویدیوها و فهرست‌های پخش YouTube در ویدیوهای من، هر کدام روشن یا خاموش.
+Photos as your background: Windows Spotlight, museum paintings and Pexels photos are new sources.	عکس‌ها به‌عنوان پس‌زمینه: Windows Spotlight، نقاشی‌های موزه و عکس‌های Pexels منابع جدیدند.
+Photos, the Apps folder, cameras	عکس‌ها، پوشه‌ی برنامه‌ها، دوربین‌ها
 Play opens the streaming app: the title's own page in Netflix, Apple TV, Prime Video or Disney+.	پخش، برنامه‌ی پخش را باز می‌کند: صفحه‌ی خود عنوان در Netflix، Apple TV، Prime Video یا Disney+.
 Press OK, type the code and press Send: it comes straight to me. Thank you!	OK را بزنید، کد را بنویسید و ارسال را بزنید: مستقیم به من می‌رسد. ممنون!
 Press ▶ to see what's new.	برای دیدن تازه‌ها ▶ را بزنید.
@@ -1675,149 +1810,41 @@ Recommended for this TV: the right settings for a weaker TV in one press (Settin
 Report a problem from the TV or the phone, cleaned of anything private before it goes.	گزارش مشکل از تلویزیون یا گوشی، پاک‌شده از هر چیز خصوصی پیش از ارسال.
 Rows above the dock: an app's row sits right above the dock, so the clock stays in view.	ردیف‌ها بالای داک: ردیف برنامه درست بالای داک می‌نشیند تا ساعت دیده شود.
 Rows per service in the Library (On Netflix, On Apple TV…), for your country.	ردیف برای هر سرویس در کتابخانه (در Netflix، در Apple TV…)، برای کشور شما.
+Screensaver and clock	محافظ صفحه و ساعت
 Send a gift card	ارسال کارت هدیه
 Settings → About → Report a problem	تنظیمات ← درباره ← گزارش مشکل
 Settings → About → What's new	تنظیمات ← درباره ← تازه‌ها
 Settings → Accounts & profiles	تنظیمات ← حساب‌ها و پروفایل‌ها
 Settings → Accounts & profiles → Connect Jellyfin	تنظیمات ← حساب‌ها و پروفایل‌ها ← اتصال Jellyfin
+Settings → Accounts & profiles → PIN	تنظیمات ← حساب‌ها و پروفایل‌ها ← PIN
 Settings → Background & screensaver	تنظیمات ← پس‌زمینه و محافظ صفحه
+Settings → Background & screensaver · Music & app rows → Island	تنظیمات ← پس‌زمینه و محافظ صفحه · موسیقی و ردیف‌های برنامه ← جزیره
+Settings → Background & screensaver · Smart home	تنظیمات ← پس‌زمینه و محافظ صفحه · خانه‌ی هوشمند
+Settings → Background & screensaver → Continue Watching cards	تنظیمات ← پس‌زمینه و محافظ صفحه ← کارت‌های ادامه تماشا
 Settings → Catalogs & add-ons	تنظیمات ← کاتالوگ‌ها و افزونه‌ها
 Settings → Continue Watching & Library → Search	تنظیمات ← Continue Watching & Library ← Search
+Settings → Music & app rows → Lyrics	تنظیمات ← موسیقی و ردیف‌های برنامه ← متن آهنگ
+Settings → Smart home → Multi-view	تنظیمات ← خانه‌ی هوشمند ← چندنمایی
 Settings → System → Language	تنظیمات ← System ← Language
+Settings → System → Performance	تنظیمات ← سیستم ← عملکرد
 Settings → System → Remote buttons	تنظیمات ← سیستم ← دکمه‌های ریموت
 Something wrong? Settings → About → Report a problem.	مشکلی هست؟ تنظیمات ← درباره ← گزارش مشکل.
+The Apps folder shows three whole rows and grows as you go down, like the dock. It opens and closes faster.	پوشه‌ی برنامه‌ها سه ردیف کامل نشان می‌دهد و با پایین رفتن بزرگ‌تر می‌شود، مثل داک. سریع‌تر باز و بسته می‌شود.
+The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	صفحه‌ی دوربین‌ها: دوربین‌های شما روی کل صفحه؛ با کلیدهای جهت یکی را انتخاب کنید، OK صدای آن را روشن می‌کند.
+The large clock's Still Glass style looks like the lock screen: tall digits of thick glass under the date.	سبک Still Glass ساعت بزرگ شبیه صفحه‌ی قفل است: ارقام بلند از شیشه‌ی ضخیم زیر تاریخ.
 The Library scrolls in one smooth movement, also with a button held down.	کتابخانه با یک حرکت نرم پیمایش می‌شود، حتی وقتی دکمه‌ای را نگه می‌دارید.
+The lyrics button of the player and of the open island turns them on and off. Off until you turn it on: the song's name and artist go to the lyrics sources.	دکمه‌ی متن آهنگ در پخش‌کننده و جزیره‌ی باز آن را روشن و خاموش می‌کند. تا وقتی روشن نکنید خاموش است: نام و خواننده‌ی آهنگ به منابع متن فرستاده می‌شود.
+The music player	پخش‌کننده‌ی موسیقی
+The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	صفحه با یک کد برای این تلویزیون روشن می‌ماند: آن را روی صفحه‌ی اصلی گوشی ذخیره کنید و همچنان کار می‌کند.
 The search finds any setting, also inside those pages.	جستجو هر تنظیمی را پیدا می‌کند، حتی درون آن صفحه‌ها.
+The shuffle button has a second press: the song playing starts again each time it ends. A third press turns both off.	دکمه‌ی پخش تصادفی فشار دوم دارد: آهنگ در حال پخش هر بار پس از پایان دوباره شروع می‌شود. فشار سوم هر دو را خاموش می‌کند.
 The translations were made by machine: tell us where the wording is wrong.	ترجمه‌ها ماشینی‌اند: بگویید کجا عبارت نادرست است.
-Welcome to Glassio 4.2	به Glassio 4.2 خوش آمدید
+Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	زمینه‌ها، پس‌زمینه و محافظ صفحه گزینه‌هایشان را در یک ردیف نشان می‌دهند، هر زمینه به‌صورت نمونه‌ی کوچکی از خودش.
+Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	برنامه‌های غیرضروری: برنامه‌های تلویزیون را که فقط گزارش می‌فرستند، تبلیغ نشان می‌دهند یا برنامه‌های دیگر نصب می‌کنند خاموش کنید (تنظیمات ← سیستم).
+Up from the dock goes to them, OK opens the title. Off by default.	با بالا رفتن از داک به آن‌ها می‌رسید، OK عنوان را باز می‌کند. به‌طور پیش‌فرض خاموش.
+Welcome to Glassio 4.8	به Glassio 4.8 خوش آمدید
 Who is watching? at start or from the menu, with Nuvio's profile pictures and a greeting at the top of the menu.	چه کسی تماشا می‌کند؟ هنگام شروع یا از منو، با تصویرهای پروفایل Nuvio و خوشامدی در بالای منو.
+With Nuvio connected, the settings button becomes your Nuvio profile's picture.	با اتصال Nuvio، دکمه‌ی تنظیمات به تصویر پروفایل Nuvio شما تبدیل می‌شود.
 Your streaming apps	برنامه‌های پخش شما
 YouTube videos and songs under the titles; a song plays while you stay in Glassio.	ویدیوهای YouTube و آهنگ‌ها زیر عنوان‌ها؛ آهنگ پخش می‌شود و شما در Glassio می‌مانید.
 🎁  Send a gift card	🎁  ارسال کارت هدیه
-Nuvio's picture by itself	تصویر Nuvio به‌طور خودکار
-With Nuvio connected, the button shows your Nuvio profile's picture until you choose another look for it	با اتصال Nuvio، دکمه تصویر پروفایل Nuvio شما را نشان می‌دهد تا وقتی ظاهر دیگری برایش انتخاب کنید
-Or scan with your phone (same Wi-Fi) and change any setting there	یا با گوشی خود (همان Wi-Fi) اسکن کنید و هر تنظیمی را آنجا تغییر دهید
-The phone page's QR code: change settings from your phone	کد QR صفحهٔ گوشی: تنظیمات را از گوشی تغییر دهید
-QR code in Settings' search	کد QR در جستجوی تنظیمات
-While nothing is typed in the search, this code is there too	وقتی چیزی در جستجو نوشته نشده، این کد آنجا هم هست
-After you leave this screen. Always: the same address and code whenever Glassio runs, so the page saved on your phone keeps working	پس از ترک این صفحه. همیشه: همان نشانی و کد تا وقتی Glassio اجرا است، تا صفحهٔ ذخیره‌شده روی گوشی کار کند
-New code	کد جدید
-Every QR code and page saved on a phone stops working; scan the new code	هر کد QR و صفحهٔ ذخیره‌شده روی گوشی از کار می‌افتد؛ کد جدید را اسکن کنید
-After you leave this screen. The address and code stay the same, so the page saved on your phone works whenever the page is on. Always: whenever Glassio runs	پس از ترک این صفحه. نشانی و کد ثابت می‌مانند، پس صفحهٔ ذخیره‌شده روی گوشی هر وقت صفحه روشن است کار می‌کند. همیشه: تا وقتی Glassio اجرا است
-Welcome to Glassio 4.3	به Glassio 4.3 خوش آمدید
-Its QR code is in the menu and in Settings' search, ready to scan.	کد QR آن در منو و در جستجوی تنظیمات است، آمادهٔ اسکن.
-The page stays on with one code for this TV: save it to your phone's home screen and it keeps working.	صفحه با یک کد برای این تلویزیون روشن می‌ماند: آن را روی صفحهٔ اصلی گوشی ذخیره کنید و کار می‌کند.
-Change the theme, language, screensaver and more from your phone.	پوسته، زبان، محافظ صفحه و موارد دیگر را از گوشی تغییر دهید.
-Menu → Manage from phone	منو ← مدیریت از گوشی
-With Nuvio connected, the settings button becomes your Nuvio profile's picture.	با اتصال Nuvio، دکمهٔ تنظیمات تصویر نمایهٔ Nuvio شما می‌شود.
-Two by two	دو در دو
-Whole screen	تمام صفحه
-On the whole screen	روی تمام صفحه
-Cameras on the whole screen	دوربین‌ها روی تمام صفحه
-Automatic: one row when the cameras fit at this size, else two by two. They never go past the screen's edges	خودکار: یک ردیف وقتی دوربین‌ها در این اندازه جا شوند، وگرنه دو در دو. هرگز از لبه‌های صفحه بیرون نمی‌روند
-The cameras filling the screen until Back; the arrows choose one, OK turns its sound on (also: menu → Camera → Whole screen, or a remote button)	دوربین‌ها تا زدن بازگشت صفحه را پر می‌کنند؛ پیکان‌ها یکی را انتخاب می‌کنند و OK صدایش را روشن می‌کند (همچنین: منو ← دوربین ← تمام صفحه، یا یک دکمه ریموت)
-Your multi-view cameras filling the screen · OK turns a camera's sound on · Back closes	دوربین‌های نمای چندگانه روی تمام صفحه · OK صدای دوربین را روشن می‌کند · بازگشت می‌بندد
-Menu's Camera opens the whole screen	دوربین منو تمام صفحه را باز می‌کند
-Menu → Camera goes straight to the cameras page instead of the live card	منو ← دوربین مستقیم صفحه دوربین‌ها را باز می‌کند، نه کارت زنده را
-Sound follows the selection	صدا همراه انتخاب
-On the whole screen, the selected camera's sound plays by itself (cameras that send sound)	در تمام صفحه صدای دوربین انتخاب‌شده خودکار پخش می‌شود (دوربین‌هایی که صدا می‌فرستند)
-Lite	سبک
-The same look, lighter on memory and processor: fewer pictures kept ready, less work in the background	همان ظاهر، سبک‌تر برای حافظه و پردازنده: تصاویر کمتری از پیش آماده و کار کمتر در پس‌زمینه
-All of them are off	همه خاموش‌اند
-It is the TV's screensaver: choose another one first	اکنون محافظ صفحهٔ تلویزیون است: اول یکی دیگر را انتخاب کنید
-Needs TV access (ADB): System → TV access (ADB).	به دسترسی تلویزیون (ADB) نیاز دارد: سیستم ← دسترسی تلویزیون (ADB).
-None of them is on this TV.	هیچ‌کدام روی این تلویزیون نیست.
-Nothing: apps that were off before stay as they are	هیچ: برنامه‌هایی که از قبل خاموش بودند همان‌طور می‌مانند
-Only apps the TV doesn't need are listed: reports, ads and installers. Starting, the remote, sound, casting, the Play Store and updates are never touched. Nothing is removed, and a reset of the TV brings everything back.	فقط برنامه‌هایی که تلویزیون به آن‌ها نیاز ندارد فهرست می‌شوند: گزارش‌ها، تبلیغات و نصب‌کننده‌ها. روشن شدن، کنترل، صدا، پخش، Play Store و به‌روزرسانی‌ها هرگز دست نمی‌خورند. چیزی حذف نمی‌شود و بازنشانی تلویزیون همه را برمی‌گرداند.
-Reading the TV's apps…	در حال خواندن برنامه‌های تلویزیون…
-Turn back on what Glassio turned off	روشن کردن دوبارهٔ آنچه Glassio خاموش کرد
-Turn off the TV's apps that only send reports, show ads or install other apps. Nothing is removed: a switch turns each back on	برنامه‌های تلویزیون را که فقط گزارش می‌فرستند، تبلیغ نشان می‌دهند یا برنامه نصب می‌کنند خاموش کنید. چیزی حذف نمی‌شود: یک کلید هر کدام را دوباره روشن می‌کند
-Turn them all off	خاموش کردن همه
-Unneeded apps	برنامه‌های غیرضروری
-Scan with your phone (same Wi-Fi) and change any setting there	یا با گوشی (در همان Wi-Fi) اسکن کنید و هر تنظیمی را آنجا تغییر دهید
-Google feedback	بازخورد Google
-Sends feedback and problem reports to Google	بازخورد و گزارش مشکل را به Google می‌فرستد
-Bug report sender	فرستندهٔ گزارش خطا
-Sends the TV's bug reports to Google	گزارش‌های خطای تلویزیون را به Google می‌فرستد
-Network diagnostics	عیب‌یابی شبکه
-Google's connection checks and their reports	بررسی‌های اتصال Google و گزارش‌هایشان
-Ad services	سرویس‌های تبلیغاتی
-Android's ad measurement and ad topics	سنجش تبلیغات و موضوعات تبلیغاتی Android
-Ad personalisation	شخصی‌سازی تبلیغات
-Works out personalised ads on the TV	تبلیغات شخصی را روی تلویزیون تعیین می‌کند
-Federated learning	یادگیری فدرال
-Trains Google's models with data from the TV	مدل‌های Google را با داده‌های تلویزیون آموزش می‌دهد
-Google Play Games	بازی‌های Google Play
-The games app and its sign-in	برنامهٔ بازی‌ها و ورود به آن
-Google TV purchases	خریدهای Google TV
-Films and series bought from Google: they can't be watched while it is off	فیلم‌ها و سریال‌های خریده‌شده از Google: وقتی خاموش است دیده نمی‌شوند
-Maker's app installer	نصب‌کنندهٔ برنامه‌های سازنده
-Installs the maker's chosen apps after a setup or a reset	برنامه‌های منتخب سازنده را پس از راه‌اندازی یا بازنشانی نصب می‌کند
-Ambient mode	حالت Ambient
-Google's screensaver (kept while it is the TV's screensaver)	محافظ صفحهٔ Google (تا وقتی محافظ صفحهٔ تلویزیون است می‌ماند)
-The older Ambient screensaver (kept while it is the TV's screensaver)	محافظ صفحهٔ قدیمی Ambient (تا وقتی محافظ صفحهٔ تلویزیون است می‌ماند)
-Xiaomi analytics	تحلیل‌های Xiaomi
-Sends usage data to Xiaomi	دادهٔ استفاده را به Xiaomi می‌فرستد
-Recognises what is on screen, for ads	آنچه روی صفحه است را برای تبلیغات تشخیص می‌دهد
-TCL start-up ads	تبلیغات راه‌اندازی TCL
-Ads shown when the TV starts	تبلیغاتی که هنگام روشن شدن تلویزیون نمایش داده می‌شوند
-TCL app promotions	تبلیغ برنامه‌های TCL
-Suggested apps and promotions	برنامه‌های پیشنهادی و تبلیغات
-Amazon device metrics	آمار دستگاه Amazon
-Sends usage data to Amazon	دادهٔ استفاده را به Amazon می‌فرستد
-Amazon app metrics	آمار برنامه‌های Amazon
-Sends app usage data to Amazon	دادهٔ استفاده از برنامه‌ها را به Amazon می‌فرستد
-Amazon network metrics	آمار شبکهٔ Amazon
-Sends Wi-Fi data to Amazon	دادهٔ Wi-Fi را به Amazon می‌فرستد
-Amazon logger	گزارش‌گیر Amazon
-Collects the device's logs for Amazon	گزارش‌های دستگاه را برای Amazon جمع می‌کند
-Away in another app for a while, Glassio lets its pictures go and brings them back when you return.	وقتی مدتی در برنامهٔ دیگری هستید، Glassio تصاویرش را آزاد می‌کند و هنگام بازگشت برمی‌گرداند.
-Every camera plays, also with a video behind it: the video waits and gives its decoder back.	همهٔ دوربین‌ها پخش می‌شوند، حتی با ویدیویی پشتشان: ویدیو منتظر می‌ماند و رمزگشایش را پس می‌دهد.
-Everything new since Glassio 4.0, page by page, 4.4's first. Your setup stays as it is: each new thing is a choice.	همهٔ تازه‌ها از Glassio 4.0، صفحه به صفحه، اول تازه‌های 4.4. تنظیمات شما همان‌طور می‌ماند: هر چیز تازه انتخابی است.
-Hold OK on a camera that turns (PTZ): move and zoom it with the remote.	روی دوربینی که می‌چرخد (PTZ) OK را نگه دارید: با کنترل حرکتش دهید و بزرگنمایی کنید.
-Lighter	سبک‌تر
-Multi-view never goes past the screen: four cameras two by two, as big as the screen allows.	نمای چندگانه هرگز از صفحه بیرون نمی‌زند: چهار دوربین دو در دو، به بزرگ‌ترین اندازه‌ای که صفحه اجازه می‌دهد.
-Performance → Lite: the same look, lighter on memory and on the processor.	کارایی ← Lite: همان ظاهر، سبک‌تر برای حافظه و پردازنده.
-Settings → Smart home → Multi-view	تنظیمات ← خانهٔ هوشمند ← نمای چندگانه
-Settings → System → Performance	تنظیمات ← سیستم ← کارایی
-The cameras page: your cameras over the whole screen; the arrows choose one, OK turns its sound on.	صفحهٔ دوربین‌ها: دوربین‌هایتان روی تمام صفحه؛ پیکان‌ها یکی را انتخاب می‌کنند، OK صدایش را روشن می‌کند.
-Unneeded apps: turn off the TV's apps that only send reports, show ads or install other apps (Settings → System).	برنامه‌های غیرضروری: برنامه‌های تلویزیون را که فقط گزارش می‌فرستند، تبلیغ نشان می‌دهند یا برنامه نصب می‌کنند خاموش کنید (تنظیمات ← سیستم).
-Welcome to Glassio 4.4	به Glassio 4.4 خوش آمدید
-Which ones, in this order (up to nine). Multi-view shows the first four, the whole screen all of them. None chosen = all	کدام‌ها، به این ترتیب (تا نه). نمای چندگانه چهار تای اول را نشان می‌دهد، تمام صفحه همه را. بدون انتخاب = همه
-Which ones, in this order (up to nine). None chosen = all	کدام‌ها، به این ترتیب (تا نه). بدون انتخاب = همه
-Automatic: one row when the cameras fit at this size, else a grid (two by two, three by three past four). They never go past the screen's edges	خودکار: یک ردیف وقتی دوربین‌ها در این اندازه جا شوند، وگرنه شبکه (دو در دو، سه در سه برای بیش از چهار). هرگز از لبه‌های صفحه بیرون نمی‌زنند
-Grid	شبکه
-From Glassio (GitHub) when it is on this TV, else the newest backup in Download/Glassio. Glassio restarts after	از Glassio (نسخهٔ GitHub) اگر روی این تلویزیون باشد، وگرنه تازه‌ترین پشتیبان در Download/Glassio. Glassio پس از آن دوباره راه‌اندازی می‌شود
-The newest backup in Download/Glassio on the TV, else the settings of Glassio from Google Play on this TV. Glassio restarts after	تازه‌ترین پشتیبان در Download/Glassio روی تلویزیون، وگرنه تنظیمات Glassio از Google Play روی این تلویزیون. Glassio پس از آن دوباره راه‌اندازی می‌شود
-Choose a city	یک شهر انتخاب کنید
-  · Page behind the player	  · صفحهٔ پشت پخش‌کننده
-Your background: your video or picture stays behind the player (with see-through glass the dock shows it too). The song's artwork: its picture fills the page	پس‌زمینهٔ شما: ویدیو یا تصویر شما پشت پخش‌کننده می‌ماند (با شیشهٔ شفاف در داک هم دیده می‌شود). تصویر آهنگ: تصویرش صفحه را پر می‌کند
-Your background	پس‌زمینهٔ شما
-The song's artwork	تصویر آهنگ
-Screensaver's	کیفیت محافظ صفحه
-Titles	عنوان‌ها
-Automatic: your background with see-through glass over a video, else the song's artwork. Your background: your video or picture stays behind the player. The song's artwork: its picture fills the page	خودکار: با شیشهٔ شفاف روی ویدیو پس‌زمینهٔ شما، وگرنه تصویر آهنگ. پس‌زمینهٔ شما: ویدیو یا تصویر شما پشت پخش‌کننده می‌ماند. تصویر آهنگ: تصویرش صفحه را پر می‌کند
-Welcome to Glassio 4.5	به Glassio 4.5 خوش آمدید
-Everything new since Glassio 4.0, page by page, 4.5's first. Your setup stays as it is: each new thing is a choice.	همه تازه‌ها از Glassio 4.0، صفحه به صفحه، اول تازه‌های 4.5. تنظیمات شما همان می‌ماند: هر چیز تازه یک انتخاب است.
-A tidier menu	منویی مرتب‌تر
-Themes, Background and Screensaver show their choices across one row, each theme as a small sample of itself.	پوسته‌ها، پس‌زمینه و محافظ صفحه گزینه‌هایشان را در یک ردیف نشان می‌دهند، هر پوسته یک نمونه کوچک از خودش.
-Glass over the video and the video quality are in the menu too.	شیشه روی ویدیو و کیفیت ویدیو هم در منو هستند.
-Page behind the player: your own video or picture can stay behind the music player.	صفحه پشت پخش‌کننده: ویدیو یا تصویر خودتان می‌تواند پشت پخش‌کننده موسیقی بماند.
-Menu → Themes, Background, Screensaver · Settings → Music & app rows	منو ← پوسته‌ها، پس‌زمینه، محافظ صفحه · تنظیمات ← موسیقی و ردیف‌های برنامه‌ها
-Anywhere: the cameras in the middle · press again to close	هر جا: دوربین‌ها در وسط صفحه · دوباره بزنید تا بسته شود
-Anywhere: the camera in the corner · press again to close	هر جا: دوربین در گوشه · دوباره بزنید تا بسته شود
-Shuffle the carousel	بُر زدن کاروسل
-Rows from…	ردیف‌ها از…
-Its own rows	ردیف‌های خودش
-It has none now	الان ردیفی ندارد
-Its catalogs show instead (OK → Show)	کاتالوگ‌هایش به جای آن نمایش داده می‌شوند (OK ← نمایش)
-Continue Watching cards	کارت‌های ادامه تماشا
-What you're watching as small cards above the dock, the background left whole. Up from the dock goes to them	آنچه تماشا می‌کنید در کارت‌های کوچک بالای داک، و پس‌زمینه دست‌نخورده. بالا از داک به آن‌ها می‌رود
-  · Cards	  · کارت‌ها
-How many at most	حداکثر تعداد
-Needs your own background (not Title backdrops) and the dock at the bottom: then what you're watching shows as small cards above the dock	به پس‌زمینه خودتان (نه تصاویر عناوین) و داک پایین نیاز دارد: آنگاه آنچه تماشا می‌کنید در کارت‌های کوچک بالای داک نشان داده می‌شود
-  · Apps' Continue watching	  · ادامه تماشای برنامه‌ها
-An app with its own Continue watching row (Netflix, YouTube…) shows it as cards too, instead of its rows. Per app: Music & app rows → Apps with channels	برنامه‌ای که ردیف ادامه تماشای خودش را دارد (Netflix، YouTube…) آن را هم به‌صورت کارت نشان می‌دهد، به جای ردیف‌هایش. برای هر برنامه: موسیقی و ردیف برنامه‌ها ← برنامه‌های دارای کانال
-Small cards above the dock over your own background	کارت‌های کوچک بالای داک روی پس‌زمینه خودتان
-Continue watching as cards: on	ادامه تماشا به‌صورت کارت: روشن
-Continue watching as cards: off	ادامه تماشا به‌صورت کارت: خاموش

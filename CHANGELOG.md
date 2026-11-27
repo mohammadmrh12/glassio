@@ -2,6 +2,52 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.8.0 — profile PINs, lyrics, a smarter music player
+
+- **A PIN for a profile:** a profile can ask for its four-digit PIN when the TV starts, when it wakes after a while and
+  when you change to it. A profile with a PIN in Nuvio uses that one, checked by Nuvio; any other profile can get a PIN
+  made in Glassio, kept on that TV only (never in a backup, a sync or a report). *Ask for the PIN → Automatic* lets a
+  TV go in without it. Settings → Accounts & profiles → *PIN*.
+- **Lyrics** (the GitHub version): a song's words beside the player, in time with the song: the line being sung is
+  bright and lights word by word, the others are dim and out of focus. Over the video screensaver too. Found by the
+  song's name and artist at LRCLIB, NetEase Cloud Music, KuGou and lyrics.ovh (each one a switch); **off until you turn
+  it on**, with the lyrics button of the player or of the open island, or Settings → Music & app rows → *Lyrics*.
+- **The shuffle button** shows the shuffle set in the music app itself (it never did), and has a second press: the
+  song playing starts again each time it ends; a third press turns both off. An app with no repeat of its own is sent
+  back to the song's start a second before its end. *Shuffle button repeats a song* turns that off.
+- **OK on a music app's card** ("plays where it left off") plays in that app: it could start another app, or nothing.
+- **Photos:** new sources *Windows Spotlight*, *Paintings* (the Cleveland Museum of Art's public-domain paintings) and
+  *Pexels* (with your own free key). The subreddit source is gone; a TV that used it shows Bing's pictures.
+- **Apps folder:** three whole rows that grow as you go down, like the dock (an icon was cut in half with many apps);
+  it opens and closes about twice as fast, and a video background waits under it instead of loading again.
+- **Smoother over a video background:** the TV no longer holds Glassio at 30 frames a second while a video plays
+  behind it; the large clock is no longer painted again at every return to the home screen.
+- **Changing profile** starts Glassio once (it started twice, and the selection jumped).
+- **Walking along the dock:** the page of an icon you only pass no longer flashes up; it comes when you stop.
+- **Clearer writing on pictures:** the island's song, the headings over an app's rows, the Continue Watching cards and
+  the search page are bold with one soft shadow, so they read over any background.
+- **From 4.7.3-beta1:** HEVC videos are left out by themselves on a TV that can't play them (a green or black
+  screensaver), Home Assistant cameras fall back to their live picture, PTZ for Reolink cameras through Home Assistant
+  (#40).
+- **Fixes:** Left from the player's first button stays in the row (it went to the dock); the dimming after the Apps
+  folder goes with the folder; the music player's progress bar is as wide as its buttons; without the Home button
+  service the screensaver could start while the What's new tour was being read, a PIN typed or a profile chosen (those
+  keys now count as use); a long page of the tour no longer comes down over the dock.
+
+## 4.7.3-beta1 — HEVC, Home Assistant cameras, Reolink PTZ
+
+- **A green or black screensaver on some TVs (#40):** Amazon's aerial videos are HEVC only, and some TVs' HEVC decoder
+  fails on them. After the first HEVC video that fails to play on a TV, Glassio plays only H.264 videos there (the
+  background and the screensaver; Amazon's collection is left out), by itself. **Settings → Background & screensaver →
+  HEVC videos** turns them back on. Problem reports say whether it happened.
+- **Home Assistant cameras that said "Can't reach the camera" at random (#40):** a camera whose stream fails, or isn't
+  playing after 15 seconds, asks Home Assistant for it again, then shows the camera's live MJPEG picture or its
+  snapshots, which Home Assistant has for every camera. The corner camera and the menu's camera try a failing link
+  twice more before giving up, as multi-view does.
+- **PTZ for Reolink cameras from Home Assistant (#40):** hold OK on a camera of the cameras page: the arrows use the
+  Reolink integration's *PTZ* buttons (left, right, up, down, stop; zoom when it is turned on in Home Assistant) and
+  ◀ ▶ its *PTZ preset* list. ONVIF cameras work as before.
+
 ## 4.7.2 — Electric Eel
 
 - **Electric Eel** (a SmartTube fork) works like SmartTube: what it plays is followed as music (the player, the

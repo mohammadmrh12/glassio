@@ -204,7 +204,9 @@ private fun OnBackgroundSaver(app: GlassApp) {
                 val wordsA by androidx.compose.animation.core.animateFloatAsState(if (going) 0f else 1f, tween(180), label = "saverWords")
                 val islandA by androidx.compose.animation.core.animateFloatAsState(if (going && !HomeSaver.homeIsland) 0f else 1f, tween(180), label = "saverIsland")
                 androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().graphicsLayer { alpha = wordsA }) {
-                    SaverInfo(app, title, change)
+                    // (The song's words, when Lyrics is on: the place info keeps out of their corner.)
+                    SaverInfo(app, title, change, avoid = if (com.glasslauncher.tv.ui.saverLyricsShown(app)) "br" else null)
+                    com.glasslauncher.tv.ui.SaverLyrics(app)
                     LockBadge()
                 }
                 if (st.musicOn && st.musicIsland) androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().graphicsLayer { alpha = islandA }) {

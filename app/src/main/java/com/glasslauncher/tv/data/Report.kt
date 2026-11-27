@@ -66,7 +66,7 @@ object Report {
     private val SETTINGS = listOf("theme", "dockStyle", "dockPos", "tileStyle", "dockColumns", "bgMode", "bgClockStyle", "saverMode", "libraryCw", "bgContinue", "islandStyle", "islandPausedSec", "musicIsland", "islandHome",
         "menuStyle", "menuMode", "settingsIcon", "slideAnim", "heroAutoplay", "transitionMs", "perfMode", "memTier", "glassRes", "imageQuality",
         "pageScale", "prefetchDepth", "refraction", "libraryColumns", "libraryPlatforms", "playInApp", "continueMode", "updateChannel",
-        "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "photoSource",
+        "nuvioTarget", "interceptHome", "descLang", "bgVideos", "saverInHome", "searchOn", "saverQuality", "hevcFailed", "photoSource", "lyricsOn", "lyricsSaver", "lyricsSourcesOff",
         // (An app's rows and the pages around them, #30.)
         "channelsOn", "channelsLayout", "channelsBg", "channelsLow", "appCatalogsOn", "musicOn", "musicMode", "stagePageBg", "videoGlass", "musicPageBg",
         // (What stands in each app's place, and whose rows an app shows: package names only.)
@@ -87,7 +87,7 @@ object Report {
         val all = s.dumpAll()
         val set = SETTINGS.mapNotNull { k -> all[k]?.let { v -> "$k=" + v.toString().take(40) } }.joinToString("  ") +
             // (Buttons the TV keeps for itself, read through TV access: whether one is set and the watcher runs, #52.)
-            "  rawButtons=" + RawKeys.status(s) +
+            "  profilePins=" + ProfilePin.status(ctx) + "  rawButtons=" + RawKeys.status(s) +
             // (The TV itself: memory, video decoders, its home and screensaver apps, Glassio's own services.)
             "  tv: " + DeviceFacts.line(ctx)
         // (Only a crash of the version installed now: an older one stayed in every report until cleared by hand, and

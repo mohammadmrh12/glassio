@@ -191,6 +191,20 @@ class NuvioAccount(ctx: Context) {
         }.sortedBy { it.id }.let { list -> runCatching { NuvioAvatars.fetch(appCtx, this, list) }.onFailure { Glog.w("Nuvio profile pictures", it) }.getOrDefault(list) }
     }.getOrElse { lastError = it.message.orEmpty(); null }
 
+    /**
+     * Blocking. Asks Nuvio whether [pin] is the PIN of profile [profile] (`verify_profile_pin`, as Nuvio's own TV app
+     * does): (unlocked, seconds to wait after too many wrong tries). Null when Nuvio can't be reached or doesn't answer
+     * as expected. The PIN goes to Nuvio only, over its own connection; it is never logged.
+     */
+    fun verifyPin(profile: Int, pin: String): Pair<Boolean, Int>? = runCatching {
+        var tok = access() ?: return null
+        val body = JSONObject().put("p_profile_id", profile).put("p_pin", pin)
+        var (c, t) = call("/rest/v1/rpc/verify_profile_pin", body, tok)
+        if (c == 401) { tok = access(force = true) ?: return null; val r = call("/rest/v1/rpc/verify_profile_pin", body, tok); c = r.first; t = r.second }
+        check(c in 200..299) { "Nuvio answered HTTP $c" }
+        pinAnswer(t)
+    }.onFailure { Glog.w("Nuvio PIN check: " + (it.message ?: it.javaClass.simpleName)) }.getOrNull()
+
     /** For [NuvioAvatars]: one of Nuvio's lists of ready-made pictures ([member]: the supporters' one, which needs the account). */
     internal fun avatarCatalog(member: Boolean): JSONArray? = runCatching {
         val tok = if (member) access() ?: return null else null
@@ -223,6 +237,12 @@ class NuvioAccount(ctx: Context) {
     }.getOrElse { "failed: ${it.message}" }
 
     companion object {
+        /** Nuvio's answer to a PIN check, a list with one row or the row itself: (unlocked, retry_after_seconds). Null: not that. */
+        fun pinAnswer(text: String): Pair<Boolean, Int>? = runCatching {
+            val t = text.trim()
+            val o = if (t.startsWith("[")) JSONArray(t).optJSONObject(0) else JSONObject(t)
+            if (o == null) false to 0 else if (!o.has("unlocked")) null else o.optBoolean("unlocked") to o.optInt("retry_after_seconds", 0)
+        }.getOrNull()
         const val OFFICIAL = "https://api.nuvio.tv"
         const val OFFICIAL_LOGIN = "https://nuvio.tv/tv-login"
     }
