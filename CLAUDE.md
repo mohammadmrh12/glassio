@@ -63,12 +63,12 @@
 - Kotlin + Jetpack Compose (TV). One activity (`MainActivity`) with screens Home / Settings / Library, an
   accessibility service for the Home key (`HomeKeyService`), and its own screensaver (`saver/`).
 - Version: see `app/build.gradle.kts` (`versionCode` / `versionName`).
-  - The last published version is **4.7.2 (code 87, stable, 2026-11-26)**, public `69142ca`, sha256 `b7325ef2…2b449e69`; 4.7.1 (code 86, `b7c9f9e`); 4.7.0 (code 85, `d4db232`); 4.6.1 (code 84, `7c4dd9f`); 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
+  - The last published version is **4.8.0 (code 89, stable, 2026-11-27)**, public `a8e063b`, sha256 `50518761…f5512ffd`; 4.7.2 (code 87, `69142ca`); 4.7.1 (code 86, `b7c9f9e`); 4.7.0 (code 85, `d4db232`); 4.6.1 (code 84, `7c4dd9f`); 4.6.0 (code 83, `8b2c496`); 4.5.1 (code 82, `9fe45a7`); 4.5.0 (code 81, `2f851e8`); 4.4.2 (code 80, `c42674e`); 4.4.1 (code 79, `d81b8f9`); 4.4.0 (code 77, `4064a51`); 4.3.0 (code 76, stable, 2026-11-23): public `9af8b7c` on `origin/main`
     (parent ea23eb4, the privacy policy on 4.2.1), tag `v4.3.0`, *latest*, `Glassio.apk` and `Glassio-4.3.0.apk`
     (sha256 `5c97d378…e92f4241`, downloaded and compared, also through `releases/latest/download/Glassio.apk`; the
     same file is on the Streamer). 4.2.1 (code 74, `85cfac8`) before it.
     4.2.0 (code 73, `86aad11`) before it.
-    `origin/beta` is `124bcb9` (4.7.3-beta1, code 88; was `4e92df7`, 4.1.1-beta1). 4.1.0 (code 71) before it.
+    `origin/beta` is `3d667a0` (4.8.1-beta1, code 90, 2026-11-27; was `124bcb9`, 4.7.3-beta1). 4.1.0 (code 71) before it.
     4.0.0 (code 69) before it. Work goes on on the local `beta` branch.
   - `versionCode` must always go up, for betas and stable releases alike.
 
@@ -2781,7 +2781,68 @@ Run `TV=<tv>:5555 tools/qa/glassqa.py <command>`; output goes to `build/qa/`.
     when its state was published again for another reason (now once per report of the app, `soughtAt`); a shuffle an
     app says it takes and doesn't keep stayed lit (asked again 1.5 s later); a radio (no length) offered the repeat;
     a space sent as its own "word" doubled in the lyrics. Seen after: SoundCloud sent back to its start twice in a row.
-- The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 77+.
+- **4.8.0 released as stable (2026-11-27, his "سوي ريليس عام هسه وشوف النواقص"):** everything since 4.7.2 (profile
+  PINs, lyrics, the shuffle button's repeat, music cards, photo sources, the Apps folder, smoothness over a video, the
+  beta's HEVC / Home Assistant / Reolink work). Public `a8e063b` (tree of local `beta` at `381224a`, parent 69142ca) on
+  `origin/main`, tag `v4.8.0`, *latest*, `Glassio.apk` and `Glassio-4.8.0.apk` (sha256 `50518761…f5512ffd`, downloaded
+  and compared, also `releases/latest/download/Glassio.apk`; the Streamer's file). `origin/beta` stays `124bcb9`
+  (4.7.3-beta1, older than the stable now). Play: bundle 89 sent to Alpha with `publish.py` (its own notes, no lyrics:
+  not in that build), a copy in the Desktop folder. Code 90+ next.
+  - *What was missing and was done:* `NEW_IN` 4.8.0 (PIN, Ask for the PIN, Lyrics, On the video screensaver, Lyrics
+    sources, Shuffle button repeats a song; 4.7.0's entry back to its three rows); the tour's 4.8 pages first (A PIN for
+    a profile, Lyrics (github build), The music player, Photos / Apps folder / cameras; `WhatsNew.ID` 73, 22 pages; he
+    was left to see it himself: his `tourSeen` is 72 and the tour was up on its first page); **the 193 strings added
+    since 4.4 translated into the eight languages** (eight agents, one a language, into `build/i18n/<lang>.34.json`,
+    then `merge.py`: 0 missing; Arabic reads formal, its arrows point left like the Arabic README's; read by nobody
+    who speaks the other languages); both changelogs, both READMEs (one Latest line, the beta line gone, the Music
+    bullet); the privacy policy says where a profile's PIN goes.
+  - *Found while checking the release build on the Streamer, fixed before it went out:* (1) keys taken before the
+    Activity counts them (the tour, the PIN pad, "Who is watching?", the cameras in Glassio's window) were no "use"
+    without the Home button service: the screensaver started 1.4 s after a ▶ in the tour (keys sent with `input
+    keyevent` pass the service by, like a TV without it). `MainActivity.dispatchKeyEvent` counts every key now; after:
+    four keys ~13 s apart over 56 s with a 22 s idle time, no screensaver. (2) The tour's window grew from the middle
+    both ways: a page of eight lines came down over the dock's icons. It ends above a dock at the bottom now
+    (`WhatsNewHost(bottom)`), seen on page 5.
+  - Not seen: the updater offering 4.8.0 to a TV on 4.7.2; the PIN pad's keys counting (same line of code as the
+    tour's); the tour in another language (longer lines) or on the regular / column dock; the Play build on a TV.
+    Not posted: #40, #53 (the HEVC fix is in a stable now) and #46 were not told.
+  - **Three mistakes of mine in the release's shell work, each caught by reading the output and none in the
+    release:** `for t in "a b"; do ./gradlew $t` in zsh passes "a b" as one argument (Gradle: "Project not found", no
+    test ran: one call per line instead); a rerun that says exit 0 may be all UP-TO-DATE (check `> Task :app:test…`
+    lines without that word, or the result files' time); `git push origin $C:refs/heads/main` in zsh reads `:r` as a
+    modifier (the tag went up, `main` didn't until `"${C}:refs/heads/main"`). A scan that prints empty counts did
+    not run: scan with words that must be found beside the ones that mustn't. And keys were sent without looking
+    once: the screensaver was up, not the tour (four ▶ and ◀ changed its video and back).
+- **4.8.1-beta1 released as a beta, and sent to Play (2026-11-27 night; his "تحدث البيتا لاخير شي" and "نسخة البلي
+  تنشرها باخير اصدار", read as: both get the newest build):** public `3d667a0` (tree of local `beta` at `071fdc2`,
+  parent a8e063b) forced onto `origin/beta`, tag `v4.8.1-beta1`, prerelease with `Glassio-4.8.1-beta1.apk` (sha256
+  `3a167a75…70565551`, downloaded and compared; the Streamer's file); *latest* stays v4.8.0. Play: bundle 90
+  (4.8.1-beta1) sent to Alpha (89 had been approved there), a copy in the Desktop folder. Tests (41 a flavor), lint,
+  play scan clean. No `NEW_IN` entry, tour unchanged (`WhatsNew.ID` 73). In it:
+  - *Back from uninstalling a dock app* (its menu → App info → Uninstall; his report). Seen on the Streamer with a
+    test app (the old play build, installed for it and removed): on Title backdrops the selection came back on the
+    Play button and Down did nothing ("FocusRequester is not initialized" at every press): `ChannelsUi.lastPkg`,
+    `dockWas` and `AppCatalogs.pkg` still named the removed app, whose requester stays in `tileFocus` tied to nothing.
+    With Videos as the background it came back on the first app. Now `tileOf(pkg)` in `HomeScreen` (the only way to a
+    dock icon by its app: `AppRepository.dockHeir`, the app itself while it is in the dock, else the one after it in
+    the order it was last in, else the one before) and the return-to-home watch prefers the dock icon the selection
+    was on. After: back on the neighbour (Prime Video) on both backgrounds, Down from Play goes there. The test app
+    was the dock's last icon: a middle one, the regular and column docks, an app hidden from outside the dock's menu
+    (same function, from the code) not seen. The Apps folder already selects its first app when the selected one
+    goes (seen with `adb uninstall`).
+  - *Defaults (his ask):* `saverMode` "aerial" (was the trailers), `saverSources` every collection of
+    `AerialSource.SOURCES` (was Amazon's alone), `musicMode` off (was on). Only where never saved. Seen on a fresh
+    install of the new play build (removed after): Type Videos, Collections 4 / 4, *Preview now* played ("#0/289"),
+    Music mode off. A fresh GitHub build not seen (same defaults).
+  - **Keys went to a screensaver twice more** (14 Rights to Glassio's home screensaver, 16 to its TV screensaver:
+    their videos stepped): his TV's screensaver time is 30 s, so anything slower than that between keys finds it up,
+    and `saver=0` in the focus watch says nothing about the TV's own (DreamActivity). Before keys: `dumpsys window`
+    → `mCurrentFocus` must be MainActivity; `KEYCODE_WAKEUP` ends the TV's screensaver (`am start` doesn't). For a
+    long test raise `settings put system screen_off_timeout` and put his 30000 back (done). Also: Up from the dock
+    with his own background opens the menu (pressed once, closed with Back); the TV settings keep the pages opened
+    by *App info* under each other (leave them with Back, not with `am start`). His hidden list has the play build's
+    name again (26 names, as before); his `bgMode` back to aerial.
+- The next release with new rows adds its own `NEW_IN` entry; bump `WhatsNew.ID` only if the tour changes. Code 91+.
 - Title links, not done or not seen:
   - He must look at the TV: the apps block screenshots, so that Apple TV and Netflix land on the title's page (and
     not their home or a profile picker) is only known from the intent in front.

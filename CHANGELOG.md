@@ -2,6 +2,18 @@
 
 What changed in each version of Glassio. Downloads: [Releases](https://github.com/mohammadmrh12/glassio/releases) · [العربية](docs/CHANGELOG.ar.md)
 
+## 4.8.1 — back in the dock after an uninstall, new starting choices
+
+- **After uninstalling an app from the dock** (its menu → *App info* → Uninstall) the selection came back on the Play
+  button and Down never reached the dock again: the dock still pointed at the icon that was gone. The selection now
+  comes back on the icon that took its place, and Down from the carousel goes there too.
+- **The screensaver starts as Videos, with every collection on** (Apple tvOS, Amazon Fire TV, Jetson Creative, Robin
+  Fourcade); it started as the trailers, with Amazon's collection alone. Only where the type or the collections were
+  never chosen: a choice you made stays. Settings → Background & screensaver.
+- **Music mode starts off:** a playing song no longer turns the home screen into the player by itself; the player is on
+  the Music icon, and the island shows the song. Only where it was never switched: Settings → Music & app rows →
+  *Music mode* turns it back on.
+
 ## 4.8.0 — profile PINs, lyrics, a smarter music player
 
 - **A PIN for a profile:** a profile can ask for its four-digit PIN when the TV starts, when it wakes after a while and

@@ -344,7 +344,7 @@ class Settings(private val ctx: Context) {
     /** A Music icon in the dock (opens the menu's player). */
     var musicDock: Boolean get() = b("musicDock", true); set(v) = putB("musicDock", v)
     /** Music mode: while a song plays, the home screen's background becomes the player (whatever background you chose). */
-    var musicMode: Boolean get() = b("musicMode", true); set(v) = putB("musicMode", v)
+    var musicMode: Boolean get() = b("musicMode", false); set(v) = putB("musicMode", v)
     var musicStageScale: Float get() = f("musicStageScale", 0.9f); set(v) = putF("musicStageScale", v.coerceIn(0.7f, 1.4f))
     /** theme | white | black: the player's buttons (the other way round when selected). */
     var musicButtons: String get() = s("musicButtons", "theme"); set(v) = putS("musicButtons", v)
@@ -644,8 +644,8 @@ class Settings(private val ctx: Context) {
     /** How an HDMI input opens: auto (the TV's app, else Glassio's own) | tv | glassio. */
     var inputPlayer: String get() = s("inputPlayer", "auto"); set(v) = putS("inputPlayer", v)
     var boldText: Boolean get() = b("boldText", false); set(v) = putB("boldText", v)
-    /** (The play build has no trailers: there they read as the posters.) */
-    var saverMode: String get() = s("saverMode", "trailer").let { if (Store.PLAY && it == "trailer") "slideshow" else it }; set(v) = putS("saverMode", v)
+    /** Videos from the start (his decision, 2026-11-27; it was the trailers). (The play build has no trailers: there they read as the posters.) */
+    var saverMode: String get() = s("saverMode", "aerial").let { if (Store.PLAY && it == "trailer") "slideshow" else it }; set(v) = putS("saverMode", v)
     // Screensaver "Trailers": the carousel's titles' trailers, one after another.
     var saverTrailerMute: Boolean get() = b("saverTrailerMute", false); set(v) = putB("saverTrailerMute", v)
     var saverTrailerSize: String get() = s("saverTrailerSize", "cinema"); set(v) = putS("saverTrailerSize", v)
@@ -657,8 +657,8 @@ class Settings(private val ctx: Context) {
     var useAppleAerials: Boolean get() = b("useAppleAerials", false); set(v) = putB("useAppleAerials", v)
     var aerialUrls: List<String> get() = list("aerialUrls"); set(v) = putList("aerialUrls", v)
     var saverClock: Boolean get() = b("saverClock", true); set(v) = putB("saverClock", v)
-    /** Collections of aerial videos that are on (apple, amazon, jetson, robin); see AerialSource. */
-    var saverSources: List<String> get() = if (sp("saverSources").contains("saverSources")) list("saverSources").filter { it.isNotBlank() } else if (sp("useAppleAerials").contains("useAppleAerials")) (if (useAppleAerials) listOf("apple") else emptyList()) else listOf("amazon")
+    /** Collections of aerial videos that are on (apple, amazon, jetson, robin); see AerialSource. All of them from the start (his decision, 2026-11-27; it was Amazon's alone). */
+    var saverSources: List<String> get() = if (sp("saverSources").contains("saverSources")) list("saverSources").filter { it.isNotBlank() } else if (sp("useAppleAerials").contains("useAppleAerials")) (if (useAppleAerials) listOf("apple") else emptyList()) else com.glasslauncher.tv.saver.AerialSource.SOURCES.map { it.key }
         set(v) = putList("saverSources", v)
     /** Your own videos (links and the backgrounds folder) in the screensaver. */
     var saverMine: Boolean get() = b("saverMine", false); set(v) = putB("saverMine", v)

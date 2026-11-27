@@ -12,8 +12,8 @@ android {
         applicationId = "com.glasslauncher.tv"
         minSdk = 26
         targetSdk = 37
-        versionCode = 89
-        versionName = "4.8.0"
+        versionCode = 91
+        versionName = "4.8.1"
         // TV boxes are ARM: the depth model's native library only for those (keeps the download small).
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         // Trakt app (PKCE, no secret). Kept in local.properties, which is not committed.
