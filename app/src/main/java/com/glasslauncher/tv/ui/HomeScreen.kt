@@ -189,7 +189,14 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     var menuClosedAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     var folderMoving by remember { mutableStateOf<String?>(null) }
     val tileFocus = remember { HashMap<String, FocusRequester>() }
-    androidx.compose.runtime.SideEffect { MusicUi.tileFor = { if (it == FOLDER) folderFocus else tileFocus[it] } }
+    // An app's icon in the dock, only while that app is in the dock: one that left it (uninstalled from its App info,
+    // hidden from outside the dock's menu) answers with the icon that took its place. Its own requester stays in
+    // [tileFocus] tied to nothing, and a selection sent there went nowhere: after an uninstall the selection sat on
+    // the Play button and Down never reached the dock (his report, seen on the Streamer).
+    val tileOf: (String?) -> FocusRequester? = remember {
+        { p -> when (p) { null -> null; FOLDER -> if (settings.showFolder) folderFocus else null; else -> app.apps.dockHeir(p)?.let { tileFocus[it] } } }
+    }
+    androidx.compose.runtime.SideEffect { MusicUi.tileFor = { tileOf(it) } }
 
     // The current backdrop as a small bitmap: every glass surface refracts it. The page backdrop only
     // switches once the glass copy is ready, and both crossfade together, so the glass never lags behind.
@@ -538,11 +545,19 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // (Whether Glassio is in front is read in a small composable of its own, [WhenResumed]: read here, every start
     // and every return (from an app, from the screensaver) composed the whole home screen again, twice: one frame
     // of 200-330 ms on the main thread each time, the "heavy" return he reported.)
+    // Where the selection last was in the dock (its app), on the plain home screen: a selection lost goes back there,
+    // not to the Play button; and the screensaver on the home screen gives it back there when it ends (its held-OK
+    // menu took it, and the home screen came back with Play selected or nothing: his report).
+    val dockWas = remember { arrayOfNulls<String>(1) }
     WhenResumed(folderOpen, screen, menuOpen) { isResumed ->
         if (!isResumed || folderOpen || screen != Screen.Home || menuOpen || SearchUi.full.value) return@WhenResumed
-        repeat(3) {
+        repeat(3) { n ->
             delay(250)
             if (homeHasFocus[0] || pop != null || dialog != null || pickerFor != null) return@WhenResumed
+            // (It was on a dock icon when Glassio was left: there again, or on the icon that took its place when that
+            // app is gone. Back from uninstalling the selected app it went to the Play button.)
+            val back = dockWas[0]?.let(tileOf)
+            if (back != null && n < 2) { runCatching { back.requestFocus() }; return@repeat }
             // (With your own background the hidden spot above the dock opens the menu: the first app then.)
             // (The search page up: its bar. The carousel's button isn't there then, and the page went away with the selection.)
             val first = if (SearchUi.page.value) SearchUi.entry else if (settings.bgMode != "carousel") firstTile else heroFocus
@@ -554,17 +569,13 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
     // pop-up that went away with the selection in it), something is selected again. The fixes for each case missed
     // others; this catches them all.
     val winInfo = androidx.compose.ui.platform.LocalWindowInfo.current
-    // Where the selection last was in the dock (its app), on the plain home screen: a selection lost goes back there,
-    // not to the Play button; and the screensaver on the home screen gives it back there when it ends (its held-OK
-    // menu took it, and the home screen came back with Play selected or nothing: his report).
-    val dockWas = remember { arrayOfNulls<String>(1) }
     val saverNow = com.glasslauncher.tv.saver.HomeSaver.state.value
     val saverWas = remember { intArrayOf(0) }
     LaunchedEffect(saverNow) {
         val was = saverWas[0]; saverWas[0] = saverNow
         if (saverNow != 0 || was == 0) return@LaunchedEffect
         val pkg = dockWas[0] ?: return@LaunchedEffect
-        repeat(8) { delay(60); if (DockFocus.dock && ChannelsUi.dockPkg.value == pkg) return@LaunchedEffect; runCatching { tileFocus[pkg]?.requestFocus() } }
+        repeat(8) { delay(60); if (DockFocus.dock && ChannelsUi.dockPkg.value == pkg) return@LaunchedEffect; runCatching { tileOf(pkg)?.requestFocus() } }
     }
     WhenResumed { isResumed ->
         if (!isResumed) return@WhenResumed
@@ -590,7 +601,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             lost = 0
             if (tries == 0) com.glasslauncher.tv.data.Glog.i("Nothing selected ($screen, folder $folderOpen, menu $menuOpen): selecting again")
             // Each try something else, in case one of them can't take it (the Play button hidden, the dock away…).
-            val back = dockWas[0]?.let { tileFocus[it] }
+            val back = dockWas[0]?.let(tileOf)
             if (tries == 0 && back != null && runCatching { back.requestFocus() }.getOrDefault(false)) { tries++; continue }
             if (tries % 2 == 0) runCatching { (if (SearchUi.page.value) SearchUi.entry else if (settings.bgMode != "carousel") firstTile else heroFocus).requestFocus() }
             else runCatching { firstTile.requestFocus() }
@@ -1221,11 +1232,11 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // Paused or stopped on the Music icon: the player gives way to the music apps, the selection goes back
                     // to the icon (it was left in the player going away, then went to the first app).
                     LaunchedEffect(appsShow) {
-                        if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() } }
+                        if (appsShow && MusicUi.stageFocused) { delay(60); runCatching { tileOf(MusicUi.DOCK_PKG)?.requestFocus() } }
                     }
                     HeroSection(app, s, hidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage || searchPage || (otherPageNow && !heroOwn), keepHidden = dockVeils || folderOpen || chanPage || appsPage || inputsPage || searchPage, quickHide = (chanPage || appsPage || inputsPage || searchPage || (otherPageNow && !heroOwn)) && !musicWas[0] && settings.bgMode == "carousel", paused = screen != Screen.Home || pop != null || WhatsNew.open.value || chanPage || appsPage || inputsPage, metrics = metrics, shownUrl = shownUrl, dockShown = dockShown,
                         // (Showing an app's catalogs: Down from the carousel goes back to that app, so its titles stay.)
-                        heroFocus = heroFocus, firstTile = com.glasslauncher.tv.data.AppCatalogs.pkg.value?.let { tileFocus[it] } ?: firstTile, onBackdrop = { backdrop = it },
+                        heroFocus = heroFocus, firstTile = tileOf(com.glasslauncher.tv.data.AppCatalogs.pkg.value) ?: firstTile, onBackdrop = { backdrop = it },
                         onPop = { popReturn = heroFocus; pop = it },
                         onCustomUp = {
                             if (settings.menuMode == "auto") { menuClosedAt = 0L; menuOpen = true }
@@ -1244,19 +1255,19 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     if (chanOn) lastChan[0] = chanPkg to chanRows
                     val stageNow = lastChan[0]
                     if (stageNow != null && (chanOn || chanA > 0.01f)) Box(Modifier.fillMaxSize().graphicsLayer { alpha = chanA }) { ChannelStage(app, s, stageNow.first, stageNow.second, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
-                        onDown = { if (runCatching { tileFocus[stageNow.first]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                        onDown = { if (!runCatching { tileOf(stageNow.first)?.requestFocus() ?: false }.getOrDefault(false)) runCatching { firstTile.requestFocus() } },
                         onUp = toMenu) }
                     // The Music icon selected: the music apps, faded in and out like the rows.
                     val appsA by animateFloatAsState(if (appsShow) 1f else 0f, tween(if (appsShow) 140 else 240), label = "musicApps")
                     if (appsShow || appsA > 0.01f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = appsA }) {
                         MusicAppsStage(app, s, metrics, radius, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
-                            onDown = { if (runCatching { tileFocus[MusicUi.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                            onDown = { if (!runCatching { tileOf(MusicUi.DOCK_PKG)?.requestFocus() ?: false }.getOrDefault(false)) runCatching { firstTile.requestFocus() } },
                             onUp = toMenu)
                     }
                     val inputsA by animateFloatAsState(if (inputsShow) 1f else 0f, tween(if (inputsShow) 140 else 240), label = "inputsPage")
                     if (inputsShow || inputsA > 0.01f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = inputsA }) {
                         InputsStage(app, s, metrics, radius, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
-                            onDown = { if (runCatching { tileFocus[com.glasslauncher.tv.data.Inputs.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                            onDown = { if (!runCatching { tileOf(com.glasslauncher.tv.data.Inputs.DOCK_PKG)?.requestFocus() ?: false }.getOrDefault(false)) runCatching { firstTile.requestFocus() } },
                             onUp = toMenu,
                             onPickIcon = { e -> pickerFor = e })
                     }
@@ -1264,7 +1275,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     // (Each thing's own alpha, no layer of the whole screen for the fade: one full-screen buffer less on the TV GPU.)
                     if (searchShow || searchA > 0.01f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = searchA; compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha }) {
                         SearchStage(app, s, bottom = metrics.collapsedH + metrics.bottomMargin + 18 * s,
-                            leave = { if (runCatching { tileFocus[SearchUi.DOCK_PKG]?.requestFocus() ?: error("") }.isFailure) runCatching { firstTile.requestFocus() } },
+                            leave = { if (!runCatching { tileOf(SearchUi.DOCK_PKG)?.requestFocus() ?: false }.getOrDefault(false)) runCatching { firstTile.requestFocus() } },
                             // (Stay in the search: ▲ from the bar goes nowhere.)
                             toMenu = { if (!settings.searchStay) toMenu() })
                     }
@@ -1349,7 +1360,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
             if (SearchUi.full.value && screen == Screen.Home && settings.searchOn && !SearchUi.inPlace(settings)) {
                 val closeSearch = {
                     SearchUi.full.value = false
-                    scope.launch { repeat(6) { if (runCatching { tileFocus[SearchUi.DOCK_PKG]?.requestFocus() ?: firstTile.requestFocus() }.getOrDefault(false)) return@launch; delay(40) } }
+                    scope.launch { repeat(6) { if (runCatching { tileOf(SearchUi.DOCK_PKG)?.requestFocus() ?: firstTile.requestFocus() }.getOrDefault(false)) return@launch; delay(40) } }
                     Unit
                 }
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)).focusGroup()) {
@@ -1421,7 +1432,7 @@ fun HomeScreen(app: GlassApp, screen: Screen, onScreen: (Screen) -> Unit) {
                     onPhone = { settingsCat = PHONE_CATEGORY; onScreen(Screen.Settings) },
                     onClose = {
                         // (An input on the Inputs icon's page: back to it there.)
-                        val back = (if (InputsUi.page.value) InputsUi.tiles[e.pkg] else null) ?: tileFocus[e.pkg] ?: firstTile
+                        val back = (if (InputsUi.page.value) InputsUi.tiles[e.pkg] else null) ?: tileOf(e.pkg) ?: firstTile
                         if (InputsUi.page.value) InputsUi.holdUntil = android.os.SystemClock.uptimeMillis() + 1500
                         pickerFor = null
                         scope.launch { delay(200); runCatching { back.requestFocus() } }

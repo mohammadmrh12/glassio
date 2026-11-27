@@ -45,7 +45,7 @@ class DefaultsTest {
         "refraction" to "10",
         "saverBar" to "black",
         "saverClockShown" to "false",
-        "saverMode" to "trailer",
+        "saverMode" to "aerial",
         "saverTrailerInfoSec" to "30",
         "saverTrailerVolume" to "20",
         "settingsFrame" to "circle",
@@ -80,6 +80,7 @@ class DefaultsTest {
     @Test fun featureSwitchesKeptAsBefore() {
         assertEquals("false", defaultOf("channelsOn"))
         assertEquals("first", defaultOf("continueMode"))
-        assertEquals("true", defaultOf("musicMode"))
+        // (Music mode is off from the start since 2026-11-27, his decision: the player's page only on the Music icon.)
+        assertEquals("false", defaultOf("musicMode"))
     }
 }

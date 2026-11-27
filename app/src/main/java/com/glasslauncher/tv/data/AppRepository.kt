@@ -53,6 +53,7 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
     }
 
     fun reload() {
+        noteOrder()
         val found = linkedMapOf<String, AppEntry>()
         fun scan(category: String, leanback: Boolean) {
             val intent = Intent(Intent.ACTION_MAIN).addCategory(category)
@@ -82,6 +83,29 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
         // order yet and puts it second by itself (ordered()).
         val search = com.glasslauncher.tv.ui.SearchUi.DOCK_PKG
         if (search in found && settings.dockOrder.isNotEmpty() && search !in settings.dockOrder) placeNearFront(search)
+    }
+
+    // The dock's order as it is and as it was before its last change (see [dockHeir]).
+    private var orderNow: List<String> = emptyList()
+    private var orderWas: List<String> = emptyList()
+    @Synchronized private fun noteOrder(): List<String> {
+        val now = ordered().map { it.pkg }
+        if (now != orderNow) { orderWas = orderNow; orderNow = now }
+        return now
+    }
+
+    /**
+     * The app whose dock icon stands for [pkg] now: itself while it is in the dock, else the one that took its place
+     * (the one after it in the order it was last in, else the one before), null when that isn't known. An app
+     * uninstalled from its App info (or hidden from outside the dock's menu) left the home screen pointing at an
+     * icon that was no longer there, and a selection sent to it went nowhere.
+     */
+    @Synchronized fun dockHeir(pkg: String): String? {
+        val now = noteOrder()
+        if (pkg in now) return pkg
+        val i = orderWas.indexOf(pkg)
+        if (i < 0) return null
+        return orderWas.drop(i + 1).firstOrNull { it in now } ?: orderWas.take(i).lastOrNull { it in now }
     }
 
     /** Apps in the user's saved order, hidden ones removed unless [includeHidden]. */
@@ -138,6 +162,7 @@ class AppRepository(private val ctx: Context, private val settings: Settings, pr
     }
 
     fun toggleHidden(pkg: String) {
+        noteOrder()
         val h = settings.hiddenApps.toMutableList()
         if (!h.remove(pkg)) h.add(pkg)
         settings.hiddenApps = h
